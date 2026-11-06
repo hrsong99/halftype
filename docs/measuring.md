@@ -22,6 +22,18 @@ All of it on an M5 with 16 GB, llama.cpp b12167, Kanana 1.5 2.1B base (1.4 GB).
 
 CPU: the shipped app, idle, 0.13% to 0.27% of a core over 60 s, loaded or unloaded, measured from outside. Typing at about 5 keys a second, 7-8%. Power isn't measured: `powermetrics` needs sudo.
 
+## The frame a key's ghost stays
+
+After a key the tap disarms at once, and the panel hides one frame later unless the field's update has drawn it again. Whether a host will answer a key at all can only be told by waiting.
+Typing 48 letters through a ghost in the private window of `scripts/e2e.sh --flicker`, with `screencapture -v -R<window>` running and each recorded frame checked for ink on the ghost's line:
+
+| Hide after a key | Keys that blanked the ghost | What reached the screen |
+|---|---|---|
+| At once, on the next main-thread turn | 46 of 48, hidden 6-8 ms (p50, p90) | 22 single blank frames at 60 Hz, about 4 flashes a second |
+| One frame later (shipped) | 0 from typing | 0 blank frames (only the no-ghost a mid-word line end asks for) |
+
+A native host answers in under 8 ms. **Chromium's time isn't measured**: if it is over a frame the ghost still blanks there. `docs/live-test.md` step 12 is that check.
+
 ## How well it predicts
 
 The numbers behind the design (keystrokes saved, the gate threshold, composition states) came from a replay harness: real typing delays, the real engine, the real policy.

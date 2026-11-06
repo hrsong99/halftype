@@ -20,6 +20,7 @@ final class Watcher: @unchecked Sendable {
     // On the field only: app-wide AXValueChanged storms while a reply streams.
     private static let fieldNotifications = ["AXValueChanged", "AXSelectedTextChanged"]
     private static let idleUnload: TimeInterval = 300
+    private static let oneFrame: TimeInterval = 1.0 / 60
 
     let queue = DispatchQueue(label: "itda.watcher", qos: .userInteractive)
     let tap: KeyTap
@@ -50,10 +51,9 @@ final class Watcher: @unchecked Sendable {
         // On the system-wide element this is the default for every element read later, children included.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), AX.timeout)
         tap.onDismiss = { [weak self] in self?.queue.async { self?.clearSuggestion() } }
-        tap.onInput = { [weak self] generation, now in
-            // A key that changes nothing brings no update, and a ghost Tab no longer accepts mustn't stay. Long enough for the host's answer.
-            DispatchQueue.main.asyncAfter(deadline: .now() + (now ? 0 : 0.1)) { self?.hideDisarmed(since: generation) }
-        }
+        // A key that changes nothing brings no update, and only time can tell, so a ghost Tab no longer accepts stays one frame: no hand
+        // presses Tab within it, and hiding at once blanks the ghost on half the keys of typing through it. See docs/measuring.md.
+        tap.onInput = { [weak self] in DispatchQueue.main.asyncAfter(deadline: .now() + Self.oneFrame) { self?.hideDisarmed() } }
     }
 
     // MARK: Binding
@@ -230,7 +230,6 @@ final class Watcher: @unchecked Sendable {
         guard !prompt.prefix.isEmpty else { return }
         let anchor = field.committed
         request += 1
-        lastGeneration = tap.generation
         let id = request
         completer.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: prompt.composing) { [weak self] result in
             guard let result else { return }
@@ -268,7 +267,7 @@ final class Watcher: @unchecked Sendable {
         DispatchQueue.main.async { [self] in
             guard tap.generation == generation else { return }
             guard panel.show(spec) else { return hidePanel() }
-            if tap.arm(armed, generation: generation) { showScrollWatch() }
+            if tap.arm(armed, generation: generation) { showScrollWatch() } else { hideDisarmed() }
         }
     }
 
@@ -289,9 +288,10 @@ final class Watcher: @unchecked Sendable {
         scrollMonitor = NSEvent.addGlobalMonitorForEvents(matching: .scrollWheel) { [weak self] _ in self?.hideNow() }
     }
 
-    /// Anywhere. From the queue the hide comes later, and what's queued for the main thread before it still finds itself stale.
+    /// Queue. Moves no generation, as the read this hide came from may still ask: its answer is good unless input came since. A display
+    /// already queued for the main thread runs before this hide, so it can arm for that moment but ends hidden and disarmed.
     private func hideOnMain() {
-        tap.invalidate()
+        tap.disarm()
         DispatchQueue.main.async { [self] in hidePanel() }
     }
 
@@ -301,12 +301,14 @@ final class Watcher: @unchecked Sendable {
         hidePanel()
     }
 
-    /// Main thread. Moves no generation: a request still on its way is still good.
-    private func hideDisarmed(since generation: Int) {
-        if tap.state.withLock({ $0.generation == generation && $0.armed == nil }) { hidePanel() }
+    /// Main thread. Armed here is the rest of a suggestion after Tab, which stays up.
+    private func hideDisarmed() {
+        if tap.state.withLock({ $0.armed == nil }) { hidePanel() }
     }
 
+    /// Main thread. Nothing hidden can be accepted.
     private func hidePanel() {
+        tap.disarm()
         panel.hideGhost()
         if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
         scrollMonitor = nil

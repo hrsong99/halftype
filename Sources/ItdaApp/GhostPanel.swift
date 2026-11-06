@@ -121,7 +121,7 @@ final class GhostView: NSView {
 }
 
 /// Click-through, never key, never activates, over everything on every Space including full-screen apps.
-final class GhostPanel: NSPanel {
+class GhostPanel: NSPanel {
     let view = GhostView()
 
     init() {

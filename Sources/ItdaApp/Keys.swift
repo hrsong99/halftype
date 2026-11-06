@@ -3,7 +3,8 @@ import ItdaCore
 import Synchronization
 
 /// The active tap, on its own thread. An accept is one transaction here: no AX, no queue, so nothing can come between the Tab
-/// and its text, and any other key or click disarms first, which leaves Tab the app's.
+/// and its text, and any other key or click disarms first, which leaves Tab the app's. Input means any event not marked as ours:
+/// another program's synthetic key counts too, which errs towards disarming.
 final class KeyTap: @unchecked Sendable {
     enum Decision: Equatable { case pass, passAndDismiss, accept(all: Bool), reenable }
 
@@ -18,7 +19,8 @@ final class KeyTap: @unchecked Sendable {
     }
 
     struct State {
-        /// Moves on every physical event and every hide. Anything computed under an older value may not arm.
+        /// Moves on every input event, and on what moves a field under a snapshot: focus, window, scroll. A snapshot keeps the value from
+        /// before its read, through every later step, and may arm only under that value. A hide alone doesn't move it: see `hideOnMain`.
         var generation = 0
         var armed: Armed?
         /// A syllable may be open, for hosts that don't report marked text: the last physical key was a letter, or a Backspace with one
@@ -42,12 +44,12 @@ final class KeyTap: @unchecked Sendable {
     }
 
     static let tabKey: Int64 = 48, escapeKey: Int64 = 53, backspaceKey: Int64 = 51
-    /// Marks our own events, which are no physical input.
+    /// Marks our own events, which are no input. They don't come back to a session tap (`tapPostEvent`), and any that do pass untouched.
     static let ownEvent: Int64 = 0x49544441
 
     let state = Mutex(State())
-    /// Off this thread at once. `now` is for a click or Escape; a key may yet bring its own update.
-    var onInput: (@Sendable (_ generation: Int, _ now: Bool) -> Void)?
+    /// Off this thread at once.
+    var onInput: (@Sendable () -> Void)?
     var onDismiss: (@Sendable () -> Void)?
     private var port: CFMachPort?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
@@ -63,6 +65,8 @@ final class KeyTap: @unchecked Sendable {
             $0.pending = nil
         }
     }
+
+    func disarm() { state.withLock { $0.armed = nil } }
 
     /// False if anything has happened since `generation`.
     func arm(_ armed: Armed, generation: Int) -> Bool {
@@ -92,7 +96,7 @@ final class KeyTap: @unchecked Sendable {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode), flags = event.flags
         let target = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
         var plan: (strokes: [TwoSetLayout.Stroke]?, text: String)?
-        let (generation, decision) = state.withLock { s -> (Int, Decision) in
+        let decision = state.withLock { s -> Decision in
             let armed = s.armed
             let decision = Self.decide(type: type, keyCode: keyCode, flags: flags, armed: armed != nil)
             s.generation += 1
@@ -100,14 +104,14 @@ final class KeyTap: @unchecked Sendable {
             s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
             if case .accept(let all) = decision, let armed, armed.pid == target { plan = s.accept(armed, all: all) }
             if plan == nil { s.pending = nil }
-            return (s.generation, decision)
+            return decision
         }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
         }
         if decision == .reenable, let port { CGEvent.tapEnable(tap: port, enable: true) }
         if decision == .passAndDismiss { onDismiss?() }
-        onInput?(generation, type != .keyDown || decision == .passAndDismiss)
+        onInput?()
         return plan != nil
     }
 

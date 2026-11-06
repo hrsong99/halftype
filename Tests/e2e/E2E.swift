@@ -32,12 +32,56 @@ final class HeldCompleter: Completer, @unchecked Sendable {
 }
 
 final class TestTextView: NSTextView {
-    /// Says of a live composition what Chromium says: nothing.
+    /// False says of a live composition what Chromium says: nothing. True reports the real range, which the native attribute leaves empty.
     var reportsMarkedText = true
     override func accessibilityAttributeValue(_ attribute: NSAccessibility.Attribute) -> Any? {
-        attribute.rawValue == "AXTextInputMarkedRange" && !reportsMarkedText ? nil : super.accessibilityAttributeValue(attribute)
+        guard attribute.rawValue == "AXTextInputMarkedRange" else { return super.accessibilityAttributeValue(attribute) }
+        return reportsMarkedText ? NSValue(range: markedRange()) : nil
     }
     override func complete(_ sender: Any?) {}  // Escape's completion list.
+
+    /// A host that hasn't got to its keys yet, or never will.
+    var holdsKeys = false
+    private var heldKeys: [NSEvent] = []
+    override func keyDown(with event: NSEvent) {
+        if holdsKeys { heldKeys.append(event) } else { super.keyDown(with: event) }
+    }
+    func letKeysThrough() {
+        holdsKeys = false
+        heldKeys.forEach(keyDown)
+        heldKeys = []
+    }
+}
+
+/// What the watcher reads for context, to stall that read as a slow app would. AX to this process runs on the calling thread.
+final class ContextLabel: NSTextField {
+    let onRead = Mutex<(@Sendable () -> Void)?>(nil)
+    override func accessibilityValue() -> String? {
+        onRead.withLock { let once = $0; $0 = nil; return once }?()
+        return super.accessibilityValue()
+    }
+}
+
+/// The real panel, with its boundaries visible to the test.
+final class TestPanel: GhostPanel {
+    var afterShow: (() -> Void)?
+    var lastShow: Bool?
+    var hiddenAt: Date?
+    var gaps: [Double] = []
+    override func show(_ spec: GhostSpec) -> Bool {
+        let shown = super.show(spec)
+        lastShow = shown
+        if shown, let hiddenAt { gaps.append(Date().timeIntervalSince(hiddenAt) * 1000) }
+        if shown { hiddenAt = nil }
+        let hook = afterShow
+        afterShow = nil
+        hook?()
+        return shown
+    }
+    override func hideGhost() {
+        if isVisible { hiddenAt = Date() }
+        super.hideGhost()
+    }
 }
 
 /// A real text view in a window of this process, reached the way the app reaches any other: through AX, with the real
@@ -45,7 +89,8 @@ final class TestTextView: NSTextView {
 final class Harness {
     var window: NSPanel!
     var view: TestTextView!
-    var panel: GhostPanel!
+    var panel: TestPanel!
+    var label: ContextLabel!
     let tap = Harness.sharedTap
     var watcher: Watcher!
     /// The real tap, on this process only: key events go past it to the window, and nobody else sees them.
@@ -59,7 +104,7 @@ final class Harness {
         DispatchQueue.main.sync {
             window = NSPanel(contentRect: CGRect(x: 80, y: 80, width: 420, height: 160), styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
             window.level = .floating
-            let label = NSTextField(labelWithString: "Earlier message from the other person")
+            label = ContextLabel(labelWithString: "Earlier message from the other person")
             label.frame = CGRect(x: 10, y: 130, width: 400, height: 20)
             view = TestTextView(frame: CGRect(x: 10, y: 10, width: 400, height: 110))
             view.reportsMarkedText = reportsMarkedText
@@ -70,7 +115,7 @@ final class Harness {
             window.orderFrontRegardless()
             window.makeKey()
             window.makeFirstResponder(view)
-            panel = GhostPanel()
+            panel = TestPanel()
             watcher = Watcher(tap: tap, panel: panel)
             watcher.completer = completer
         }
@@ -121,6 +166,12 @@ func physical(typing text: String) {
     for stroke in TwoSetLayout.strokes(Hangul.keys(text))! { physical(stroke.code, stroke.shift ? .maskShift : []) }
 }
 func tabKey(all: Bool = false) { physical(48, all ? .maskShift : []) }
+/// Typing whatever the input source: text, but through the tap as input.
+func physical(character: String) {
+    let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true)!
+    event.keyboardSetUnicodeString(stringLength: character.utf16.count, unicodeString: Array(character.utf16))
+    event.postToPid(getpid())
+}
 
 func shell(_ path: String, _ args: [String]) -> String {
     let p = Process()
@@ -253,6 +304,7 @@ enum EndToEnd {
             return onMain { shots(to: CommandLine.arguments[i + 1]) }
         }
         if CommandLine.arguments.contains("--ime") { return ime() }
+        if CommandLine.arguments.contains("--flicker") { return flicker() }
         frontAtStart = frontmost()
         ghostAtCaret()
         hides()
@@ -260,7 +312,9 @@ enum EndToEnd {
         insertion()
         hung()
         races()
+        staleSnapshots()
         latency()
+        flicker()
         sessionPath()
         check(frontmost() == frontAtStart && !frontAtStart.isEmpty, "frontmost app unchanged by the whole run: \(frontAtStart.trimmingCharacters(in: .whitespacesAndNewlines))")
     }
@@ -456,6 +510,103 @@ enum EndToEnd {
         }
     }
 
+    /// The tap reads as input a key the host may not have reached, and a counter can't tell: these hold the host back too.
+    static func staleSnapshots() {
+        do {
+            // Read `hello`, stall on the context, a key meanwhile. No field read follows before the answer.
+            let model = HeldCompleter()
+            let h = Harness(completer: model)
+            defer { h.close() }
+            let stalled = DispatchSemaphore(value: 0), resume = DispatchSemaphore(value: 0)
+            h.label.onRead.withLock { $0 = { stalled.signal(); resume.wait() } }
+            onMain { h.view.holdsKeys = true }
+            h.watcher.bind(pid: getpid())
+            usleep(100_000)
+            onMain { h.view.insertText("hello", replacementRange: h.view.selectedRange()) }
+            h.watcher.scheduleUpdate()
+            check(stalled.wait(timeout: .now() + 3) == .success, "held context: the read is stalled")
+            physical(character: "x")
+            check(eventually { h.tap.state.withLock { $0.generation > 0 } }, "held context: the key got as far as the tap")
+            usleep(50_000)
+            resume.signal()
+            check(eventually { model.held.withLock { $0 != nil } }, "held context: the model was asked")
+            model.release(" there friend")
+            h.watcher.queue.sync {}
+            onMain {}
+            check(!h.armed && !h.visible, "held context: a key since the read: no ghost, no arm")
+            tabKey()
+            usleep(100_000)
+            onMain { h.view.letKeysThrough() }
+            check(eventually { h.text == "hellox\t" }, "held context: Tab is the app's, nothing inserted: \(h.text.debugDescription)")
+        }
+        do {
+            // A key the host ignores, or hasn't reached. No update comes, or an update reads the same.
+            let (h, _) = raceHarness()
+            defer { h.close() }
+            onMain { h.view.holdsKeys = true }
+            check(h.visible && h.armed, "held key: ghost up")
+            physical(124)
+            check(eventually(0.05) { !h.visible && !h.armed }, "held key: gone within 50 ms, not left unacceptable on screen")
+            h.watcher.scheduleUpdate()
+            h.watcher.queue.sync {}
+            onMain {}
+            check(!h.visible && !h.armed, "held key: a read of the same text doesn't bring it back")
+            tabKey()
+            usleep(100_000)
+            onMain { h.view.letKeysThrough() }
+            check(eventually { h.text == "hello\t" }, "held key: Tab is the app's: \(h.text.debugDescription)")
+        }
+        do {
+            // Tab, then Backspace before any read: the real field wins over what was predicted.
+            let (h, _) = raceHarness()
+            defer { h.close() }
+            blockingReader(h) {
+                tabKey()
+                _ = eventually { h.text == "hello there" }  // Posting to a pid goes behind what's queued; the proxy doesn't. sessionPath checks that.
+                physical(51)
+                check(eventually { h.text == "hello ther" }, "Tab then Backspace land: '\(h.text)'")
+                check(h.tap.state.withLock { $0.pending == nil }, "and the prediction is gone")
+            }
+            check(eventually { h.ghostText == "e friend how" && h.armed }, "the ghost follows the real field: '\(h.ghostText ?? "nil")'")
+            tabKey(all: true)
+            check(eventually { h.text == "hello there friend how" }, "and Shift-Tab completes that, not `ther friend`: '\(h.text)'")
+        }
+        do {
+            // The field narrows with no key and no resize notification: the new layout can't draw a whole word.
+            let (h, _) = raceHarness()
+            defer { h.close() }
+            onMain {
+                let caret = h.view.firstRect(forCharacterRange: h.view.selectedRange(), actualRange: nil).minX - h.window.frame.minX - h.view.frame.minX
+                h.panel.lastShow = nil
+                h.view.setFrameSize(CGSize(width: caret + 6, height: 20))
+            }
+            h.watcher.scheduleUpdate()
+            check(eventually { onMain { h.panel.lastShow } == false }, "failed draw: the layout really failed")
+            check(eventually { !h.visible && !h.armed }, "failed draw: hidden and disarmed")
+            tabKey()
+            check(eventually { h.text == "hello\t" }, "failed draw: Tab is the app's: \(h.text.debugDescription)")
+        }
+        do {
+            // A key in the gap between drawing and arming.
+            let (h, _) = raceHarness()
+            defer { h.close() }
+            onMain {
+                h.view.holdsKeys = true
+                h.panel.afterShow = {
+                    let was = h.tap.generation
+                    physical(124)
+                    check(eventually { h.tap.generation != was }, "key between draw and arm: the tap has it")
+                }
+            }
+            h.watcher.redraw()
+            h.watcher.queue.sync {}
+            onMain {}
+            onMain {}
+            check(!h.visible && !h.armed, "key between draw and arm: the draw is gone at once")
+            onMain { h.view.letKeysThrough() }
+        }
+    }
+
     /// The tap as it ships, on the session stream, in front of a last tap that eats everything the test marks or the tap posts, so
     /// nothing reaches the app in front. This is the one place the system's own target pid and `tapPostEvent` are used.
     static func sessionPath() {
@@ -512,6 +663,23 @@ enum EndToEnd {
         event.flags = .maskShift
         event.setIntegerValueField(.eventSourceUserData, value: mark)
         event.post(tap: .cghidEventTap)
+    }
+
+    /// What the hide after a key costs while typing through a suggestion. See docs/measuring.md for what reaches the screen.
+    static func flicker() {
+        let h = Harness(completer: FakeCompleter(String(repeating: " abcde", count: 12)))
+        defer { h.close() }
+        h.watcher.bind(pid: getpid())
+        usleep(100_000)
+        typeToSelf("hello")
+        _ = eventually { h.visible }
+        for c in String(repeating: " abcde", count: 8).map(String.init) {
+            physical(character: c)
+            usleep(120_000)
+        }
+        let gaps = onMain { h.panel.gaps }.sorted()
+        print("      typing through a suggestion: \(gaps.count) of 48 keys blanked it, ms: p50 \(gaps.isEmpty ? 0 : gaps[gaps.count / 2]) p90 \(gaps.isEmpty ? 0 : gaps[gaps.count * 9 / 10]) max \(gaps.last ?? 0)")
+        check(h.text.count == 53 && h.visible && h.armed, "typed through, ghost up and armed: '\(h.text)'")
     }
 
     /// Value change to ghost on screen. The host and the panel share a main thread here, which only makes it slower.
@@ -712,6 +880,51 @@ extension EndToEnd {
         usleep(50_000)  // No hand presses Tab within a read of the key before.
         tabKey()
         check(eventually { h.text == "그 한 다음" }, "and Tab finishes it: '\(h.text)'")
+
+        // No wait this time. Tab finishes it if the ghost got back in time, else it is the app's: never a wrong syllable.
+        begin(suggestion: " 한 다음")
+        press("ㅎㅏㄴ")
+        _ = eventually { h.text == "그 한" }
+        usleep(100_000)
+        physical(51)
+        tabKey()
+        check(eventually { h.text == "그 한 다음" || h.text == "그 하\t" }, "Backspace then Tab at once: '\(h.text.debugDescription)'")
+
+        // Tab then Backspace at once, before any read: the real field wins over what was predicted.
+        begin(suggestion: " 한 다음 날")
+        press("ㅎㅏ")
+        _ = eventually { h.ghostText == " 다음 날" && h.armed }
+        // The reader held, so nothing reads between them. Posting to a pid goes behind what's queued, so the insert has to land first here.
+        blockingReader(h) {
+            tabKey()
+            _ = eventually { h.text == "그 한 다음" }
+            physical(51)
+            check(eventually { h.text == "그 한 다으" }, "Tab then Backspace: '\(h.text)'")
+            check(h.tap.state.withLock { $0.pending == nil }, "and the prediction is gone")
+        }
+        check(eventually { h.ghostText == " 날" && h.armed }, "the ghost follows what's really there: '\(h.ghostText ?? "nil")'")
+        tabKey()
+        check(eventually { h.text == "그 한 다음 날" }, "and Tab finishes that: '\(h.text)'")
+
+        // The positive signal alone keeps a syllable open: the key history says it's committed, and only the host says otherwise.
+        begin(suggestion: " 한 다음")
+        press("ㅎㅏ")
+        _ = eventually { h.ghostText == " 다음" }
+        let marked = h.watcher.queue.sync { () -> Bool in
+            let field = AX.element(AX.get(AXUIElementCreateApplication(getpid()), "AXFocusedUIElement"))
+            return field.flatMap(Reader.read)?.marked ?? false
+        }
+        check(marked == reportsMarkedText, "AX reports the marked range: \(marked)")
+        h.watcher.completer = FakeCompleter("")
+        h.tap.state.withLock { $0.composing = false }
+        h.watcher.redraw()
+        if reportsMarkedText {
+            check(eventually { h.ghostText == " 다음" && h.armed }, "history says committed, host says marked: ghost stays: '\(h.ghostText ?? "nil")'")
+            tabKey()
+            check(eventually { h.text == "그 한 다음" }, "and Tab finishes it: '\(h.text)'")
+        } else {
+            check(eventually { !h.visible && !h.armed }, "history says committed, host says nothing: ghost goes")
+        }
 
         // Any other Korean layout: no ghost at all on Hangul, and text inserted elsewhere.
         h.watcher.twoSet.store(false, ordering: .relaxed)
