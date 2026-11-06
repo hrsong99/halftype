@@ -74,6 +74,10 @@ func probe(modelPath: String) throws {
     delays.sort()
     print("cancel during prefill ms p50", delays[10], "max", delays[19])
 
+    let busy = cpuSeconds()
+    for i in 0..<100 { _ = timed(engine, filler + "We", String(" should".prefix(2 + i % 5))) }
+    print("CPU ms per request, greedy 8 tokens", (cpuSeconds() - busy) * 10)
+
     let cpu = cpuSeconds()
     Thread.sleep(forTimeInterval: 20)
     print("idle CPU %, model loaded", (cpuSeconds() - cpu) / 20 * 100, "MB", memoryMB())
@@ -82,10 +86,10 @@ func probe(modelPath: String) throws {
     let cpu2 = cpuSeconds()
     Thread.sleep(forTimeInterval: 10)
     print("idle CPU %, unloaded", (cpuSeconds() - cpu2) / 10 * 100)
-    for _ in 0..<3 {
+    for _ in 0..<10 {
         start = Date()
         let again = timed(engine, "Hello", " the")
-        print("reload to first answer s", Date().timeIntervalSince(start), "load s", engine.coldStartSeconds, again.stats)
+        print("reload to first answer s", Date().timeIntervalSince(start), again.stats)
         engine.unload()
     }
     print("final MB", memoryMB())

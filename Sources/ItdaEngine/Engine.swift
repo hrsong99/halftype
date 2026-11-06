@@ -45,7 +45,6 @@ public final class Engine: @unchecked Sendable {
     public private(set) var canTrim = true
     /// The recurrent state a few tokens before the last prompt's end, and how many tokens that is.
     private var checkpoint: (count: Int, state: [UInt8])?
-    public private(set) var coldStartSeconds = 0.0
 
     /// `stopBelow` ends a request as soon as its first word falls below the gate. Nil keeps generating, for offline replay.
     public init(modelPath: String, stopBelow: Double? = Gate.threshold) throws {
@@ -66,7 +65,7 @@ public final class Engine: @unchecked Sendable {
         queue.async { [self] in
             var stats = RequestStats()
             run(id, prefix, fragment, composing, onResult, &stats)
-            stats.cancelled = stats.cancelled || isStale(id)
+            stats.cancelled = isStale(id)
             onFinish?(stats)
         }
     }
@@ -87,7 +86,6 @@ public final class Engine: @unchecked Sendable {
     private func isStale(_ id: Int) -> Bool { latest.load(ordering: .sequentiallyConsistent) != id }
 
     private func load() throws {
-        let start = Date()
         var modelParams = llama_model_default_params()
         modelParams.n_gpu_layers = -1
         guard let model = llama_model_load_from_file(path, modelParams) else { throw EngineError.load(path) }
@@ -104,12 +102,11 @@ public final class Engine: @unchecked Sendable {
         (self.model, self.ctx) = (model, ctx)
         vocab = Vocab(llama_model_get_vocab(model))
         canTrim = !llama_model_is_recurrent(model) && !llama_model_is_hybrid(model)
-        coldStartSeconds = Date().timeIntervalSince(start)
     }
 
     private func run(_ id: Int, _ prefix: String, _ fragment: String, _ composing: String, _ onResult: (Suggestion?) -> Void,
                      _ stats: inout RequestStats) {
-        guard !isStale(id) else { stats.cancelled = true; return }
+        guard !isStale(id) else { return }
         if ctx == nil { try? load() }
         guard let ctx, let vocab, !prefix.isEmpty else { return onResult(nil) }
 
@@ -118,7 +115,7 @@ public final class Engine: @unchecked Sendable {
         let room = Int(Self.contextTokens) - fragment.utf8.count - Stop.maxTokens - 2
         if prompt.count > room { prompt.removeFirst(prompt.count - room) }
         stats.promptTokens = prompt.count
-        guard prefill(prompt, ctx, id, &stats) else { return }
+        guard !prompt.isEmpty, prefill(prompt, ctx, id, &stats) else { return isStale(id) ? () : onResult(nil) }
 
         var need = Constraint(fragment: fragment, composing: composing)
         var suggestion = Suggestion(text: "", tokens: [], plain: [], done: false)
@@ -137,14 +134,17 @@ public final class Engine: @unchecked Sendable {
             suggestion.text = cut.text
             suggestion.gate = finished ? Gate.firstWord(suggestion.tokens, fragment: fragment) : nil
             suggestion.done = cut.done || (stopBelow != nil && suggestion.gate.map { $0 < stopBelow! } == true)
-            guard !isStale(id) else { stats.cancelled = true; return }
+            guard !isStale(id) else { return }
             if suggestion.done { return onResult(cut.text.isEmpty ? nil : suggestion) }
             if cut.text != shown { onResult(suggestion); shown = cut.text }
 
             var next = pick.token
-            guard llama_decode(ctx, llama_batch_get_one(&next, 1)) == 0 else { return reset(ctx, onResult) }
+            guard llama_decode(ctx, llama_batch_get_one(&next, 1)) == 0 else {
+                forget(ctx)
+                return onResult(nil)
+            }
             cached.append(next)
-            guard !isStale(id) else { stats.cancelled = true; return }
+            guard !isStale(id) else { return }
         }
     }
 
@@ -154,18 +154,17 @@ public final class Engine: @unchecked Sendable {
         var keep = min(zip(cached, prompt).prefix { $0 == $1 }.count, prompt.count - 1)
         if keep < cached.count {
             keep = trim(to: keep, ctx)
-            cached.removeLast(cached.count - keep)
+            cached.removeLast(cached.count - keep)  // after a full clear `cached` is already empty and keep is 0
         }
         // Re-tokenising can change a prompt's last tokens as a word grows, so the checkpoint sits this far back.
         let saveAt = canTrim ? -1 : prompt.count - Self.checkpointTail
         while keep < prompt.count {
-            guard !isStale(id) else { stats.cancelled = true; return false }
+            guard !isStale(id) else { return false }
             let end = min(keep + Int(Self.prefillBatch), keep < saveAt ? saveAt : prompt.count)
             var batch = Array(prompt[keep..<end])
             let count = Int32(batch.count)
             guard llama_decode(ctx, llama_batch_get_one(&batch, count)) == 0 else {
-                llama_memory_clear(llama_get_memory(ctx), true)
-                (cached, checkpoint) = ([], nil)
+                forget(ctx)
                 return false
             }
             cached += batch
@@ -188,8 +187,7 @@ public final class Engine: @unchecked Sendable {
            llama_memory_seq_rm(memory, 0, llama_pos(checkpoint.count), -1) {
             return checkpoint.count
         }
-        llama_memory_clear(memory, true)
-        checkpoint = nil
+        forget(ctx)
         return 0
     }
 
@@ -201,10 +199,9 @@ public final class Engine: @unchecked Sendable {
         checkpoint = written > 0 ? (count, state) : nil
     }
 
-    private func reset(_ ctx: OpaquePointer, _ onResult: (Suggestion?) -> Void) {
+    private func forget(_ ctx: OpaquePointer) {
         llama_memory_clear(llama_get_memory(ctx), true)
         (cached, checkpoint) = ([], nil)
-        onResult(nil)
     }
 }
 
@@ -265,6 +262,11 @@ final class Vocab {
         }, isEnd: { [self] in ends[$0] })
     }
 
+    /// In bytes, as a token can end inside a Hangul character.
+    static func agrees(_ piece: ArraySlice<UInt8>, _ need: ArraySlice<UInt8>) -> Bool {
+        piece.prefix(need.count).elementsEqual(need.prefix(piece.count))
+    }
+
     /// Each token's 2-set keystrokes, up to its first incomplete character. Only Korean typing needs them, so built on first use.
     private func indexKeys() {
         keyStarts = [0]
@@ -314,13 +316,6 @@ struct Constraint {
         let (codes, rest) = Self.keyCodes(joined)
         keys = keys.dropFirst(codes.count)
         held = keys.isEmpty ? [] : Array(joined.suffix(rest))
-    }
-}
-
-extension Vocab {
-    /// In bytes, as a token can end inside a Hangul character.
-    static func agrees(_ piece: ArraySlice<UInt8>, _ need: ArraySlice<UInt8>) -> Bool {
-        piece.prefix(need.count).elementsEqual(need.prefix(piece.count))
     }
 }
 
