@@ -185,6 +185,74 @@ import Testing
             #expect(!tab.swallowed && tab.posted.isEmpty)
         }
     }
+    @Test func onlyAnAcceptKeepsWhatTheLastAcceptPredicted() {
+        func pending(_ tap: KeyTap) -> Bool { tap.state.withLock { $0.pending != nil } }
+        for (type, event, code) in [(CGEventType.keyDown, key(51), "backspace"), (.keyDown, key(0), "letter"), (.leftMouseDown, key(0), "click"),
+                                    (.keyDown, key(48, pid: 99), "another app's Tab"), (.keyDown, key(48, flags: .maskCommand), "cmd-Tab")] {
+            let tap = KeyTap()
+            armed(tap, Ghost(remainder: " there friend"))
+            _ = press(tap, key(48))
+            #expect(pending(tap), "\(code)")
+            _ = press(tap, event, type: type)
+            #expect(!pending(tap), "\(code)")
+        }
+        let tap = KeyTap()
+        armed(tap, Ghost(remainder: " there friend"))
+        _ = press(tap, key(48))
+        _ = press(tap, key(48))  // Still the same run of inserts.
+        #expect(pending(tap))
+        tap.invalidate()  // Focus moved.
+        #expect(!pending(tap))
+    }
+    @Test func optionAndControlTabPassAndDisarmShiftAloneAcceptsAll() {
+        for flags in [CGEventFlags.maskAlternate, .maskControl, .maskCommand, [.maskShift, .maskAlternate], [.maskShift, .maskControl]] {
+            let tap = KeyTap()
+            armed(tap, Ghost(remainder: " there friend"))
+            let tab = press(tap, key(48, flags: flags))
+            #expect(!tab.swallowed && tab.posted.isEmpty)
+            #expect(tap.state.withLock { $0.armed == nil })
+        }
+        let tap = KeyTap()
+        armed(tap, Ghost(remainder: " there friend"))
+        #expect(unicode(press(tap, key(48, flags: .maskShift)).posted) == " there friend")
+    }
+    @Test func shiftTabSharesTheHangulPlanAndCarriesExactlyTheFlagsOfEachKey() {
+        let tap = KeyTap()
+        armed(tap, Ghost(keys: "ㄴ", composing: "한", remainder: " 있어 값"), typesKeys: true, committed: "그 ")
+        // Caps Lock on and Shift held, as in the event that reaches the tap: neither may reach what it posts.
+        let posted = press(tap, key(48, flags: [.maskShift, .maskAlphaShift])).posted
+        #expect(posted.filter { $0.type == .keyDown }.map { $0.getIntegerValueField(.keyboardEventKeycode) } == [1, 49, 2, 37, 17, 2, 38, 49, 15, 40, 12, 17])
+        #expect(tap.state.withLock { $0.pending?.to == "그 한 있어 값" })
+        #expect(posted.count == 24)  // Down and up, both carrying the flags.
+        for (index, event) in posted.enumerated() {
+            // ㅆ is the only shifted key: strokes 5 of 12.
+            #expect(event.flags == (index / 2 == 4 ? .maskShift : []), "\(index)")
+            #expect(event.getIntegerValueField(.eventSourceUserData) == KeyTap.ownEvent)
+        }
+        let tap2 = KeyTap()
+        armed(tap2, Ghost(remainder: " there"))
+        #expect(press(tap2, key(48, flags: [.maskShift, .maskAlphaShift])).posted.allSatisfy { $0.flags == [] })
+    }
+    @Test func ourOwnEventsReplayedMoveNothing() {
+        let tap = KeyTap()
+        armed(tap, Ghost(keys: "ㄴ", composing: "한", remainder: " 다음 날"), typesKeys: true, committed: "그 ")
+        let posted = press(tap, key(48)).posted
+        let before = tap.state.withLock { ($0.generation, $0.armed?.ghost.remainder, $0.composing, $0.pending?.to) }
+        for event in posted {
+            let replay = press(tap, event, type: event.type)
+            #expect(!replay.swallowed && replay.posted.isEmpty)
+        }
+        let after = tap.state.withLock { ($0.generation, $0.armed?.ghost.remainder, $0.composing, $0.pending?.to) }
+        #expect(before == after)
+    }
+    @Test func aHideAloneLeavesASnapshotGoodAndInputDoesnt() {
+        let tap = KeyTap()
+        let read = tap.generation
+        tap.disarm()
+        #expect(tap.arm(.init(pid: pid, ghost: Ghost(remainder: "x"), typesKeys: false, committed: "", before: ""), generation: read))
+        _ = press(tap, key(0))
+        #expect(!tap.arm(.init(pid: pid, ghost: Ghost(remainder: "x"), typesKeys: false, committed: "", before: ""), generation: read))
+    }
     @Test func anotherAppsTabPasses() {
         let tap = KeyTap()
         armed(tap, Ghost(remainder: " there"))
