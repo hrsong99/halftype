@@ -1,7 +1,7 @@
 # Live test, by hand
 
 What the automatic checks can't reach: the real Tab in real apps, and the Korean input method in Chromium. About 10 minutes, most important first.
-`scripts/e2e.sh --ime` already proves Tab through a real tap against Apple's live 2-set input method in a native text view, both reporting the marked range and saying nothing: every key, and every composing state of 17 hard words. `scripts/e2e.sh` proves the shipping tap's order on the session stream, with nothing reaching an app. Neither holds a real Shift key or reaches Chromium: steps 7 to 11 are why.
+`scripts/e2e.sh --ime` already proves Tab through a real tap against Apple's live 2-set input method in a native text view, both with the native marked range, empty over a live syllable, and saying nothing, plus a stated fake range for the branch that trusts one: every key, and every composing state of 17 hard words. `scripts/e2e.sh` proves the shipping tap's order on the session stream, with nothing reaching an app. Neither holds a real Shift key or reaches Chromium: steps 7 to 11 are why.
 
 **Before you start:** quit Cotypist, which also takes Tab. Quit and reopen T3 and ego lite, so the accessibility switches Cotypist
 turned on are off, which is how anyone else's Mac starts. Run `scripts/build-app.sh`, then open `build/Itda.app`. Grant Accessibility at the

@@ -32,11 +32,13 @@ final class HeldCompleter: Completer, @unchecked Sendable {
 }
 
 final class TestTextView: NSTextView {
-    /// False says of a live composition what Chromium says: nothing. True reports the real range, which the native attribute leaves empty.
+    /// False says of a live composition what Chromium says: nothing. True leaves the native attribute, which 2-set leaves empty over a live syllable.
     var reportsMarkedText = true
+    /// What a host that does report one says, as no host here does live: the positive branch needs its own fixture.
+    var reportedMark: NSRange?
     override func accessibilityAttributeValue(_ attribute: NSAccessibility.Attribute) -> Any? {
         guard attribute.rawValue == "AXTextInputMarkedRange" else { return super.accessibilityAttributeValue(attribute) }
-        return reportsMarkedText ? NSValue(range: markedRange()) : nil
+        return reportsMarkedText ? reportedMark.map { NSValue(range: $0) } ?? super.accessibilityAttributeValue(attribute) : nil
     }
     override func complete(_ sender: Any?) {}  // Escape's completion list.
 
@@ -710,8 +712,8 @@ enum EndToEnd {
 extension EndToEnd {
     private static var idleSeconds: Double { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!) }
 
-    /// `--ime`: Tab against Apple's real 2-set input method in the private window, through the real tap, once as a native view reports
-    /// composition and once saying nothing, as Chromium does. Selecting the source reaches the whole system, so it only runs with the user
+    /// `--ime`: Tab against Apple's real 2-set input method in the private window, through the real tap, once with the native marked range and once
+    /// saying nothing, as Chromium does. Selecting the source reaches the whole system, so it only runs with the user
     /// idle and stops the moment they aren't; scripts/e2e.sh puts the source back.
     static func ime() {
         guard idleSeconds > 15 else { return check(false, "needs the user idle for 15 s, was \(Int(idleSeconds)) s: run again") }
@@ -910,6 +912,7 @@ extension EndToEnd {
         begin(suggestion: " 한 다음")
         press("ㅎㅏ")
         _ = eventually { h.ghostText == " 다음" }
+        onMain { h.view.reportedMark = NSRange(location: 2, length: 1) }
         let marked = h.watcher.queue.sync { () -> Bool in
             let field = AX.element(AX.get(AXUIElementCreateApplication(getpid()), "AXFocusedUIElement"))
             return field.flatMap(Reader.read)?.marked ?? false
@@ -918,12 +921,14 @@ extension EndToEnd {
         h.watcher.completer = FakeCompleter("")
         h.tap.state.withLock { $0.composing = false }
         h.watcher.redraw()
+        usleep(150_000)  // It would be up either way until this read lands.
+        onMain { h.view.reportedMark = nil }
         if reportsMarkedText {
-            check(eventually { h.ghostText == " 다음" && h.armed }, "history says committed, host says marked: ghost stays: '\(h.ghostText ?? "nil")'")
+            check(h.ghostText == " 다음" && h.armed, "history says committed, host says marked: ghost stays: '\(h.ghostText ?? "nil")'")
             tabKey()
             check(eventually { h.text == "그 한 다음" }, "and Tab finishes it: '\(h.text)'")
         } else {
-            check(eventually { !h.visible && !h.armed }, "history says committed, host says nothing: ghost goes")
+            check(!h.visible && !h.armed, "history says committed, host says nothing: ghost goes")
         }
 
         // Any other Korean layout: no ghost at all on Hangul, and text inserted elsewhere.
