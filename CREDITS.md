@@ -23,3 +23,15 @@ Grammar syntax and the engine it targets: [ggml-org/llama.cpp](https://github.co
 Hangul decomposition follows the Unicode Standard's syllable formula.
 
 Not found in any audited project: withholding a composing Hangul syllable and matching it by 2-set keystrokes.
+
+## The macOS app
+
+No code was copied into ItdaApp either. These are the ideas it uses.
+
+| Idea in the app | Source | Licence |
+|---|---|---|
+| Insert with `keyboardSetUnicodeString` in short chunks, never splitting a surrogate pair, with no clipboard | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nikiomori/Pretype](https://github.com/nikiomori/Pretype) | MIT; MIT |
+| Mark our own events so the key tap lets them pass | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nikiomori/Pretype](https://github.com/nikiomori/Pretype) | MIT; MIT |
+| The AX text marker attributes for caret rects and page text in Chromium | [johannes-kaindl/ghostline](https://github.com/johannes-kaindl/ghostline), [stevyhacker/LokalBot](https://github.com/stevyhacker/LokalBot) | AGPL-3.0, idea only; GPL-3.0, idea only |
+
+The default model, [Kanana 1.5 2.1B base](https://huggingface.co/mradermacher/kanana-1.5-2.1b-base-GGUF), is by Kakao, quantised by mradermacher.
