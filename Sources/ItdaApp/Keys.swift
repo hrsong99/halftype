@@ -93,7 +93,6 @@ enum TwoSetLayout {
     private static let shifted: [Character: Character] = ["ㅃ": "ㅂ", "ㅉ": "ㅈ", "ㄸ": "ㄷ", "ㄲ": "ㄱ", "ㅆ": "ㅅ", "ㅒ": "ㅐ", "ㅖ": "ㅔ"]
 
     static let letterCodes = Set(plain.values.map(Int64.init))
-    static let jamo = Array(plain.keys) + Array(shifted.keys)
 
     /// Nil if any of these isn't a key on the layout.
     static func strokes(_ keys: String) -> [Stroke]? {

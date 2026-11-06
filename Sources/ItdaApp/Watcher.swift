@@ -206,6 +206,11 @@ final class Watcher: @unchecked Sendable {
             guard let result else { return }
             self?.queue.async { self?.received(id: id, anchor: anchor, text: result.text, gate: result.gate) }
         }
+        unloadWhenIdle()
+    }
+
+    /// Queue. Runs from the load too, or a model never asked anything would stay.
+    func unloadWhenIdle() {
         unloadWork?.cancel()
         let work = DispatchWorkItem { [weak completer] in completer?.unload() }
         unloadWork = work

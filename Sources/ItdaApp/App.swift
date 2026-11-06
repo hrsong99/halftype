@@ -128,7 +128,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let engine = try? Engine(modelPath: path)
             DispatchQueue.main.async { [self] in
                 modelLine = engine == nil ? "Could not load that model" : modelName(path)
-                watcher.queue.async { [self] in watcher.completer = engine }
+                watcher.queue.async { [self] in
+                    watcher.completer = engine
+                    watcher.unloadWhenIdle()
+                }
             }
         }
     }

@@ -426,12 +426,12 @@ extension EndToEnd {
 
         // The table against the live input method: each jamo alone, shift included.
         var wrong: [String] = []
-        for jamo in TwoSetLayout.jamo {
+        for jamo in "ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡㅃㅉㄸㄲㅆㅒㅖ" {
             clear()
             press(String(jamo))
             if !eventually(1, { h.text == String(jamo) }) { wrong.append("\(jamo) gave '\(h.text)'") }
         }
-        check(wrong.isEmpty, "all \(TwoSetLayout.jamo.count) jamo type themselves on the live input method \(wrong)")
+        check(wrong.isEmpty, "all 33 jamo type themselves on the live input method \(wrong)")
 
         func accepts(_ name: String, start: String = "그 ", typed: String, suggestion: String, ghost: String, first: String, rest: String) {
             clear()
@@ -574,6 +574,21 @@ extension EndToEnd {
         report("before load")
         guard let engine = try? Engine(modelPath: path) else { return check(false, "engine loads") }
         report("loaded, nothing asked")
+        // A long prompt from nothing, then one key on, then a reload: what a smaller wired set might cost.
+        do {
+            let filler = String(repeating: "The quick brown fox jumps over the lazy dog near the river bank at dawn. ", count: 14)
+            func timed(_ label: String, _ prefix: String, _ fragment: String) {
+                let start = Date()
+                engine.suggest(prefix: prefix, fragment: fragment, composing: "", onResult: { _ in })
+                engine.finish()
+                print("\(label): \(Int(Date().timeIntervalSince(start) * 1000)) ms")
+            }
+            for _ in 0..<2 { timed("long prompt, cold memory", filler + "We", " sh"); timed("next key", filler + "We", " sho"); engine.unload(); usleep(200_000) }
+            timed("after reload, short", "Hello my", " fr")
+            Thread.sleep(forTimeInterval: 30)
+            timed("after 30 s idle, short", "Hello my friend", " is")
+            stats("after 30 s idle")
+        }
         let h = Harness(completer: engine)
         h.watcher.bind(pid: getpid())
         usleep(100_000)
@@ -608,10 +623,10 @@ extension EndToEnd {
         for cycle in 1...20 {
             engine.suggest(prefix: "Hello my", fragment: " fr", composing: "", onResult: { _ in })
             engine.finish()
-            if cycle % 5 == 0 { stats("loaded, reload \(cycle)") }
+            if cycle % 10 == 0 { stats("loaded, reload \(cycle)") }
             engine.unload()
             usleep(200_000)
-            stats("unloaded, reload \(cycle)")
+            if cycle % 5 == 0 { stats("unloaded, reload \(cycle)") }
         }
         report("end")
     }

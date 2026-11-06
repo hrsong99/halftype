@@ -6,7 +6,7 @@ No code was copied into ItdaCore. It is an original implementation, and these ar
 | Idea in the core | Source | Licence |
 |---|---|---|
 | Hold out the half-typed word so the prompt stays byte-identical inside a word | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype), [kolganovr/halfword](https://github.com/kolganovr/halfword) | MIT or Apache-2.0; MIT |
-| Force the fragment back with a one-line GBNF grammar | [lyx-27/ABC-Plus](https://github.com/lyx-27/ABC-Plus) | MIT |
+| Force the fragment back: a one-line GBNF grammar there, a mask on the logits here | [lyx-27/ABC-Plus](https://github.com/lyx-27/ABC-Plus) | MIT |
 | Prompt ends at a word with no trailing space, as the next token carries its own | [kolganovr/halfword](https://github.com/kolganovr/halfword), [menufactory43/Souffleuse](https://github.com/menufactory43/Souffleuse) | MIT; no licence file, idea only |
 | Raw continuation, no chat template | [nikiomori/Pretype](https://github.com/nikiomori/Pretype), [r3dbars/tilde](https://github.com/r3dbars/tilde) | MIT |
 | Window start that moves in steps, to keep the cached head | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype), [johannes-kaindl/ghostline](https://github.com/johannes-kaindl/ghostline), [stevyhacker/LokalBot](https://github.com/stevyhacker/LokalBot) | MIT or Apache-2.0; AGPL-3.0, idea only; GPL-3.0, idea only |
@@ -19,10 +19,11 @@ No code was copied into ItdaCore. It is an original implementation, and these ar
 Constrained fragments were also seen in [menufactory43/Souffleuse](https://github.com/menufactory43/Souffleuse) and
 [mshll/ghostwriter](https://github.com/mshll/ghostwriter) (GPL-3.0), ideas only.
 
-Grammar syntax and the engine it targets: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), MIT.
+The engine: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), MIT.
 Hangul decomposition follows the Unicode Standard's syllable formula.
 
-Not found in any audited project: withholding a composing Hangul syllable and matching it by 2-set keystrokes.
+Not found in any audited project: withholding a composing Hangul syllable, matching it by 2-set keystrokes, and accepting by letting
+the input method finish the syllable from real key events.
 
 ## The macOS app
 

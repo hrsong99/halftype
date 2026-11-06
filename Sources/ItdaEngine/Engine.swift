@@ -44,6 +44,9 @@ public final class Engine: @unchecked Sendable {
 
     public init(modelPath: String) throws {
         path = modelPath
+        // Metal wires the whole model (1.5 GB here) for as long as this lasts, 3 minutes by default, which no one sees in Activity Monitor.
+        // 15 s covers typing at full speed; after that the weights are ordinary evictable pages, at about 30 ms on the next request.
+        setenv("GGML_METAL_RESIDENCY_KEEP_ALIVE_S", "15", 0)
         llama_log_set({ _, _, _ in }, nil)
         llama_backend_init()
         try queue.sync { try load() }
