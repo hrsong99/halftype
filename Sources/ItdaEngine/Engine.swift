@@ -25,8 +25,9 @@ public enum EngineError: Error { case load(String) }
 
 /// llama.cpp in-process: greedy, fragment forced at the logits, latest request wins, one serial queue.
 public final class Engine: @unchecked Sendable {
-    /// `Prompt.windowChars` is 1200, and text runs below one token per character; the rest is room for the output.
-    static let contextTokens: UInt32 = 1400
+    /// 1200 characters of `Prompt.windowChars` came to at most 768 tokens on three models, with Hangul the worst; the rest is
+    /// room for the output.
+    static let contextTokens: UInt32 = 900
     /// Prefill decodes in batches this small, as a decode can't be interrupted on Metal.
     static let prefillBatch: Int32 = 32
     static let checkpointTail = 4

@@ -10,6 +10,8 @@ struct Score: Equatable {
     var wordsChars = 0, wordsKeys = 0
     /// By accepting everything at once, zero unless all of it is right.
     var allChars = 0, allKeys = 0
+    /// Leading characters right, whole word or not: 좋아요 against 좋아 is wrong but close.
+    var sameChars = 0
 }
 
 /// `rest` is the true text after `committed`, including whatever the composing character will turn out to be.
@@ -24,7 +26,7 @@ func score(_ ghost: Ghost, typed: String, rest: String) -> Score {
         let text = String(shown[..<n])
         return (max(n - typed.count, 0), max(Hangul.keys(text).count - Hangul.keys(typed).count, 0))
     }
-    var out = Score()
+    var out = Score(sameChars: same)
     let firstEnd = ghost.composing.count + ghost.remainder.distance(from: ghost.remainder.startIndex, to: Word.firstEnd(ghost.remainder))
     if firstEnd <= same, wholeWord(firstEnd) {
         out.useful = true

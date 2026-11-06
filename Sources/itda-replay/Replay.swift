@@ -176,7 +176,7 @@ private func plainGate(_ s: Suggestion, _ fragment: String) -> Double? {
 
 private func fields(_ s: Score) -> [String: Any] {
     ["useful": s.useful, "tab_chars": s.tabChars, "tab_keys": s.tabKeys, "words_chars": s.wordsChars, "words_keys": s.wordsKeys,
-     "all_chars": s.allChars, "all_keys": s.allKeys]
+     "all_chars": s.allChars, "all_keys": s.allKeys, "same_chars": s.sameChars]
 }
 
 /// `none`: nothing may be composing. `final`: the last syllable is already what will stay. `changing`: it will still change.
