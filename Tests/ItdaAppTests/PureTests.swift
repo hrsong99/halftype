@@ -1,4 +1,5 @@
 import AppKit
+import ItdaCore
 import Testing
 @testable import ItdaApp
 
@@ -117,6 +118,24 @@ import Testing
     @Test func reenables() {
         #expect(decide(0, type: .tapDisabledByTimeout, ) == .reenable)
         #expect(decide(0, armed: false, type: .tapDisabledByUserInput) == .reenable)
+    }
+    @Test func onlyAnUnmodifiedLetterKeepsASyllableOpen() {
+        #expect(KeyTap.composes(type: .keyDown, keyCode: 5, flags: []))
+        #expect(KeyTap.composes(type: .keyDown, keyCode: 5, flags: .maskShift))
+        #expect(!KeyTap.composes(type: .keyDown, keyCode: 5, flags: .maskCommand))
+        #expect(!KeyTap.composes(type: .keyDown, keyCode: 49, flags: []))  // space
+        #expect(!KeyTap.composes(type: .keyDown, keyCode: 51, flags: []))  // delete
+        #expect(!KeyTap.composes(type: .keyDown, keyCode: 123, flags: []))  // left arrow
+        #expect(!KeyTap.composes(type: .leftMouseDown, keyCode: 5, flags: []))
+    }
+    @Test func twoSetCoversEveryJamoTheCoreCanAskFor() throws {
+        // All the keys of every syllable, by Hangul's own tables.
+        for scalar in stride(from: 0xAC00, through: 0xD7A3, by: 1) {
+            let keys = Hangul.keys(String(Unicode.Scalar(UInt32(scalar))!))
+            #expect(TwoSetLayout.strokes(keys) != nil, "\(keys)")
+        }
+        #expect(TwoSetLayout.strokes("ㅃ")?.first?.shift == true && TwoSetLayout.strokes("ㅂ")?.first?.shift == false)
+        #expect(TwoSetLayout.strokes("a") == nil)
     }
     @Test func chunksKeepCharactersWhole() {
         let family = "👨‍👩‍👧‍👦"

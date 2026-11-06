@@ -4,23 +4,21 @@ import PackageDescription
 let package = Package(
     name: "Itda",
     platforms: [.macOS(.v26)],
-    products: [.library(name: "ItdaCore", targets: ["ItdaCore"]), .library(name: "ItdaEngine", targets: ["ItdaEngine"]),
-               .executable(name: "itda-replay", targets: ["itda-replay"]),
-               .executable(name: "Itda", targets: ["ItdaApp"])],
+    products: [.executable(name: "Itda", targets: ["Itda"])],
     targets: [
         .target(name: "ItdaCore"),
-        .target(name: "TwoSet", dependencies: ["ItdaCore"]),
-        // If the first build hangs here, SwiftPM is sending keychain GitHub credentials: `swift package --disable-keychain resolve`.
+        // If a first build hangs here, SwiftPM is sending keychain GitHub credentials: add `--disable-keychain`, as the scripts do.
         .binaryTarget(name: "llama",
                       url: "https://github.com/ggml-org/llama.cpp/releases/download/b12167/llama-b12167-xcframework.zip",
                       checksum: "0af08b3039082b1575e6928063636eeb20d80cb5a389b26e37a36bc496a1066e"),
         .target(name: "ItdaEngine", dependencies: ["ItdaCore", "llama"]),
-        .executableTarget(name: "itda-replay", dependencies: ["ItdaCore", "ItdaEngine", "TwoSet"]),
         // Language mode 5: state here is confined by hand to one queue, with CF types the compiler can't reason about.
-        .executableTarget(name: "ItdaApp", dependencies: ["ItdaCore", "ItdaEngine"], swiftSettings: [.swiftLanguageMode(.v5)]),
-        .testTarget(name: "ItdaAppTests", dependencies: ["ItdaApp", "ItdaCore"], swiftSettings: [.swiftLanguageMode(.v5)]),
-        .testTarget(name: "ItdaCoreTests", dependencies: ["ItdaCore", "TwoSet"]),
+        .target(name: "ItdaApp", dependencies: ["ItdaCore", "ItdaEngine"], swiftSettings: [.swiftLanguageMode(.v5)]),
+        .executableTarget(name: "Itda", dependencies: ["ItdaApp"]),
+        // Checks against a private window. They need a real run loop, so the test runner can't host them. Not part of the app.
+        .executableTarget(name: "itda-e2e", dependencies: ["ItdaApp", "ItdaCore", "ItdaEngine"], path: "Tests/e2e", swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(name: "ItdaAppTests", dependencies: ["ItdaApp", "ItdaCore", "ItdaEngine"], swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(name: "ItdaCoreTests", dependencies: ["ItdaCore"]),
         .testTarget(name: "ItdaEngineTests", dependencies: ["ItdaEngine", "ItdaCore"]),
-        .testTarget(name: "ItdaReplayTests", dependencies: ["itda-replay", "ItdaCore"]),
     ]
 )

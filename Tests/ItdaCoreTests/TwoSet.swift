@@ -1,19 +1,17 @@
-import ItdaCore
+@testable import ItdaCore
 
 /// A continuous 2-set composer for tests and replay: the field states a real IME goes through for a string. Typing 다라 passes
 /// through ㄷ, 다, 달, then 다 committed with 라 marked. Keys come from `Hangul.keys`; the composition is written here.
-public enum TwoSet {
-    public struct State: Equatable, Sendable {
-        public var before: String
-        public var marked: String
-        public init(before: String, marked: String) { (self.before, self.marked) = (before, marked) }
+enum TwoSet {
+    struct State: Equatable, Sendable {
+        var before: String
+        var marked: String
+        init(before: String, marked: String) { (self.before, self.marked) = (before, marked) }
         /// What the core gets: apps report no marked text, so the composing character is just in the field.
-        public var field: Field { Field(before: before + marked, koreanInput: true) }
+        var field: Field { Field(before: before + marked, mayCompose: true) }
     }
 
-    private static let onsets = Array("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ")
-    private static let vowels = Array("ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ")
-    private static let finals = Array("ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ")
+    private static let (onsets, vowels, finals) = (Hangul.onsets, Hangul.vowels, Hangul.finals)
     private static let vowelPairs: [String: Character] = ["ㅗㅏ": "ㅘ", "ㅗㅐ": "ㅙ", "ㅗㅣ": "ㅚ", "ㅜㅓ": "ㅝ", "ㅜㅔ": "ㅞ", "ㅜㅣ": "ㅟ", "ㅡㅣ": "ㅢ"]
     private static let finalPairs: [String: Character] = ["ㄱㅅ": "ㄳ", "ㄴㅈ": "ㄵ", "ㄴㅎ": "ㄶ", "ㄹㄱ": "ㄺ", "ㄹㅁ": "ㄻ", "ㄹㅂ": "ㄼ", "ㄹㅅ": "ㄽ", "ㄹㅌ": "ㄾ", "ㄹㅍ": "ㄿ", "ㄹㅎ": "ㅀ", "ㅂㅅ": "ㅄ"]
 
@@ -24,7 +22,7 @@ public enum TwoSet {
     }
 
     /// Every state after every key of `text`, starting from committed `start`, ending with the last syllable committed.
-    public static func trace(_ text: String, start: String = "") -> [State] {
+    static func trace(_ text: String, start: String = "") -> [State] {
         var before = start
         var onset: Character?, vowel: Character?, final: Character?
         var states: [State] = []

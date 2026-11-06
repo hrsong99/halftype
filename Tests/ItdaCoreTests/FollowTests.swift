@@ -1,5 +1,4 @@
 import Testing
-import TwoSet
 @testable import ItdaCore
 
 @Test(arguments: [
@@ -26,31 +25,35 @@ func followLiteral(anchor: String, suggestion: String, before: String, remainder
 }
 
 @Test(arguments: [
-    // anchor, suggestion, before, expected remainder (nil: drop), what the last character becomes, needsReplace
-    ("오늘 ", " 하늘은", "오늘 ㅎ", "늘은", "하", true),
-    ("오늘 ", " 하늘은", "오늘 하", "늘은", "하", false),
-    ("오늘 ", " 한글은", "오늘 하", "글은", "한", true),
-    ("오늘 ", " 호수", "오늘 하", nil, "", false),
-    ("그 ", " 다라가", "그 달", "가", "다라", true),      // a final that may yet move
-    ("그 ", " 다라가", "그 다라", "가", "라", false),     // and has
-    ("그 ", " 다라", "그 달", nil, "", false),           // covered, nothing further to draw
-    ("값", "이 싸", "값ㅇ", " 싸", "이", true),
-    ("기분이 좋으시", "겠어요.", "기분이 좋으시게", "어요.", "겠", true),
-    ("그 달", " 이것", "그 달", " 이것", "달", false),    // a committed 달, wrongly suspected: costs nothing
-    ("그 달", " 이것", "그 달 ", "이것", "", false),      // and no longer suspected
-    ("그 달", " 이것", "그 다라", nil, "", false),        // it was composing after all, and moved
-    ("그 달", " 이것", "그 ", nil, "", false),           // backspaced past the anchor
+    // anchor, suggestion, before, expected remainder (nil: drop), what the last character becomes, jamo still to type
+    ("오늘 ", " 하늘은", "오늘 ㅎ", "늘은", "하", "ㅏ"),
+    ("오늘 ", " 하늘은", "오늘 하", "늘은", "하", ""),
+    ("오늘 ", " 한글은", "오늘 하", "글은", "한", "ㄴ"),
+    ("오늘 ", " 호수", "오늘 하", nil, "", ""),
+    ("그 ", " 다라가", "그 달", "가", "다라", "ㅏ"),      // a final that may yet move
+    ("그 ", " 다라가", "그 다라", "가", "라", ""),     // and has
+    ("그 ", " 다라", "그 달", nil, "", ""),           // covered, nothing further to draw
+    ("값", "이 싸", "값ㅇ", " 싸", "이", "ㅣ"),
+    ("기분이 좋으시", "겠어요.", "기분이 좋으시게", "어요.", "겠", "ㅆ"),
+    ("그 달", " 이것", "그 달", " 이것", "달", ""),    // a committed 달, wrongly suspected: costs nothing
+    ("그 달", " 이것", "그 달 ", "이것", "", ""),      // and no longer suspected
+    ("그 달", " 이것", "그 다라", nil, "", ""),        // it was composing after all, and moved
+    ("그 달", " 이것", "그 ", nil, "", ""),           // backspaced past the anchor
+    ("그 ", " 값이 싸", "그 가", "이 싸", "값", "ㅂㅅ"),    // double final
+    ("그 ", " 갑시다", "그 값", "다", "갑시", "ㅣ"),       // whose second key moves on
+    ("그 ", " 과자 맛", "그 고", "자 맛", "과", "ㅏ"),      // compound vowel
+    ("그 ", " 한 다음", "그 ㅎ", " 다음", "한", "ㅏㄴ"),    // from a lone jamo
 ])
-func followWhileComposing(anchor: String, suggestion: String, before: String, remainder: String?, composing: String, needsReplace: Bool) {
-    let ghost = Follow.check(anchor: anchor, suggestion: suggestion, field: Field(before: before, koreanInput: true))
-    #expect(ghost == remainder.map { Ghost(composing: composing, remainder: $0, needsReplace: needsReplace) })
+func followWhileComposing(anchor: String, suggestion: String, before: String, remainder: String?, composing: String, keys: String) {
+    let ghost = Follow.check(anchor: anchor, suggestion: suggestion, field: Field(before: before, mayCompose: true))
+    #expect(ghost == remainder.map { Ghost(keys: keys, composing: composing, remainder: $0) })
 }
 
 /// 달 becomes 다라: the character before the caret changes under the suggestion, so the anchor must exclude it.
 @Test func committedTextChangesWhenAFinalMoves() {
-    let asked = Field(before: "그 달", koreanInput: true)
+    let asked = Field(before: "그 달", mayCompose: true)
     #expect(asked.committed == "그 ")
-    let moved = Field(before: "그 다라", koreanInput: true)
+    let moved = Field(before: "그 다라", mayCompose: true)
     #expect(!moved.before.hasPrefix(asked.before))
     #expect(Follow.check(anchor: asked.committed, suggestion: " 다라가 왔어", field: asked)?.remainder == "가 왔어")
     #expect(Follow.check(anchor: asked.committed, suggestion: " 다라가 왔어", field: moved)?.remainder == "가 왔어")
@@ -64,10 +67,6 @@ func followWhileComposing(anchor: String, suggestion: String, before: String, re
     #expect(shown("go home") == " now")   // back one word
     #expect(shown("go hom") == "e now")
     #expect(shown("go h") == nil)         // past where it started
-}
-
-@Test func secureFieldIsAlwaysDropped() {
-    #expect(Follow.check(anchor: "pa", suggestion: "ss", field: Field(before: "pa", secure: true)) == nil)
 }
 
 private let sentences = ["오늘 다라가 값이 괜찮아", "없어요 닭고기 과일", "의사 선생님 앉아 있어", "까치 뷁 왜요 mixed 말"]
@@ -116,39 +115,46 @@ func aMismatchDrops(typed: String, suggestion: String, expected: [String: Bool])
 ])
 func nextWord(remainder: String, insert: String, left: String) {
     let accepted = Accept.nextWord(Ghost(remainder: remainder))
-    #expect(accepted?.insert == insert)
-    #expect(accepted?.remainder == left)
+    #expect(accepted.text == insert)
+    #expect(remainder == accepted.text + left)
 }
 
 @Test func acceptAllTakesEverything() {
     let accepted = Accept.all(Ghost(remainder: "글은 좋아"))
-    #expect(accepted?.insert == "글은 좋아")
-    #expect(accepted?.remainder == "")
+    #expect(accepted.text == "글은 좋아")
 }
 
 @Test(arguments: ["do yo", "그 달"])
 func acceptAgreesWithFollowOnceInTheField(start: String) {
     let suggestion = start == "do yo" ? "u know what" : " 이것 저것 그것"
-    var field = Field(before: start, koreanInput: start != "do yo")
+    var field = Field(before: start, mayCompose: start != "do yo")
     var inserted: [String] = []
-    while let ghost = Follow.check(anchor: start, suggestion: suggestion, field: field), let accepted = Accept.nextWord(ghost) {
-        inserted.append(accepted.insert)
-        field.before += accepted.insert
-        #expect(Follow.check(anchor: start, suggestion: suggestion, field: field)?.remainder == (accepted.remainder.isEmpty ? nil : accepted.remainder))
+    while let ghost = Follow.check(anchor: start, suggestion: suggestion, field: field) {
+        let accepted = Accept.nextWord(ghost)
+        inserted.append(accepted.text)
+        field.before += accepted.text
+        let left = String(ghost.remainder.dropFirst(accepted.text.count))
+        #expect(Follow.check(anchor: start, suggestion: suggestion, field: field)?.remainder == (left.isEmpty ? nil : left))
     }
     #expect(inserted == (start == "do yo" ? ["u", " know", " what"] : [" 이것", " 저것", " 그것"]))
 }
 
-@Test func acceptInsertsOnlyWhenTheComposingCharacterAlreadyMatches() {
-    let field = { (before: String) in Field(before: before, koreanInput: true) }
+@Test func acceptTypesWhatTheSyllableNeedsThenInserts() {
+    let field = { (before: String) in Field(before: before, mayCompose: true) }
     let matched = Follow.check(anchor: "오늘 ", suggestion: " 하늘은 맑아", field: field("오늘 하"))!
-    #expect(!matched.needsReplace)
-    #expect(Accept.nextWord(matched)?.insert == "늘은")
-    #expect(Accept.all(matched)?.insert == "늘은 맑아")
+    #expect(Accept.nextWord(matched) == ("", "늘은"))
+    #expect(Accept.all(matched) == ("", "늘은 맑아"))
 
-    let changing = Follow.check(anchor: "오늘 ", suggestion: " 한글은 좋아", field: field("오늘 하"))!
-    #expect(changing.needsReplace)
+    let changing = Follow.check(anchor: "오늘 ", suggestion: " 한 다음 날", field: field("오늘 하"))!
     #expect(changing.composing == "한")
-    #expect(Accept.nextWord(changing) == nil)
-    #expect(Accept.all(changing) == nil)
+    #expect(Accept.nextWord(changing) == ("ㄴ", " 다음"))
+    #expect(Accept.all(changing) == ("ㄴ", " 다음 날"))
+}
+
+/// Once the key says the syllable is committed, Hangul compares literally: nothing asks to change it, so no stray ㄴ is possible.
+@Test func aCommittedSyllableIsNeverTypedOnto() {
+    let committed = Field(before: "오늘 하")
+    #expect(Follow.check(anchor: "오늘 ", suggestion: " 한 다음", field: committed) == nil)
+    #expect(Follow.check(anchor: "오늘 ", suggestion: " 하늘은", field: committed) == Ghost(remainder: "늘은"))
+    #expect(Follow.check(anchor: "오늘 하", suggestion: "늘은", field: committed) == Ghost(remainder: "늘은"))
 }

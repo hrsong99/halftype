@@ -1,5 +1,4 @@
 import Testing
-import TwoSet
 @testable import ItdaCore
 
 @Test(arguments: [
@@ -31,7 +30,7 @@ func splitsLikeTheBench(before: String, prefix: String, fragment: String) {
     ("그 달 ", true, "그 달", ""), ("do yo", true, "do", " yo"), ("달", true, "", ""),
 ])
 func aPossiblyComposingCharacterIsWithheld(before: String, korean: Bool, prefix: String, fragment: String) {
-    let prompt = Prompt.make(context: "", field: Field(before: before, koreanInput: korean))
+    let prompt = Prompt.make(context: "", field: Field(before: before, mayCompose: korean))
     #expect(prompt.prefix == prefix)
     #expect(prompt.fragment == fragment)
 }
@@ -81,29 +80,12 @@ func aPossiblyComposingCharacterIsWithheld(before: String, korean: Bool, prefix:
     #expect(jumps == (total - Prompt.windowChars) / Prompt.stepChars + 1 || jumps == (total - Prompt.windowChars) / Prompt.stepChars)
 }
 
-@Test(arguments: [
-    // Literals as the bench's prefix_grammar writes them. The bench's `tail` rule is inlined to make one line.
-    (" yo", #"root ::= " yo" [^\x01]*"#),
-    ("a\"b", #"root ::= "a\"b" [^\x01]*"#),
-    ("c\\d", #"root ::= "c\\d" [^\x01]*"#),
-    ("\nba", #"root ::= "\nba" [^\x01]*"#),
-    ("\t값", #"root ::= "\t값" [^\x01]*"#),
-    (" 주민등", #"root ::= " 주민등" [^\x01]*"#),
-    // Beyond the bench, which passes these through raw
-    ("\r\nx", #"root ::= "\r\nx" [^\x01]*"#),
-    ("\u{0B}x", #"root ::= "\x0bx" [^\x01]*"#),
-])
-func grammarEscapes(fragment: String, grammar: String) {
-    #expect(Grammar.forcing(fragment: fragment) == grammar)
-    #expect(!grammar.contains("\n"))
-}
-
 @Test func composingCarriesTheSpacesThePromptDropped() {
-    let startOfWord = Prompt.make(context: "", field: Field(before: "오늘 날", koreanInput: true))
+    let startOfWord = Prompt.make(context: "", field: Field(before: "오늘 날", mayCompose: true))
     #expect(startOfWord.prefix == "오늘")
     #expect(startOfWord.fragment == "")
     #expect(startOfWord.composing == " 날")
-    let midWord = Prompt.make(context: "", field: Field(before: "오늘 날씨", koreanInput: true))
+    let midWord = Prompt.make(context: "", field: Field(before: "오늘 날씨", mayCompose: true))
     #expect(midWord.fragment == " 날")
     #expect(midWord.composing == "씨")
     #expect(Prompt.make(context: "", field: Field(before: "the wor")).composing == "")

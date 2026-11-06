@@ -35,7 +35,6 @@ private func tokens(_ fragment: String, _ text: String) -> [Token] {
 func heldOutFragment(typed: String, prefix: String, fragment: String, trimmed: String, heldOut: String, real: String) {
     let prompt = Prompt.make(context: "", before: typed)
     #expect(prompt == Prompt(prefix: prefix, fragment: fragment))
-    #expect(Grammar.forcing(fragment: fragment).contains(fragment))
 
     let generated = tokens(fragment, heldOut)
     #expect(Stop.cut(generated, fragment: fragment).text == heldOut)
@@ -43,7 +42,7 @@ func heldOutFragment(typed: String, prefix: String, fragment: String, trimmed: S
 
     let ghost = Follow.check(anchor: typed, suggestion: heldOut, field: Field(before: typed))
     #expect(ghost?.remainder == heldOut)
-    #expect(firstWord(real) == Accept.nextWord(ghost!)?.insert)   // after: Tab gives the real next word
+    #expect(firstWord(real) == Accept.nextWord(ghost!).text)   // after: Tab gives the real next word
     #expect(firstWord(real) != firstWord(trimmed))               // before: it did not
 }
 
@@ -68,7 +67,7 @@ func trailingSpace(typed: String, asIs: String, trimmed: String, real: String) {
     #expect(Stop.cut(tokens("", trimmed), fragment: "").text == trimmed)
     let ghost = Follow.check(anchor: typed, suggestion: trimmed, field: Field(before: typed))
     #expect(ghost?.remainder == String(trimmed.dropFirst()))     // the space is already in the field
-    #expect(firstWord(real) == Accept.nextWord(ghost!)?.insert)
+    #expect(firstWord(real) == Accept.nextWord(ghost!).text)
     #expect(firstWord(real) != firstWord(asIs))
     #expect(Follow.check(anchor: typed, suggestion: asIs, field: Field(before: typed)) == nil)
 }
@@ -81,15 +80,15 @@ func trailingSpace(typed: String, asIs: String, trimmed: String, real: String) {
 ])
 func withheldComposition(typed: String, composing: String, sent: String, withheld: String, next: String, real: String) {
     // The composing syllable never reaches the model.
-    let field = Field(before: typed + composing, koreanInput: true)
+    let field = Field(before: typed + composing, mayCompose: true)
     let prompt = Prompt.make(context: "", field: field)
     #expect(prompt.prefix + prompt.fragment == typed)
 
     // Withheld: it fits now and when the syllable changes, and it holds the real next word.
     #expect(Follow.check(anchor: field.committed, suggestion: withheld, field: field) != nil)
-    let changed = Field(before: typed + next, koreanInput: true)
+    let changed = Field(before: typed + next, mayCompose: true)
     let later = Follow.check(anchor: field.committed, suggestion: withheld, field: changed)
-    #expect(later?.needsReplace == false)
+    #expect(later?.keys == "")
     #expect(later.map { firstWord($0.composing + $0.remainder) } == firstWord(real))
 
     // Sent as text: its next word is wrong, whatever survives of it.

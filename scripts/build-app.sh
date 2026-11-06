@@ -8,8 +8,8 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 
-swift build -c release --product Itda
-bin=$(swift build -c release --show-bin-path)
+swift build -c release --disable-keychain --product Itda
+bin=$(swift build -c release --disable-keychain --show-bin-path)
 app=build/Itda.app
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks" "$app/Contents/Resources"

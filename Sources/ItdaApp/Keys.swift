@@ -12,6 +12,9 @@ final class KeyTap: @unchecked Sendable {
 
     /// True exactly while a ghost is on screen.
     let armed = Atomic<Bool>(false)
+    /// The user's last act was a letter key, so under Korean input a syllable may be open. A click, an arrow, Return or a
+    /// shortcut commits it. Getting this wrong towards false only costs a ghost, as inserting text commits in order anyway.
+    let composing = Atomic<Bool>(false)
     var onAccept: (@Sendable (_ all: Bool) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
     private var port: CFMachPort?
@@ -28,24 +31,33 @@ final class KeyTap: @unchecked Sendable {
         return .accept(all: flags.contains(.maskShift))
     }
 
+    static func composes(type: CGEventType, keyCode: Int64, flags: CGEventFlags) -> Bool {
+        type == .keyDown && TwoSetLayout.letterCodes.contains(keyCode) && flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty
+    }
+
     /// Needs Accessibility, so call only once trusted. Nil if the system refused.
     func start() -> Bool {
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             let tap = Unmanaged<KeyTap>.fromOpaque(refcon!).takeUnretainedValue()
-            let decision = KeyTap.decide(type: type, keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags,
-                                         own: event.getIntegerValueField(.eventSourceUserData) == KeyTap.ownEvent,
+            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            let own = event.getIntegerValueField(.eventSourceUserData) == KeyTap.ownEvent
+            let decision = KeyTap.decide(type: type, keyCode: keyCode, flags: event.flags, own: own,
                                          armed: tap.armed.load(ordering: .relaxed), acceptKey: tap.acceptKey)
             switch decision {
-            case .pass: return Unmanaged.passUnretained(event)
-            case .passAndDismiss: tap.onDismiss?(); return Unmanaged.passUnretained(event)
+            case .pass, .passAndDismiss:
+                if decision == .passAndDismiss { tap.onDismiss?() }
+                if !own { tap.composing.store(KeyTap.composes(type: type, keyCode: keyCode, flags: event.flags), ordering: .relaxed) }
+                return Unmanaged.passUnretained(event)
             case .accept(let all): tap.onAccept?(all); return nil
             case .reenable:
+                tap.composing.store(false, ordering: .relaxed)  // Keys went by unseen.
                 if let port = tap.port { CGEvent.tapEnable(tap: port, enable: true) }
                 return Unmanaged.passUnretained(event)
             }
         }
+        let events: [CGEventType] = [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
         guard let port = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
-                                           eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue), callback: callback,
+                                           eventsOfInterest: events.reduce(0) { $0 | CGEventMask(1 << $1.rawValue) }, callback: callback,
                                            userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return false }
         self.port = port
         let thread = Thread {
@@ -67,9 +79,40 @@ final class KeyTap: @unchecked Sendable {
     }
 }
 
+/// Apple's Korean 2-set: which physical key types which jamo. The source has no Unicode layout data to ask, so
+/// `scripts/e2e.sh --ime` checks this table against the live input method.
+enum TwoSetLayout {
+    static let source = "com.apple.inputmethod.Korean.2SetKorean"
+    typealias Stroke = (code: CGKeyCode, shift: Bool)
+
+    private static let plain: [Character: CGKeyCode] = [
+        "ㅂ": 12, "ㅈ": 13, "ㄷ": 14, "ㄱ": 15, "ㅅ": 17, "ㅛ": 16, "ㅕ": 32, "ㅑ": 34, "ㅐ": 31, "ㅔ": 35,
+        "ㅁ": 0, "ㄴ": 1, "ㅇ": 2, "ㄹ": 3, "ㅎ": 5, "ㅗ": 4, "ㅓ": 38, "ㅏ": 40, "ㅣ": 37,
+        "ㅋ": 6, "ㅌ": 7, "ㅊ": 8, "ㅍ": 9, "ㅠ": 11, "ㅜ": 45, "ㅡ": 46,
+    ]
+    private static let shifted: [Character: Character] = ["ㅃ": "ㅂ", "ㅉ": "ㅈ", "ㄸ": "ㄷ", "ㄲ": "ㄱ", "ㅆ": "ㅅ", "ㅒ": "ㅐ", "ㅖ": "ㅔ"]
+
+    static let letterCodes = Set(plain.values.map(Int64.init))
+    static let jamo = Array(plain.keys) + Array(shifted.keys)
+
+    /// Nil if any of these isn't a key on the layout.
+    static func strokes(_ keys: String) -> [Stroke]? {
+        var out: [Stroke] = []
+        for key in keys {
+            if let code = plain[key] { out.append((code, false)) }
+            else if let base = shifted[key], let code = plain[base] { out.append((code, true)) }
+            else { return nil }
+        }
+        return out
+    }
+}
+
 enum Inserter {
-    /// `keyboardSetUnicodeString` silently truncates long strings. Under Korean input, tested in a native field: a syllable still
-    /// composing commits first and this text follows in order, with no pause (`scripts/e2e.sh --ime`). So no special case here.
+    /// F18 ends a live composition with no text and no caret move. Without it the input method swallows a text event while there is
+    /// marked text, or lets it replace the syllable (`scripts/e2e.sh --ime`). Modifiers and JIS keys don't commit; Esc and arrows do, with
+    /// effects; F20 leaves a U+0010 in a text view; F14 and F15 can be brightness; F19 is a favourite for remapping.
+    static let commitKey: TwoSetLayout.Stroke = (79, false)
+    /// `keyboardSetUnicodeString` silently truncates long strings.
     static let chunkUnits = 16
 
     /// Splits at character boundaries, so a surrogate pair or a joined emoji is never cut.
@@ -89,12 +132,23 @@ enum Inserter {
 
     /// No clipboard. Flags are cleared because Shift is still held after Shift-Tab.
     static func insert(_ text: String, post: (CGEvent) -> Void) {
-        let source = CGEventSource(stateID: .privateState)
         for chunk in chunks(text) {
             for down in [true, false] {
-                guard let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down) else { continue }
+                guard let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: down) else { continue }
                 event.flags = []
                 event.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
+                event.setIntegerValueField(.eventSourceUserData, value: KeyTap.ownEvent)
+                post(event)
+            }
+        }
+    }
+
+    /// Real key events with no text, for the input method to compose. Our flags, as Shift is still held after Shift-Tab.
+    static func press(_ strokes: [TwoSetLayout.Stroke], post: (CGEvent) -> Void) {
+        for stroke in strokes {
+            for down in [true, false] {
+                guard let event = CGEvent(keyboardEventSource: nil, virtualKey: stroke.code, keyDown: down) else { continue }
+                event.flags = stroke.shift ? .maskShift : []
                 event.setIntegerValueField(.eventSourceUserData, value: KeyTap.ownEvent)
                 post(event)
             }

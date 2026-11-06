@@ -1,23 +1,19 @@
 /// One snapshot of the focused text field. Apps may report no marked text, leaving a composing character in `before`
-/// looking committed, so under Korean input a Hangul last character is treated as possibly composing. A wrongly
-/// suspected committed syllable costs nothing: it fits the suggestion too.
+/// looking committed, so `mayCompose` says a syllable may be open: Korean input, and the user's last act was a letter key.
 public struct Field: Equatable, Sendable {
     public var before: String
     public var after: String
-    public var secure: Bool
-    /// Whether the active input source is Korean.
-    public var koreanInput: Bool
+    public var mayCompose: Bool
 
-    public init(before: String, after: String = "", secure: Bool = false, koreanInput: Bool = false) {
+    public init(before: String, after: String = "", mayCompose: Bool = false) {
         self.before = before
         self.after = after
-        self.secure = secure
-        self.koreanInput = koreanInput
+        self.mayCompose = mayCompose
     }
 
     /// The character that may still change, or empty.
     public var composing: String {
-        guard koreanInput, let last = before.last, Hangul.isHangul(last) else { return "" }
+        guard mayCompose, let last = before.last, Hangul.isHangul(last) else { return "" }
         return String(last)
     }
 
@@ -45,7 +41,7 @@ package enum Word {
 }
 
 /// What the model sees. `prefix` ends at the last whole word with no trailing space. `fragment` is the half-typed
-/// word, with the whitespace before it, to be forced back by `Grammar` so the model picks its natural token.
+/// word, with the whitespace before it, to be forced back at the logits so the model picks its natural token.
 public struct Prompt: Equatable, Sendable {
     public static let windowChars = 1200
     /// The start moves only in jumps of this size, so the head, and the model's cache of it, survives each key.
@@ -79,25 +75,5 @@ public struct Prompt: Equatable, Sendable {
         let text = context.isEmpty ? String(head) : context + "\n\n" + head
         let over = text.count - windowChars
         return Prompt(prefix: over > 0 ? String(text.dropFirst((over / stepChars + 1) * stepChars)) : text, fragment: fragment)
-    }
-}
-
-public enum Grammar {
-    /// The fragment, then anything. The tail allows line breaks, so the model can still choose to stop there.
-    public static func forcing(fragment: String) -> String {
-        var literal = String.UnicodeScalarView()
-        for scalar in fragment.unicodeScalars {
-            switch scalar {
-            case "\"", "\\": literal.append("\\"); literal.append(scalar)
-            case "\n": literal.append(contentsOf: #"\n"#.unicodeScalars)
-            case "\r": literal.append(contentsOf: #"\r"#.unicodeScalars)
-            case "\t": literal.append(contentsOf: #"\t"#.unicodeScalars)
-            case _ where scalar.value < 0x20 || scalar.value == 0x7F:
-                let hex = String(scalar.value, radix: 16)
-                literal.append(contentsOf: (#"\x"# + (hex.count == 1 ? "0" : "") + hex).unicodeScalars)
-            default: literal.append(scalar)
-            }
-        }
-        return #"root ::= "\#(String(literal))" [^\x01]*"#
     }
 }

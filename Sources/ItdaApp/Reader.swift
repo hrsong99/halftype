@@ -68,11 +68,11 @@ enum Reader {
 
     /// Nil when there is no text to continue from here: no value, or a non-empty selection.
     /// shortcut: reads the whole value on each change (1-3 ms in the fields tested); use AXStringForRange if huge documents lag.
-    static func read(_ e: AXUIElement, koreanInput: Bool) -> Reading? {
+    static func read(_ e: AXUIElement, mayCompose: Bool) -> Reading? {
         guard let value = AX.get(e, "AXValue") as? String, let selection = AX.range(AX.get(e, "AXSelectedTextRange")),
               let (before, after) = slice(value, selection) else { return nil }
         let frame = AX.rect(AX.get(e, "AXFrame")) ?? .zero
-        return Reading(field: Field(before: before, after: after, koreanInput: koreanInput),
+        return Reading(field: Field(before: before, after: after, mayCompose: mayCompose),
                        caret: caret(e, before: before, frame: frame), frame: frame)
     }
 

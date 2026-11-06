@@ -2,26 +2,14 @@ import AppKit
 import Carbon
 import ItdaEngine
 
-extension Engine: Completer {
-    func suggest(prefix: String, fragment: String, onResult: @escaping @Sendable (String, Double?) -> Void) {
-        suggest(prefix: prefix, fragment: fragment, onResult: { suggestion in
-            if let suggestion { onResult(suggestion.text, suggestion.gate) }
-        })
-    }
+public func runItda() {
+    let app = NSApplication.shared
+    let delegate = App()
+    app.delegate = delegate
+    app.run()
 }
 
-@main
 final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    static func main() {
-        #if ITDA_E2E
-        return EndToEnd.main()
-        #endif
-        let app = NSApplication.shared
-        let delegate = App()
-        app.delegate = delegate
-        app.run()
-    }
-
     private let tap = KeyTap()
     private let panel = GhostPanel()
     private lazy var watcher = Watcher(tap: tap, panel: panel)
@@ -71,6 +59,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// ggml's Metal device asserts at exit if a model is still loaded.
+    func applicationWillTerminate(_ note: Notification) {
+        watcher.queue.sync { watcher.completer }?.unload()
+    }
+
     private func startWatching() {
         guard tap.start() else {
             tapFailed = true
@@ -82,11 +75,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// TIS must be read on the main thread. Going by the source's language covers third-party Korean input methods too.
     @objc private func readInputSource() {
         let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
-        var korean = false
-        if let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceLanguages) {
-            korean = (Unmanaged<CFArray>.fromOpaque(raw).takeUnretainedValue() as? [String])?.first == "ko"
+        func property<T>(_ key: CFString, as: T.Type) -> T? {
+            TISGetInputSourceProperty(source, key).flatMap { Unmanaged<AnyObject>.fromOpaque($0).takeUnretainedValue() as? T }
         }
-        watcher.koreanInput.store(korean, ordering: .relaxed)
+        watcher.koreanInput.store(property(kTISPropertyInputSourceLanguages, as: [String].self)?.first == "ko", ordering: .relaxed)
+        watcher.twoSet.store(property(kTISPropertyInputSourceID, as: String.self) == TwoSetLayout.source, ordering: .relaxed)
+        tap.composing.store(false, ordering: .relaxed)  // Switching source commits.
         watcher.scheduleUpdate()
     }
 
@@ -120,7 +114,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func modelChanged(_ state: ModelStore.State) {
         switch state {
-        case .idle: break
         case .downloading(let done): modelLine = "Downloading model: \(Int(done * 100))%"
         case .verifying: modelLine = "Verifying model…"
         case .ready(let path): open(path)

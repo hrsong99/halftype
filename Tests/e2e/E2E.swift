@@ -1,9 +1,11 @@
-// End-to-end checks against a private window, built only by scripts/e2e.sh. The test runner can't host this: it needs a
+// End-to-end checks against a private window, run by scripts/e2e.sh. The test runner can't host this: it needs a
 // real NSApplication run loop to serve AX and events, as the shipped app has.
-#if ITDA_E2E
 import AppKit
+import Carbon
+@testable import ItdaApp
 import ItdaCore
-import ItdaEngine
+@testable import ItdaEngine
+import Metal
 import Synchronization
 
 final class FakeCompleter: Completer, @unchecked Sendable {
@@ -11,9 +13,9 @@ final class FakeCompleter: Completer, @unchecked Sendable {
     private let log = Mutex<[(prefix: String, fragment: String)]>([])
     var prompts: [(prefix: String, fragment: String)] { log.withLock { $0 } }
     init(_ text: String) { self.text = text }
-    func suggest(prefix: String, fragment: String, onResult: @escaping @Sendable (String, Double?) -> Void) {
+    func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
         log.withLock { $0.append((prefix, fragment)) }
-        onResult(text, 0)
+        onResult(Suggestion(text: text, gate: 0))
     }
     func cancel() {}
     func unload() {}
@@ -51,22 +53,22 @@ final class Harness {
 
     func close() {
         watcher.unbind()
-        main { self.watcher.hideNow(); self.window.orderOut(nil) }
+        onMain { self.watcher.hideNow(); self.window.orderOut(nil) }
     }
 
-    var caretX: CGFloat { main { self.view.firstRect(forCharacterRange: NSRange(location: self.view.selectedRange().location, length: 0), actualRange: nil).minX } }
+    var caretX: CGFloat { onMain { self.view.firstRect(forCharacterRange: NSRange(location: self.view.selectedRange().location, length: 0), actualRange: nil).minX } }
     var ghostX: CGFloat? {
-        main {
+        onMain {
             guard let layout = self.panel.view.layout else { return nil }
             return self.panel.frame.minX + layout.drawOrigin.x + layout.manager.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil).minX + layout.manager.location(forGlyphAt: 0).x
         }
     }
-    var text: String { main { self.view.string } }
-    var visible: Bool { main { self.panel.isVisible } }
-    var ghostText: String? { main { self.panel.view.layout?.visibleText } }
+    var text: String { onMain { self.view.string } }
+    var visible: Bool { onMain { self.panel.isVisible } }
+    var ghostText: String? { onMain { self.panel.view.layout?.visibleText } }
 }
 
-func main<T>(_ work: () -> T) -> T { DispatchQueue.main.sync(execute: work) }
+func onMain<T>(_ work: () -> T) -> T { DispatchQueue.main.sync(execute: work) }
 
 func eventually(_ seconds: Double = 3, _ done: () -> Bool) -> Bool {
     let end = Date().addingTimeInterval(seconds)
@@ -113,8 +115,17 @@ enum EndToEnd {
     }
 
     static func main() {
+        setbuf(stdout, nil)
         if CommandLine.arguments.contains("--front-id") {
             print(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none")
+            exit(0)
+        }
+        if let i = CommandLine.arguments.firstIndex(of: "--set-source") {
+            let list = TISCreateInputSourceList([kTISPropertyInputSourceID as String: CommandLine.arguments[i + 1]] as CFDictionary, false).takeRetainedValue() as! [TISInputSource]
+            exit(list.first.map(TISSelectInputSource) ?? 1)
+        }
+        if CommandLine.arguments.contains("--source-id") {
+            print(TISGetInputSourceProperty(TISCopyCurrentKeyboardInputSource().takeRetainedValue(), kTISPropertyInputSourceID).map { Unmanaged<CFString>.fromOpaque($0).takeUnretainedValue() as String } ?? "?")
             exit(0)
         }
         let app = NSApplication.shared
@@ -127,98 +138,6 @@ enum EndToEnd {
             exit(failures == 0 ? 0 : 1)
         }
         app.run()
-    }
-
-    /// Reads a field in another app without focusing it: `--read <pid> <url part>` prints what the reader sees.
-    static func readWeb(pid: pid_t, url: String) {
-        let ax = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(ax, 2)
-        func walk(_ e: AXUIElement, _ inside: Bool, _ depth: Int) {
-            guard depth < 60, let role = AX.get(e, "AXRole") as? String else { return }
-            var inside = inside
-            if role == "AXWebArea" {
-                guard (AX.get(e, "AXURL").map { "\($0)" } ?? "").contains(url) else { return }  // No other tab is read.
-                inside = true
-            }
-            if inside, Reader.textRoles.contains(role) {
-                let id = AX.get(e, "AXDOMIdentifier") as? String ?? "?"
-                let start = Date()
-                let reading = Reader.read(e, koreanInput: false)
-                let readMs = Date().timeIntervalSince(start) * 1000
-                let traits = reading.flatMap { Reader.traits(e, before: $0.field.before) }
-                let context = Reader.context(of: e)
-                print("field", id, role, "editable", Reader.isEditableText(e), "before", reading?.field.before ?? "nil", "after", reading?.field.after ?? "nil", "caret", reading?.caret ?? .null,
-                      "frame", reading?.frame ?? .null, "font", traits?.fontSize ?? 0, traits?.fontName ?? "-", "lineLeft", traits?.lineLeft ?? -1, "color", traits?.color?.components ?? [], "read ms", Int(readMs))
-                print("  context tail:", String(context.suffix(70)).replacingOccurrences(of: "\n", with: " / "), "| chars", context.count)
-                return
-            }
-            for child in AX.get(e, "AXChildren") as? [AXUIElement] ?? [] { walk(child, inside, depth + 1) }
-        }
-        walk(ax, false, 0)
-    }
-
-    /// `--front`: the frontmost app's focused element, what would be used, and how long it takes. Read-only.
-    static func front() {
-        guard let front = NSWorkspace.shared.frontmostApplication else { return }
-        let ax = AXUIElementCreateApplication(front.processIdentifier)
-        AXUIElementSetMessagingTimeout(ax, 1)
-        guard let e = AX.element(AX.get(ax, "AXFocusedUIElement")) else { return print(front.bundleIdentifier ?? "?", "no focused element") }
-        let start = Date()
-        let reading = Reader.read(e, koreanInput: false)
-        let read = Date().timeIntervalSince(start) * 1000
-        let traits = reading.flatMap { Reader.traits(e, before: $0.field.before) }
-        let t2 = Date()
-        let context = Reader.context(of: e)
-        print(front.bundleIdentifier ?? "?", AX.get(e, "AXRole") ?? "?" as CFTypeRef, "editable", Reader.isEditableText(e), "before chars", reading?.field.before.count ?? -1, "after chars", reading?.field.after.count ?? -1,
-              "caret", reading?.caret ?? .null, "frame", reading?.frame ?? .null, "font", traits?.fontSize ?? 0, "lineLeft", traits?.lineLeft ?? -1, "color", traits?.color?.components ?? [],
-              "read ms", Int(read), "context ms", Int(Date().timeIntervalSince(t2) * 1000), "context chars", context.count)
-        print("context tail:", context.suffix(50).replacingOccurrences(of: "\n", with: " / "))
-    }
-
-    /// `--ime`: does text inserted after a live Hangul composition arrive in order? Selects the Korean input source only for this
-    /// window's input context, and refuses unless the user has been idle, as that source can be system-wide.
-    static func ime() {
-        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
-        print("idle seconds", Int(idle))
-        guard idle > 20 else { return print("not idle, skipping") }
-        let h = Harness(completer: FakeCompleter(""))
-        defer { h.close() }
-        let korean = "com.apple.inputmethod.Korean.2SetKorean"
-        let before: String? = ItdaApp.main {
-            let context = h.view.inputContext!
-            let was = context.selectedKeyboardInputSource
-            print("sources", context.keyboardInputSources?.filter { $0.contains("Korean") } ?? [], "was", was ?? "nil")
-            context.selectedKeyboardInputSource = korean
-            context.activate()
-            print("now", context.selectedKeyboardInputSource ?? "nil")
-            return was
-        }
-        defer { ItdaApp.main { h.view.inputContext!.selectedKeyboardInputSource = before; h.view.inputContext!.deactivate() } }
-        func key(_ code: CGKeyCode) {
-            for down in [true, false] { CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down)!.postToPid(getpid()) }
-            usleep(60_000)
-        }
-        func state() -> String { ItdaApp.main { "'\(h.view.string)' marked \(h.view.hasMarkedText()) \(h.view.markedRange())" } }
-        func clear() { ItdaApp.main { h.view.inputContext!.discardMarkedText(); h.view.string = "" } }
-        // 2-set: g ㅎ, k ㅏ, s ㄴ.
-        key(5); key(40)
-        print("하:", state())
-        key(1 + 44)  // n is ㅜ on 2-set; 45 is the n key.
-        print("then ㅜ:", state())
-        clear()
-        key(5); key(40); key(1)  // s
-        print("한 (ㄴ joined, so the composition is live):", state())
-        Inserter.insert("세요") { $0.postToPid(getpid()) }
-        usleep(300_000)
-        print("insert 세요:", state())
-        key(40)
-        print("then ㅏ: if it joined anything the composition was still live:", state())
-        clear()
-        // No pause between the syllable and the insert, as a fast Tab would be.
-        for code: CGKeyCode in [5, 40, 1] { for down in [true, false] { CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down)!.postToPid(getpid()) } }
-        Inserter.insert(" 안녕하세요") { $0.postToPid(getpid()) }
-        usleep(400_000)
-        print("no pause, 한 + insert:", state())
     }
 
     struct Shot {
@@ -289,31 +208,13 @@ enum EndToEnd {
         try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir).appendingPathComponent(shot.name + ".png"))
     }
 
-    /// `--engine <gguf>`: the real model behind the real path, in the private window.
-    static func engine(path: String) {
-        guard let engine = try? Engine(modelPath: path) else { return check(false, "engine loads") }
-        print("cold start s", engine.coldStartSeconds)
-        let h = Harness(completer: engine)
-        defer { h.close() }
-        h.watcher.bind(pid: getpid())
-        usleep(100_000)
-        for (typed, wait) in [("Earlier we said we would meet at three. See you to", 6.0), ("morrow at", 6.0), (" 오늘 회의는 세 시에", 6.0)] {
-            let start = Date()
-            typeToSelf(typed)
-            let shown = eventually(wait) { h.visible }
-            print("typed '\(typed)' ghost '\(h.ghostText ?? "nil")' after ms", Int(Date().timeIntervalSince(start) * 1000), "shown", shown)
-        }
-        engine.unload()
-    }
-
     static func run() {
         if let i = CommandLine.arguments.firstIndex(of: "--engine") { return engine(path: CommandLine.arguments[i + 1]) }
+        if let i = CommandLine.arguments.firstIndex(of: "--measure") { return measure(path: CommandLine.arguments[i + 1]) }
         if let i = CommandLine.arguments.firstIndex(of: "--shots") {
-            return ItdaApp.main { shots(to: CommandLine.arguments[i + 1]) }
+            return onMain { shots(to: CommandLine.arguments[i + 1]) }
         }
         if CommandLine.arguments.contains("--ime") { return ime() }
-        if CommandLine.arguments.contains("--front") { return front() }
-        if let i = CommandLine.arguments.firstIndex(of: "--read") { return readWeb(pid: pid_t(CommandLine.arguments[i + 1])!, url: CommandLine.arguments[i + 2]) }
         frontAtStart = frontmost()
         ghostAtCaret()
         hides()
@@ -337,9 +238,9 @@ enum EndToEnd {
         check(eventually { h.text == "hello" }, "key events reach the field: '\(h.text)'")
         check(eventually { h.visible }, "ghost appears")
         check(abs((h.ghostX ?? -99) - h.caretX) < 1, "ghost starts on the real caret: \(h.ghostX ?? -1) vs \(h.caretX)")
-        ItdaApp.main { check(h.panel.ignoresMouseEvents && !h.panel.canBecomeKey && !h.panel.isKeyWindow, "panel is click-through and never key") }
+        onMain { check(h.panel.ignoresMouseEvents && !h.panel.canBecomeKey && !h.panel.isKeyWindow, "panel is click-through and never key") }
         let frontNow = frontmost()
-        print("      front:", frontNow.trimmingCharacters(in: .whitespacesAndNewlines), "me:", getpid(), "isActive", ItdaApp.main({ NSApp.isActive }), "text:", h.text)
+        print("      front:", frontNow.trimmingCharacters(in: .whitespacesAndNewlines), "me:", getpid(), "isActive", onMain({ NSApp.isActive }), "text:", h.text)
         check(frontNow == frontAtStart, "the system never sees this process frontmost")
 
         let prompt = model.prompts.last
@@ -369,22 +270,29 @@ enum EndToEnd {
         typeToSelf("hello")
         check(eventually { h.visible }, "ghost appears")
         check(h.tap.armed.load(ordering: .relaxed), "tap armed while it shows")
-        ItdaApp.main { h.view.setSelectedRange(NSRange(location: 0, length: 3)) }
+        usleep(150_000)  // The insert's last event would set the caret back.
+        // AX to this same process runs on the calling thread and can read before a change lands, so each gets a second look. Another app is IPC.
+        func select(_ location: Int, _ length: Int) {
+            onMain { h.view.setSelectedRange(NSRange(location: location, length: length)) }
+            usleep(30_000)
+            h.watcher.scheduleUpdate()
+        }
+        select(0, 3)
         check(eventually { !h.visible }, "selection hides it")
-        ItdaApp.main { h.view.setSelectedRange(NSRange(location: 2, length: 0)) }
+        select(2, 0)
         usleep(300_000)
         check(!h.visible, "text after the caret hides it")
         check(!h.tap.armed.load(ordering: .relaxed), "tap disarmed when hidden")
-        ItdaApp.main { h.view.setSelectedRange(NSRange(location: 5, length: 0)) }
+        select(5, 0)
         check(eventually { h.visible }, "back at the end it shows again")
-        ItdaApp.main { h.window.setFrameOrigin(CGPoint(x: 100, y: 100)) }
+        onMain { h.window.setFrameOrigin(CGPoint(x: 100, y: 100)) }
         check(eventually { !h.visible }, "window move hides it")
     }
 
     static func secure() {
         let h = Harness(completer: FakeCompleter(" world"))
         defer { h.close() }
-        ItdaApp.main {
+        onMain {
             let secure = NSSecureTextField(frame: CGRect(x: 10, y: 10, width: 200, height: 24))
             h.window.contentView!.addSubview(secure)
             h.window.makeFirstResponder(secure)
@@ -474,4 +382,237 @@ enum EndToEnd {
         check(times[times.count / 2] < 30, "ghost follows typing within a frame or two")
     }
 }
-#endif
+
+// MARK: The live input method
+
+extension EndToEnd {
+    private static var idleSeconds: Double { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!) }
+
+    /// `--ime`: Tab against Apple's real 2-set input method in the private window, with the real watcher. Selecting the source reaches
+    /// the whole system, so it only runs with the user idle and stops the moment they aren't; scripts/e2e.sh puts the source back.
+    static func ime() {
+        guard idleSeconds > 15 else { return check(false, "needs the user idle for 15 s, was \(Int(idleSeconds)) s: run again") }
+        let h = Harness(completer: FakeCompleter(""))
+        defer { h.close() }
+        let before: String? = onMain {
+            let context = h.view.inputContext!
+            let was = context.selectedKeyboardInputSource
+            context.selectedKeyboardInputSource = TwoSetLayout.source
+            context.activate()
+            return was
+        }
+        defer { onMain { h.view.inputContext!.selectedKeyboardInputSource = before; h.view.inputContext!.deactivate() } }
+        print("      source here:", onMain { h.view.inputContext!.selectedKeyboardInputSource ?? "nil" }, "| system-wide:", shell(CommandLine.arguments[0], ["--source-id"]).trimmingCharacters(in: .whitespacesAndNewlines))
+        h.watcher.koreanInput.store(true, ordering: .relaxed)
+        h.watcher.twoSet.store(true, ordering: .relaxed)
+        h.watcher.bind(pid: getpid())
+        usleep(200_000)
+
+        func clear() {
+            // AX to this same process runs on the calling thread, and deadlocks with TextKit on main, so the watcher holds still. Another app is IPC.
+            h.watcher.queue.sync { onMain { h.view.inputContext!.discardMarkedText(); h.view.string = "" } }
+            h.tap.composing.store(false, ordering: .relaxed)
+            usleep(50_000)
+        }
+        func press(_ jamo: String) {
+            if idleSeconds < 1 {
+                print("the user is back: stopping")
+                exit(3)
+            }
+            h.tap.composing.store(true, ordering: .relaxed)  // What the tap does for a real key: these go past it, to this process only.
+            Inserter.press(TwoSetLayout.strokes(jamo)!) { $0.postToPid(getpid()) }
+        }
+        func tab(all: Bool = false) { h.watcher.queue.async { h.watcher.accept(all: all) } }
+
+        // The table against the live input method: each jamo alone, shift included.
+        var wrong: [String] = []
+        for jamo in TwoSetLayout.jamo {
+            clear()
+            press(String(jamo))
+            if !eventually(1, { h.text == String(jamo) }) { wrong.append("\(jamo) gave '\(h.text)'") }
+        }
+        check(wrong.isEmpty, "all \(TwoSetLayout.jamo.count) jamo type themselves on the live input method \(wrong)")
+
+        func accepts(_ name: String, start: String = "그 ", typed: String, suggestion: String, ghost: String, first: String, rest: String) {
+            clear()
+            h.watcher.completer = FakeCompleter(suggestion)
+            Inserter.insert(start) { $0.postToPid(getpid()) }
+            check(eventually { h.text == start }, "\(name): start")
+            press(typed)
+            check(eventually { h.ghostText == ghost }, "\(name): shows '\(ghost)', field '\(h.text)', ghost '\(h.ghostText ?? "nil")'")
+            tab()
+            check(eventually { h.text == start + first }, "\(name): Tab gives '\(first)': '\(h.text)'")
+            tab(all: true)
+            check(eventually { h.text == start + first + rest }, "\(name): Shift-Tab gives the rest: '\(h.text)'")
+        }
+        accepts("하 to 한 다음", typed: "ㅎㅏ", suggestion: " 한 다음 날", ghost: " 다음 날", first: "한 다음", rest: " 날")
+        accepts("달 to 다라", typed: "ㄷㅏㄹ", suggestion: " 다라가 왔어", ghost: "가 왔어", first: "다라가", rest: " 왔어")
+        accepts("값, double final, two keys", typed: "ㄱㅏ", suggestion: " 값이 싸", ghost: "이 싸", first: "값이", rest: " 싸")
+        accepts("값, second key moves on", typed: "ㄱㅏㅂㅅ", suggestion: " 갑시다 정말", ghost: "다 정말", first: "갑시다", rest: " 정말")
+        accepts("과, compound vowel", typed: "ㄱㅗ", suggestion: " 과자 맛", ghost: "자 맛", first: "과자", rest: " 맛")
+        accepts("갔, shifted final", typed: "ㄱㅏ", suggestion: " 갔어 어제", ghost: "어 어제", first: "갔어", rest: " 어제")
+        accepts("얘, shifted vowel", typed: "ㅇ", suggestion: " 얘기 해봐", ghost: "기 해봐", first: "얘기", rest: " 해봐")
+        accepts("from a lone jamo", typed: "ㅎ", suggestion: " 한 다음 날", ghost: " 다음 날", first: "한 다음", rest: " 날")
+
+        // Every composition state of harder words: type a prefix of the keys, Tab for all of it, expect the word.
+        var bad: [String] = []
+        for word in ["괜찮아요", "닭고기", "없어요", "앉아서", "많이", "의사", "뷁", "왜요", "떡볶이", "빨리", "까치", "짜장", "쌀밥", "예의", "외워", "됐어", "읽어"] {
+            let keys = Array(Hangul.keys(word))
+            h.watcher.completer = FakeCompleter(" " + word + " 끝")
+            for count in 1..<keys.count {
+                clear()
+                Inserter.insert("그 ") { $0.postToPid(getpid()) }
+                guard eventually(3, { h.text == "그 " }) else { continue }
+                press(String(keys[..<count]))
+                _ = eventually(1) { Hangul.keys(h.text) == "그 " + String(keys[..<count]) }
+                usleep(40_000)  // And the watcher's turn. The ghost from before the key is up too, so `visible` can't say.
+                guard h.visible else { continue }  // Nothing to draw once the keys reach the word's end.
+                tab(all: true)
+                if !eventually(1, { h.text == "그 \(word) 끝" }) { bad.append("\(word)@\(count): '\(h.text)'") }
+            }
+        }
+        check(bad.isEmpty, "every composing state of 17 hard words finishes right \(bad)")
+
+        // Tab-Tab with no time between them, through a two-key syllable.
+        clear()
+        h.watcher.completer = FakeCompleter(" 값이 싸 정말")
+        Inserter.insert("그 ") { $0.postToPid(getpid()) }
+        _ = eventually { h.text == "그 " }
+        press("ㄱㅏ")
+        _ = eventually { h.ghostText == "이 싸 정말" }
+        h.watcher.queue.async { h.watcher.accept(all: false); h.watcher.accept(all: false) }
+        check(eventually { h.text == "그 값이 싸" }, "two fast Tabs, each word once: '\(h.text)'")
+
+        // A click or an arrow commits the syllable with no change in the field. The signal says so: the ghost that needed 한 goes.
+        clear()
+        h.watcher.completer = FakeCompleter(" 한 다음")
+        Inserter.insert("그 ") { $0.postToPid(getpid()) }
+        _ = eventually { h.text == "그 " }
+        press("ㅎㅏ")
+        check(eventually { h.ghostText == " 다음" }, "composing 하: ghost up")
+        Inserter.press([Inserter.commitKey]) { $0.postToPid(getpid()) }
+        h.tap.composing.store(false, ordering: .relaxed)
+        h.watcher.completer = FakeCompleter("")
+        h.watcher.scheduleUpdate()
+        check(eventually { !h.visible }, "committed 하, suggestion needs 한: ghost gone")
+        check(!h.tap.armed.load(ordering: .relaxed) && h.text == "그 하", "and Tab stays the host's: '\(h.text)'")
+
+        // The worst case, if the signal were wrong: a jamo typed after a committed syllable stands alone, one backspace to fix.
+        Inserter.press(TwoSetLayout.strokes("ㄴ")! + [Inserter.commitKey]) { $0.postToPid(getpid()) }
+        Inserter.insert(" 다음") { $0.postToPid(getpid()) }
+        _ = eventually { h.text.hasSuffix("다음") }
+        print("      worst case, signal wrong on a committed 하:", "'\(h.text)'")
+
+        // Any other Korean layout: no ghost in the state that would need keys, and a ghost in the state that doesn't.
+        clear()
+        h.watcher.twoSet.store(false, ordering: .relaxed)
+        h.watcher.completer = FakeCompleter(" 한 다음")
+        Inserter.insert("그 ") { $0.postToPid(getpid()) }
+        _ = eventually { h.text == "그 " }
+        press("ㅎㅏ")
+        usleep(400_000)
+        check(!h.visible, "not 2-set, 하 needing 한: no ghost")
+        clear()
+        h.watcher.completer = FakeCompleter(" 하늘은 맑아")
+        Inserter.insert("그 ") { $0.postToPid(getpid()) }
+        _ = eventually { h.text == "그 " }
+        press("ㅎㅏ")
+        check(eventually { h.ghostText == "늘은 맑아" }, "not 2-set, 하 fits as it is: ghost")
+        clear()
+    }
+
+    /// `--engine <gguf>`: the real model behind the real path, with the real composing argument, on the live input method.
+    static func engine(path: String) {
+        guard let engine = try? Engine(modelPath: path) else { return check(false, "engine loads") }
+        defer { engine.unload() }
+        let h = Harness(completer: engine)
+        defer { h.close() }
+        h.watcher.bind(pid: getpid())
+        usleep(100_000)
+        typeToSelf("Thanks, see you to")
+        check(eventually(6) { h.ghostText?.hasPrefix("morrow") == true }, "real engine, English: '\(h.ghostText ?? "nil")'")
+        h.watcher.queue.sync { onMain { h.view.string = "" } }
+        h.watcher.koreanInput.store(true, ordering: .relaxed)
+        h.watcher.twoSet.store(true, ordering: .relaxed)
+        h.tap.composing.store(true, ordering: .relaxed)
+        // The composing argument reaches the model: 하 is withheld, and what comes back must fit its keys.
+        typeToSelf("오늘 날씨가 정말 좋아서 공원에 산책하")
+        check(eventually(6) { h.visible }, "real engine, composing 하: '\(h.ghostText ?? "nil")'")
+    }
+
+    private static func stats(_ what: String) {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        _ = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count) }
+        }
+        let wired = shell("/usr/bin/vm_stat", []).split(separator: "\n").first { $0.contains("wired down") }?.split(separator: " ").last.flatMap { Int($0.dropLast()) } ?? 0
+        let mb = { (bytes: UInt64) in Int(bytes / 1_048_576) }
+        print("[\(what)] footprint \(mb(info.phys_footprint)) MB, RSS \(mb(UInt64(info.resident_size))) MB, compressed \(mb(info.compressed)) MB, Metal allocated \(mb(UInt64(metal?.currentAllocatedSize ?? 0))) MB, system wired \(wired * Int(vm_page_size) / 1_048_576) MB")
+    }
+    nonisolated(unsafe) private static var metal = MTLCreateSystemDefaultDevice()
+
+    private static func cpuSeconds() -> Double {
+        var usage = rusage()
+        getrusage(RUSAGE_SELF, &usage)
+        func seconds(_ t: timeval) -> Double { Double(t.tv_sec) + Double(t.tv_usec) / 1_000_000 }
+        return seconds(usage.ru_utime) + seconds(usage.ru_stime)
+    }
+
+    private static func tool(_ path: String, _ args: [String], keeping lines: (Substring) -> Bool) {
+        for line in shell(path, args).split(separator: "\n") where lines(line) { print("   ", line) }
+    }
+
+    /// `--measure <gguf>`: memory and CPU of the real path under typing in the private window, then idle, then 20 reloads.
+    static func measure(path: String) {
+        let me = "\(getpid())"
+        func report(_ what: String) {
+            stats(what)
+            tool("/usr/bin/footprint", [me], keeping: { $0.contains("phys_footprint") || $0.contains("IOAccelerator") || $0.contains("Footprint:") || $0.contains("graphics") || $0.contains("VM_ALLOCATE") || $0.contains("mapped file") })
+            tool("/usr/bin/vmmap", ["--summary", me], keeping: { $0.contains("REGION TYPE") || $0.contains("IOAccelerator") || $0.contains("mapped file") || $0.contains("Physical footprint") || $0.hasPrefix("TOTAL") })
+        }
+        report("before load")
+        guard let engine = try? Engine(modelPath: path) else { return check(false, "engine loads") }
+        report("loaded, nothing asked")
+        let h = Harness(completer: engine)
+        h.watcher.bind(pid: getpid())
+        usleep(100_000)
+        let typing = "Thanks for the update, I will take a look at the build this afternoon and get back to you with notes. 오늘 회의는 세 시에 시작하고 끝나면 다시 정리해서 공유드리겠습니다. "
+        let cpu0 = cpuSeconds(), start = Date()
+        var keys = 0, shown = 0
+        for _ in 0..<2 {
+            for c in typing {
+                typeToSelf(String(c))
+                keys += 1
+                usleep(UInt32(120_000 + Int.random(in: 0..<120_000)))
+                if h.visible { shown += 1 }
+            }
+        }
+        let seconds = Date().timeIntervalSince(start)
+        print("typed \(keys) keys in \(Int(seconds)) s, ghost up on \(shown); CPU \(Int((cpuSeconds() - cpu0) / seconds * 100))% of a core while typing")
+        report("after typing, model loaded")
+        h.close()
+        engine.cancel()
+        for label in ["1", "2"] {
+            let cpu = cpuSeconds()
+            Thread.sleep(forTimeInterval: 20)
+            print("idle \(label), model loaded: \((cpuSeconds() - cpu) / 20 * 100)% CPU")
+        }
+        report("idle, model loaded")
+        engine.unload()
+        usleep(500_000)
+        report("unloaded")
+        let cpu = cpuSeconds()
+        Thread.sleep(forTimeInterval: 10)
+        print("idle, unloaded: \((cpuSeconds() - cpu) / 10 * 100)% CPU")
+        for cycle in 1...20 {
+            engine.suggest(prefix: "Hello my", fragment: " fr", composing: "", onResult: { _ in })
+            engine.finish()
+            if cycle % 5 == 0 { stats("loaded, reload \(cycle)") }
+            engine.unload()
+            usleep(200_000)
+            stats("unloaded, reload \(cycle)")
+        }
+        report("end")
+    }
+}

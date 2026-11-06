@@ -8,17 +8,12 @@ public struct Suggestion: Sendable {
     public var text: String
     /// Log P(first word | fits the fragment). Nil until the first word is finished, as it can only fall until then.
     public var gate: Double?
-    public var tokens: [Token]
-    /// Each token's log probability over the whole vocabulary, for comparing gates offline.
-    public var plain: [Double]
-    public var done: Bool
-}
+    var tokens: [Token] = []
 
-/// What one request cost, cancelled or not. `prefilled` counts tokens decoded before the first generated one.
-public struct RequestStats: Sendable {
-    public var promptTokens = 0, prefilled = 0, generated = 0
-    public var cancelled = false
-    public init() {}
+    public init(text: String, gate: Double?) {
+        self.text = text
+        self.gate = gate
+    }
 }
 
 public enum EngineError: Error { case load(String) }
@@ -33,7 +28,6 @@ public final class Engine: @unchecked Sendable {
     static let checkpointTail = 4
 
     private let path: String
-    private let stopBelow: Double?
     private let queue = DispatchQueue(label: "itda.engine", qos: .userInteractive)
     private let latest = Atomic<Int>(0)
     private var model: OpaquePointer?
@@ -42,14 +36,14 @@ public final class Engine: @unchecked Sendable {
     /// The tokens in the model's memory right now.
     private var cached: [llama_token] = []
     /// False when the memory can't drop a suffix (recurrent state, as in Qwen 3.5). `checkpoint` then stands in for it.
-    public private(set) var canTrim = true
+    private var canTrim = true
+    /// Tokens decoded before the first generated one, in the last request.
+    private(set) var prefilled = 0
     /// The recurrent state a few tokens before the last prompt's end, and how many tokens that is.
     private var checkpoint: (count: Int, state: [UInt8])?
 
-    /// `stopBelow` ends a request as soon as its first word falls below the gate. Nil keeps generating, for offline replay.
-    public init(modelPath: String, stopBelow: Double? = Gate.threshold) throws {
+    public init(modelPath: String) throws {
         path = modelPath
-        self.stopBelow = stopBelow
         llama_log_set({ _, _, _ in }, nil)
         llama_backend_init()
         try queue.sync { try load() }
@@ -58,17 +52,14 @@ public final class Engine: @unchecked Sendable {
     deinit { unload() }
 
     /// `onResult` runs on the engine's queue after each token, and with nil if there is nothing to suggest. A cancelled
-    /// request says nothing more. `onFinish`, if given, always runs last.
-    public func suggest(prefix: String, fragment: String, composing: String = "", onResult: @escaping @Sendable (Suggestion?) -> Void,
-                        onFinish: (@Sendable (RequestStats) -> Void)? = nil) {
+    /// request says nothing more, and one whose first word falls below the gate ends there.
+    public func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
         let id = latest.add(1, ordering: .sequentiallyConsistent).newValue
-        queue.async { [self] in
-            var stats = RequestStats()
-            run(id, prefix, fragment, composing, onResult, &stats)
-            stats.cancelled = isStale(id)
-            onFinish?(stats)
-        }
+        queue.async { [self] in run(id, prefix, fragment, composing, onResult) }
     }
+
+    /// Returns when the requests so far have ended.
+    func finish() { queue.sync {} }
 
     public func cancel() { latest.add(1, ordering: .sequentiallyConsistent) }
 
@@ -104,8 +95,7 @@ public final class Engine: @unchecked Sendable {
         canTrim = !llama_model_is_recurrent(model) && !llama_model_is_hybrid(model)
     }
 
-    private func run(_ id: Int, _ prefix: String, _ fragment: String, _ composing: String, _ onResult: (Suggestion?) -> Void,
-                     _ stats: inout RequestStats) {
+    private func run(_ id: Int, _ prefix: String, _ fragment: String, _ composing: String, _ onResult: (Suggestion?) -> Void) {
         guard !isStale(id) else { return }
         if ctx == nil { try? load() }
         guard let ctx, let vocab, !prefix.isEmpty else { return onResult(nil) }
@@ -114,11 +104,10 @@ public final class Engine: @unchecked Sendable {
         // shortcut: past the context we keep the tail, losing the cached head; `contextTokens` is sized so this is rare.
         let room = Int(Self.contextTokens) - fragment.utf8.count - Stop.maxTokens - 2
         if prompt.count > room { prompt.removeFirst(prompt.count - room) }
-        stats.promptTokens = prompt.count
-        guard !prompt.isEmpty, prefill(prompt, ctx, id, &stats) else { return isStale(id) ? () : onResult(nil) }
+        guard !prompt.isEmpty, prefill(prompt, ctx, id) else { return isStale(id) ? () : onResult(nil) }
 
         var need = Constraint(fragment: fragment, composing: composing)
-        var suggestion = Suggestion(text: "", tokens: [], plain: [], done: false)
+        var suggestion = Suggestion(text: "", gate: nil)
         var shown = ""
         while true {
             let logits = UnsafeBufferPointer(start: llama_get_logits_ith(ctx, -1), count: vocab.count)
@@ -126,16 +115,13 @@ public final class Engine: @unchecked Sendable {
             let piece = vocab.piece(pick.token)
             need.consume(piece)
             suggestion.tokens.append(Token(bytes: Array(piece), logprob: pick.logprob, special: pick.isEnd))
-            suggestion.plain.append(pick.plain)
-            stats.generated += 1
 
             let cut = Stop.cut(suggestion.tokens, fragment: fragment)
             let finished = cut.done || (!cut.text.isEmpty && Word.firstEnd(cut.text) != cut.text.endIndex)
             suggestion.text = cut.text
             suggestion.gate = finished ? Gate.firstWord(suggestion.tokens, fragment: fragment) : nil
-            suggestion.done = cut.done || (stopBelow != nil && suggestion.gate.map { $0 < stopBelow! } == true)
             guard !isStale(id) else { return }
-            if suggestion.done { return onResult(cut.text.isEmpty ? nil : suggestion) }
+            if cut.done || suggestion.gate.map({ $0 < Gate.threshold }) == true { return onResult(cut.text.isEmpty ? nil : suggestion) }
             if cut.text != shown { onResult(suggestion); shown = cut.text }
 
             var next = pick.token
@@ -150,7 +136,8 @@ public final class Engine: @unchecked Sendable {
 
     /// Brings the memory to `prompt` by decoding only what differs. False if cancelled or failed; what was decoded stays
     /// usable by the next request. The last token is always decoded, for its logits.
-    private func prefill(_ prompt: [llama_token], _ ctx: OpaquePointer, _ id: Int, _ stats: inout RequestStats) -> Bool {
+    private func prefill(_ prompt: [llama_token], _ ctx: OpaquePointer, _ id: Int) -> Bool {
+        prefilled = 0
         var keep = min(zip(cached, prompt).prefix { $0 == $1 }.count, prompt.count - 1)
         if keep < cached.count {
             keep = trim(to: keep, ctx)
@@ -168,7 +155,7 @@ public final class Engine: @unchecked Sendable {
                 return false
             }
             cached += batch
-            stats.prefilled += batch.count
+            prefilled += batch.count
             keep = end
             if keep == saveAt { save(ctx, count: keep) }
         }
@@ -321,27 +308,21 @@ struct Constraint {
 
 struct Pick: Equatable {
     var token: llama_token
-    /// Log probability over the allowed tokens, and over the whole vocabulary.
-    var logprob: Double, plain: Double
+    /// Log probability over the allowed tokens.
+    var logprob: Double
     var isEnd: Bool
 
     static func best(_ logits: UnsafeBufferPointer<Float>, allowed: (Int) -> Bool, isEnd: (Int) -> Bool) -> Pick? {
-        var best = -1, top = -Float.infinity, overallTop = -Float.infinity
+        var best = -1, top = -Float.infinity
         var mask = [Bool](repeating: false, count: logits.count)
-        for t in 0..<logits.count {
-            overallTop = max(overallTop, logits[t])
-            guard allowed(t) else { continue }
+        for t in 0..<logits.count where allowed(t) {
             mask[t] = true
             if logits[t] > top { (best, top) = (t, logits[t]) }
         }
         guard best >= 0 else { return nil }
         // log-sum-exp, relative to the top, so nothing over- or underflows.
-        var allowedMass = 0.0, totalMass = 0.0
-        for t in 0..<logits.count {
-            totalMass += exp(Double(logits[t] - overallTop))
-            if mask[t] { allowedMass += exp(Double(logits[t] - top)) }
-        }
-        return Pick(token: llama_token(best), logprob: -log(allowedMass),
-                    plain: Double(top - overallTop) - log(totalMass), isEnd: isEnd(best))
+        var mass = 0.0
+        for t in 0..<logits.count where mask[t] { mass += exp(Double(logits[t] - top)) }
+        return Pick(token: llama_token(best), logprob: -log(mass), isEnd: isEnd(best))
     }
 }

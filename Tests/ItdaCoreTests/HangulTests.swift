@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-import TwoSet
 @testable import ItdaCore
 
 @Test(arguments: [
@@ -91,7 +90,7 @@ func fieldFindsTheComposingCharacter(sentence: String) {
 
 @Test(arguments: [("그 달", true, "달", "그 "), ("그 ㄷ", true, "ㄷ", "그 "), ("그 ㅘ", true, "ㅘ", "그 "), ("그 달", false, "", "그 달"), ("그 ", true, "", "그 "), ("go", true, "", "go"), ("", true, "", "")])
 func composingRule(before: String, korean: Bool, composing: String, committed: String) {
-    let field = Field(before: before, koreanInput: korean)
+    let field = Field(before: before, mayCompose: korean)
     #expect(field.composing == composing)
     #expect(field.committed == committed)
 }
