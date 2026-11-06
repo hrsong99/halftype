@@ -24,7 +24,8 @@ final class KeyTap: @unchecked Sendable {
         /// A syllable may be open, for hosts that don't report marked text: the last physical key was a letter, or a Backspace with one
         /// open. A click, an arrow, Return or a shortcut commits it. Wrong towards true would type a stray jamo after a committed syllable.
         var composing = false
-        /// What the field will hold once our last accept lands; Tab-Tab can beat the host's update.
+        /// What the field will hold once our last accept lands; Tab-Tab can beat the host's update. Any other input ends it, as the
+        /// field then holds something else: Tab, Backspace, and `hello ther` would otherwise read as on its way to `hello there`.
         var pending: (from: String, to: String)?
 
         mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String)? {
@@ -59,6 +60,7 @@ final class KeyTap: @unchecked Sendable {
         state.withLock {
             $0.generation += 1
             $0.armed = nil
+            $0.pending = nil
         }
     }
 
@@ -97,6 +99,7 @@ final class KeyTap: @unchecked Sendable {
             s.armed = nil
             s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
             if case .accept(let all) = decision, let armed, armed.pid == target { plan = s.accept(armed, all: all) }
+            if plan == nil { s.pending = nil }
             return (s.generation, decision)
         }
         if let plan {
