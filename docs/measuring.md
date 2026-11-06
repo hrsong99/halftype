@@ -32,7 +32,7 @@ Typing 48 letters through a ghost in the private window of `scripts/e2e.sh --fli
 | At once, on the next main-thread turn | 46 of 48, hidden 6-8 ms (p50, p90) | 22 single blank frames at 60 Hz, about 4 flashes a second |
 | One frame later (shipped) | 0 from typing | 0 blank frames (only the no-ghost a mid-word line end asks for) |
 
-A native host answers in under 8 ms. **Chromium's time isn't measured**: if it is over a frame the ghost still blanks there. `docs/live-test.md` step 12 is that check.
+A native host answers in under 8 ms. **Chromium's time isn't measured**: if it is over a frame the ghost still blanks there. `docs/live-test.md` step 10 is that check.
 
 ## How well it predicts
 
