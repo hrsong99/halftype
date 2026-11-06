@@ -1,0 +1,96 @@
+import Testing
+@testable import ItdaCore
+
+@Test(arguments: [
+    // before, prefix, fragment: the outputs of the bench's split_fragment plus its trim path
+    ("do yo", "do", " yo"), ("do yo ", "do yo", ""), ("do yo  ", "do yo", ""),
+    ("foo.ba", "foo.", "ba"), ("foo. ba", "foo.", " ba"), ("foo,", "foo,", ""), ("foo, ", "foo,", ""),
+    ("한국어 주민등", "한국어", " 주민등"), ("한국어 ", "한국어", ""), ("a\nba", "a", "\nba"), ("a  b", "a", "  b"),
+    ("x don't", "x", " don't"), ("x it’s", "x", " it’s"), ("x snake_ca", "x", " snake_ca"), ("price 12", "price", " 12"),
+    ("mixed 한글wor", "mixed", " 한글wor"), ("line\n", "line\n", ""),
+])
+func splitsLikeTheBench(before: String, prefix: String, fragment: String) {
+    #expect(Prompt.make(context: "", before: before) == Prompt(prefix: prefix, fragment: fragment))
+}
+
+@Test func contextComesFirstAndAWholeFieldWordHoldsOut() {
+    #expect(Prompt.make(context: "Note.", before: "go ho") == Prompt(prefix: "Note.\n\ngo", fragment: " ho"))
+    #expect(Prompt.make(context: "Note.", before: "hel") == Prompt(prefix: "Note.\n\n", fragment: "hel"))
+    #expect(Prompt.make(context: "Note.", before: "") == Prompt(prefix: "Note.\n\n", fragment: ""))
+}
+
+@Test func withNothingElseTheFragmentIsThePrompt() {
+    #expect(Prompt.make(context: "", before: "hel") == Prompt(prefix: "hel", fragment: ""))
+    #expect(Prompt.make(context: "", before: "  hel") == Prompt(prefix: "  hel", fragment: ""))
+    #expect(Prompt.make(context: "", before: "  ") == Prompt(prefix: "", fragment: ""))
+}
+
+@Test(arguments: [
+    ("그 달", true, "그", ""), ("기분이 좋으시게", true, "기분이", " 좋으시"), ("기분이 좋으시게", false, "기분이", " 좋으시게"),
+    ("그 달 ", true, "그 달", ""), ("do yo", true, "do", " yo"), ("달", true, "", ""),
+])
+func aPossiblyComposingCharacterIsWithheld(before: String, korean: Bool, prefix: String, fragment: String) {
+    #expect(Prompt.make(context: "", field: Field(before: before, koreanInput: korean)) == Prompt(prefix: prefix, fragment: fragment))
+}
+
+@Test func headStaysStableThroughContinuousComposition() {
+    var previous = ""
+    for state in TwoSet.trace("오늘 다라가 값이 괜찮아 없어요") {
+        let prompt = Prompt.make(context: "", field: state.field)
+        #expect(prompt.prefix.hasPrefix(previous), "\(state)")
+        previous = prompt.prefix
+    }
+}
+
+@Test func windowJumpsByStepAndKeepsTheEnd() {
+    let at = { (n: Int) in Prompt.make(context: "", before: String(repeating: "x", count: n)) }
+    #expect(at(Prompt.windowChars).prefix.count == Prompt.windowChars)
+    #expect(at(Prompt.windowChars + 1).prefix.count == Prompt.windowChars + 1 - Prompt.stepChars)
+    #expect(at(5000).prefix.count <= Prompt.windowChars)
+}
+
+/// The property the cache depends on: typing only ever appends to the prompt, except at a jump of whole steps.
+@Test func headStaysByteIdenticalWhileTyping() {
+    let words = ["the", "quiet", "river", "don't", "오늘은", "날씨가", "맑아서", "값이", "well,", "다라"]
+    var draft = ""
+    var i = 7
+    while draft.count < 4000 {
+        i = (i * 31 + 11) % 97
+        draft += words[i % words.count] + (i % 13 == 0 ? ".\n" : " ")
+    }
+    let context = String(repeating: "Earlier text on the screen, frozen. ", count: 20)
+
+    var previous = Prompt.make(context: context, before: "").prefix
+    var jumps = 0
+    for count in 1...draft.count {
+        let prompt = Prompt.make(context: context, before: String(draft.prefix(count)))
+        #expect(prompt.prefix.count <= Prompt.windowChars)
+        #expect(!prompt.prefix.hasSuffix(" "))
+        // A newline ends the prompt until a word follows it, then moves to the fragment, as in the bench.
+        let head = previous[..<(previous.lastIndex { !$0.isWhitespace }.map(previous.index(after:)) ?? previous.endIndex)]
+        if !prompt.prefix.utf8.starts(with: head.utf8) {
+            jumps += 1
+            #expect(prompt.prefix.utf8.starts(with: head.dropFirst(Prompt.stepChars).utf8), "at \(count) the head changed without a jump")
+        }
+        previous = prompt.prefix
+    }
+    let total = context.count + 2 + draft.count
+    #expect(jumps == (total - Prompt.windowChars) / Prompt.stepChars + 1 || jumps == (total - Prompt.windowChars) / Prompt.stepChars)
+}
+
+@Test(arguments: [
+    // Literals as the bench's prefix_grammar writes them. The bench's `tail` rule is inlined to make one line.
+    (" yo", #"root ::= " yo" [^\x01]*"#),
+    ("a\"b", #"root ::= "a\"b" [^\x01]*"#),
+    ("c\\d", #"root ::= "c\\d" [^\x01]*"#),
+    ("\nba", #"root ::= "\nba" [^\x01]*"#),
+    ("\t값", #"root ::= "\t값" [^\x01]*"#),
+    (" 주민등", #"root ::= " 주민등" [^\x01]*"#),
+    // Beyond the bench, which passes these through raw
+    ("\r\nx", #"root ::= "\r\nx" [^\x01]*"#),
+    ("\u{0B}x", #"root ::= "\x0bx" [^\x01]*"#),
+])
+func grammarEscapes(fragment: String, grammar: String) {
+    #expect(Grammar.forcing(fragment: fragment) == grammar)
+    #expect(!grammar.contains("\n"))
+}
