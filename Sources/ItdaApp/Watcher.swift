@@ -53,7 +53,12 @@ final class Watcher: @unchecked Sendable {
         tap.onDismiss = { [weak self] in self?.queue.async { self?.clearSuggestion() } }
         // A key that changes nothing brings no update, and only time can tell, so a ghost Tab no longer accepts stays one frame: no hand
         // presses Tab within it, and hiding at once blanks the ghost on half the keys of typing through it. See docs/measuring.md.
-        tap.onInput = { [weak self] in DispatchQueue.main.asyncAfter(deadline: .now() + Self.oneFrame) { self?.hideDisarmed() } }
+        // A later key has its own frame, which this one's timer must not cut short.
+        tap.onInput = { [weak self] generation in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.oneFrame) {
+                if self?.tap.generation == generation { self?.hideDisarmed() }
+            }
+        }
     }
 
     // MARK: Binding
@@ -258,8 +263,11 @@ final class Watcher: @unchecked Sendable {
         let twoSet = twoSet.load(ordering: .relaxed)
         var ghost = ghost
         if twoSet { ghost.remainder = TwoSetLayout.typable(ghost.remainder) }
-        guard !ghost.remainder.isEmpty, let focused, let caret = reading.caret, !Reader.isRightToLeft(field.before, ghost.remainder),
-              let traits = Reader.traits(focused, before: reading.field.before) else { return hideOnMain() }
+        guard !ghost.remainder.isEmpty, let focused, let caret = reading.caret, !Reader.isRightToLeft(field.before, ghost.remainder) else { return hideOnMain() }
+        guard let traits = Reader.traits(focused, before: reading.field.before) else {
+            last = nil  // A good read isn't a good draw: the next notification may find the same field, and must try again.
+            return hideOnMain()
+        }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
                              mayWrap: reading.field.after.allSatisfy(\.isWhitespace))

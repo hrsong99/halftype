@@ -1,6 +1,6 @@
 #!/bin/zsh
 # End-to-end checks in a private window that never takes focus. Needs this terminal to hold Accessibility.
-# Flags: --ime (live Korean 2-set, needs you idle for 15 s), --flicker, --engine <gguf>, --measure <gguf>, --shots <dir>.
+# Flags: --ime (live Korean 2-set, needs you idle for 15 s), --flicker, --stale, --engine <gguf>, --measure <gguf>, --shots <dir>.
 set -euo pipefail
 cd "${0:A:h}/.."
 # Optimised, as it is measured, and testable, as it reaches into the app.

@@ -48,8 +48,8 @@ final class KeyTap: @unchecked Sendable {
     static let ownEvent: Int64 = 0x49544441
 
     let state = Mutex(State())
-    /// Off this thread at once.
-    var onInput: (@Sendable () -> Void)?
+    /// Off this thread at once. Given the generation this input moved to.
+    var onInput: (@Sendable (Int) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
     private var port: CFMachPort?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
@@ -96,10 +96,12 @@ final class KeyTap: @unchecked Sendable {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode), flags = event.flags
         let target = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
         var plan: (strokes: [TwoSetLayout.Stroke]?, text: String)?
+        var generation = 0
         let decision = state.withLock { s -> Decision in
             let armed = s.armed
             let decision = Self.decide(type: type, keyCode: keyCode, flags: flags, armed: armed != nil)
             s.generation += 1
+            generation = s.generation
             s.armed = nil
             s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
             if case .accept(let all) = decision, let armed, armed.pid == target { plan = s.accept(armed, all: all) }
@@ -111,7 +113,7 @@ final class KeyTap: @unchecked Sendable {
         }
         if decision == .reenable, let port { CGEvent.tapEnable(tap: port, enable: true) }
         if decision == .passAndDismiss { onDismiss?() }
-        onInput?()
+        onInput?(generation)
         return plan != nil
     }
 

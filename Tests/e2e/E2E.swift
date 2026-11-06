@@ -42,6 +42,16 @@ final class TestTextView: NSTextView {
     }
     override func complete(_ sender: Any?) {}  // Escape's completion list.
 
+    /// One font read that comes back empty, as a host's can in passing.
+    var failsNextAttributes = false
+    override func accessibilityAttributedString(for range: NSRange) -> NSAttributedString? {
+        if failsNextAttributes {
+            failsNextAttributes = false
+            return nil
+        }
+        return super.accessibilityAttributedString(for: range)
+    }
+
     /// A host that hasn't got to its keys yet, or never will.
     var holdsKeys = false
     private var heldKeys: [NSEvent] = []
@@ -307,6 +317,7 @@ enum EndToEnd {
         }
         if CommandLine.arguments.contains("--ime") { return ime() }
         if CommandLine.arguments.contains("--flicker") { return flicker() }
+        if CommandLine.arguments.contains("--stale") { return staleSnapshots() }
         frontAtStart = frontmost()
         ghostAtCaret()
         hides()
@@ -607,6 +618,33 @@ enum EndToEnd {
             check(!h.visible && !h.armed, "key between draw and arm: the draw is gone at once")
             onMain { h.view.letKeysThrough() }
         }
+        do {
+            // Key A's hide comes due while key B's update is still on its way, called by hand as the 12 ms between them can't be posted reliably.
+            let (h, _) = raceHarness()
+            defer { h.close() }
+            let a = h.tap.generation
+            let b = h.tap.state.withLock { s -> Int in
+                s.generation += 1
+                s.armed = nil
+                return s.generation
+            }
+            h.tap.onInput?(a)
+            usleep(60_000)
+            check(onMain { h.panel.isVisible }, "overlapping keys: the older key's hide leaves the newer key's grace alone")
+            h.tap.onInput?(b)
+            check(eventually { !h.visible }, "overlapping keys: the newer key's own hide still comes")
+        }
+        do {
+            // One failed font read, then a notification that reads the same field: a read isn't a draw.
+            let (h, _) = raceHarness()
+            defer { h.close() }
+            onMain { h.view.failsNextAttributes = true }
+            h.watcher.redraw()
+            check(eventually { !h.visible && !h.armed }, "failed font read: hidden and disarmed")
+            check(onMain { !h.view.failsNextAttributes }, "failed font read: it really failed")
+            h.watcher.scheduleUpdate()
+            check(eventually { h.visible && h.armed }, "failed font read: the same reading draws it again")
+        }
     }
 
     /// The tap as it ships, on the session stream, in front of a last tap that eats everything the test marks or the tap posts, so
@@ -796,21 +834,26 @@ extension EndToEnd {
         accepts("on from a committed syllable", start: "그 하", typed: "", suggestion: "늘은 맑아", ghost: "늘은 맑아", first: "늘은", rest: " 맑아")
 
         // Every composition state of harder words: type a prefix of the keys, Tab for all of it at burst speed, expect the word.
-        var bad: [String] = [], states = 0
+        var bad: [String] = [], missing: [String] = [], states = 0
         for word in ["괜찮아요", "닭고기", "없어요", "앉아서", "많이", "의사", "뷁", "왜요", "떡볶이", "빨리", "까치", "짜장", "쌀밥", "예의", "외워", "됐어", "읽어"] {
             let keys = Array(Hangul.keys(word))
             for count in 1..<keys.count {
                 begin(suggestion: " " + word + " 끝")
+                // A burst can land before this fixed answer does, and it only fits the field as it was asked: it'd say nothing of the app.
+                check(eventually { h.armed }, "\(word)@\(count): the answer is in before its keys")
                 press(String(keys[..<count]))
                 _ = eventually(1) { Hangul.keys(h.text) == "그 " + String(keys[..<count]) }
-                _ = eventually(0.2) { h.armed }  // Nothing to draw once the keys reach the word's end.
-                guard h.armed else { continue }
+                // ` 끝` is always left to draw, so every state has a ghost.
+                guard eventually(1, { h.armed }) else {
+                    missing.append("\(word)@\(count): '\(h.text)'")
+                    continue
+                }
                 states += 1
                 tabKey(all: true)
                 if !eventually(1, { h.text == "그 \(word) 끝" }) { bad.append("\(word)@\(count): '\(h.text)'") }
             }
         }
-        check(bad.isEmpty && states > 40, "\(states) composing states of 17 hard words finish right \(bad)")
+        check(bad.isEmpty && missing.isEmpty && states > 40, "\(states) composing states of 17 hard words finish right \(bad), none without a ghost \(missing)")
 
         // A long sentence in one burst, through every kind of key.
         let sentence = " 오늘 회의는 세 시에 시작하고, 끝나면 3층에서 다시 정리해서 공유드리겠습니다! 괜찮으세요? 네(확인)."
