@@ -42,17 +42,22 @@ public final class Engine: @unchecked Sendable {
     /// The recurrent state a few tokens before the last prompt's end, and how many tokens that is.
     private var checkpoint: (count: Int, state: [UInt8])?
 
-    public init(modelPath: String) throws {
+    public convenience init(modelPath: String) throws {
+        self.init(unloaded: modelPath)
+        try queue.sync { try load() }
+    }
+
+    init(unloaded modelPath: String) {
         path = modelPath
         // Metal wires the whole model (1.5 GB here) for as long as this lasts, 3 minutes by default, which no one sees in Activity Monitor.
         // 15 s covers typing at full speed; after that the weights are ordinary evictable pages, at about 30 ms on the next request.
         setenv("GGML_METAL_RESIDENCY_KEEP_ALIVE_S", "15", 0)
         llama_log_set({ _, _, _ in }, nil)
         llama_backend_init()
-        try queue.sync { try load() }
     }
 
-    deinit { unload() }
+    // May run on `queue`, when a request's closure held the last reference. With none left, nothing else can be using these.
+    deinit { release() }
 
     /// `onResult` runs on the engine's queue after each token, and with nil if there is nothing to suggest. A cancelled
     /// request says nothing more, and one whose first word falls below the gate ends there.
@@ -70,11 +75,19 @@ public final class Engine: @unchecked Sendable {
     /// at exit if a model is still loaded.
     public func unload() {
         cancel()
-        queue.sync {
-            if let ctx { llama_free(ctx) }
-            if let model { llama_model_free(model) }
-            (ctx, model, vocab, cached, checkpoint) = (nil, nil, nil, [], nil)
-        }
+        queue.sync { release() }
+    }
+
+    private func release() {
+        if let ctx { llama_free(ctx) }
+        if let model { llama_model_free(model) }
+        (ctx, model, vocab, cached, checkpoint) = (nil, nil, nil, [], nil)
+    }
+
+    /// Tokens the prompt may take, as each byte the output must match can cost one. Nil if none are left.
+    static func promptRoom(fragment: String, composing: String) -> Int? {
+        let room = Int(contextTokens) - fragment.utf8.count - composing.utf8.count - Stop.maxTokens - 2
+        return room > 0 ? room : nil
     }
 
     private func isStale(_ id: Int) -> Bool { latest.load(ordering: .sequentiallyConsistent) != id }
@@ -103,9 +116,10 @@ public final class Engine: @unchecked Sendable {
         if ctx == nil { try? load() }
         guard let ctx, let vocab, !prefix.isEmpty else { return onResult(nil) }
 
+        // A fragment too long to force back in the context: nothing to suggest.
+        guard let room = Self.promptRoom(fragment: fragment, composing: composing) else { return onResult(nil) }
         var prompt = vocab.tokenize(prefix)
         // shortcut: past the context we keep the tail, losing the cached head; `contextTokens` is sized so this is rare.
-        let room = Int(Self.contextTokens) - fragment.utf8.count - Stop.maxTokens - 2
         if prompt.count > room { prompt.removeFirst(prompt.count - room) }
         guard !prompt.isEmpty, prefill(prompt, ctx, id) else { return isStale(id) ? () : onResult(nil) }
 
@@ -246,9 +260,8 @@ final class Vocab {
             }
             if !need.held.isEmpty { return need.agrees(tail: bytes[s..<e]) }
             let codes = keyCodes[Int(keyStarts[t])..<Int(keyStarts[t + 1])]
-            // A token with no whole character yet may still begin one.
-            if codes.isEmpty { return bytes[s] >= 0xC0 }
-            return codes.prefix(need.keys.count).elementsEqual(need.keys.prefix(codes.count))
+            guard codes.prefix(need.keys.count).elementsEqual(need.keys.prefix(codes.count)) else { return false }
+            return bytes[e - 1] < 0x80 || need.agrees(tail: bytes[s..<e])
         }, isEnd: { [self] in ends[$0] })
     }
 
@@ -294,8 +307,25 @@ struct Constraint {
 
     func agrees(tail: some Collection<UInt8>) -> Bool {
         if keys.isEmpty { return true }
-        let codes = Self.keyCodes(held + tail).codes
-        return codes.prefix(keys.count).elementsEqual(keys.prefix(codes.count))
+        let joined = held + tail
+        let (codes, rest) = Self.keyCodes(joined)
+        guard codes.prefix(keys.count).elementsEqual(keys.prefix(codes.count)) else { return false }
+        return rest == 0 || codes.count >= keys.count || Self.canBegin(joined.suffix(rest), keys: keys.dropFirst(codes.count))
+    }
+
+    /// Could these bytes, the start of one character, finish as a syllable or jamo that agrees with `keys`? Only those that could count.
+    static func canBegin(_ partial: some Collection<UInt8>, keys: ArraySlice<UInt16>) -> Bool {
+        let start = Array(partial)
+        guard (1...2).contains(start.count), (0xE0...0xEF).contains(start[0]), let first = keys.first, let key = Unicode.Scalar(first) else { return false }
+        // Every Hangul character is three bytes, so a start pins a range of scalars.
+        let low = (UInt32(start[0] & 0x0F) << 12) | (start.count > 1 ? UInt32(start[1] & 0x3F) << 6 : 0)
+        let range = low...(low | (start.count > 1 ? 0x3F : 0xFFF))
+        let onset = Hangul.onsets.firstIndex(of: Character(key)).map { UInt32(0xAC00 + $0 * 588)..<UInt32(0xAC00 + ($0 + 1) * 588) } ?? 0..<0
+        return (Array(onset) + Array(UInt32(0x3131)...UInt32(0x3163))).contains { value in
+            guard range.contains(value), let scalar = Unicode.Scalar(value) else { return false }
+            let codes = Hangul.keys(String(scalar)).utf16
+            return codes.prefix(keys.count).elementsEqual(keys.prefix(codes.count))
+        }
     }
 
     mutating func consume(_ piece: ArraySlice<UInt8>) {

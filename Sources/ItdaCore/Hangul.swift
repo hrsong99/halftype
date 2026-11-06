@@ -1,7 +1,7 @@
 import Foundation
 
 public enum Hangul {
-    static let onsets = Array("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ")
+    package static let onsets = Array("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ")
     static let vowels = Array("ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ")
     static let finals = Array("ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ")
     /// Letters typed as two keys on a 2-set layout.
@@ -11,7 +11,7 @@ public enum Hangul {
     ]
 
     /// A syllable or a jamo, compatibility or conjoining.
-    static func isHangul(_ c: Character) -> Bool {
+    public static func isHangul(_ c: Character) -> Bool {
         guard let v = c.unicodeScalars.first?.value else { return false }
         return (0xAC00...0xD7A3).contains(v) || (0x3131...0x3163).contains(v) || (0x1100...0x11FF).contains(v)
     }

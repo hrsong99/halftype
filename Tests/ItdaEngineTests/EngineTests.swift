@@ -69,6 +69,7 @@ private let long = String(repeating: "The river runs past the old mill and on to
     let fresh = try #require(run(engine, long, " shou"))
     engine.unload()
     #expect(reused.text == fresh.text)
+    #expect(reused.tokens.count == fresh.tokens.count)
     #expect(zip(reused.tokens, fresh.tokens).allSatisfy { abs($0.logprob - $1.logprob) < 0.05 })
 }
 
@@ -123,4 +124,45 @@ private let long = String(repeating: "The river runs past the old mill and on to
     defer { engine.unload() }
     let text = try #require(run(engine, "오늘 날씨가 정말 좋아서 공원에", " 산책", composing: "하")).text
     #expect(Hangul.fits(composing: "하", suggestion: text))
+}
+
+@Test func anImpossibleStartOfACharacterIsRejected() throws {
+    let han = Array("한".utf8)  // ED 95 9C
+    let need = Constraint(fragment: "", composing: "하")
+    #expect(!need.agrees(tail: [0xEA]))  // Starts no syllable with ㅎ.
+    #expect(need.agrees(tail: [0xED]))
+    #expect(need.agrees(tail: han[..<2]))
+    #expect(!need.agrees(tail: [0xED, 0x80]))  // 퀀's neighbourhood, ㅋ.
+    #expect(need.agrees(tail: han))
+    #expect(need.agrees(tail: [0xE3, 0x85]))  // The lone jamo ㅎ is E3 85 8E.
+    var held = need
+    held.consume([0xED])
+    #expect(held.agrees(tail: [0x95]))
+    #expect(!held.agrees(tail: [0x80]))
+    // Three tokens: the mask, and so the probability, leaves out the impossible one.
+    let tokens: [[UInt8]] = [[0xEA], [0xED, 0x95], han]
+    let logits: [Float] = [log(0.5), log(0.3), log(0.2)]
+    let pick = try #require(logits.withUnsafeBufferPointer { Pick.best($0, allowed: { need.agrees(tail: tokens[$0]) }, isEnd: { _ in false }) })
+    #expect(pick.token == 1)
+    #expect(abs(pick.logprob - log(0.3 / 0.5)) < 1e-6)
+}
+
+@Test func aFragmentTooLongForTheContextIsNoRequest() {
+    #expect(Engine.promptRoom(fragment: String(repeating: "a", count: 1000), composing: "") == nil)
+    #expect(Engine.promptRoom(fragment: String(repeating: "한", count: 300), composing: "") == nil)
+    #expect(Engine.promptRoom(fragment: " sho", composing: "하") == 900 - 4 - 3 - Stop.maxTokens - 2)
+}
+
+@Test func droppingTheLastOwnerDuringARequestEndsCleanly() {
+    weak var weakEngine: Engine?
+    let done = DispatchSemaphore(value: 0)
+    do {
+        // No model at this path, so the request ends in nil on the engine's queue, holding the last reference.
+        let engine = Engine(unloaded: "/nonexistent.gguf")
+        weakEngine = engine
+        engine.suggest(prefix: "x", fragment: "", composing: "") { _ in usleep(50_000); done.signal() }
+    }
+    done.wait()
+    for _ in 0..<100 where weakEngine != nil { usleep(10_000) }
+    #expect(weakEngine == nil)
 }
