@@ -38,7 +38,7 @@ enum AX {
     }
 }
 
-/// What is true of a field for as long as it has focus.
+/// The text's look at the caret, read with it, as zoom or a resize can change it at any time.
 struct FieldTraits {
     var fontSize: CGFloat
     var fontName: String?
@@ -51,6 +51,8 @@ struct Reading: Equatable {
     var field: Field
     var caret: CGRect?
     var frame: CGRect
+    /// The host reports a non-empty marked range. Absence says nothing: Chromium reports no range, and Apple's 2-set can leave an empty one over a live syllable.
+    var marked: Bool
     var previousCharacter: String { field.before.last.map(String.init) ?? "" }
 }
 
@@ -68,12 +70,12 @@ enum Reader {
 
     /// Nil when there is no text to continue from here: no value, or a non-empty selection.
     /// shortcut: reads the whole value on each change (1-3 ms in the fields tested); use AXStringForRange if huge documents lag.
-    static func read(_ e: AXUIElement, mayCompose: Bool) -> Reading? {
+    static func read(_ e: AXUIElement) -> Reading? {
         guard let value = AX.get(e, "AXValue") as? String, let selection = AX.range(AX.get(e, "AXSelectedTextRange")),
               let (before, after) = slice(value, selection) else { return nil }
         let frame = AX.rect(AX.get(e, "AXFrame")) ?? .zero
-        return Reading(field: Field(before: before, after: after, mayCompose: mayCompose),
-                       caret: caret(e, before: before, frame: frame), frame: frame)
+        return Reading(field: Field(before: before, after: after), caret: caret(e, before: before, frame: frame), frame: frame,
+                       marked: (AX.range(AX.get(e, "AXTextInputMarkedRange"))?.length ?? 0) > 0)
     }
 
     /// By the selection, never the value's length: T3 reports a trailing newline, and length 1 when empty.
@@ -106,7 +108,15 @@ enum Reader {
         return caretRect(marker: nil, previous: AX.bounds(e, location: before.utf16.count - length, length: length), frame: frame)
     }
 
-    /// Font, colour and left text edge, read once per focused field from the character before the caret.
+    /// The ghost is laid out rightward from the caret, and on a right-to-left line neither that nor the caret's edge holds, so no ghost.
+    static func isRightToLeft(_ before: String, _ ghost: String) -> Bool {
+        let line = before[(before.lastIndex(where: \.isNewline).map(before.index(after:)) ?? before.startIndex)...]
+        return (line + ghost).unicodeScalars.contains { scalar in
+            [0x0590...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF, 0x10800...0x10FFF, 0x1E800...0x1EFFF].contains { $0.contains(scalar.value) }
+        }
+    }
+
+    /// Font, colour and left text edge, from the character before the caret.
     static func traits(_ e: AXUIElement, before: String) -> FieldTraits? {
         guard let attributes = previousCharacterAttributes(e, before: before),
               let font = attributes[NSAttributedString.Key("AXFont")] as? [String: Any],

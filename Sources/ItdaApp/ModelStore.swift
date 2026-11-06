@@ -13,6 +13,8 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
     let directory: URL
     var onChange: (@Sendable (State) -> Void)?
     private var session: URLSession?
+    /// Where a failed download stopped. Gone if the server refused to resume, so the next try starts over.
+    private(set) var resumeData: Data?
 
     init(directory: URL) {
         self.directory = directory
@@ -30,7 +32,7 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
         let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
         self.session = session
         onChange?(.downloading(0))
-        session.downloadTask(with: Self.url).resume()
+        (resumeData.map(session.downloadTask(withResumeData:)) ?? session.downloadTask(with: Self.url)).resume()
     }
 
     static func verify(_ file: URL, size: Int64, sha256: String) throws -> Bool {
@@ -50,7 +52,7 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         onChange?(.verifying)
         do {
-            guard (downloadTask.response as? HTTPURLResponse).map({ $0.statusCode == 200 }) ?? true,
+            guard (downloadTask.response as? HTTPURLResponse).map({ [200, 206].contains($0.statusCode) }) ?? true,
                   try Self.verify(location, size: Self.size, sha256: Self.sha256) else {
                 return finish(.failed("The download didn't match its checksum."))
             }
@@ -64,7 +66,9 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if let error { finish(.failed(error.localizedDescription)) }
+        guard let error else { return }
+        resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+        finish(.failed(error.localizedDescription))
     }
 
     private func finish(_ state: State) {

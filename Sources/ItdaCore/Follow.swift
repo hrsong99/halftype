@@ -32,7 +32,7 @@ public enum Follow {
     }
 }
 
-/// The input method finishes the syllable from `keys`, and `text` follows, which commits it. Never delete and retype.
+/// The input method finishes the syllable from `keys`, and `text` follows. Never delete and retype.
 public enum Accept {
     public static func nextWord(_ ghost: Ghost) -> (keys: String, text: String) {
         (ghost.keys, String(ghost.remainder[..<Word.firstEnd(ghost.remainder)]))

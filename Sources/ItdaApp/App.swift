@@ -18,6 +18,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var modelLine = "Model: not loaded"
     private var tapFailed = false
     private var permissionTimer: Timer?
+    private let loading = DispatchQueue(label: "itda.load", qos: .userInitiated)
+    private var latestOpen = 0
 
     private var on: Bool {
         get { UserDefaults.standard.object(forKey: "on") as? Bool ?? true }
@@ -80,8 +82,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         watcher.koreanInput.store(property(kTISPropertyInputSourceLanguages, as: [String].self)?.first == "ko", ordering: .relaxed)
         watcher.twoSet.store(property(kTISPropertyInputSourceID, as: String.self) == TwoSetLayout.source, ordering: .relaxed)
-        tap.composing.store(false, ordering: .relaxed)  // Switching source commits.
-        watcher.scheduleUpdate()
+        tap.state.withLock { $0.composing = false }  // Switching source commits.
+        watcher.hideNow()
+        watcher.redraw()
     }
 
     @objc private func spaceChanged() {
@@ -121,14 +124,18 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Loading takes a moment and compiles Metal pipelines, so it stays off the main thread.
+    /// Loading takes a moment and compiles Metal pipelines, so it stays off the main thread. One at a time, and the last choice wins.
     private func open(_ path: String) {
         modelLine = "Loading " + URL(fileURLWithPath: path).lastPathComponent + "…"
-        DispatchQueue.global(qos: .userInitiated).async { [self] in
+        latestOpen += 1
+        let id = latestOpen
+        loading.async { [self] in
             let engine = try? Engine(modelPath: path)
             DispatchQueue.main.async { [self] in
+                guard id == latestOpen else { return }
                 modelLine = engine == nil ? "Could not load that model" : modelName(path)
                 watcher.queue.async { [self] in
+                    watcher.completer?.cancel()
                     watcher.completer = engine
                     watcher.unloadWhenIdle()
                 }

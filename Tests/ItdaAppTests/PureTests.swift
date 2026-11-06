@@ -103,30 +103,123 @@ import Testing
 }
 
 @Suite struct KeyTests {
-    func decide(_ code: Int64, _ flags: CGEventFlags = [], own: Bool = false, armed: Bool = true, type: CGEventType = .keyDown) -> KeyTap.Decision {
-        KeyTap.decide(type: type, keyCode: code, flags: flags, own: own, armed: armed)
+    func decide(_ code: Int64, _ flags: CGEventFlags = [], armed: Bool = true, type: CGEventType = .keyDown) -> KeyTap.Decision {
+        KeyTap.decide(type: type, keyCode: code, flags: flags, armed: armed)
     }
     @Test func tabOnlyWhenArmed() {
         #expect(decide(48) == .accept(all: false))
         #expect(decide(48, .maskShift) == .accept(all: true))
         #expect(decide(48, armed: false) == .pass)
-        #expect(decide(48, own: true) == .pass)
         #expect(decide(48, .maskCommand) == .pass)
         #expect(decide(48, [.maskShift, .maskAlternate]) == .pass)
         #expect(decide(0) == .pass)
+        #expect(decide(53, armed: false) == .passAndDismiss)
     }
     @Test func reenables() {
         #expect(decide(0, type: .tapDisabledByTimeout, ) == .reenable)
         #expect(decide(0, armed: false, type: .tapDisabledByUserInput) == .reenable)
     }
-    @Test func onlyAnUnmodifiedLetterKeepsASyllableOpen() {
-        #expect(KeyTap.composes(type: .keyDown, keyCode: 5, flags: []))
-        #expect(KeyTap.composes(type: .keyDown, keyCode: 5, flags: .maskShift))
-        #expect(!KeyTap.composes(type: .keyDown, keyCode: 5, flags: .maskCommand))
-        #expect(!KeyTap.composes(type: .keyDown, keyCode: 49, flags: []))  // space
-        #expect(!KeyTap.composes(type: .keyDown, keyCode: 51, flags: []))  // delete
-        #expect(!KeyTap.composes(type: .keyDown, keyCode: 123, flags: []))  // left arrow
-        #expect(!KeyTap.composes(type: .leftMouseDown, keyCode: 5, flags: []))
+    @Test func onlyALetterOrABackspaceFromOneKeepsASyllableOpen() {
+        func composes(after was: Bool = false, _ code: Int64, _ flags: CGEventFlags = [], type: CGEventType = .keyDown) -> Bool {
+            KeyTap.composes(after: was, type: type, keyCode: code, flags: flags)
+        }
+        #expect(composes(5))
+        #expect(composes(5, .maskShift))
+        #expect(!composes(5, .maskCommand))
+        #expect(!composes(after: true, 49))  // space
+        #expect(composes(after: true, 51))  // delete, from a live syllable
+        #expect(!composes(after: false, 51))
+        #expect(!composes(after: true, 123))  // left arrow
+        #expect(!composes(after: true, 5, type: .leftMouseDown))
+    }
+
+    // The transaction, through the callback's own code, with events no one receives.
+    let pid: pid_t = 4242
+    func key(_ code: CGKeyCode, pid target: pid_t = 4242, flags: CGEventFlags = []) -> CGEvent {
+        let event = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true)!
+        event.flags = flags
+        event.setIntegerValueField(.eventTargetUnixProcessID, value: Int64(target))
+        return event
+    }
+    func armed(_ tap: KeyTap, _ ghost: Ghost, typesKeys: Bool = false, committed: String = "hello") {
+        #expect(tap.arm(.init(pid: pid, ghost: ghost, typesKeys: typesKeys, committed: committed, before: committed), generation: tap.generation))
+    }
+    /// Text of Unicode events, jamo by key code.
+    func press(_ tap: KeyTap, _ event: CGEvent, type: CGEventType = .keyDown) -> (swallowed: Bool, posted: [CGEvent]) {
+        var posted: [CGEvent] = []
+        let swallowed = tap.handle(type, event) { posted.append($0) }
+        return (swallowed, posted)
+    }
+    func unicode(_ events: [CGEvent]) -> String {
+        events.filter { $0.getIntegerValueField(.keyboardEventKeycode) == 0 && $0.type == .keyDown }.map {
+            var length = 0, units = [UniChar](repeating: 0, count: 32)
+            $0.keyboardGetUnicodeString(maxStringLength: 32, actualStringLength: &length, unicodeString: &units)
+            return String(utf16CodeUnits: units, count: length)
+        }.joined()
+    }
+
+    @Test func tabPostsAndSwallowsWithNoQueueAndDoubleTabNeedsNoRead() {
+        let tap = KeyTap()
+        armed(tap, Ghost(remainder: " there friend"))
+        let first = press(tap, key(48))
+        #expect(first.swallowed && unicode(first.posted) == " there")
+        let second = press(tap, key(48))
+        #expect(second.swallowed && unicode(second.posted) == " friend")
+        #expect(tap.state.withLock { $0.armed == nil && $0.pending?.to == "hello there friend" && $0.pending?.from == "hello" })
+        #expect(!press(tap, key(48)).swallowed)  // Nothing left: Tab is the app's.
+    }
+    @Test func tabThenReturnKeepsItsOrderAndDisarms() {
+        let tap = KeyTap()
+        armed(tap, Ghost(remainder: " there friend"))
+        #expect(press(tap, key(48)).swallowed)
+        let enter = press(tap, key(36))
+        #expect(!enter.swallowed && enter.posted.isEmpty)
+        #expect(!press(tap, key(48)).swallowed)
+    }
+    @Test func anyOtherKeyOrClickLeavesTabToTheApp() {
+        for (type, event) in [(CGEventType.keyDown, key(0)), (.leftMouseDown, key(0)), (.rightMouseDown, key(0)), (.tapDisabledByTimeout, key(0))] {
+            let tap = KeyTap()
+            armed(tap, Ghost(remainder: " there"))
+            _ = press(tap, event, type: type)
+            let tab = press(tap, key(48))
+            #expect(!tab.swallowed && tab.posted.isEmpty)
+        }
+    }
+    @Test func anotherAppsTabPasses() {
+        let tap = KeyTap()
+        armed(tap, Ghost(remainder: " there"))
+        let tab = press(tap, key(48, pid: 99))
+        #expect(!tab.swallowed && tab.posted.isEmpty)
+    }
+    @Test func aStaleDrawCantArm() {
+        let tap = KeyTap()
+        let before = tap.generation
+        tap.invalidate()
+        #expect(!tap.arm(.init(pid: pid, ghost: Ghost(remainder: "x"), typesKeys: false, committed: "", before: ""), generation: before))
+        let keyed = tap.generation
+        _ = press(tap, key(0))
+        #expect(!tap.arm(.init(pid: pid, ghost: Ghost(remainder: "x"), typesKeys: false, committed: "", before: ""), generation: keyed))
+    }
+    @Test func hangulIsTypedAndLeavesTheLastSyllableOpen() {
+        let tap = KeyTap()
+        armed(tap, Ghost(keys: "ㄴ", composing: "한", remainder: " 다음, 3"), typesKeys: true, committed: "그 ")
+        let posted = press(tap, key(48)).posted.filter { $0.type == .keyDown }
+        #expect(posted.map { $0.getIntegerValueField(.keyboardEventKeycode) } == [1, 49, 14, 40, 2, 46, 0])  // ㄴ space ㄷㅏㅇㅡㅁ
+        #expect(tap.state.withLock { $0.composing && $0.pending?.to == "그 한 다음" })
+        _ = press(tap, key(48))  // Ends in a digit: nothing open.
+        #expect(tap.state.withLock { !$0.composing })
+    }
+    @Test func typableStopsAtWhatTheLayoutCantType() {
+        #expect(TwoSetLayout.typable("전거 file") == "전거")
+        #expect(TwoSetLayout.typable(" 다음, 3시에!") == " 다음, 3시에!")
+        #expect(TwoSetLayout.typable(" file") == "")
+        #expect(TwoSetLayout.typable(", file") == "")
+        #expect(TwoSetLayout.typable("끝 😀") == "끝")
+    }
+    @Test func rightToLeftOnTheCaretsLineIsNoGhost() {
+        #expect(Reader.isRightToLeft("hello שלום", " x"))
+        #expect(Reader.isRightToLeft("hello", " مرحبا"))
+        #expect(!Reader.isRightToLeft("שלום\nhello", " 안녕"))
     }
     @Test func twoSetCoversEveryJamoTheCoreCanAskFor() throws {
         // All the keys of every syllable, by Hangul's own tables.
@@ -136,6 +229,7 @@ import Testing
         }
         #expect(TwoSetLayout.strokes("ㅃ")?.first?.shift == true && TwoSetLayout.strokes("ㅂ")?.first?.shift == false)
         #expect(TwoSetLayout.strokes("a") == nil)
+        #expect(TwoSetLayout.strokes("?")?.first?.shift == true && TwoSetLayout.strokes(" ")?.first?.code == 49)
     }
     @Test func chunksKeepCharactersWhole() {
         let family = "👨‍👩‍👧‍👦"
@@ -156,5 +250,13 @@ import Testing
         #expect(try ModelStore.verify(file, size: 3, sha256: abc))
         #expect(try !ModelStore.verify(file, size: 4, sha256: abc))
         #expect(try !ModelStore.verify(file, size: 3, sha256: String(repeating: "0", count: 64)))
+    }
+    @Test func aFailureKeepsWhereItStoppedAndARefusalLetsItGo() throws {
+        let store = ModelStore(directory: FileManager.default.temporaryDirectory)
+        let session = URLSession(configuration: .ephemeral), task = session.dataTask(with: ModelStore.url)
+        store.urlSession(session, task: task, didCompleteWithError: NSError(domain: NSURLErrorDomain, code: -1, userInfo: [NSURLSessionDownloadTaskResumeData: Data("here".utf8)]))
+        #expect(store.resumeData == Data("here".utf8))
+        store.urlSession(session, task: task, didCompleteWithError: NSError(domain: NSURLErrorDomain, code: -3003))
+        #expect(store.resumeData == nil)
     }
 }

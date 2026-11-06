@@ -30,29 +30,30 @@ final class Watcher: @unchecked Sendable {
     private var observer: AXObserver?
     private var focused: AXUIElement?
     private var editable = false
+    private var pid: pid_t = 0
     private var context: String?
-    private var traits: FieldTraits?
     private var suggestion: (anchor: String, text: String)?
     private var last: Reading?
+    /// The tap's generation when `last` was read: a later key means it may no longer be what the field holds.
+    private var lastGeneration = 0
     private var request = 0
     private var unloadWork: DispatchWorkItem?
-    private var pending: (from: String, to: String)?
-    /// Where our key events go. Tests send them to a private window.
-    var post: (CGEvent) -> Void = { $0.post(tap: .cgSessionEventTap) }
 
     var completer: Completer?
     /// Read on the main thread, as TIS requires, and kept here.
     let koreanInput = Atomic<Bool>(false)
     let twoSet = Atomic<Bool>(false)
-    private var mayCompose: Bool { koreanInput.load(ordering: .relaxed) && tap.composing.load(ordering: .relaxed) }
 
     init(tap: KeyTap, panel: GhostPanel) {
         self.tap = tap
         self.panel = panel
         // On the system-wide element this is the default for every element read later, children included.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), AX.timeout)
-        tap.onAccept = { [weak self] all in self?.queue.async { self?.accept(all: all) } }
-        tap.onDismiss = { [weak self] in self?.queue.async { self?.dismiss() } }
+        tap.onDismiss = { [weak self] in self?.queue.async { self?.clearSuggestion() } }
+        tap.onInput = { [weak self] generation, now in
+            // A key that changes nothing brings no update, and a ghost Tab no longer accepts mustn't stay. Long enough for the host's answer.
+            DispatchQueue.main.asyncAfter(deadline: .now() + (now ? 0 : 0.1)) { self?.hideDisarmed(since: generation) }
+        }
     }
 
     // MARK: Binding
@@ -71,6 +72,7 @@ final class Watcher: @unchecked Sendable {
             guard AXObserverCreate(pid, callback, &created) == .success, let observer = created else { return }
             self.app = app
             self.observer = observer
+            self.pid = pid
             for name in Self.appNotifications { AXObserverAddNotification(observer, app, name as CFString, refcon) }
             CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
             refocus()
@@ -94,6 +96,7 @@ final class Watcher: @unchecked Sendable {
         case "AXWindowMoved", "AXWindowResized":
             hideNow()
         case "AXFocusedUIElementChanged", "AXFocusedWindowChanged", "AXMainWindowChanged":
+            hideNow()  // Before the read, which may stall: from here Tab belongs to whatever has focus.
             queue.async { [self] in
                 refocus()
                 update()
@@ -112,10 +115,21 @@ final class Watcher: @unchecked Sendable {
         }
     }
 
+    /// The field may read the same, and the ghost should still change: the input source moved.
+    func redraw() {
+        queue.async { [self] in
+            last = nil
+            update()
+        }
+    }
+
     private func refocus() {
         guard let app, let observer else { return }
         let now = AX.element(AX.get(app, "AXFocusedUIElement"))
-        if let now, let focused, CFEqual(now, focused) { return }
+        if let now, let focused, CFEqual(now, focused) {
+            last = nil  // Hidden for this notification, with nothing else to bring it back.
+            return
+        }
         if let focused { for name in Self.fieldNotifications { AXObserverRemoveNotification(observer, focused, name as CFString) } }
         forget()
         focused = now
@@ -134,22 +148,26 @@ final class Watcher: @unchecked Sendable {
     private func forget() {
         completer?.cancel()
         request += 1
-        (editable, context, traits, suggestion, last, pending) = (false, nil, nil, nil, nil, nil)
-        tap.composing.store(false, ordering: .relaxed)
+        (editable, context, suggestion, last) = (false, nil, nil, nil)
+        tap.state.withLock { ($0.composing, $0.pending) = (false, nil) }
         hideOnMain()
     }
 
     // MARK: The path
 
     private func update() {
-        guard editable, let focused, let reading = Reader.read(focused, mayCompose: mayCompose) else {
+        let generation = tap.generation  // Before the read: whatever comes after it is a change this read may not have seen.
+        guard editable, let focused, var reading = Reader.read(focused) else {
             last = nil
             clearSuggestion()
             return
         }
+        reading.field.mayCompose = mayCompose(reading)
         // One key brings several notifications; only the first of them finds anything new.
         if reading == last { return }
-        last = reading
+        // A key during the read may be in it, and its notification must not then find nothing new.
+        last = tap.generation == generation ? reading : nil
+        lastGeneration = generation
         let field = settled(reading.field)
         if field.before.isEmpty {
             // A message was sent, so what's above has changed. It is read again with the first character typed, not now: the
@@ -162,8 +180,13 @@ final class Watcher: @unchecked Sendable {
             clearSuggestion()
             return
         }
+        // Any other Korean layout: a composition could swallow text we insert, and there's no telling, so no ghost.
+        if koreanInput.load(ordering: .relaxed), !twoSet.load(ordering: .relaxed), let end = field.before.last, Hangul.isHangul(end) {
+            clearSuggestion()
+            return
+        }
         if let suggestion, let ghost = Follow.check(anchor: suggestion.anchor, suggestion: suggestion.text, field: field) {
-            display(ghost, reading)
+            display(ghost, field, reading, generation)
             return
         }
         clearSuggestion()
@@ -175,23 +198,29 @@ final class Watcher: @unchecked Sendable {
         field.after.first.map { !$0.isNewline } ?? false
     }
 
-    /// `pending` is what the field will hold once our last accept lands. Tab-Tab can beat the host's update, and accepting from the
-    /// old text would insert the same word twice. On the way, 갑 is neither where 가 was nor where 값이 will be; only moving
-    /// forward between them counts, so a field cleared or edited meanwhile lets it go.
-    private func settled(_ field: Field) -> Field {
-        guard let pending else { return field }
-        let keys = Hangul.keys(field.before)
-        if field.before != pending.to, keys.hasPrefix(Hangul.keys(pending.from)), Hangul.keys(pending.to).hasPrefix(keys) {
-            return Field(before: pending.to, after: field.after)
+    /// A marked range is exact when there is one. Without one the key history decides.
+    private func mayCompose(_ reading: Reading) -> Bool {
+        guard twoSet.load(ordering: .relaxed) else { return false }
+        if reading.marked { return true }
+        return tap.state.withLock {
+            // Backspace past a composition's first jamo takes a character away, and what's left was committed.
+            if let last, reading.field.before.count < last.field.before.count { $0.composing = false }
+            return $0.composing
         }
-        self.pending = nil
-        return field
     }
 
-    /// What Tab would type before inserting. Nil if that can't be done here, which means no ghost: any Korean layout but 2-set.
-    private func strokes(_ ghost: Ghost) -> [TwoSetLayout.Stroke]? {
-        if ghost.keys.isEmpty { return [] }
-        return twoSet.load(ordering: .relaxed) ? TwoSetLayout.strokes(ghost.keys) : nil
+    /// On the way from `from` to `to`, 갑 is neither where 가 was nor where 값이 will be; only moving forward between them counts,
+    /// so a field cleared or edited meanwhile lets it go. A late read can't bring back text already accepted.
+    private func settled(_ field: Field) -> Field {
+        tap.state.withLock {
+            guard let pending = $0.pending else { return field }
+            let keys = Hangul.keys(field.before)
+            if field.before != pending.to, keys.hasPrefix(Hangul.keys(pending.from)), Hangul.keys(pending.to).hasPrefix(keys) {
+                return Field(before: pending.to, after: field.after, mayCompose: field.mayCompose)
+            }
+            $0.pending = nil
+            return field
+        }
     }
 
     private func ask(_ field: Field) {
@@ -201,6 +230,7 @@ final class Watcher: @unchecked Sendable {
         guard !prompt.prefix.isEmpty else { return }
         let anchor = field.committed
         request += 1
+        lastGeneration = tap.generation
         let id = request
         completer.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: prompt.composing) { [weak self] result in
             guard let result else { return }
@@ -221,19 +251,24 @@ final class Watcher: @unchecked Sendable {
         guard id == request, let gate, gate >= Gate.threshold, let last else { return }
         suggestion = (anchor, text)
         // A field that has already moved on brings its own update.
-        if let ghost = Follow.check(anchor: anchor, suggestion: text, field: settled(last.field)) { display(ghost, last) }
+        let field = settled(last.field)
+        if let ghost = Follow.check(anchor: anchor, suggestion: text, field: field) { display(ghost, field, last, lastGeneration) }
     }
 
-    private func display(_ ghost: Ghost, _ reading: Reading) {
-        guard strokes(ghost) != nil, let focused, let caret = reading.caret else { return hideOnMain() }
-        if traits == nil { traits = Reader.traits(focused, before: reading.field.before) }
-        guard let traits else { return hideOnMain() }
+    private func display(_ ghost: Ghost, _ field: Field, _ reading: Reading, _ generation: Int) {
+        let twoSet = twoSet.load(ordering: .relaxed)
+        var ghost = ghost
+        if twoSet { ghost.remainder = TwoSetLayout.typable(ghost.remainder) }
+        guard !ghost.remainder.isEmpty, let focused, let caret = reading.caret, !Reader.isRightToLeft(field.before, ghost.remainder),
+              let traits = Reader.traits(focused, before: reading.field.before) else { return hideOnMain() }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
                              mayWrap: reading.field.after.allSatisfy(\.isWhitespace))
+        let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before)
         DispatchQueue.main.async { [self] in
-            tap.armed.store(panel.show(spec), ordering: .relaxed)
-            showScrollWatch()
+            guard tap.generation == generation else { return }
+            guard panel.show(spec) else { return hidePanel() }
+            if tap.arm(armed, generation: generation) { showScrollWatch() }
         }
     }
 
@@ -244,46 +279,34 @@ final class Watcher: @unchecked Sendable {
         hideOnMain()
     }
 
-    private func dismiss() {
-        suggestion = nil
-        hideOnMain()
-    }
-
-    // MARK: Accepting
-
-    /// Read again, as the ghost may be a keystroke behind. If nothing is left to accept the Tab goes on to the app.
-    func accept(all: Bool) {
-        if let focused, let suggestion, let read = Reader.read(focused, mayCompose: mayCompose)?.field {
-            let field = settled(read)
-            if let ghost = Follow.check(anchor: suggestion.anchor, suggestion: suggestion.text, field: field), let strokes = strokes(ghost) {
-                let accepted = all ? Accept.all(ghost) : Accept.nextWord(ghost)
-                pending = (pending?.from ?? read.before, field.committed + ghost.composing + accepted.text)
-                Inserter.press(field.composing.isEmpty ? strokes : strokes + [Inserter.commitKey], post: post)
-                Inserter.insert(accepted.text, post: post)
-                tap.composing.store(false, ordering: .relaxed)  // Inserting commits.
-                return
-            }
-        }
-        KeyTap.repostTab(shift: all, post: post)
-    }
-
     // MARK: Hiding
 
     private var scrollMonitor: Any?
 
     /// Scrolling moves text with no AX notification. A passive monitor, up only while a ghost shows, needs no permission.
     private func showScrollWatch() {
-        guard tap.armed.load(ordering: .relaxed), scrollMonitor == nil else { return }
-        scrollMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.scrollWheel, .leftMouseDown]) { [weak self] _ in self?.hideNow() }
+        guard scrollMonitor == nil else { return }
+        scrollMonitor = NSEvent.addGlobalMonitorForEvents(matching: .scrollWheel) { [weak self] _ in self?.hideNow() }
     }
 
+    /// Anywhere. From the queue the hide comes later, and what's queued for the main thread before it still finds itself stale.
     private func hideOnMain() {
-        DispatchQueue.main.async { [self] in hideNow() }
+        tap.invalidate()
+        DispatchQueue.main.async { [self] in hidePanel() }
     }
 
     /// Main thread.
     func hideNow() {
-        tap.armed.store(false, ordering: .relaxed)
+        tap.invalidate()
+        hidePanel()
+    }
+
+    /// Main thread. Moves no generation: a request still on its way is still good.
+    private func hideDisarmed(since generation: Int) {
+        if tap.state.withLock({ $0.generation == generation && $0.armed == nil }) { hidePanel() }
+    }
+
+    private func hidePanel() {
         panel.hideGhost()
         if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
         scrollMonitor = nil

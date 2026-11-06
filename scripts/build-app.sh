@@ -15,6 +15,7 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks" "$app/Contents/Resources"
 cp "$bin/Itda" "$app/Contents/MacOS/Itda"
 for framework in "$bin"/*.framework(N); do cp -R "$framework" "$app/Contents/Frameworks/"; done
+cp scripts/llama.cpp-LICENSE "$app/Contents/Resources/llama.cpp-LICENSE"
 install_name_tool -add_rpath @executable_path/../Frameworks "$app/Contents/MacOS/Itda" 2>/dev/null || true
 
 cat > "$app/Contents/Info.plist" <<'PLIST'

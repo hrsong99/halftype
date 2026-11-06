@@ -1,64 +1,127 @@
 import AppKit
+import ItdaCore
 import Synchronization
 
-/// The active keyDown tap. It runs on its own thread, so nothing on the main thread can delay typing. Its callback only
-/// reads one flag and hands off: no AX, no model.
+/// The active tap, on its own thread. An accept is one transaction here: no AX, no queue, so nothing can come between the Tab
+/// and its text, and any other key or click disarms first, which leaves Tab the app's.
 final class KeyTap: @unchecked Sendable {
     enum Decision: Equatable { case pass, passAndDismiss, accept(all: Bool), reenable }
 
-    static let tabKey: Int64 = 48, escapeKey: Int64 = 53
-    /// Marks our own events, so a Tab handed back to the app passes this tap.
+    /// What Tab inserts, and where. Set only by a drawn ghost.
+    struct Armed {
+        var pid: pid_t
+        var ghost: Ghost
+        /// 2-set presses real keys; every other source inserts text.
+        var typesKeys: Bool
+        var committed: String
+        var before: String
+    }
+
+    struct State {
+        /// Moves on every physical event and every hide. Anything computed under an older value may not arm.
+        var generation = 0
+        var armed: Armed?
+        /// A syllable may be open, for hosts that don't report marked text: the last physical key was a letter, or a Backspace with one
+        /// open. A click, an arrow, Return or a shortcut commits it. Wrong towards true would type a stray jamo after a committed syllable.
+        var composing = false
+        /// What the field will hold once our last accept lands; Tab-Tab can beat the host's update.
+        var pending: (from: String, to: String)?
+
+        mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String)? {
+            let next = all ? Accept.all(armed.ghost) : Accept.nextWord(armed.ghost)
+            let strokes = armed.typesKeys ? TwoSetLayout.strokes(next.keys + Hangul.keys(next.text)) : nil
+            if armed.typesKeys && strokes == nil { return nil }
+            let to = armed.committed + armed.ghost.composing + next.text
+            let rest = String(armed.ghost.remainder.dropFirst(next.text.count))
+            pending = (pending?.from ?? armed.before, to)
+            self.armed = rest.isEmpty ? nil : Armed(pid: armed.pid, ghost: Ghost(remainder: rest), typesKeys: armed.typesKeys, committed: to, before: to)
+            composing = strokes?.last.map { TwoSetLayout.letterCodes.contains(Int64($0.code)) } ?? false  // As if the user typed it.
+            return (strokes, next.text)
+        }
+    }
+
+    static let tabKey: Int64 = 48, escapeKey: Int64 = 53, backspaceKey: Int64 = 51
+    /// Marks our own events, which are no physical input.
     static let ownEvent: Int64 = 0x49544441
 
-    /// True exactly while a ghost is on screen.
-    let armed = Atomic<Bool>(false)
-    /// The user's last act was a letter key, so under Korean input a syllable may be open. A click, an arrow, Return or a
-    /// shortcut commits it. Getting this wrong towards false only costs a ghost, as inserting text commits in order anyway.
-    let composing = Atomic<Bool>(false)
-    var onAccept: (@Sendable (_ all: Bool) -> Void)?
+    let state = Mutex(State())
+    /// Off this thread at once. `now` is for a click or Escape; a key may yet bring its own update.
+    var onInput: (@Sendable (_ generation: Int, _ now: Bool) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
     private var port: CFMachPort?
+    /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
+    private let pid: pid_t?
+    init(pid: pid_t? = nil) { self.pid = pid }
 
-    private let acceptKey: Int64
-    /// Another key only for testing this tap on a key that does nothing if it leaks.
-    init(acceptKey: Int64 = tabKey) { self.acceptKey = acceptKey }
+    var generation: Int { state.withLock { $0.generation } }
 
-    static func decide(type: CGEventType, keyCode: Int64, flags: CGEventFlags, own: Bool, armed: Bool, acceptKey: Int64 = tabKey) -> Decision {
+    func invalidate() {
+        state.withLock {
+            $0.generation += 1
+            $0.armed = nil
+        }
+    }
+
+    /// False if anything has happened since `generation`.
+    func arm(_ armed: Armed, generation: Int) -> Bool {
+        state.withLock {
+            guard $0.generation == generation else { return false }
+            $0.armed = armed
+            return true
+        }
+    }
+
+    static func decide(type: CGEventType, keyCode: Int64, flags: CGEventFlags, armed: Bool) -> Decision {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput { return .reenable }
-        guard type == .keyDown, !own, armed else { return .pass }
+        guard type == .keyDown else { return .pass }
         if keyCode == escapeKey { return .passAndDismiss }  // Without it a ghost keeps Tab from moving between fields.
-        guard keyCode == acceptKey, flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty else { return .pass }
+        guard armed, keyCode == tabKey, flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty else { return .pass }
         return .accept(all: flags.contains(.maskShift))
     }
 
-    static func composes(type: CGEventType, keyCode: Int64, flags: CGEventFlags) -> Bool {
-        type == .keyDown && TwoSetLayout.letterCodes.contains(keyCode) && flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty
+    static func composes(after was: Bool, type: CGEventType, keyCode: Int64, flags: CGEventFlags) -> Bool {
+        guard type == .keyDown, flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty else { return false }
+        return keyCode == backspaceKey ? was : TwoSetLayout.letterCodes.contains(keyCode)
+    }
+
+    /// True swallows the event.
+    func handle(_ type: CGEventType, _ event: CGEvent, post: (CGEvent) -> Void) -> Bool {
+        guard event.getIntegerValueField(.eventSourceUserData) != Self.ownEvent else { return false }
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode), flags = event.flags
+        let target = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
+        var plan: (strokes: [TwoSetLayout.Stroke]?, text: String)?
+        let (generation, decision) = state.withLock { s -> (Int, Decision) in
+            let armed = s.armed
+            let decision = Self.decide(type: type, keyCode: keyCode, flags: flags, armed: armed != nil)
+            s.generation += 1
+            s.armed = nil
+            s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
+            if case .accept(let all) = decision, let armed, armed.pid == target { plan = s.accept(armed, all: all) }
+            return (s.generation, decision)
+        }
+        if let plan {
+            if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
+        }
+        if decision == .reenable, let port { CGEvent.tapEnable(tap: port, enable: true) }
+        if decision == .passAndDismiss { onDismiss?() }
+        onInput?(generation, type != .keyDown || decision == .passAndDismiss)
+        return plan != nil
     }
 
     /// Needs Accessibility, so call only once trusted. Nil if the system refused.
     func start() -> Bool {
-        let callback: CGEventTapCallBack = { _, type, event, refcon in
+        let callback: CGEventTapCallBack = { proxy, type, event, refcon in
             let tap = Unmanaged<KeyTap>.fromOpaque(refcon!).takeUnretainedValue()
-            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-            let own = event.getIntegerValueField(.eventSourceUserData) == KeyTap.ownEvent
-            let decision = KeyTap.decide(type: type, keyCode: keyCode, flags: event.flags, own: own,
-                                         armed: tap.armed.load(ordering: .relaxed), acceptKey: tap.acceptKey)
-            switch decision {
-            case .pass, .passAndDismiss:
-                if decision == .passAndDismiss { tap.onDismiss?() }
-                if !own { tap.composing.store(KeyTap.composes(type: type, keyCode: keyCode, flags: event.flags), ordering: .relaxed) }
-                return Unmanaged.passUnretained(event)
-            case .accept(let all): tap.onAccept?(all); return nil
-            case .reenable:
-                tap.composing.store(false, ordering: .relaxed)  // Keys went by unseen.
-                if let port = tap.port { CGEvent.tapEnable(tap: port, enable: true) }
-                return Unmanaged.passUnretained(event)
-            }
+            // The proxy puts our events right here in the stream, ahead of any key already queued behind this one.
+            let swallow = tap.handle(type, event) { if let pid = tap.pid { $0.postToPid(pid) } else { $0.tapPostEvent(proxy) } }
+            return swallow ? nil : Unmanaged.passUnretained(event)
         }
         let events: [CGEventType] = [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
-        guard let port = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
-                                           eventsOfInterest: events.reduce(0) { $0 | CGEventMask(1 << $1.rawValue) }, callback: callback,
-                                           userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return false }
+        let mask = events.reduce(0) { $0 | CGEventMask(1 << $1.rawValue) }
+        let me = Unmanaged.passUnretained(self).toOpaque()
+        let created = pid.map { CGEvent.tapCreateForPid(pid: $0, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: mask, callback: callback, userInfo: me) }
+            ?? CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: mask, callback: callback, userInfo: me)
+        guard let port = created else { return false }
         self.port = port
         let thread = Thread {
             CFRunLoopAddSource(CFRunLoopGetCurrent(), CFMachPortCreateRunLoopSource(nil, port, 0), .commonModes)
@@ -68,14 +131,6 @@ final class KeyTap: @unchecked Sendable {
         thread.qualityOfService = .userInteractive
         thread.start()
         return true
-    }
-
-    /// A Tab swallowed for a ghost that turned out to be stale goes on to the app after all.
-    static func repostTab(shift: Bool, post: (CGEvent) -> Void) {
-        guard let event = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(tabKey), keyDown: true) else { return }
-        event.flags = shift ? .maskShift : []
-        event.setIntegerValueField(.eventSourceUserData, value: ownEvent)
-        post(event)
     }
 }
 
@@ -92,6 +147,17 @@ enum TwoSetLayout {
     ]
     private static let shifted: [Character: Character] = ["ㅃ": "ㅂ", "ㅉ": "ㅈ", "ㄸ": "ㄷ", "ㄲ": "ㄱ", "ㅆ": "ㅅ", "ㅒ": "ㅐ", "ㅖ": "ㅔ"]
 
+    /// What isn't jamo types itself. Not `\\`, `|`, `` ` `` or `~`, which the live input method types as something else.
+    private static let symbols: [Character: Stroke] = {
+        var out: [Character: Stroke] = [" ": (49, false)]
+        let keys: [(CGKeyCode, Character, Character)] = [
+            (18, "1", "!"), (19, "2", "@"), (20, "3", "#"), (21, "4", "$"), (23, "5", "%"), (22, "6", "^"), (26, "7", "&"), (28, "8", "*"), (25, "9", "("), (29, "0", ")"),
+            (27, "-", "_"), (24, "=", "+"), (33, "[", "{"), (30, "]", "}"), (41, ";", ":"), (39, "'", "\""), (43, ",", "<"), (47, ".", ">"), (44, "/", "?"),
+        ]
+        for (code, unshifted, shift) in keys { (out[unshifted], out[shift]) = ((code, false), (code, true)) }
+        return out
+    }()
+
     static let letterCodes = Set(plain.values.map(Int64.init))
 
     /// Nil if any of these isn't a key on the layout.
@@ -100,17 +166,22 @@ enum TwoSetLayout {
         for key in keys {
             if let code = plain[key] { out.append((code, false)) }
             else if let base = shifted[key], let code = plain[base] { out.append((code, true)) }
+            else if let symbol = symbols[key] { out.append(symbol) }
             else { return nil }
         }
         return out
     }
+
+    /// Up to the first character these keys can't type, as text inserted during a composition is what the input method swallows.
+    /// `전거 file` -> `전거`. Empty when no word is left.
+    static func typable(_ text: String) -> String {
+        guard let stop = text.firstIndex(where: { strokes(Hangul.keys(String($0))) == nil }) else { return text }
+        let cut = Word.withoutTrailingSpaces(text[..<stop])
+        return cut.contains(where: Word.isPart) ? String(cut) : ""
+    }
 }
 
 enum Inserter {
-    /// F18 ends a live composition with no text and no caret move. Without it the input method swallows a text event while there is
-    /// marked text, or lets it replace the syllable (`scripts/e2e.sh --ime`). Modifiers and JIS keys don't commit; Esc and arrows do, with
-    /// effects; F20 leaves a U+0010 in a text view; F14 and F15 can be brightness; F19 is a favourite for remapping.
-    static let commitKey: TwoSetLayout.Stroke = (79, false)
     /// `keyboardSetUnicodeString` silently truncates long strings.
     static let chunkUnits = 16
 

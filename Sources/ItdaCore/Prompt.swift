@@ -1,5 +1,5 @@
 /// One snapshot of the focused text field. Apps may report no marked text, leaving a composing character in `before`
-/// looking committed, so `mayCompose` says a syllable may be open: Korean input, and the user's last act was a letter key.
+/// looking committed, so `mayCompose` says a syllable may be open.
 public struct Field: Equatable, Sendable {
     public var before: String
     public var after: String

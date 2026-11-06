@@ -6,6 +6,7 @@ cd "${0:A:h}/.."
 # Optimised, as it is measured, and testable, as it reaches into the app.
 args=(-c release -Xswiftc -enable-testing --disable-keychain --scratch-path .build/e2e --product itda-e2e)
 swift build "${args[@]}" 2>&1 | grep -E "error|warning: unre|Build complete" || true
+(( pipestatus[1] == 0 ))  # Or the checks would run the last build's binary.
 bin="$(swift build "${args[@]}" --show-bin-path)/itda-e2e"
 # --ime selects the Korean source, which reaches the whole system. Whatever happens to the run, it goes back.
 source_before=$("$bin" --source-id)
