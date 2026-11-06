@@ -10,6 +10,7 @@ let package = Package(
     targets: [
         .target(name: "ItdaCore"),
         .target(name: "TwoSet", dependencies: ["ItdaCore"]),
+        // If the first build hangs here, SwiftPM is sending keychain GitHub credentials: `swift package --disable-keychain resolve`.
         .binaryTarget(name: "llama",
                       url: "https://github.com/ggml-org/llama.cpp/releases/download/b12167/llama-b12167-xcframework.zip",
                       checksum: "0af08b3039082b1575e6928063636eeb20d80cb5a389b26e37a36bc496a1066e"),
