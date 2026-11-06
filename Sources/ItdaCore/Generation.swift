@@ -69,9 +69,8 @@ public enum Stop {
 }
 
 public enum Gate {
-    /// Placeholder, to be re-fitted: −1.2 is from the replay bench, whose feature read past the first word and made
-    /// up probability mass from truncated candidate lists. No correctly computed value exists yet.
-    public static let threshold = -1.2
+    /// Fitted on dev threads for 80% precision on English: -0.7, -0.7 and -0.6 on Kanana 1.5 2.1B, Qwen 3.5 2B and Gemma 4 E2B.
+    public static let threshold = -0.7
 
     /// Log P(first word | it fits the fragment): the sum of `Token.logprob` from the token that first crosses the end
     /// of the fragment through the one that finishes the first word (`Word.firstEnd` on the new bytes). A token
