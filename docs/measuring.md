@@ -15,9 +15,9 @@ All of it on an M5 with 16 GB, llama.cpp b12167, Kanana 1.5 2.1B base (1.4 GB).
 - **While you type, the true cost is 1.5 GB of RAM nothing else can use, plus the footprint.** Metal wires the model's pages through a residency
   set. Activity Monitor's per-process Memory doesn't show it; the Wired figure at the bottom of its window does. `MTLDevice.currentAllocatedSize` says 1,472 MB.
 - RSS is the wrong number in both directions: it counts the weights the same whether wired or evictable. Footprint alone is too kind while typing.
-- By default ggml keeps this up for 3 minutes after the last request. Itda sets 15 s (`GGML_METAL_RESIDENCY_KEEP_ALIVE_S`). Requests while typing are unchanged, 99 ms.
+- By default ggml keeps this up for 3 minutes after the last request. Itda sets 15 s (`GGML_METAL_RESIDENCY_KEEP_ALIVE_S`). Requests while typing are unchanged within noise, 98-123 ms across runs.
   The first after a pause takes about 100 ms rather than 70. Turning residency off altogether adds 25-45 ms to every request, so it's not used.
-- `use_mmap` isn't what frees memory: mapped or not, Metal wires it for as long as the residency set lives.
+- `use_mmap` doesn't save you while typing: with it on, the default, the mapped pages are the ones wired. Off wasn't tested.
 - Unload and reload doesn't leak: footprint goes 158 MB to 160 MB over 55 cycles, after a first step up. Metal's own caches take that step.
 
 CPU: the shipped app, model loaded, idle, 0.27% of a core over 60 s, measured from outside. Typing at about 5 keys a second, 7-8%. Power isn't measured: `powermetrics` needs sudo.

@@ -260,6 +260,8 @@ enum EndToEnd {
         let asked = model.prompts.count
         typeToSelf("x")
         check(eventually { model.prompts.count > asked }, "typing off the suggestion asks again")
+        _ = eventually { h.text.hasSuffix("x") }  // Or it lands in the next test's window.
+        usleep(100_000)
     }
 
     static func hides() {
@@ -537,7 +539,8 @@ extension EndToEnd {
         h.tap.composing.store(true, ordering: .relaxed)
         // The composing argument reaches the model: 하 is withheld, and what comes back must fit its keys.
         typeToSelf("오늘 날씨가 정말 좋아서 공원에 산책하")
-        check(eventually(6) { h.visible }, "real engine, composing 하: '\(h.ghostText ?? "nil")'")
+        let before = h.ghostText
+        check(eventually(6) { h.visible && h.ghostText != before }, "real engine, composing 하: '\(h.ghostText ?? "nil")'")
     }
 
     private static func stats(_ what: String) {
