@@ -27,19 +27,19 @@ public struct Field: Equatable, Sendable {
 }
 
 /// The one word-boundary rule, for prompts, the gate, stopping and accepting, in Hangul and Latin alike.
-enum Word {
-    static func isPart(_ c: Character) -> Bool {
+package enum Word {
+    package static func isPart(_ c: Character) -> Bool {
         c.isLetter || c.isNumber || "'’_".contains(c)
     }
 
     /// Just past the first word: anything leading it, then its run of word characters.
     /// `u are` -> `u`, ` are we` -> ` are`, `?` -> `?`.
-    static func firstEnd<S: StringProtocol>(_ text: S) -> S.Index {
+    package static func firstEnd<S: StringProtocol>(_ text: S) -> S.Index {
         guard let start = text.firstIndex(where: isPart) else { return text.endIndex }
         return text[start...].firstIndex { !isPart($0) } ?? text.endIndex
     }
 
-    static func withoutTrailingSpaces<S: StringProtocol>(_ text: S) -> S.SubSequence {
+    package static func withoutTrailingSpaces<S: StringProtocol>(_ text: S) -> S.SubSequence {
         text[..<(text.lastIndex { $0 != " " }.map(text.index(after:)) ?? text.startIndex)]
     }
 }
@@ -53,10 +53,17 @@ public struct Prompt: Equatable, Sendable {
 
     public let prefix: String
     public let fragment: String
+    /// What the output must next agree with in 2-set keystrokes, not bytes: spaces the prompt dropped, then the withheld syllable.
+    public var composing = ""
 
     /// A composing syllable is withheld, because `하` on its way to `한` cannot be continued into `한`.
     public static func make(context: String, field: Field) -> Prompt {
-        make(context: context, before: field.committed)
+        var prompt = make(context: context, before: field.committed)
+        if !field.composing.isEmpty {
+            let spaces = field.committed.count - Word.withoutTrailingSpaces(field.committed).count
+            prompt.composing = String(repeating: " ", count: prompt.fragment.isEmpty ? spaces : 0) + field.composing
+        }
+        return prompt
     }
 
     /// With nothing else to send, the half-typed word is the prompt. Empty `prefix`: don't ask.

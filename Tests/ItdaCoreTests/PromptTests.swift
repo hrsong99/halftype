@@ -1,4 +1,5 @@
 import Testing
+import TwoSet
 @testable import ItdaCore
 
 @Test(arguments: [
@@ -30,7 +31,9 @@ func splitsLikeTheBench(before: String, prefix: String, fragment: String) {
     ("그 달 ", true, "그 달", ""), ("do yo", true, "do", " yo"), ("달", true, "", ""),
 ])
 func aPossiblyComposingCharacterIsWithheld(before: String, korean: Bool, prefix: String, fragment: String) {
-    #expect(Prompt.make(context: "", field: Field(before: before, koreanInput: korean)) == Prompt(prefix: prefix, fragment: fragment))
+    let prompt = Prompt.make(context: "", field: Field(before: before, koreanInput: korean))
+    #expect(prompt.prefix == prefix)
+    #expect(prompt.fragment == fragment)
 }
 
 @Test func headStaysStableThroughContinuousComposition() {
@@ -93,4 +96,15 @@ func aPossiblyComposingCharacterIsWithheld(before: String, korean: Bool, prefix:
 func grammarEscapes(fragment: String, grammar: String) {
     #expect(Grammar.forcing(fragment: fragment) == grammar)
     #expect(!grammar.contains("\n"))
+}
+
+@Test func composingCarriesTheSpacesThePromptDropped() {
+    let startOfWord = Prompt.make(context: "", field: Field(before: "오늘 날", koreanInput: true))
+    #expect(startOfWord.prefix == "오늘")
+    #expect(startOfWord.fragment == "")
+    #expect(startOfWord.composing == " 날")
+    let midWord = Prompt.make(context: "", field: Field(before: "오늘 날씨", koreanInput: true))
+    #expect(midWord.fragment == " 날")
+    #expect(midWord.composing == "씨")
+    #expect(Prompt.make(context: "", field: Field(before: "the wor")).composing == "")
 }

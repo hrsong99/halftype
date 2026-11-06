@@ -1,13 +1,14 @@
 import ItdaCore
 
-/// A continuous 2-set composer for tests: the field states a real IME goes through for a string. Typing 다라 passes
+/// A continuous 2-set composer for tests and replay: the field states a real IME goes through for a string. Typing 다라 passes
 /// through ㄷ, 다, 달, then 다 committed with 라 marked. Keys come from `Hangul.keys`; the composition is written here.
-enum TwoSet {
-    struct State: Equatable {
-        var before: String
-        var marked: String
+public enum TwoSet {
+    public struct State: Equatable, Sendable {
+        public var before: String
+        public var marked: String
+        public init(before: String, marked: String) { (self.before, self.marked) = (before, marked) }
         /// What the core gets: apps report no marked text, so the composing character is just in the field.
-        var field: Field { Field(before: before + marked, koreanInput: true) }
+        public var field: Field { Field(before: before + marked, koreanInput: true) }
     }
 
     private static let onsets = Array("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ")
@@ -23,7 +24,7 @@ enum TwoSet {
     }
 
     /// Every state after every key of `text`, starting from committed `start`, ending with the last syllable committed.
-    static func trace(_ text: String, start: String = "") -> [State] {
+    public static func trace(_ text: String, start: String = "") -> [State] {
         var before = start
         var onset: Character?, vowel: Character?, final: Character?
         var states: [State] = []
