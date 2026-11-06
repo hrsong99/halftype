@@ -15,7 +15,7 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks" "$app/Contents/Resources"
 cp "$bin/Itda" "$app/Contents/MacOS/Itda"
 for framework in "$bin"/*.framework(N); do cp -R "$framework" "$app/Contents/Frameworks/"; done
-cp scripts/llama.cpp-LICENSE "$app/Contents/Resources/llama.cpp-LICENSE"
+cp LICENSE scripts/llama.cpp-LICENSE Resources/AppIcon.icns Resources/MenuBarTemplate*.png "$app/Contents/Resources/"
 install_name_tool -add_rpath @executable_path/../Frameworks "$app/Contents/MacOS/Itda" 2>/dev/null || true
 
 cat > "$app/Contents/Info.plist" <<'PLIST'
@@ -25,6 +25,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
   <key>CFBundleIdentifier</key><string>app.itda.Itda</string>
   <key>CFBundleName</key><string>Itda</string>
   <key>CFBundleExecutable</key><string>Itda</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1</string>
   <key>CFBundleVersion</key><string>1</string>

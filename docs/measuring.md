@@ -36,8 +36,7 @@ A native host answers in under 8 ms. **Chromium's time isn't measured**: if it i
 
 ## How well it predicts
 
-The numbers behind the design (keystrokes saved, the gate threshold, composition states) came from a replay harness: real typing delays, the real engine, the real policy.
-It isn't in this tree, as it would add 400 lines and hold the engine's API open for one tool. It's at the tag `bench-1`:
+The replay harness runs the real engine and policy with real typing delays. It isn't in this tree, as it would add 400 lines and hold the engine's API open for one tool. It's at the tag `bench-1`:
 
 ```sh
 git checkout bench-1
@@ -45,6 +44,37 @@ swift run --disable-keychain itda-replay --model model.gguf --in yours.jsonl --o
 ```
 
 `yours.jsonl` has one `{"context": "...", "text": "..."}` per message: `text` is what was typed, `context` what was on screen. Any text of your own will do. The trace holds that text, so keep
-it private. Scoring is exact match, so a good paraphrase scores zero. No results quoting anyone's text are published here.
+it private. Scoring is exact match, so a good paraphrase scores zero, and it's in `Sources/itda-replay/Score.swift` at that tag.
+
+Results below are for the default model at the shipped threshold, -0.7, unless a cell says otherwise. Typing delays come from a 107-key histogram, p50 264 ms. Later commits only removed unused code from the engine and policy; the app's accepting and display have changed since, and replay doesn't cover those.
+
+**The text.** English: the author's own messages, each with the message before it as context. They aren't published, and neither is anything quoting them. Korean, public: dialogue from [SmileStyle](https://github.com/smilegate-ai/korean_smile_style_dataset), which is other people's style-transfer text, so it isn't how anyone writes messages. Korean, own: 70 of the author's messages, with Hangul inside mostly English text. That's a small sample, and half of them come from threads also used to fit the threshold on English. Threads are split, so none is in both the fitting and test sets. A real input method wasn't used in replay: composing states come from a model of 2-set.
+
+| What | English | Korean, public | Korean, own |
+|---|---|---|---|
+| Keystrokes saved, whole messages, Tab costs one key | **22.8%** (1,200 keys) | **8.8%** (1,200 keys) | **13.4%** (1,800 keys) |
+| Without the syllable replacement | | 7.1% | 11.9% |
+| Same, typing at twice the speed | 20.0% (800 keys) | 7.1% (800 keys) | |
+| Suggestions shown that were right | 84.9%, 919 of 1,082 (thread CI 82-88) | 31-34%, across three models | 55-61% on Hangul requests, across three models |
+| Coverage | 45.1% | | |
+| Wrong and shown, per request | 6.8% | | |
+| Keys with no model call | 48.2% | 26.9% | 28.1% |
+| First displayable word, p50 of requests that got that far | 60 ms, 86% got there | 102 ms, 62% | 114 ms, 58% |
+| Visible before the next key | 62.8% | 37.2% | 39.1% |
+
+- **The gate doesn't work for public Korean.** Precision stays at 31-35% at every threshold from -1.2 up, and half of the wrong ghosts have at least two characters right. It's the reason for the first limit in the README.
+- **Gate, English test set, all three models tried:** 82-85% right at 45-49% coverage, wrong and shown 7-9%, against 50-53% right and 44-46% wrong with no gate. 2,400 requests per model. Without conditioning on the fragment: 84-89% right, at 11-13% coverage.
+- **Korean, by composition state, keys saved per request:**
+
+| Set | State, n | Withhold | Send as text | Forced by 2-set keys (shipped) |
+|---|---|---|---|---|
+| Public | Mid-syllable, 1,099 | 0.34, wrong 8.8% | 0, wrong 8.4% | **0.69**, wrong 18.2% |
+| Public | Syllable final, 724 | 0.34, wrong 11.6% | 0.59, wrong 9.9% | **0.68**, wrong 22.1% |
+| Own | Mid-syllable, 455 | 0.75, wrong 8.1% | 0, wrong 4.8% | **1.11**, wrong 12.3% |
+| Own | Syllable final, 287 | 0.66, wrong 7.7% | **1.13**, wrong 3.8% | 0.91, wrong 12.5% |
+
+Where the syllable is already final, sending it is better on the author's own text. Forced wins overall, on 742 requests (1.03 against 0.44, CI +0.26 to +0.90), and needs no pause heuristic. So it stays.
+
+The live input method is a separate check, `scripts/e2e.sh --ime`: every composing state of 17 hard words, Tab finishing each in a native field. It needs you idle for 15 s, as it switches the system's input source.
 
 Each suggestion is also unit tested without a model or GUI (`swift test`), and against a real model with `ITDA_MODEL=<gguf> swift test`.

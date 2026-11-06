@@ -35,7 +35,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ note: Notification) {
-        status.button?.image = NSImage(systemSymbolName: "text.cursor", accessibilityDescription: "Itda")
+        // The symbol is for a binary run outside the bundle, as the e2e checks do.
+        let glyph = Bundle.main.image(forResource: "MenuBarTemplate") ?? NSImage(systemSymbolName: "text.cursor", accessibilityDescription: "Itda")
+        glyph?.isTemplate = true
+        glyph?.accessibilityDescription = "Itda"
+        status.button?.image = glyph
         let menu = NSMenu()
         menu.delegate = self
         status.menu = menu

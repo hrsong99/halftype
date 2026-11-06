@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">
+  <defs><linearGradient id="fade" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-opacity=".6"/><stop offset="1" stop-opacity=".12"/></linearGradient></defs>
+  <rect x="3" y="2.5" width="2.5" height="13" rx="1.25"/>
+  <rect x="7" y="7.75" width="9" height="2.5" rx="1.25" fill="url(#fade)"/>
+</svg>

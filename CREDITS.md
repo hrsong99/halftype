@@ -13,17 +13,18 @@ No code was copied into ItdaCore. It is an original implementation, and these ar
 | Gate on the first word's probability from the logits, conditional on fitting what was typed | [nilava/TabType](https://github.com/nilava/TabType), [nikiomori/Pretype](https://github.com/nikiomori/Pretype), [kolganovr/halfword](https://github.com/kolganovr/halfword), [MizuchiLabs/tsugi.nvim](https://github.com/MizuchiLabs/tsugi.nvim) | MIT; MIT; MIT; Apache-2.0 |
 | Byte-level matching, as tokens can split a character | [nilava/TabType](https://github.com/nilava/TabType), [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | MIT; MIT or Apache-2.0 |
 | Type-through decided by comparing field text, not key events | [MizuchiLabs/tsugi.nvim](https://github.com/MizuchiLabs/tsugi.nvim), [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | Apache-2.0; MIT or Apache-2.0 |
+| Compare the field's text to reuse a suggestion, again with no key events | [mekanismvibe/opentypist](https://github.com/mekanismvibe/opentypist), [Fedotoff-Alex/dopishi](https://github.com/Fedotoff-Alex/dopishi) | MIT; MIT |
+| Keep a sliding-window cache trimmable with `swa_full`, and ask the model what it can do rather than keep a table | [nilava/TabType](https://github.com/nilava/TabType), [whoisjson0/typer](https://github.com/whoisjson0/typer) | MIT; MIT |
 | Accept the next word or everything | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype), [MizuchiLabs/tsugi.nvim](https://github.com/MizuchiLabs/tsugi.nvim) | MIT or Apache-2.0; Apache-2.0 |
 | Replay testing without a model | [MizuchiLabs/tsugi.nvim](https://github.com/MizuchiLabs/tsugi.nvim), [nilava/TabType](https://github.com/nilava/TabType) | Apache-2.0; MIT |
 
 Constrained fragments were also seen in [menufactory43/Souffleuse](https://github.com/menufactory43/Souffleuse) and
 [mshll/ghostwriter](https://github.com/mshll/ghostwriter) (GPL-3.0), ideas only.
 
-The engine: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), MIT.
 Hangul decomposition follows the Unicode Standard's syllable formula.
 
-Not found in any audited project: withholding a composing Hangul syllable, matching it by 2-set keystrokes, and accepting by letting
-the input method finish the syllable from real key events.
+Withholding a composing Hangul syllable, matching it by 2-set keystrokes, and accepting by letting the input method finish it from real key
+events are Itda's own. We found no earlier version in the 66 projects we read, by searching their source; none was tested live in Korean.
 
 ## The macOS app
 
@@ -35,4 +36,15 @@ No code was copied into ItdaApp either. These are the ideas it uses.
 | Mark our own events so the key tap lets them pass | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nikiomori/Pretype](https://github.com/nikiomori/Pretype) | MIT; MIT |
 | The AX text marker attributes for caret rects and page text in Chromium | [johannes-kaindl/ghostline](https://github.com/johannes-kaindl/ghostline), [stevyhacker/LokalBot](https://github.com/stevyhacker/LokalBot) | AGPL-3.0, idea only; GPL-3.0, idea only |
 
-The default model, [Kanana 1.5 2.1B base](https://huggingface.co/mradermacher/kanana-1.5-2.1b-base-GGUF), is by Kakao, quantised by mradermacher.
+## What it runs on and was measured with
+
+| What | Source | Licence | Note |
+|---|---|---|---|
+| Inference engine, linked as a pinned xcframework (b12167) | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) | MIT | Its licence ships in the app, from `scripts/llama.cpp-LICENSE` |
+| Default model, Kanana 1.5 2.1B base, by Kakao | [kakaocorp/kanana-1.5-2.1b-base](https://huggingface.co/kakaocorp/kanana-1.5-2.1b-base) | Apache-2.0 | Not in this repo. Downloaded on first run |
+| The GGUF the app downloads, by mradermacher, from [OpenLLM-Korea's copy](https://huggingface.co/OpenLLM-Korea/kanana-1.5-2.1b-base) | [mradermacher/kanana-1.5-2.1b-base-GGUF](https://huggingface.co/mradermacher/kanana-1.5-2.1b-base-GGUF) | Apache-2.0 | Q4_K_M, checked by SHA-256 |
+| Public Korean text used to measure accuracy | [smilegate-ai/korean_smile_style_dataset](https://github.com/smilegate-ai/korean_smile_style_dataset) | CC BY-NC 4.0 | Used for measuring only. None of it is in this repo or the app |
+
+The icon was made with Codex's built-in image tool: prompts and outputs in [docs/icon](docs/icon/README.md).
+
+Every GitHub link and licence here was checked with `gh repo view` and the repo's licence file, and every model licence on its Hugging Face card, on 2026-11-07. [docs/audit.md](docs/audit.md) credits all 66 projects we read.
