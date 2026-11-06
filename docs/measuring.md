@@ -10,7 +10,7 @@ All of it on an M5 with 16 GB, llama.cpp b12167, Kanana 1.5 2.1B base (1.4 GB).
 |---|---|---|---|
 | Typing, and for 15 s after | 250-310 MB | **+1.5 GB** | 1.5-1.6 GB |
 | Stopped, model loaded, up to 5 minutes | 250 MB | +0 | 1.5 GB, evictable |
-| Unloaded, after 5 idle minutes | about 120 MB in the harness | +0 | about 100 MB |
+| Unloaded, after 5 idle minutes | 79 MB, the shipped app | +0 | 72 MB |
 
 - **While you type, the true cost is 1.5 GB of RAM nothing else can use, plus the footprint.** Metal wires the model's pages through a residency
   set. Activity Monitor's per-process Memory doesn't show it; the Wired figure at the bottom of its window does. `MTLDevice.currentAllocatedSize` says 1,472 MB.
@@ -20,7 +20,7 @@ All of it on an M5 with 16 GB, llama.cpp b12167, Kanana 1.5 2.1B base (1.4 GB).
 - `use_mmap` doesn't save you while typing: with it on, the default, the mapped pages are the ones wired. Off wasn't tested.
 - Unload and reload doesn't leak: footprint goes 158 MB to 160 MB over 55 cycles, after a first step up. Metal's own caches take that step.
 
-CPU: the shipped app, model loaded, idle, 0.27% of a core over 60 s, measured from outside. Typing at about 5 keys a second, 7-8%. Power isn't measured: `powermetrics` needs sudo.
+CPU: the shipped app, idle, 0.13% to 0.27% of a core over 60 s, loaded or unloaded, measured from outside. Typing at about 5 keys a second, 7-8%. Power isn't measured: `powermetrics` needs sudo.
 
 ## How well it predicts
 
