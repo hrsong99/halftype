@@ -24,3 +24,10 @@ John: "I like G's brighter colors but it's still too oversimplified I think. J h
 Recommended: L, two loops woven over and under, in paper, ink and coral.
 
 Pick: not yet.
+
+## References
+
+John, after round 2: "doesn't really give off the feeling of being a text completion tool. Can you give me some references for icons of well designed saas software and such?"
+
+- `references.html`: 24 shipping icons (writing tools, voice and AI tools, Mac SaaS), each with how it says its job, and a TL;DR.
+- `references/fetch.py` downloads the icons from the iTunes Search API and the makers' sites; they are trademarks, so they stay gitignored. Run it before opening the page.
