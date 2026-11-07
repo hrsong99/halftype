@@ -551,10 +551,13 @@ final class QuietPanel: GhostPanel {
     /// Runs inside a draw, as input arriving mid-draw does; `refuses` makes the draw find no room.
     var onShow: (() -> Void)?
     var refuses = false
+    /// Draws only this many characters, as a narrow field does.
+    var fits: Int?
     override var isOnActiveSpace: Bool { !stranded }
     override func show(_ spec: GhostSpec) -> String? {
         onShow?()
-        return refuses ? nil : super.show(spec)
+        guard !refuses, let drawn = super.show(spec) else { return nil }
+        return fits.map { String(drawn.prefix($0)) } ?? drawn
     }
     override func orderFrontRegardless() {}
 }
@@ -871,6 +874,17 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         await watcher.settle()
         await watcher.settle()
         #expect(seen.withLock { $0 } == .textAfter)
+    }
+    @Test func whatFitsMustStillBeWorthATab() async {
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
+        panel.fits = 2  // " t": two keys.
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(armed() == nil && !panel.isVisibleGhost)
+        panel.fits = 3
+        watcher.redraw()
+        await watcher.settle()
+        #expect(armed()?.ghost.remainder == " th")
     }
     @Test func anyKeyThatHidesTheGhostEndsShown() async {
         let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
