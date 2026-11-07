@@ -162,8 +162,12 @@ import Testing
         #expect(read("a\nb\nc", caret: 3, ranged: "a") == nil)  // Cut short, though it starts the value.
         #expect(read("abc\ndef", caret: 6, ranged: "abcxyz") == nil)  // Doesn't line up.
     }
-    @Test func aNativeViewHasOneTextForValueAndRanges() {
-        #expect(read("ab\ncd", caret: 2, ranged: nil, web: false)?.field == Field(before: "ab", after: "\ncd"))
+    @Test func aFailedMarkerQueryIsNoProofOfNativeOffsets() {
+        // Range read and marker query both fail, as a timed-out web view's do: still no reading.
+        #expect(read("a\nb\nc", caret: 3, ranged: nil, web: false) == nil)
+        #expect(read("a\nb\nc", caret: 3, ranged: "a", web: false) == nil)
+        // A native view answers the range read, with the same text.
+        #expect(read("ab\ncd", caret: 2, ranged: "ab", web: false)?.field == Field(before: "ab", after: "\ncd"))
     }
     @Test func rangeReadsAfterAlignmentAreAskedInTheHostsOwnOffsets() throws {
         let reading = try #require(read("abc\ndef", caret: 6, ranged: "abcdef"))
@@ -233,6 +237,22 @@ import Testing
         #expect(priming.ours(launched: { _ in Date(timeIntervalSince1970: 200) }).isEmpty)
         #expect(priming.ours(launched: { _ in Date(timeIntervalSince1970: 100) }) == [7])
         #expect(priming.ours(launched: { _ in nil }).isEmpty)  // Gone.
+    }
+    @Test func anUnknownLaunchTimeIsNeverTheSameProcess() {
+        var priming = Priming(), kinds = 0
+        func next(_ p: Priming.Process, _ t: Double) -> String? {
+            priming.next(p, now: start + t, kind: { kinds += 1; return enhanced }, voiceOver: { false }, isOn: { false })
+        }
+        let unknown = Priming.Process(pid: 7, launched: nil)
+        #expect(next(unknown, 0) == enhanced)
+        #expect(next(unknown, 1) == nil)  // One binding still sets it once.
+        #expect(priming.ours(launched: { _ in nil }).isEmpty)  // Never restored: pid 7 may be another app's by quit.
+        priming.bound(unknown)
+        #expect(next(unknown, 2) == enhanced && kinds == 2)  // Bound again, it's primed again.
+        let known = process(8, launched: 5)
+        #expect(next(known, 0) == enhanced)
+        priming.bound(known)
+        #expect(next(known, 1) == nil && kinds == 3)  // A known process keeps what was learnt.
     }
     @Test func nativeAppsAreAskedOnceAndGetNothing() {
         var priming = Priming(), kinds = 0
@@ -545,6 +565,15 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     }
     func cancel() {}
     func unload() { unloads.add(1, ordering: .relaxed) }
+}
+
+final class ClosingCompleter: Completer, @unchecked Sendable {
+    let onClose: @Sendable () -> Void
+    init(_ onClose: @escaping @Sendable () -> Void) { self.onClose = onClose }
+    func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {}
+    func cancel() {}
+    func unload() {}
+    func close() { onClose() }
 }
 
 /// Polled, as hiding and drawing go through the main queue.
@@ -878,19 +907,27 @@ final class CountingCompleter: Completer, @unchecked Sendable {
         #expect(armed()?.ghost.remainder == String(text.dropFirst(offer.count)))
         #expect(model.asks.load(ordering: .relaxed) == 1)
     }
-    @Test func quitRestoresWithinOneDeadlineThoughAHostHangs() {
+    @Test func quitClosesTheModelFirstAndAHungHostCantHoldItPastOneDeadline() async {
         let watcher = Watcher(tap: tap, panel: panel)
-        let me = Priming.Process(pid: getpid(), launched: NSRunningApplication(processIdentifier: getpid())?.launchDate)
-        let restored = Atomic<Int>(0)
+        let events = Mutex<[String]>([])
+        let model = ClosingCompleter { events.withLock { $0.append("close") } }
+        let browser = Priming.Process(pid: 42, launched: Date(timeIntervalSince1970: 1))
         watcher.queue.sync {
-            _ = watcher.priming.next(me, now: Date(), kind: { Priming.enhanced }, voiceOver: { false }, isOn: { false })
-            watcher.restore = { _ in restored.add(1, ordering: .relaxed); sleep(2) }
+            watcher.launchDate = { _ in browser.launched }
+            _ = watcher.priming.next(browser, now: Date(), kind: { Priming.enhanced }, voiceOver: { false }, isOn: { false })
+            watcher.restore = { _ in events.withLock { $0.append("restore") } }
         }
-        watcher.queue.async { usleep(200_000) }  // Busy when the quit comes.
+        watcher.queue.async { sleep(2) }  // A read stuck on a hung host when the quit comes.
         let start = Date()
-        watcher.unprime(within: 0.5)
+        // Off the main actor, which the suite's other tests share and this wait would hold.
+        await Task.detached { watcher.quit(closing: [model], within: 0.5) }.value
         #expect(Date().timeIntervalSince(start) < 0.9)
-        if !NSWorkspace.shared.isVoiceOverEnabled { #expect(restored.load(ordering: .relaxed) == 1) }
+        #expect(events.withLock { $0 } == ["close"])  // Closed without waiting on the queue.
+        await Task.detached { watcher.queue.sync {} }.value
+        events.withLock { $0 = [] }
+        await Task.detached { watcher.quit(closing: [model], within: 0.5) }.value  // Nothing in the way now.
+        let expected = NSWorkspace.shared.isVoiceOverEnabled ? ["close"] : ["close", "restore"]
+        #expect(events.withLock { $0 } == expected)
     }
     @Test func noCaretMeansNoModelCall() async {
         let model = CountingCompleter(" there friend")

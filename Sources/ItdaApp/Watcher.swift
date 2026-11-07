@@ -8,6 +8,12 @@ protocol Completer: AnyObject, Sendable {
     func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void)
     func cancel()
     func unload()
+    /// Unloads for good: no later request may load it again.
+    func close()
+}
+
+extension Completer {
+    func close() { unload() }
 }
 
 extension Engine: Completer {}
@@ -46,6 +52,8 @@ final class Watcher: @unchecked Sendable {
     private let healing = OneAtATime()
     /// Turns Chromium's flag off at quit. Watcher queue.
     var restore: (pid_t) -> Void = { AXUIElementSetAttributeValue(AXUIElementCreateApplication($0), Priming.enhanced as CFString, kCFBooleanFalse) }
+    /// A process's launch time, which tells it from a later one given the same pid. Watcher queue.
+    var launchDate: (pid_t) -> Date? = { NSRunningApplication(processIdentifier: $0)?.launchDate }
 
     var completer: Completer?
     /// The host, as this layer reads it: `Reader`, or a fake.
@@ -97,7 +105,8 @@ final class Watcher: @unchecked Sendable {
             self.app = app
             self.observer = observer
             self.pid = pid
-            process = Priming.Process(pid: pid, launched: NSRunningApplication(processIdentifier: pid)?.launchDate)
+            process = Priming.Process(pid: pid, launched: launchDate(pid))
+            priming.bound(process)
             for name in Self.appNotifications { AXObserverAddNotification(observer, app, name as CFString, refcon) }
             CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
             refocus()
@@ -196,14 +205,21 @@ final class Watcher: @unchecked Sendable {
         AXUIElementSetAttributeValue(app, attribute as CFString, kCFBooleanTrue)
     }
 
-    /// Quit, main thread. Chromium's flag slows window managers, so it goes back off where we turned it on, as best we can: hung hosts
+    /// Quit, main thread. The models close first, without waiting on this queue, which a hung host can hold: ggml asserts at exit with
+    /// one loaded, and a request still on its way must not load it again. Only then the restore, which may give up.
+    func quit(closing models: [Completer], within deadline: TimeInterval = 2 * Double(AX.timeout)) {
+        for model in models { model.close() }
+        unprime(within: deadline)
+    }
+
+    /// Chromium's flag slows window managers, so it goes back off where we turned it on, as best we can: hung hosts
     /// can't hold the quit past one deadline, the wait for the queue included. VoiceOver's own use stays. Electron's switch is left, as
     /// its read-back can't tell it was ours.
     func unprime(within deadline: TimeInterval = 2 * Double(AX.timeout)) {
         let done = DispatchSemaphore(value: 0)
         queue.async { [self] in
             if !NSWorkspace.shared.isVoiceOverEnabled {
-                for pid in priming.ours(launched: { NSRunningApplication(processIdentifier: $0)?.launchDate }) { restore(pid) }
+                for pid in priming.ours(launched: launchDate) { restore(pid) }
             }
             done.signal()
         }
@@ -470,9 +486,15 @@ struct Priming {
         return set ? Self.enhanced : nil
     }
 
-    /// Where we turned Chromium's flag on and the same process still runs, by `launched`, to turn it off at quit.
+    /// Where we turned Chromium's flag on and the same process still runs, by a known launch time, to turn it off at quit. Without one,
+    /// the pid may be another app's by now, so it's left alone.
     func ours(launched: (pid_t) -> Date?) -> [pid_t] {
-        apps.filter { $0.value.ours && launched($0.key.pid) == $0.key.launched }.map(\.key.pid)
+        apps.filter { $0.value.ours && $0.key.launched != nil && launched($0.key.pid) == $0.key.launched }.map(\.key.pid)
+    }
+
+    /// A process bound again with no launch time may not be the one seen before, so what was learnt of it goes, and it is primed again.
+    mutating func bound(_ process: Process) {
+        if process.launched == nil { apps[process] = nil }
     }
 
     /// Electron answers its documented switch as settable. Else a Chromium bundle gets Chromium's. Native apps get nothing: the flag only

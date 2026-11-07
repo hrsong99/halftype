@@ -87,16 +87,14 @@ enum Reader {
         guard isEditableText(e, get: get, settable: settable), let value = get(e, "AXValue") as? String,
               var selection = AX.range(get(e, "AXSelectedTextRange")) else { return nil }
         let at = selection.location  // In the host's own ranges.
-        // One more read, only where paragraphs can be: a web view's ranges may leave out the newlines between them.
+        // One more read, only where paragraphs can be: a web view's ranges may leave out the newlines between them. Unchecked, the
+        // offset could be a paragraph off, so a range read that fails, times out or comes back short means no reading, in any host.
         if value.utf16.contains(10), selection.length == 0, at > 0 {
-            if let ranged = upTo(e, at), ranged.utf16.count == at {
-                if !value.utf16.starts(with: ranged.utf16) {
-                    guard let index = valueIndex(of: ranged, in: value) else { return nil }
-                    selection.location = index
-                }
-            } else if get(e, "AXSelectedTextMarkerRange") != nil {
-                return nil  // A web view, whose offset can't be checked: failed, timed out or cut short.
-            }  // A native view has one text for its value and its ranges.
+            guard let ranged = upTo(e, at), ranged.utf16.count == at else { return nil }
+            if !value.utf16.starts(with: ranged.utf16) {
+                guard let index = valueIndex(of: ranged, in: value) else { return nil }
+                selection.location = index
+            }
         }
         guard let (before, after) = slice(value, selection) else { return nil }
         let skipped = selection.location - at

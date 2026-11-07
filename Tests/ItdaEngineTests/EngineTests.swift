@@ -1,5 +1,6 @@
 import Foundation
 import ItdaCore
+import Synchronization
 import Testing
 @testable import ItdaEngine
 
@@ -165,6 +166,19 @@ private let long = String(repeating: "The river runs past the old mill and on to
     done.wait()
     for _ in 0..<100 where weakEngine != nil { usleep(10_000) }
     #expect(weakEngine == nil)
+}
+
+@Test func aClosedEngineNeverLoadsAgain() {
+    let loads = Atomic<Int>(0)
+    // No model at this path, so each load that is tried fails and says so.
+    let engine = Engine(unloaded: "/nonexistent.gguf") { loads.add(1, ordering: .relaxed) }
+    engine.suggest(prefix: "x", fragment: "", composing: "") { _ in }
+    engine.finish()
+    #expect(loads.load(ordering: .relaxed) == 1)  // A request does try, or the rest proves nothing.
+    engine.close()
+    engine.suggest(prefix: "x", fragment: "", composing: "") { _ in }
+    engine.finish()
+    #expect(loads.load(ordering: .relaxed) == 1)
 }
 
 @Test func aPieceTooBigForTheBufferIsWrittenInFull() {

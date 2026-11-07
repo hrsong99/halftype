@@ -165,8 +165,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     /// ggml's Metal device asserts at exit if a model is still loaded.
     func applicationWillTerminate(_ note: Notification) {
-        watcher.queue.sync { watcher.completer }?.unload()
-        watcher.unprime()  // After, as it may give up on hung hosts.
+        watcher.quit(closing: engines.allObjects)
     }
 
     /// TIS must be read on the main thread. Going by the source's language covers third-party Korean input methods too.
@@ -261,6 +260,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Loading takes a moment and compiles Metal pipelines, so it stays off the main thread. One at a time, and the last choice wins.
     /// The model answering now keeps answering until another has loaded, and it stays if that one can't.
     /// The launch's own load only reads the preference: a choice is what writes it, and only once it has worked.
+    /// Every model opened that something still holds, so quit can close each without waiting on the watcher. Main thread.
+    private let engines = NSHashTable<Engine>.weakObjects()
+
     private func open(_ path: String, remember: Bool = false) {
         if remember { afterFetch = .nothing }
         loadingPath = path
@@ -279,6 +281,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                 activePath = path
                 if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
+                engines.add(engine)
                 watcher.install(engine)
             }
         }

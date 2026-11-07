@@ -32,6 +32,7 @@ public final class Engine: @unchecked Sendable {
     private let onLoadFailure: @Sendable () -> Void
     private let queue = DispatchQueue(label: "itda.engine", qos: .userInteractive)
     private let latest = Atomic<Int>(0)
+    private let closed = Atomic<Bool>(false)
     private var model: OpaquePointer?
     private var ctx: OpaquePointer?
     private var vocab: Vocab?
@@ -81,6 +82,12 @@ public final class Engine: @unchecked Sendable {
         queue.sync { release() }
     }
 
+    /// Unloads for good, at quit: a request already queued, or made later, never loads it again.
+    public func close() {
+        closed.store(true, ordering: .sequentiallyConsistent)
+        unload()
+    }
+
     private func release() {
         if let ctx { llama_free(ctx) }
         if let model { llama_model_free(model) }
@@ -115,7 +122,7 @@ public final class Engine: @unchecked Sendable {
     }
 
     private func run(_ id: Int, _ prefix: String, _ fragment: String, _ composing: String, _ onResult: (Suggestion?) -> Void) {
-        guard !isStale(id) else { return }
+        guard !isStale(id), !closed.load(ordering: .sequentiallyConsistent) else { return }
         if ctx == nil, (try? load()) == nil { onLoadFailure() }
         guard let ctx, let vocab, !prefix.isEmpty else { return onResult(nil) }
 
