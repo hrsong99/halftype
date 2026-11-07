@@ -90,6 +90,16 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func use(path: String) { open(path, remember: true) }
 
     func isActive(_ model: ModelStore.Model) -> Bool { ready && activePath == store.path(model).path }
+    /// Downloaded, and neither loaded nor loading, so its file can go.
+    func canDelete(_ model: ModelStore.Model) -> Bool {
+        let path = store.path(model).path
+        return store.has(model) && path != activePath && path != loadingPath
+    }
+    func delete(_ model: ModelStore.Model) {
+        guard canDelete(model) else { return }
+        try? FileManager.default.removeItem(at: store.path(model))
+        objectWillChange.send()
+    }
 
     static func fileName(_ path: String) -> String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
     private func name(_ path: String) -> String { ModelStore.models.first { store.path($0).path == path }?.name ?? App.fileName(path) }

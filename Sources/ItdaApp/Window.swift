@@ -260,42 +260,58 @@ private struct Row<Trailing: View>: View {
 
 private struct ModelsPage: View {
     @ObservedObject var app: App
+    @State private var deleting: ModelStore.Model?
     var body: some View {
         Plain(title: "Models") {
             ForEach(ModelStore.models) { model in
                 Row(title: model.name, note: model.note) {
+                    if app.canDelete(model) {
+                        Button { deleting = model } label: { Image(systemName: "trash") }
+                            .buttonStyle(.borderless).foregroundStyle(.secondary).help("Delete the downloaded file")
+                    }
                     Text(model.sizeText).foregroundStyle(.secondary).font(.system(size: 12))
-                    action(model).frame(minWidth: 64, alignment: .trailing)
+                    action(model).frame(width: Self.column)
                 }
             }
             ForEach(app.ownModels, id: \.self) { path in
                 Row(title: App.fileName(path), note: "Your own, from \(URL(fileURLWithPath: path).deletingLastPathComponent().path)") {
                     if app.isActive(path: path) {
-                        Text("In use").foregroundStyle(.secondary).font(.system(size: 12)).frame(minWidth: 64, alignment: .trailing)
+                        Text("In use").foregroundStyle(.secondary).font(.system(size: 12)).frame(width: Self.column)
                     } else {
                         Button("Forget") { app.forgetOwnModel(path) }.help("Takes it off this list. The file stays.")
-                        Button("Use") { app.use(path: path) }.frame(minWidth: 64, alignment: .trailing)
+                        wide("Use") { app.use(path: path) }
                     }
                 }
             }
             Row(title: "Add Your Own GGUF") {
-                Button("Choose…", action: app.chooseModel).frame(minWidth: 64, alignment: .trailing)
+                wide("Choose…", app.chooseModel)
             }
             if let notice = app.notice { Text(notice).font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 8) }
         }
+        .confirmationDialog("Delete \(deleting?.name ?? "")?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("Delete", role: .destructive) { if let deleting { app.delete(deleting) } }
+        } message: {
+            Text("It frees \(deleting?.sizeText ?? ""). You can get it again here.")
+        }
+    }
+
+    /// One width for every button and state in the last column, so their edges line up.
+    private static let column: CGFloat = 80
+    private func wide(_ title: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { Text(title).frame(maxWidth: .infinity) }.frame(width: Self.column)
     }
 
     @ViewBuilder private func action(_ model: ModelStore.Model) -> some View {
         if app.downloading == model.id, app.verifying {
             Text("Checking…").foregroundStyle(.secondary).font(.system(size: 12))
         } else if app.downloading == model.id {
-            Button("\(Int(app.downloadFraction * 100))%  ✕") { app.store.cancel() }.help("Stop the download")
+            wide("\(Int(app.downloadFraction * 100))%  ✕") { app.store.cancel() }.help("Stop the download")
         } else if app.isActive(model) {
             Text("In use").foregroundStyle(.secondary).font(.system(size: 12))
         } else if app.store.has(model) {
-            Button("Use") { app.use(model) }
+            wide("Use") { app.use(model) }
         } else {
-            Button("Get") { app.use(model) }.disabled(app.downloading != nil)
+            wide("Get") { app.use(model) }.disabled(app.downloading != nil)
         }
     }
 }
