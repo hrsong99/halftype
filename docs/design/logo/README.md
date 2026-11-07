@@ -57,4 +57,11 @@ So: no caret and line, no letters or name. Eight image-tool takes on 3E (hand-dr
 
 Recommended: 4H, the risograph Tab key; 4C (doodled key) for looser, 4B (black key, glass key) for minimal. Whichever wins gets re-centred and drawn as a vector.
 
-Pick: not yet.
+Pick (John, 2026-11-08): two finalists, waiting on two decisions.
+- **4C** if the app's design language settles on a doodle look.
+- **4E**, subtly coloured, with its cursive ribbon possibly writing the app's new name once it's chosen.
+
+Next: once the name and the window's look are settled, redraw the finalist centred in the tile, and check it as an 18 px one-colour menu-bar glyph before building `Resources/`.
+
+Lessons from four rounds: an icon for a typing tool has to show the job (a key, handwriting), or it reads as a generic AI brand (round 2's knots, like ChatGPT's); flat vector drawing didn't get the depth and hand-drawn feel John liked, so the image tool explores and a vector redraw ships.
+
