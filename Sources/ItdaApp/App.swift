@@ -35,8 +35,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var why = Watcher.Why.unreadable
     /// A suggestion was taken since the window opened, and nothing has stood in the way since.
     @Published var accepted = false
-    /// The app the watcher was last told to watch, so a reason about another one is dropped.
-    var bound: pid_t = 0
+    /// Counts each bind and unbind, so a reason from an earlier one is dropped.
+    var binding = 0
     /// This launch began without a model or the permission, so the field gets a sentence once, and the first ghost needs no typing.
     var fresh = false
     @Published var verifying = false
@@ -136,7 +136,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         store.onChange = { [weak self] state in self?.modelChanged(state) }
         loadModel()
         // Accessibility is the one permission, and the window asks for it. Nothing runs until the grant.
-        watcher.onWhy = { [weak self] why, pid in DispatchQueue.main.async { self?.whyChanged(why, pid: pid) } }
+        watcher.onWhy = { [weak self] why, binding in DispatchQueue.main.async { self?.whyChanged(why, binding: binding) } }
         tap.onAccept = { [weak self] in DispatchQueue.main.async { if self?.accepted == false { self?.accepted = true } } }
         tap.onUp = { [weak self] up in DispatchQueue.main.async { self?.tapChanged(up: up) } }
         trusted = tap.hold()
@@ -204,12 +204,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tap.reenable()
         updateIcon()
         guard trusted, activeHere, let front = NSWorkspace.shared.frontmostApplication else {
-            bound = 0
-            watcher.unbind()
+            binding += 1
+            watcher.unbind(binding: binding)
             return
         }
-        bound = front.processIdentifier
-        watcher.bind(pid: bound)
+        binding += 1
+        watcher.bind(pid: front.processIdentifier, binding: binding)
     }
 
     // MARK: Model
@@ -357,8 +357,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
     /// Main. A reason about an app no longer watched is stale. One that stands in the way ends the first accept's line.
-    func whyChanged(_ new: Watcher.Why, pid: pid_t) {
-        guard pid == bound else { return }
+    func whyChanged(_ new: Watcher.Why, binding: Int) {
+        guard binding == self.binding else { return }
         why = new
         if !new.working { accepted = false }
         updateIcon()  // Secure Input comes and goes with no word to us; the watcher sees it.
@@ -366,6 +366,17 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     func line(for why: Watcher.Why) -> String? {
         App.line(trusted: trusted, active: activeHere, obstacle: tap.obstacle, ready: ready, why: why)
+    }
+
+    static let lesson = "Tab takes a word. Shift-Tab takes it all. Esc hides it."
+    static let success = "That's it. Itda works like this in almost any app."
+
+    /// Under the field: the menu's line, or while nothing is in the way, that the first accept worked or how to take the ghost showing.
+    /// Nothing while off, paused or without the permission.
+    func fieldLine(_ why: Watcher.Why) -> String? {
+        guard let line = line(for: why) else { return nil }
+        guard why.working, ready, tap.obstacle == nil else { return line }
+        return accepted ? App.success : why == .shown ? App.lesson : line
     }
 
     /// macOS's own grey inline predictions, which would show beside ours. Read, never written.

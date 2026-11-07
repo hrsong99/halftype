@@ -559,11 +559,14 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     var gate: Double? = 0
     /// False answers nil, the model's "nothing to suggest".
     var answers = true
+    /// True answers, then stops short with nil, as a decode failure after streaming does.
+    var stopsShort = false
     init(_ text: String) { self.text = text }
     func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
         asks.add(1, ordering: .relaxed)
         onAsk?()
         onResult(answers ? Suggestion(text: text, gate: gate) : nil)
+        if stopsShort { onResult(nil) }
     }
     func cancel() {}
     func unload() { unloads.add(1, ordering: .relaxed) }
@@ -834,16 +837,36 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         await watcher.settle()
         #expect(seen.withLock { $0 } == .idle)
     }
-    @Test func aReasonFromBeforeALaterOneIsDropped() {
-        let watcher = Watcher(tap: tap, panel: panel)
-        let seen = Mutex<[Watcher.Why]>([])
-        watcher.onWhy = { why, _ in seen.withLock { $0.append(why) } }
-        watcher.queue.sync {
-            watcher.record(.unsure, at: 5)
-            watcher.record(.shown, at: 4)  // A draw for older input, landing late.
-            watcher.record(.textAfter, at: 5)
-        }
-        #expect(seen.withLock { $0 } == [.unsure, .textAfter])
+    @Test func aDrawFromBeforeARebindIsNotReportedForTheNewBinding() async {
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
+        let seen = Mutex<[String]>([])
+        watcher.onWhy = { why, binding in seen.withLock { $0.append("\(why) \(binding)") } }
+        watcher.scheduleUpdate()
+        // The main thread is held here, so the draw for binding 0 waits for it: the read, then the answer, queue it.
+        watcher.queue.sync {}
+        watcher.queue.sync {}
+        watcher.unbind(binding: 1)
+        watcher.queue.sync {}
+        await watcher.settle()  // The draw runs now, after the rebind.
+        #expect(seen.withLock { $0 } == ["unreadable 1"])
+    }
+    @Test func anyKeyThatHidesTheGhostEndsShown() async {
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
+        let seen = reasons(watcher)
+        watcher.scheduleUpdate()
+        #expect(await soon { seen.withLock { $0 } == .shown })
+        #expect(!keys.press(tap, keys.key(8, pid: 0, flags: .maskCommand)).swallowed)  // Cmd-C: the field doesn't change.
+        #expect(await soon { seen.withLock { $0 } == .idle && !panel.isVisibleGhost })
+    }
+    @Test func aModelThatStopsShortTakesBackWhatItStreamed() async {
+        let model = CountingCompleter(" there friend")
+        model.stopsShort = true
+        let watcher = watcher(Field(before: "hello"), completer: model)
+        let seen = reasons(watcher)
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(await soon { seen.withLock { $0 } == .idle })
+        #expect(armed() == nil && !panel.isVisibleGhost)
     }
     @Test func noTakerMeansNoReadNoModelAndNoGhost() async {
         for blocked in [KeyTap.Obstacle.secureInput, .tapOff] {
@@ -1257,22 +1280,39 @@ final class FakeServer: URLProtocol {
         let all: [Watcher.Why] = [.shown, .idle, .unsure, .unreadable, .blocked, .textAfter, .notTwoSet, .noModel, .noCaret, .noFont, .rightToLeft, .noRoom]
         #expect(all.allSatisfy { line($0)?.hasSuffix(".") == true })
     }
-    @Test func aReasonAboutAnotherAppIsDropped() {
+    @Test func aReasonFromAnEarlierBindingIsDropped() {
         let app = App()
-        app.bound = 7
-        app.whyChanged(.noFont, pid: 8)
+        app.binding = 7
+        app.whyChanged(.noFont, binding: 6)
         #expect(app.why == .unreadable)
-        app.whyChanged(.noFont, pid: 7)
+        app.whyChanged(.noFont, binding: 7)
         #expect(app.why == .noFont)
+    }
+    @Test func theLessonAndSuccessShowOnlyWhileOnAndNothingIsInTheWay() {
+        let app = App(tap: FakeTap())
+        app.trusted = true
+        app.activePath = app.store.path(ModelStore.models[0]).path
+        #expect(app.fieldLine(.shown) == App.lesson)
+        #expect(app.fieldLine(.textAfter) == "Text after the cursor, so no suggestion here.")
+        app.accepted = true
+        #expect(app.fieldLine(.unsure) == App.success && app.fieldLine(.textAfter) != App.success)
+        // Untrusted while switching, so the rebind binds nothing real.
+        let was = app.on
+        app.trusted = false
+        app.on = false
+        app.trusted = true
+        #expect(app.fieldLine(.shown) == nil)
+        app.trusted = false
+        app.on = was
     }
     @Test func aLaterReasonInTheWayEndsTheFirstAcceptsLine() {
         let app = App()
-        app.bound = 7
+        app.binding = 7
         for blocking in [Watcher.Why.textAfter, .blocked, .unreadable] {
             app.accepted = true
-            app.whyChanged(.unsure, pid: 7)  // Still working: the line stays.
+            app.whyChanged(.unsure, binding: 7)  // Still working: the line stays.
             #expect(app.accepted)
-            app.whyChanged(blocking, pid: 7)
+            app.whyChanged(blocking, binding: 7)
             #expect(!app.accepted, "\(blocking)")
         }
     }
@@ -1398,12 +1438,12 @@ final class FakeServer: URLProtocol {
         #expect(field.selectedRange() == NSRange(location: field.string.utf16.count, length: 0), "the caret at the end, where a ghost goes")
         shoot("4-teach-dark", app { ready($0); $0.why = .shown }, dark: true)
         shoot("5-unsure", app { ready($0); $0.why = .unsure })
-        shoot("6-accepted", app { ready($0); $0.accepted = true })
+        shoot("6-accepted", app { ready($0); $0.why = .idle; $0.accepted = true })
         shoot("7-predictions", app { ready($0); $0.why = .unsure; $0.readPredictions = { true } })
         shoot("8-no-font", app { ready($0); $0.why = .noFont })
         shoot("9-failed-download", app { $0.trusted = true; $0.modelChanged(.failed("Hugging Face answered 503. Try again later.")) })
         shoot("10-models-delete", app { $0.trusted = true; $0.activePath = $0.store.directory.appendingPathComponent("Qwen3.5-0.8B-Q4_K_M.gguf").path }, page: .models)
-        shoot("11-accepted-dark", app { ready($0); $0.accepted = true; $0.readPredictions = { true } }, dark: true)
+        shoot("11-accepted-dark", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } }, dark: true)
     }
 
     @Test func icons() throws {

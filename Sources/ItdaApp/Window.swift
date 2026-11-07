@@ -172,16 +172,10 @@ private struct FieldPage: View {
                     ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary)
                     Line(text: "You can close this window.")
                 }
-            } else if app.trusted {
-                if app.accepted, app.line(for: settled) != nil {  // Not while off.
-                    HStack(spacing: 8) {
-                        Line(text: "That's it. Itda works like this in almost any app.")
-                        if !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }
-                    }
-                } else if settled == .shown {
-                    Line(text: "Tab takes a word. Shift-Tab takes it all. Esc hides it.")
-                } else if let line = app.line(for: settled) {
+            } else if let line = app.fieldLine(settled) {
+                HStack(spacing: 8) {
                     Line(text: line)
+                    if line == App.success, !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }
                 }
             }
             if app.predictions {
