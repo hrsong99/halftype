@@ -270,6 +270,7 @@ enum EndToEnd {
         let app = App()
         app.ready = true
         app.trusted = true
+        app.activePath = app.store.path(ModelStore.models[0]).path
         for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("models", .models, false), ("general", .general, false), ("apps", .apps, false), ("picker", .field, false)] {
             let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field, picking: name == "picker"))
             host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
@@ -302,24 +303,22 @@ enum EndToEnd {
         var frame = 0, delays = ""
         func draw(_ name: String, _ typed: String, _ ghost: String, _ delay: Int) {
             frame += 1
-            onMain { render(Shot(name: String(format: "\(name)-%04d", frame), typed: typed.isEmpty ? " " : typed, ghost: ghost.isEmpty ? " " : ghost, font: 17, size: CGSize(width: 560, height: 46), dark: false), to: dir) }
+            onMain { render(Shot(name: String(format: "\(name)-%04d", frame), typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 17, size: CGSize(width: 560, height: 46), dark: false), to: dir) }
             delays += "\(String(format: "\(name)-%04d", frame)).png \(delay)\n"
         }
-        for (name, typed, stops) in [("en", "Can you take a look at the", 3), ("ko", "오늘 회의는 세 시에", 3)] {
+        // Chosen as ones where the model does well, which the README says.
+        for (name, sentences) in [("en", ["Please let me know if you have any", "See you tomor", "As soon as possi"]), ("ko", ["안녕하세요. 만나서 반갑", "늦어서 죄송합", "이번 주 금요일까지 보내주시면 감사하겠"])] {
             frame = 0; delays = ""
-            var text = ""
-            for c in typed {
-                text.append(c)
-                draw(name, text, "", 7)
+            for sentence in sentences {
+                var text = ""
+                for c in sentence {
+                    text.append(c)
+                    draw(name, text, "", 7)
+                }
+                guard let ghost = ask(text) else { check(false, "\(sentence): the model no longer suggests here"); continue }
+                draw(name, text, ghost, 120)
+                draw(name, text + ghost, "", 140)
             }
-            for _ in 0..<stops {
-                guard let ghost = ask(text) else { break }
-                draw(name, text, ghost, 110)
-                let word = String(ghost[..<Word.firstEnd(ghost)])
-                text += word
-                draw(name, text, String(ghost.dropFirst(word.count)), 60)
-            }
-            draw(name, text, "", 180)
             try! delays.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name)-delays.txt"), atomically: true, encoding: .utf8)
         }
     }
@@ -353,11 +352,13 @@ enum EndToEnd {
         let spec = GhostSpec(text: shot.ghost, caret: caret, frame: frame, fontSize: shot.font, fontName: nil,
                              color: appearance.performAsCurrentDrawingAppearance2 { NSColor.textColor.usingColorSpace(.sRGB)!.cgColor },
                              lineLeft: frame.minX + origin.x + container.lineFragmentPadding, previousCharacter: String(shot.typed.last!), mayWrap: true)
-        guard let layout = GhostLayout.make(spec) else { return check(false, "\(shot.name): no ghost") }
-        let ghost = GhostView(frame: layout.window)
-        ghost.layout = layout
-        scene.addSubview(ghost)
-        print("      \(shot.name): visible '\(layout.visibleText)'")
+        if !shot.ghost.isEmpty {
+            guard let layout = GhostLayout.make(spec) else { return check(false, "\(shot.name): no ghost") }
+            let ghost = GhostView(frame: layout.window)
+            ghost.layout = layout
+            scene.addSubview(ghost)
+            print("      \(shot.name): visible '\(layout.visibleText)'")
+        }
 
         let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(scene.bounds.width * 2), pixelsHigh: Int(scene.bounds.height * 2), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
                                    isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!

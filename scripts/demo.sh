@@ -12,6 +12,6 @@ frames=$(mktemp -d); media=$PWD/docs/media; mkdir -p "$media"
 cd "$frames"
 for name in en ko; do
   in=(); while read -r file delay; do in+=(-delay "$delay" "$file"); done < "$name-delays.txt"
-  magick -loop 0 "${in[@]}" -layers Optimize -resize 620x "$media/$name.gif" < /dev/null
+  magick -loop 0 "${in[@]}" -resize 620x -colors 32 -layers Optimize "$media/$name.gif" < /dev/null
 done
 ls -la "$media"

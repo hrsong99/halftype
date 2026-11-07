@@ -13,7 +13,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - App: `scripts/build-app.sh`, output `build/Itda.app`.
 - Private-window checks: `scripts/e2e.sh`, plus `--measure <gguf>`, `--flicker`, `--engine <gguf>`. `--ime` switches the system's input source and needs the user idle.
 - Always pass `--disable-keychain`: without it the first SwiftPM download of llama.cpp can hang on keychain credentials.
-- **`scripts/e2e.sh` takes the user's keyboard and cursor focus while it runs. Ask John first, every time.** A 60 s pause in typing doesn't mean he has stopped using the Mac. Unit tests and reviews don't take focus.
+- **`scripts/e2e.sh` takes the user's keyboard and cursor focus while it runs. Ask them first, every time.** A 60 s pause in typing doesn't mean they have stopped using the Mac. Unit tests and reviews don't take focus.
 - The Mac has limited memory: run one heavy build or model at a time, and don't steal focus.
 - `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh a` rebuilds `Resources/`.
 

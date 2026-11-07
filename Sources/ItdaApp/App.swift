@@ -32,7 +32,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private enum AfterFetch { case load, loadAndRemember, nothing }
     private var afterFetch = AfterFetch.load
     /// The model that loaded last, which is the one answering.
-    @Published private var activePath: String?
+    @Published var activePath: String?
     var window: NSWindow?
     /// Started only in a released build, whose Info.plist names the feed.
     let updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
