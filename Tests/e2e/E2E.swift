@@ -270,8 +270,8 @@ enum EndToEnd {
         let app = App()
         app.ready = true
         app.trusted = true
-        for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("models", .models, false), ("general", .general, false), ("apps", .apps, false)] {
-            let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field))
+        for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("models", .models, false), ("general", .general, false), ("apps", .apps, false), ("picker", .field, false)] {
+            let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field, picking: name == "picker"))
             host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
             host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
             let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)

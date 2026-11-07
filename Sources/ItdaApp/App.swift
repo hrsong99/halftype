@@ -54,17 +54,22 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         didSet { UserDefaults.standard.set(customModel, forKey: "modelPath") }
     }
 
+    /// GGUFs of yours that have loaded, so one stays in the list after you switch away. Paths only.
+    @Published private var ownPaths = UserDefaults.standard.stringArray(forKey: "ownModels") ?? [] {
+        didSet { UserDefaults.standard.set(ownPaths, forKey: "ownModels") }
+    }
+    var ownModels: [String] { ownPaths.filter(FileManager.default.fileExists) }
+    func forgetOwnModel(_ path: String) { ownPaths.removeAll { $0 == path } }
+    func isActive(path: String) -> Bool { ready && activePath == path }
+    /// Takes one of your GGUFs, from the lists.
+    func use(path: String) { open(path, remember: true) }
+
     func isActive(_ model: ModelStore.Model) -> Bool { ready && activePath == store.path(model).path }
 
+    static func fileName(_ path: String) -> String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
+    private func name(_ path: String) -> String { ModelStore.models.first { store.path($0).path == path }?.name ?? App.fileName(path) }
     /// What the window calls the loaded model: its name if it's one of ours, or else its file.
-    var activeName: String {
-        guard let activePath else { return "No Model" }
-        return ModelStore.models.first { store.path($0).path == activePath }?.name ?? URL(fileURLWithPath: activePath).deletingPathExtension().lastPathComponent
-    }
-    var ownModelName: String? {
-        guard let activePath, !ModelStore.models.contains(where: { store.path($0).path == activePath }) else { return nil }
-        return "In use: " + URL(fileURLWithPath: activePath).lastPathComponent
-    }
+    var activeName: String { activePath.map(name) ?? "No Model" }
 
     func applicationDidFinishLaunching(_ note: Notification) {
         // The symbol is for a binary run outside the bundle, as the e2e checks do.
@@ -220,6 +225,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                     return
                 }
                 activePath = path
+                if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
                 modelLine = modelName(path)
                 ready = true

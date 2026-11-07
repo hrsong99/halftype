@@ -10,8 +10,11 @@ struct Root: View {
     @State private var sidebar: Bool
     @State private var page: Page
 
-    init(app: App, page: Page = .field, sidebar: Bool = false) {
+    private let picking: Bool
+
+    init(app: App, page: Page = .field, sidebar: Bool = false, picking: Bool = false) {
         self.app = app
+        self.picking = picking
         _page = State(initialValue: page)
         _sidebar = State(initialValue: sidebar)
     }
@@ -23,7 +26,7 @@ struct Root: View {
             if sidebar { side.transition(.move(edge: .leading)) }
             ZStack {
                 switch page {
-                case .field: FieldPage(app: app, draft: $draft, page: $page)
+                case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking)
                 case .models: ModelsPage(app: app)
                 case .apps: AppsPage(app: app)
                 case .general: GeneralPage(app: app)
@@ -80,14 +83,25 @@ private struct FieldPage: View {
     @Binding var draft: String
     @Binding var page: Root.Page
     @FocusState private var focused: Bool
+    @State private var picking: Bool
+
+    init(app: App, draft: Binding<String>, page: Binding<Root.Page>, picking: Bool = false) {
+        self.app = app
+        _draft = draft
+        _page = page
+        _picking = State(initialValue: picking)
+    }
 
     var body: some View {
         VStack(spacing: 16) {
             Mark()
-            if app.trusted { field; status } else { allow }
+            if app.trusted { field.zIndex(1); status } else { allow }  // The list hangs over what's below the field.
         }
         .padding(24)
         .padding(.bottom, 40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // A click anywhere else only closes the list.
+        .background { if picking { Color.black.opacity(0.001).onTapGesture { picking = false } } }
     }
 
     private var allow: some View {
@@ -103,25 +117,25 @@ private struct FieldPage: View {
                 if draft.isEmpty {
                     Text(app.on ? "Type here, then press Tab on the grey text" : "Itda is off").foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
                 }
-                TextEditor(text: $draft).focused($focused).scrollContentBackground(.hidden).frame(height: 44)
+                TextEditor(text: $draft).focused($focused).scrollContentBackground(.hidden).scrollIndicators(.never).frame(height: 44)
+                    .onKeyPress(.escape) {
+                        guard picking else { return .ignored }
+                        picking = false
+                        return .handled
+                    }
             }
             .font(.system(size: 15))
             HStack(spacing: 8) {
-                Menu {
-                    ForEach(ModelStore.models.filter(app.store.has)) { model in
-                        Button(model.name) { app.use(model) }
-                    }
-                    Divider()
-                    Button("All Models…") { page = .models }
-                } label: {
-                    Text(app.activeName).font(.system(size: 12))
+                Button { picking.toggle() } label: {
+                    Text(app.activeName).font(.system(size: 12)).padding(.horizontal, 10).padding(.vertical, 4).background(Color(nsColor: .textBackgroundColor), in: Capsule())
                 }
-                .menuStyle(.button)
                 .buttonStyle(.plain)
-                .fixedSize()
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color(nsColor: .textBackgroundColor), in: Capsule())
+                .accessibilityLabel("Model: \(app.activeName)")
+                .overlay(alignment: .topTrailing) {
+                    if picking {
+                        ModelList(app: app) { picking = false } showAll: { picking = false; page = .models }.offset(y: 32)
+                    }
+                }
                 Button { app.on.toggle() } label: {
                     Image(systemName: "power").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(nsColor: .textBackgroundColor))
                         .frame(width: 24, height: 24)
@@ -136,6 +150,7 @@ private struct FieldPage: View {
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 20))
         .frame(maxWidth: 500)
         .onAppear { focused = true }
+        .onChange(of: draft) { picking = false }
     }
 
     /// Nothing at all once it's ready and all is well.
@@ -145,6 +160,56 @@ private struct FieldPage: View {
             if !app.ready, app.downloading != nil { ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary) }
         }
     }
+}
+
+/// The model list under the pill: ours, so it opens at once and reads like the window. Models you don't have yet start downloading from here.
+private struct ModelList: View {
+    @ObservedObject var app: App
+    let close: () -> Void
+    let showAll: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(ModelStore.models) { model in
+                item(model.name, detail: app.downloading == model.id ? "\(Int(app.downloadFraction * 100))%" : model.sizeText,
+                     mark: app.isActive(model) ? "checkmark" : app.store.has(model) ? nil : "arrow.down") { app.use(model); close() }
+            }
+            ForEach(app.ownModels, id: \.self) { path in
+                item(App.fileName(path), detail: nil, mark: app.isActive(path: path) ? "checkmark" : nil) { app.use(path: path); close() }
+            }
+            Divider().padding(.vertical, 3)
+            item("All Models", detail: nil, mark: nil, action: showAll)
+        }
+        .padding(5)
+        .frame(width: 270)
+        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.14), radius: 14, y: 5)
+    }
+
+    private func item(_ title: String, detail: String?, mark: String?, action: @escaping () -> Void) -> some View {
+        Hover { hovering in
+            Button(action: action) {
+                HStack(spacing: 8) {
+                    Text(title).font(.system(size: 13)).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 8)
+                    if let detail { Text(detail).font(.system(size: 11.5)).foregroundStyle(.secondary) }
+                    Image(systemName: mark ?? "checkmark").font(.system(size: 10.5, weight: .semibold)).frame(width: 14).opacity(mark == nil ? 0 : 1)
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(hovering ? Color.primary.opacity(0.07) : .clear, in: RoundedRectangle(cornerRadius: 7))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+private struct Hover<Content: View>: View {
+    @ViewBuilder let content: (Bool) -> Content
+    @State private var hovering = false
+    var body: some View { content(hovering).onHover { hovering = $0 } }
 }
 
 /// A title and hairline rows, with no boxes.
@@ -195,7 +260,17 @@ private struct ModelsPage: View {
                     action(model).frame(minWidth: 64, alignment: .trailing)
                 }
             }
-            Row(title: "Your Own GGUF", note: app.ownModelName) {
+            ForEach(app.ownModels, id: \.self) { path in
+                Row(title: App.fileName(path), note: "Your own, from \(URL(fileURLWithPath: path).deletingLastPathComponent().path)") {
+                    if app.isActive(path: path) {
+                        Text("In use").foregroundStyle(.secondary).font(.system(size: 12)).frame(minWidth: 64, alignment: .trailing)
+                    } else {
+                        Button("Forget") { app.forgetOwnModel(path) }.help("Takes it off this list. The file stays.")
+                        Button("Use") { app.use(path: path) }.frame(minWidth: 64, alignment: .trailing)
+                    }
+                }
+            }
+            Row(title: "Add Your Own GGUF") {
                 Button("Choose…", action: app.chooseModel).frame(minWidth: 64, alignment: .trailing)
             }
             if let notice = app.notice { Text(notice).font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 8) }

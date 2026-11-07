@@ -58,7 +58,7 @@ W1. Type in its field, and Tab on the grey text. Paste with Cmd-V.
 W2. Press the power button, type, press it again. Then the sidebar icon: Apps, add an app, remove it; General, Start at Login on, then off.
     **No ghost while off. The login switch keeps what you set, and System Settings shows Itda under Login Items only while it's on.**
 W3. Models: Get Qwen, stop it with ✕, Get it again, wait, Use it, type, then Use Kanana 1.5.
-    **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.**
+    **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.** Click the pill: **the list opens at once, marks the model in use, and closes on a click outside or Esc.**
 W4. Close the window, then open Itda from Finder or the menu.
     **The Dock icon goes with the window. The same window comes back, and Itda kept working between.**
 
