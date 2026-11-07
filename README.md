@@ -17,7 +17,7 @@ cd itda
 scripts/build-app.sh
 ```
 
-Move `build/Itda.app` to Applications and open it. Grant Accessibility when asked. The app lives in the menu bar and fetches its 1.4 GB model once.
+Move `build/Itda.app` to Applications and open it. Its window asks for Accessibility, fetches the 1.4 GB model once, and gives you a field to try it in.
 
 ## Use
 
@@ -27,7 +27,9 @@ Move `build/Itda.app` to Applications and open it. Grant Accessibility when aske
 | **Shift-Tab** | Takes the whole suggestion |
 | **Esc** | Hides the suggestion, so Tab moves between fields again |
 
-Or keep typing: the suggestion follows along while you match it. With no suggestion showing, these keys do what they always do. The menu pauses Itda for the current app, or turns it off, and takes any other GGUF model.
+Or keep typing: the suggestion follows along while you match it. With no suggestion showing, these keys do what they always do.
+
+The window opens on that field alone, with the model and an on/off button inside it. The sidebar icon reveals the rest: models to download or switch between, paused apps, and Start at Login. Close the window and Itda stays in the menu bar, whose icon also pauses it for the current app. Open Itda again to get the window back.
 
 ## Why it's different
 
@@ -62,8 +64,8 @@ Wired memory is what counts: nothing else can use it, and Activity Monitor's per
 
 - **One permission: Accessibility.** The app asks for nothing else, and it never uses Screen Recording.
 - **What it reads:** the focused field and text near it in the window, to give the model context. A key tap watches for Tab, Shift-Tab and Esc, and it sees your other keys so it can track Korean composition. All of it stays in memory.
-- **What it writes:** the on/off switch, your paused apps and a custom model's path as settings, and the model file in Application Support. Nothing with typed text, and no logs.
-- **Network:** one URL, the model on Hugging Face, checked by SHA-256. Nothing else, ever. With your own model it doesn't connect at all.
+- **What it writes:** the on/off switch, your paused apps and the chosen model's path as settings, and model files in Application Support. Nothing with typed text, and no logs. What you type in its own window is held in memory until the window closes.
+- **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. Nothing else, ever. With your own model already chosen it doesn't connect at all.
 - **Secure fields** are skipped: Itda doesn't read them or suggest in them.
 
 ## Limits

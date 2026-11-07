@@ -9,29 +9,61 @@ public func runItda() {
     app.run()
 }
 
-final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate, ObservableObject {
     private let tap = KeyTap()
     private let panel = GhostPanel()
     private lazy var watcher = Watcher(tap: tap, panel: panel)
-    private let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    private let store = ModelStore(directory: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda"))
-    private var modelLine = "Model: not loaded"
+    private lazy var status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    let store = ModelStore(directory: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda"))
+    @Published var modelLine = "Model: not loaded"
+    /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
+    @Published var ready = false
+    /// What just went wrong with a download or a switch.
+    @Published var notice: String?
+    @Published var trusted = AXIsProcessTrusted()
+    /// The model being fetched, by file name, and how far along.
+    @Published var downloading: String?
+    @Published var downloadFraction = 0.0
+    @Published var verifying = false
+    /// Whether what's being fetched loads when it arrives: a later choice of another model cancels that, and the file just stays.
+    private var fetchLoads = true
+    /// Whether what's being fetched was your choice, to remember once it loads, or just the default at first run.
+    private var fetchIsChoice = false
+    /// The model that loaded last, which is the one answering.
+    @Published private var activePath: String?
+    var window: NSWindow?
+    var askedForAccessibility = false
     private var tapFailed = false
     private var permissionTimer: Timer?
     private let loading = DispatchQueue(label: "itda.load", qos: .userInitiated)
     private var latestOpen = 0
 
-    private var on: Bool {
-        get { UserDefaults.standard.object(forKey: "on") as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "on") }
+    @Published var on = UserDefaults.standard.object(forKey: "on") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(on, forKey: "on")
+            rebind()
+        }
     }
-    private var pausedApps: Set<String> {
-        get { Set(UserDefaults.standard.stringArray(forKey: "pausedApps") ?? []) }
-        set { UserDefaults.standard.set(Array(newValue), forKey: "pausedApps") }
+    @Published var pausedApps = Set(UserDefaults.standard.stringArray(forKey: "pausedApps") ?? []) {
+        didSet {
+            UserDefaults.standard.set(Array(pausedApps), forKey: "pausedApps")
+            rebind()
+        }
     }
-    private var customModel: String? {
-        get { UserDefaults.standard.string(forKey: "modelPath") }
-        set { UserDefaults.standard.set(newValue, forKey: "modelPath") }
+    @Published private var customModel = UserDefaults.standard.string(forKey: "modelPath") {
+        didSet { UserDefaults.standard.set(customModel, forKey: "modelPath") }
+    }
+
+    func isActive(_ model: ModelStore.Model) -> Bool { ready && activePath == store.path(model).path }
+
+    /// What the window calls the loaded model: its name if it's one of ours, or else its file.
+    var activeName: String {
+        guard let activePath else { return "No Model" }
+        return ModelStore.models.first { store.path($0).path == activePath }?.name ?? URL(fileURLWithPath: activePath).deletingPathExtension().lastPathComponent
+    }
+    var ownModelName: String? {
+        guard let activePath, !ModelStore.models.contains(where: { store.path($0).path == activePath }) else { return nil }
+        return "In use: " + URL(fileURLWithPath: activePath).lastPathComponent
     }
 
     func applicationDidFinishLaunching(_ note: Notification) {
@@ -40,6 +72,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         glyph?.isTemplate = true
         glyph?.accessibilityDescription = "Itda"
         status.button?.image = glyph
+        installMainMenu()
         let menu = NSMenu()
         menu.delegate = self
         status.menu = menu
@@ -51,18 +84,29 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         workspace.addObserver(self, selector: #selector(rebind), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         workspace.addObserver(self, selector: #selector(spaceChanged), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
 
+        store.removeLeftovers()
+        store.onChange = { [weak self] state in self?.modelChanged(state) }
         loadModel()
-        // Accessibility is the one permission. The system's prompt shows once; nothing runs until the grant.
-        let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        if AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary) {
+        // Accessibility is the one permission, and the window asks for it. Nothing runs until the grant.
+        if AXIsProcessTrusted() {
             startWatching()
         } else {
             permissionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
                 guard AXIsProcessTrusted() else { return }
                 timer.invalidate()
+                self?.trusted = true
                 self?.startWatching()
             }
         }
+        // Started by the system at login, it stays out of the way. Started by you, it answers. Without the permission it has to ask.
+        let launch = NSAppleEventManager.shared().currentAppleEvent
+        let atLogin = launch?.eventID == kAEOpenApplication && launch?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+        if !atLogin || !trusted { showWindow() }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        showWindow()
+        return false
     }
 
     /// ggml's Metal device asserts at exit if a model is still loaded.
@@ -98,7 +142,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func rebind() {
         watcher.hideNow()
         guard AXIsProcessTrusted() else { return }
-        guard on, let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != getpid(),
+        guard on, let front = NSWorkspace.shared.frontmostApplication,
               !pausedApps.contains(front.bundleIdentifier ?? "") else {
             watcher.unbind()
             return
@@ -112,32 +156,73 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func loadModel() {
         if let path = customModel, FileManager.default.fileExists(atPath: path) { return open(path) }
-        if store.hasModel { return open(store.destination.path) }
-        store.onChange = { [weak self] state in
-            DispatchQueue.main.async { self?.modelChanged(state) }
+        let first = ModelStore.models[0]
+        if store.has(first) { return open(store.path(first).path) }
+        fetchLoads = true
+        fetchIsChoice = false
+        store.fetch(first)
+    }
+
+    /// Takes a model we know, fetching it first if need be.
+    func use(_ model: ModelStore.Model) {
+        guard store.has(model) else {
+            if store.isBusy { return }
+            fetchLoads = true
+            fetchIsChoice = true
+            return store.fetch(model)
         }
-        store.fetch()
+        open(store.path(model).path, remember: true)
     }
 
     private func modelChanged(_ state: ModelStore.State) {
         switch state {
-        case .downloading(let done): modelLine = "Downloading model: \(Int(done * 100))%"
-        case .verifying: modelLine = "Verifying model…"
-        case .ready(let path): open(path)
-        case .failed(let why): modelLine = "Model download failed: \(why)"
+        case .downloading(let done):
+            downloading = store.current.id
+            downloadFraction = done
+            notice = nil
+            verifying = false
+            if !ready { modelLine = "Downloading model: \(Int(done * 100))%" }
+        case .verifying:
+            verifying = true
+            if !ready { modelLine = "Verifying model…" }
+        case .ready:
+            downloading = nil
+            verifying = false
+            if fetchLoads { open(store.path(store.current).path, remember: fetchIsChoice) }
+        case .cancelled:
+            downloading = nil
+            verifying = false
+            if !ready { modelLine = "Model: not loaded" }
+        case .failed(let why):
+            downloading = nil
+            verifying = false
+            notice = "Model download failed: \(why)"
+            if !ready { modelLine = "Model: not loaded" }
         }
     }
 
     /// Loading takes a moment and compiles Metal pipelines, so it stays off the main thread. One at a time, and the last choice wins.
-    private func open(_ path: String) {
-        modelLine = "Loading " + URL(fileURLWithPath: path).lastPathComponent + "…"
+    /// The model answering now keeps answering until another has loaded, and it stays if that one can't.
+    /// The launch's own load only reads the preference: a choice is what writes it, and only once it has worked.
+    private func open(_ path: String, remember: Bool = false) {
+        if remember { fetchLoads = false }
+        if !ready { modelLine = "Loading " + URL(fileURLWithPath: path).lastPathComponent + "…" }
+        notice = nil
         latestOpen += 1
         let id = latestOpen
         loading.async { [self] in
             let engine = try? Engine(modelPath: path)
             DispatchQueue.main.async { [self] in
                 guard id == latestOpen else { return }
-                modelLine = engine == nil ? "Could not load that model" : modelName(path)
+                guard let engine else {
+                    notice = "Could not load " + URL(fileURLWithPath: path).lastPathComponent
+                    if !ready { modelLine = "Model: not loaded" }
+                    return
+                }
+                activePath = path
+                if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
+                modelLine = modelName(path)
+                ready = true
                 watcher.queue.async { [self] in
                     watcher.completer?.cancel()
                     watcher.completer = engine
@@ -151,6 +236,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        menu.addItem(withTitle: "Open Itda", action: #selector(openWindow), keyEquivalent: "")
+        menu.addItem(.separator())
         let toggle = menu.addItem(withTitle: "Itda", action: #selector(toggleOn), keyEquivalent: "")
         toggle.state = on ? .on : .off
         if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != getpid(), let id = front.bundleIdentifier {
@@ -162,7 +249,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !AXIsProcessTrusted() { menu.addItem(withTitle: "Waiting for Accessibility permission", action: nil, keyEquivalent: "").isEnabled = false }
         if tapFailed { menu.addItem(withTitle: "Could not watch for Tab", action: nil, keyEquivalent: "").isEnabled = false }
         menu.addItem(withTitle: modelLine, action: nil, keyEquivalent: "").isEnabled = false
-        if modelLine.hasPrefix("Model download failed") { menu.addItem(withTitle: "Try Download Again", action: #selector(retryDownload), keyEquivalent: "") }
+        if let notice { menu.addItem(withTitle: notice, action: nil, keyEquivalent: "").isEnabled = false }
+        if notice?.hasPrefix("Model download failed") == true { menu.addItem(withTitle: "Try Download Again", action: #selector(retryDownload), keyEquivalent: "") }
         menu.addItem(withTitle: "Choose GGUF…", action: #selector(chooseModel), keyEquivalent: "")
         if customModel != nil { menu.addItem(withTitle: "Use Default Model", action: #selector(useDefaultModel), keyEquivalent: "") }
         menu.addItem(.separator())
@@ -172,30 +260,28 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func toggleOn() {
         on.toggle()
-        rebind()
     }
 
     @objc private func togglePause(_ item: NSMenuItem) {
         guard let id = item.representedObject as? String else { return }
         if pausedApps.contains(id) { pausedApps.remove(id) } else { pausedApps.insert(id) }
-        rebind()
     }
 
-    @objc private func retryDownload() { store.fetch() }
+    @objc private func openWindow() { showWindow() }
 
-    @objc private func chooseModel() {
+    @objc private func retryDownload() { store.fetch(store.current) }
+
+    @objc func chooseModel() {
         let open = NSOpenPanel()
         open.allowedContentTypes = []
         open.allowsOtherFileTypes = true
         open.message = "Choose a GGUF model"
         NSApp.activate()
         guard open.runModal() == .OK, let url = open.url else { return }
-        customModel = url.path
-        self.open(url.path)
+        self.open(url.path, remember: true)
     }
 
     @objc private func useDefaultModel() {
-        customModel = nil
-        loadModel()
+        use(ModelStore.models[0])
     }
 }

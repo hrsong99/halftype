@@ -6,8 +6,8 @@ Any wrong character: tell me what you typed and what came out. Use a new, empty 
 ## Before you start (the first time, wait for a 1.4 GB download; it isn't part of the 10 minutes)
 A. Quit Cotypist, which also takes Tab, then quit and reopen T3 and ego lite, so the accessibility switches it turned on are off.
    **Cotypist's icon is gone from the menu bar, and both apps are back.**
-B. Open `build/Itda.app`, grant Accessibility at the system's prompt.
-   **Within 2 s the menu's "Waiting for Accessibility" line goes, with no restart; then the download, then the model's name. Never a prompt for Input Monitoring.**
+B. Open `build/Itda.app`; its window asks for Accessibility. Press the button and grant it.
+   **Within 2 s the window shows its field, with no restart, and the download below it until the model is ready. Never a prompt for Input Monitoring.**
 
 ## T3 composer, Korean 2-set: about 5 minutes
 This is the unknown: does Chromium's composition take our key presses the way a native field does?
@@ -51,6 +51,16 @@ This is the unknown: does Chromium's composition take our key presses the way a 
     **Gone at once each time, and Tab is T3's.**
 18. With no ghost showing, press Tab.
     **T3 gets it as usual.**
+
+## The window: about 2 minutes
+W1. Type in its field, and Tab on the grey text. Paste with Cmd-V.
+    **The same as in any app.**
+W2. Press the power button, type, press it again. Then the sidebar icon: Apps, add an app, remove it; General, Start at Login on, then off.
+    **No ghost while off. The login switch keeps what you set, and System Settings shows Itda under Login Items only while it's on.**
+W3. Models: Get Qwen, stop it with ✕, Get it again, wait, Use it, type, then Use Kanana 1.5.
+    **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.**
+W4. Close the window, then open Itda from Finder or the menu.
+    **The Dock icon goes with the window. The same window comes back, and Itda kept working between.**
 
 ## The rest: about 1 minute
 19. Menu: "Pause in T3", type, unpause; turn Itda off, type, turn it on.

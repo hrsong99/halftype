@@ -1,0 +1,325 @@
+import AppKit
+import ServiceManagement
+import SwiftUI
+
+/// The one window: a field to type in, in the manner of Ollama's app, with plain pages behind a sidebar. It exists only while open.
+struct Root: View {
+    @ObservedObject var app: App
+    /// Stays in memory, and goes when the window closes.
+    @State private var draft = ""
+    @State private var sidebar: Bool
+    @State private var page: Page
+
+    init(app: App, page: Page = .field, sidebar: Bool = false) {
+        self.app = app
+        _page = State(initialValue: page)
+        _sidebar = State(initialValue: sidebar)
+    }
+
+    enum Page: String, CaseIterable { case field = "Try It", models = "Models", apps = "Apps", general = "General" }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if sidebar { side.transition(.move(edge: .leading)) }
+            ZStack {
+                switch page {
+                case .field: FieldPage(app: app, draft: $draft, page: $page)
+                case .models: ModelsPage(app: app)
+                case .apps: AppsPage(app: app)
+                case .general: GeneralPage(app: app)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, 28)
+        }
+        .overlay(alignment: .topLeading) {
+            Button { withAnimation(.easeOut(duration: 0.16)) { sidebar.toggle() } } label: { Image(systemName: "sidebar.left") }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(sidebar ? "Hide sidebar" : "Show sidebar")
+                .padding(.leading, 84)
+                .padding(.top, 9)
+        }
+        .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
+        .background(Color(nsColor: .textBackgroundColor))
+        .ignoresSafeArea()
+    }
+
+    private var side: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Page.allCases, id: \.self) { item in
+                Button { page = item } label: {
+                    Text(item.rawValue).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.vertical, 5).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .background(page == item ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 7))
+            }
+            Spacer()
+            Toggle("On", isOn: $app.on).toggleStyle(.switch).controlSize(.mini).tint(.primary).padding(.horizontal, 10)
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 38)
+        .padding(.bottom, 12)
+        .frame(width: 150)
+        .background(Color.primary.opacity(0.03))
+    }
+}
+
+/// The app icon's caret and fading continuation, as a small line mark.
+private struct Mark: View {
+    var body: some View {
+        HStack(spacing: 2) {
+            Capsule().fill(.primary).frame(width: 3, height: 26)
+            Capsule().fill(LinearGradient(colors: [.primary, .primary.opacity(0)], startPoint: .leading, endPoint: .trailing)).frame(width: 18, height: 3)
+        }
+    }
+}
+
+private struct FieldPage: View {
+    @ObservedObject var app: App
+    @Binding var draft: String
+    @Binding var page: Root.Page
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Mark()
+            if app.trusted { field; status } else { allow }
+        }
+        .padding(24)
+        .padding(.bottom, 40)
+    }
+
+    private var allow: some View {
+        VStack(spacing: 12) {
+            Text("Itda needs to see what you type. It stays on this Mac.").foregroundStyle(.secondary)
+            Button("Allow Accessibility", action: app.askForAccessibility).buttonStyle(.borderedProminent).tint(.primary).buttonBorderShape(.capsule)
+        }
+    }
+
+    private var field: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            ZStack(alignment: .topLeading) {
+                if draft.isEmpty {
+                    Text(app.on ? "Type here, then press Tab on the grey text" : "Itda is off").foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
+                }
+                TextEditor(text: $draft).focused($focused).scrollContentBackground(.hidden).frame(height: 44)
+            }
+            .font(.system(size: 15))
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(ModelStore.models.filter(app.store.has)) { model in
+                        Button(model.name) { app.use(model) }
+                    }
+                    Divider()
+                    Button("All Models…") { page = .models }
+                } label: {
+                    Text(app.activeName).font(.system(size: 12))
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .fixedSize()
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color(nsColor: .textBackgroundColor), in: Capsule())
+                Button { app.on.toggle() } label: {
+                    Image(systemName: "power").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(nsColor: .textBackgroundColor))
+                        .frame(width: 24, height: 24)
+                        .background(app.on ? Color.primary : Color.secondary.opacity(0.4), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help(app.on ? "Itda is on. Click to turn it off." : "Itda is off. Click to turn it on.")
+                .accessibilityLabel(app.on ? "Turn Itda off" : "Turn Itda on")
+            }
+        }
+        .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 20))
+        .frame(maxWidth: 500)
+        .onAppear { focused = true }
+    }
+
+    /// Nothing at all once it's ready and all is well.
+    @ViewBuilder private var status: some View {
+        VStack(spacing: 6) {
+            if !app.ready || app.notice != nil { Text(app.notice ?? app.modelLine).font(.system(size: 12)).foregroundStyle(.secondary) }
+            if !app.ready, app.downloading != nil { ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary) }
+        }
+    }
+}
+
+/// A title and hairline rows, with no boxes.
+private struct Plain<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title).font(.system(size: 20, weight: .semibold)).padding(.bottom, 12)
+                content
+            }
+            .frame(maxWidth: 480, alignment: .leading)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+private struct Row<Trailing: View>: View {
+    let title: String
+    var note: String? = nil
+    @ViewBuilder let trailing: Trailing
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                    if let note { Text(note).font(.system(size: 11.5)).foregroundStyle(.secondary) }
+                }
+                Spacer()
+                trailing
+            }
+            .padding(.vertical, 10)
+        }
+    }
+}
+
+private struct ModelsPage: View {
+    @ObservedObject var app: App
+    var body: some View {
+        Plain(title: "Models") {
+            ForEach(ModelStore.models) { model in
+                Row(title: model.name, note: model.note) {
+                    Text(model.sizeText).foregroundStyle(.secondary).font(.system(size: 12))
+                    action(model).frame(minWidth: 64, alignment: .trailing)
+                }
+            }
+            Row(title: "Your Own GGUF", note: app.ownModelName) {
+                Button("Choose…", action: app.chooseModel).frame(minWidth: 64, alignment: .trailing)
+            }
+            if let notice = app.notice { Text(notice).font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 8) }
+        }
+    }
+
+    @ViewBuilder private func action(_ model: ModelStore.Model) -> some View {
+        if app.downloading == model.id, app.verifying {
+            Text("Checking…").foregroundStyle(.secondary).font(.system(size: 12))
+        } else if app.downloading == model.id {
+            Button("\(Int(app.downloadFraction * 100))%  ✕") { app.store.cancel() }.help("Stop the download")
+        } else if app.isActive(model) {
+            Text("In use").foregroundStyle(.secondary).font(.system(size: 12))
+        } else if app.store.has(model) {
+            Button("Use") { app.use(model) }
+        } else {
+            Button("Get") { app.use(model) }.disabled(app.downloading != nil)
+        }
+    }
+}
+
+private struct AppsPage: View {
+    @ObservedObject var app: App
+    var body: some View {
+        Plain(title: "Paused Apps") {
+            Text("Itda stays quiet in these apps, and Tab is theirs.").foregroundStyle(.secondary).padding(.bottom, 12)
+            ForEach(app.pausedApps.sorted(), id: \.self) { id in
+                Row(title: App.displayName(id)) { Button("Remove") { app.pausedApps.remove(id) } }
+            }
+            Divider()
+            Button("Add App…", action: app.pauseAnApp).padding(.top, 12)
+        }
+    }
+}
+
+private struct GeneralPage: View {
+    @ObservedObject var app: App
+    var body: some View {
+        Plain(title: "General") {
+            Row(title: "Start at Login") { Toggle("", isOn: $app.startAtLogin).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden() }
+            Row(title: "Next word") { key("Tab") }
+            Row(title: "Whole suggestion") { key("⇧ Tab") }
+            Row(title: "Hide the suggestion") { key("Esc") }
+            Divider()
+            Text("Everything runs on this Mac. Nothing you type is saved or sent.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 12)
+        }
+    }
+    private func key(_ name: String) -> some View {
+        Text(name).font(.system(size: 11.5)).padding(.horizontal, 6).padding(.vertical, 1).overlay(RoundedRectangle(cornerRadius: 4).stroke(.tertiary))
+    }
+}
+
+extension App {
+    /// While the window is open Itda is an ordinary app, in the Dock and Cmd-Tab. Without the window it is only the menu bar icon again.
+    func showWindow() {
+        if window == nil {
+            let host = NSHostingController(rootView: Root(app: self))
+            let made = NSWindow(contentViewController: host)
+            made.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+            made.titlebarAppearsTransparent = true
+            made.titleVisibility = .hidden
+            made.title = "Itda"
+            made.isReleasedWhenClosed = false
+            made.delegate = self
+            made.setContentSize(CGSize(width: 720, height: 500))
+            made.center()
+            window = made
+        }
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate()
+        window?.makeKeyAndOrderFront(nil)
+    }
+
+    func windowWillClose(_ note: Notification) {
+        window = nil
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    /// With no menu an ordinary app has no Cmd-C, Cmd-V, Cmd-W or Cmd-Q.
+    func installMainMenu() {
+        func menu(_ title: String, _ items: [(String, Selector, String)]) -> NSMenuItem {
+            let holder = NSMenuItem()
+            holder.submenu = NSMenu(title: title)
+            for item in items { holder.submenu!.addItem(withTitle: item.0, action: item.1, keyEquivalent: item.2) }
+            return holder
+        }
+        let main = NSMenu()
+        main.addItem(menu("Itda", [("Quit Itda", #selector(NSApplication.terminate(_:)), "q")]))
+        main.addItem(menu("Edit", [("Undo", Selector(("undo:")), "z"), ("Redo", Selector(("redo:")), "Z"), ("Cut", #selector(NSText.cut(_:)), "x"), ("Copy", #selector(NSText.copy(_:)), "c"),
+                                   ("Paste", #selector(NSText.paste(_:)), "v"), ("Select All", #selector(NSText.selectAll(_:)), "a")]))
+        main.addItem(menu("Window", [("Close", #selector(NSWindow.performClose(_:)), "w"), ("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m")]))
+        NSApp.mainMenu = main
+    }
+
+    static func displayName(_ bundleID: String) -> String {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map { FileManager.default.displayName(atPath: $0.path) } ?? bundleID
+    }
+
+    func pauseAnApp() {
+        let open = NSOpenPanel()
+        open.allowedContentTypes = [.application]
+        open.directoryURL = URL(fileURLWithPath: "/Applications")
+        guard open.runModal() == .OK, let id = open.url.flatMap(Bundle.init(url:))?.bundleIdentifier else { return }
+        pausedApps.insert(id)
+    }
+
+    /// The system's prompt comes once a launch, and a second click goes where it would have sent you.
+    func askForAccessibility() {
+        if askedForAccessibility {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+        } else {
+            askedForAccessibility = true
+            _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        }
+    }
+
+    /// The system holds this, not us. A registration awaiting approval shows as off, and goes to where it can be approved.
+    var startAtLogin: Bool {
+        get { SMAppService.mainApp.status == .enabled }
+        set {
+            objectWillChange.send()
+            // On failure `get` still reads the system's answer, so the switch shows the truth.
+            if newValue { try? SMAppService.mainApp.register() } else { try? SMAppService.mainApp.unregister() }
+            if SMAppService.mainApp.status == .requiresApproval { SMAppService.openSystemSettingsLoginItems() }
+        }
+    }
+}

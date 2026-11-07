@@ -319,11 +319,25 @@ import Testing
         #expect(try !ModelStore.verify(file, size: 4, sha256: abc))
         #expect(try !ModelStore.verify(file, size: 3, sha256: String(repeating: "0", count: 64)))
     }
+    @Test func onlyUnverifiedFilesAreLeftovers() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let left = directory.appendingPathComponent("a.gguf.unverified"), model = directory.appendingPathComponent("a.gguf")
+        try Data().write(to: left)
+        try Data().write(to: model)
+        ModelStore(directory: directory).removeLeftovers()
+        #expect(!FileManager.default.fileExists(atPath: left.path))
+        #expect(FileManager.default.fileExists(atPath: model.path))
+    }
+
     @Test func aFailureKeepsWhereItStoppedAndARefusalLetsItGo() throws {
         let store = ModelStore(directory: FileManager.default.temporaryDirectory)
-        let session = URLSession(configuration: .ephemeral), task = session.dataTask(with: ModelStore.url)
+        let session = URLSession(configuration: .ephemeral), task = session.dataTask(with: ModelStore.models[0].url)
         store.urlSession(session, task: task, didCompleteWithError: NSError(domain: NSURLErrorDomain, code: -1, userInfo: [NSURLSessionDownloadTaskResumeData: Data("here".utf8)]))
         #expect(store.resumeData == Data("here".utf8))
+        store.urlSession(session, task: task, didCompleteWithError: NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled))
+        #expect(store.resumeData == Data("here".utf8), "cancel records its own, so a cancellation leaves it alone")
         store.urlSession(session, task: task, didCompleteWithError: NSError(domain: NSURLErrorDomain, code: -3003))
         #expect(store.resumeData == nil)
     }

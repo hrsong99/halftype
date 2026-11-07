@@ -6,6 +6,7 @@ import Carbon
 import ItdaCore
 @testable import ItdaEngine
 import Metal
+import SwiftUI
 import Synchronization
 
 final class FakeCompleter: Completer, @unchecked Sendable {
@@ -217,6 +218,10 @@ enum EndToEnd {
 
     static func main() {
         setbuf(stdout, nil)
+        if CommandLine.arguments.contains("--key-idle") {
+            print(Int(CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown)))
+            exit(0)
+        }
         if CommandLine.arguments.contains("--front-id") {
             print(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none")
             exit(0)
@@ -258,6 +263,25 @@ enum EndToEnd {
             Shot(name: "korean-dark-wrap", typed: "내일 오전에 다시 한번 확인해 보고 결과를 정리해서", ghost: " 공유드리겠습니다 감사합니다", font: 15, size: CGSize(width: 380, height: 90), dark: true),
         ]
         for shot in shots { render(shot, to: dir) }
+    }
+
+    /// `--window-shots <dir>`: the real window's pages, rendered without opening anything on screen.
+    static func windowShots(to dir: String) {
+        let app = App()
+        app.ready = true
+        app.trusted = true
+        for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("models", .models, false), ("general", .general, false), ("apps", .apps, false)] {
+            let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field))
+            host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
+            let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            window.contentView = host
+            host.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+            let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
+            host.cacheDisplay(in: host.bounds, to: rep)
+            try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir).appendingPathComponent("window-\(name).png"))
+        }
     }
 
     static func render(_ shot: Shot, to dir: String) {
@@ -310,8 +334,13 @@ enum EndToEnd {
     }
 
     static func run() {
+        let started = Date()
         if let i = CommandLine.arguments.firstIndex(of: "--engine") { return engine(path: CommandLine.arguments[i + 1]) }
         if let i = CommandLine.arguments.firstIndex(of: "--measure") { return measure(path: CommandLine.arguments[i + 1]) }
+        if CommandLine.arguments.contains("--own-window") { return ownWindow() }
+        if let i = CommandLine.arguments.firstIndex(of: "--window-shots") {
+            return onMain { windowShots(to: CommandLine.arguments[i + 1]) }
+        }
         if let i = CommandLine.arguments.firstIndex(of: "--shots") {
             return onMain { shots(to: CommandLine.arguments[i + 1]) }
         }
@@ -320,6 +349,7 @@ enum EndToEnd {
         if CommandLine.arguments.contains("--stale") { return staleSnapshots() }
         frontAtStart = frontmost()
         ghostAtCaret()
+        ownWindow()
         hides()
         secure()
         insertion()
@@ -329,10 +359,41 @@ enum EndToEnd {
         latency()
         flicker()
         sessionPath()
+        // The test panel holds keyboard focus without activating, so real keys land in it and read as failures.
+        if CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown) < Date().timeIntervalSince(started) { print("WARNING: someone typed during this run. Its failures may only be those keys, and those keys didn't reach their app.") }
         check(frontmost() == frontAtStart && !frontAtStart.isEmpty, "frontmost app unchanged by the whole run: \(frontAtStart.trimmingCharacters(in: .whitespacesAndNewlines))")
     }
 
     nonisolated(unsafe) static var frontAtStart = ""
+
+    /// Itda's own window: the field there is reached like any other app's, through AX, and takes the ghost and Tab.
+    static func ownWindow() {
+        let h = Harness(completer: FakeCompleter(" there friend"))
+        defer { h.close() }
+        func textView(in view: NSView) -> NSTextView? { (view as? NSTextView) ?? view.subviews.lazy.compactMap(textView).first }
+        let (window, field): (NSPanel, NSTextView?) = onMain {
+            h.window.orderOut(nil)
+            let app = App()
+            app.trusted = true
+            app.ready = true
+            let window = NSPanel(contentRect: CGRect(x: 80, y: 80, width: 720, height: 500), styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+            window.contentView = NSHostingView(rootView: Root(app: app))
+            window.orderFrontRegardless()
+            window.makeKey()
+            window.contentView!.layoutSubtreeIfNeeded()
+            return (window, textView(in: window.contentView!))
+        }
+        defer { onMain { window.orderOut(nil) } }
+        guard let field else { return check(false, "own window has a text view") }
+        onMain { _ = window.makeFirstResponder(field) }
+        h.watcher.bind(pid: getpid())
+        usleep(100_000)
+        typeToSelf("hello")
+        check(eventually { onMain { field.string } == "hello" }, "own window: keys reach the field: '\(onMain { field.string })'")
+        check(eventually { h.visible }, "own window: ghost appears")
+        tabKey()
+        check(eventually { onMain { field.string } == "hello there" }, "own window: Tab accepts the next word: '\(onMain { field.string })'")
+    }
 
     static func ghostAtCaret() {
         let model = FakeCompleter(" there friend, how are you")

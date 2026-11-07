@@ -45,6 +45,8 @@ No code was copied into ItdaApp either. These are the ideas it uses.
 | The GGUF the app downloads, by mradermacher, from [OpenLLM-Korea's copy](https://huggingface.co/OpenLLM-Korea/kanana-1.5-2.1b-base) | [mradermacher/kanana-1.5-2.1b-base-GGUF](https://huggingface.co/mradermacher/kanana-1.5-2.1b-base-GGUF) | Apache-2.0 | Q4_K_M, checked by SHA-256 |
 | Public Korean text used to measure accuracy | [smilegate-ai/korean_smile_style_dataset](https://github.com/smilegate-ai/korean_smile_style_dataset) | CC BY-NC 4.0 | Used for measuring only. None of it is in this repo or the app |
 
+The window's look, one field and a lot of white, takes its idea from [Ollama's desktop app](https://ollama.com/blog/new-app). No code or assets from it.
+
 The icon was made with Codex's built-in image tool: prompts and outputs in [docs/icon](docs/icon/README.md).
 
 Every GitHub link and licence here was checked with `gh repo view` and the repo's licence file, and every model licence on its Hugging Face card, on 2026-11-07. [docs/audit.md](docs/audit.md) credits all 66 projects we read.

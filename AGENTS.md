@@ -4,7 +4,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 
 ## Must not break
 - **No private text, ever.** Nothing from anyone's messages goes in this repo: not tests, docs, commit messages or screenshots. Test strings are invented, and benchmark results are aggregates only. Replay traces hold typed text and stay out.
-- **Privacy claims in the README are promises.** No network except `ModelStore`'s one URL, no typed text written to disk or logs, no Screen Recording, secure fields skipped. A change that touches one changes the README in the same commit.
+- **Privacy claims in the README are promises.** No network except `ModelStore`'s model URLs, no typed text written to disk or logs, no Screen Recording, secure fields skipped. A change that touches one changes the README in the same commit.
 - **Licences.** AGPL, GPL and unlicensed projects in `CREDITS.md` gave ideas only. No code from them. A new borrowed idea gets a row there, with its licence checked.
 - **Every number carries how it was measured**, here or in `docs/measuring.md`. Remeasure rather than edit one by hand.
 
@@ -13,13 +13,14 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - App: `scripts/build-app.sh`, output `build/Itda.app`.
 - Private-window checks: `scripts/e2e.sh`, plus `--measure <gguf>`, `--flicker`, `--engine <gguf>`. `--ime` switches the system's input source and needs the user idle.
 - Always pass `--disable-keychain`: without it the first SwiftPM download of llama.cpp can hang on keychain credentials.
+- **`scripts/e2e.sh` takes the user's keyboard and cursor focus while it runs. Ask John first, every time.** A 60 s pause in typing doesn't mean he has stopped using the Mac. Unit tests and reviews don't take focus.
 - The Mac has limited memory: run one heavy build or model at a time, and don't steal focus.
 - `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh a` rebuilds `Resources/`.
 
 ## Where things are
 - `ItdaCore`: pure logic, with no model or GUI. Test it here first.
 - `ItdaEngine`: llama.cpp, pinned by URL and checksum in `Package.swift`.
-- `ItdaApp`: Accessibility, key tap, panel. Swift 5 language mode, as state is confined by hand to one queue.
+- `ItdaApp`: Accessibility, key tap, panel, and the window (`Window.swift`). Swift 5 language mode, as state is confined by hand to one queue.
 - The tag `bench-1` keeps the replay harness (`itda-replay`), removed from main. Don't move it.
 
 ## Traps
