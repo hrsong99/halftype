@@ -170,13 +170,21 @@ private struct ModelList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            ForEach(ModelStore.models) { model in
-                item(model.name, detail: app.downloading == model.id ? "\(Int(app.downloadFraction * 100))%" : model.sizeText,
-                     mark: app.isActive(model) ? "checkmark" : app.store.has(model) ? nil : "arrow.down") { app.use(model); close() }
+            // Six rows, then it scrolls: a long list of your own would run off the window.
+            ScrollView {
+                VStack(spacing: 1) {
+                    ForEach(ModelStore.models) { model in
+                        item(model.name, detail: app.downloading == model.id ? "\(Int(app.downloadFraction * 100))%" : model.sizeText,
+                             mark: app.isActive(model) ? "checkmark" : app.store.has(model) ? nil : "arrow.down") { app.use(model); close() }
+                            .disabled(!app.store.has(model) && app.downloading != nil)
+                    }
+                    ForEach(app.ownModels, id: \.self) { path in
+                        item(App.fileName(path), detail: nil, mark: app.isActive(path: path) ? "checkmark" : nil) { app.use(path: path); close() }
+                    }
+                }
             }
-            ForEach(app.ownModels, id: \.self) { path in
-                item(App.fileName(path), detail: nil, mark: app.isActive(path: path) ? "checkmark" : nil) { app.use(path: path); close() }
-            }
+            .scrollIndicators(.never)
+            .frame(height: CGFloat(min(ModelStore.models.count + app.ownModels.count, 6)) * 28)
             Divider().padding(.vertical, 3)
             item("All Models", detail: nil, mark: nil, action: showAll)
         }

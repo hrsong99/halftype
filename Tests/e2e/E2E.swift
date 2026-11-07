@@ -278,6 +278,8 @@ enum EndToEnd {
             window.contentView = host
             host.layoutSubtreeIfNeeded()
             RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+            func scrollers(_ view: NSView) -> [NSScrollView] { ((view as? NSScrollView).map { [$0] } ?? []) + view.subviews.flatMap(scrollers) }
+            if page == .field { for scroll in scrollers(host) where scroll.documentView is NSTextView { check(!scroll.hasVerticalScroller || scroll.verticalScroller?.isHidden == true, "the field shows no scroller") } }
             let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
             host.cacheDisplay(in: host.bounds, to: rep)
             try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir).appendingPathComponent("window-\(name).png"))

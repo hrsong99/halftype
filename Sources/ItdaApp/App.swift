@@ -58,7 +58,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published private var ownPaths = UserDefaults.standard.stringArray(forKey: "ownModels") ?? [] {
         didSet { UserDefaults.standard.set(ownPaths, forKey: "ownModels") }
     }
-    var ownModels: [String] { ownPaths.filter(FileManager.default.fileExists) }
+    /// One in use stays, even if its file has since moved.
+    var ownModels: [String] { ownPaths.filter { $0 == activePath || FileManager.default.fileExists(atPath: $0) } }
     func forgetOwnModel(_ path: String) { ownPaths.removeAll { $0 == path } }
     func isActive(path: String) -> Bool { ready && activePath == path }
     /// Takes one of your GGUFs, from the lists.
