@@ -31,3 +31,17 @@ John, after round 2: "doesn't really give off the feeling of being a text comple
 
 - `references.html`: 24 shipping icons (writing tools, voice and AI tools, Mac SaaS), each with how it says its job, and a TL;DR.
 - `references/fetch.py` downloads the icons from the iTunes Search API and the makers' sites; they are trademarks, so they stay gitignored. Run it before opening the page.
+
+## Round 3
+
+John, after the references: "you can go ahead with 1 and 2, but maybe a few more in the playful, hand-drawn/hand-written style of granola or the simple style of cursor; also, i have another thread that's updating the main look of the app screen, so it should go well with that too"
+
+The window thread picked dither-look option I (a light halftone sky, powder blue to peach, white frosted glass), so round 3 uses those colours; `images/app-look-I.png` is that window.
+
+- `round3.html`: drawn 3A–3E (`round3/make.py` writes `U V W X Y .svg/.png`, the halftone dots generated in code), image ideas 3F–3M (`images/r3a`–`r3h`).
+- `round3.png`: the thirteen icons in one sheet (file names, not letters: U–Y are 3A–3E, r3a–r3h are 3F–3M).
+- `prompts-round3.txt`, `gen-round3.sh`: the image prompts, with the window as reference.
+
+Recommended: 3I, a Tab keycap labelled with a caret and ghost text, built as the vector 3C. Whichever wins also replaces the caret mark above the field in the window.
+
+Pick: not yet.
