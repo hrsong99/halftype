@@ -39,6 +39,12 @@ final class Watcher: @unchecked Sendable {
     private var lastGeneration = 0
     private var request = 0
     private var unloadWork: DispatchWorkItem?
+    /// Numbers the model's suggestions, for the counts: following one as you type keeps its number.
+    private var suggestionNumber = 0
+    /// Main thread only: the last suggestion counted as shown.
+    private var counted = 0
+    /// On the main thread, once per suggestion drawn.
+    var onShown: (() -> Void)?
 
     var completer: Completer?
     /// Read on the main thread, as TIS requires, and kept here.
@@ -254,6 +260,7 @@ final class Watcher: @unchecked Sendable {
     private func received(id: Int, anchor: String, text: String, gate: Double?) {
         guard id == request, let gate, gate >= Tuning.current.withLock({ $0.threshold }), let last else { return }
         suggestion = (anchor, text)
+        suggestionNumber += 1
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
         if let ghost = Follow.check(anchor: anchor, suggestion: text, field: field) { display(ghost, field, last, lastGeneration) }
@@ -273,11 +280,17 @@ final class Watcher: @unchecked Sendable {
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
                              mayWrap: reading.field.after.allSatisfy(\.isWhitespace))
-        let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before)
+        let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before, suggestion: suggestionNumber)
         DispatchQueue.main.async { [self] in
             guard tap.generation == generation else { return }
             guard panel.show(spec) else { return hidePanel() }
-            if tap.arm(armed, generation: generation) { showScrollWatch() } else { hideDisarmed() }
+            if tap.arm(armed, generation: generation) {
+                showScrollWatch()
+                if counted != armed.suggestion {
+                    counted = armed.suggestion
+                    onShown?()
+                }
+            } else { hideDisarmed() }
         }
     }
 

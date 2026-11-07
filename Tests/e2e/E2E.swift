@@ -267,11 +267,18 @@ enum EndToEnd {
 
     /// `--window-shots <dir>`: the real window's pages, rendered without opening anything on screen.
     static func windowShots(to dir: String) {
+        App.tallyFile = nil
         let app = App()
+        // Made up: busy weekdays, quiet weekends.
+        for (back, busy) in [84, 101, 122, 109, 131, 117, 88, 96, 120, 104, 113, 126, 98, 92].enumerated() {
+            let date = Calendar.current.date(byAdding: .day, value: -back, to: Date())!
+            let tabs = back > 0 && Calendar.current.isDateInWeekend(date) ? busy / 6 : busy
+            app.tally.days[Tally.key(date)] = Tally.Day(shown: tabs * 2 + 17, taken: tabs * 3 / 4, tabs: tabs, characters: tabs * 9 / 2)
+        }
         app.ready = true
         app.trusted = true
         app.activePath = app.store.path(ModelStore.models[0]).path
-        for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("models", .models, false), ("general", .general, false), ("apps", .apps, false), ("picker", .field, false)] {
+        for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("stats", .stats, false), ("models", .models, false), ("general", .general, false), ("apps", .apps, false), ("picker", .field, false)] {
             let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field, picking: name == "picker"))
             host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
             host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)

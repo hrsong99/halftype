@@ -1,4 +1,6 @@
 import AppKit
+import Charts
+import ItdaCore
 import ServiceManagement
 import SwiftUI
 
@@ -19,7 +21,7 @@ struct Root: View {
         _sidebar = State(initialValue: sidebar)
     }
 
-    enum Page: String, CaseIterable { case field = "Try It", models = "Models", apps = "Apps", general = "General" }
+    enum Page: String, CaseIterable { case field = "Try It", stats = "Stats", models = "Models", apps = "Apps", general = "General" }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -27,6 +29,7 @@ struct Root: View {
             ZStack {
                 switch page {
                 case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking)
+                case .stats: StatsPage(app: app)
                 case .models: ModelsPage(app: app)
                 case .apps: AppsPage(app: app)
                 case .general: GeneralPage(app: app)
@@ -258,6 +261,74 @@ private struct Row<Trailing: View>: View {
     }
 }
 
+/// Today in three numbers, the last two weeks as bars, and all time in a line. Hovering a bar shows that day.
+private struct StatsPage: View {
+    @ObservedObject var app: App
+    @State private var picked: Date?
+    private static let days = 14
+
+    var body: some View {
+        // shortcut: a suggestion shown before midnight and taken after counts on two days, so the share is capped at 100%.
+        let today = app.tally.last(1)[0].day
+        let weeks = app.tally.last(Self.days)
+        Plain(title: "Stats") {
+            HStack(alignment: .lastTextBaseline, spacing: 36) {
+                Figure(value: today.tabs.formatted(), label: today.tabs == 1 ? "Tab today" : "Tabs today", big: true)
+                Figure(value: today.characters.formatted(), label: "letters typed for you")
+                Figure(value: today.shown == 0 ? "–" : min(1, Double(today.taken) / Double(today.shown)).formatted(.percent.precision(.fractionLength(0))),
+                       label: "of suggestions taken")
+            }
+            .padding(.vertical, 18)
+            Divider()
+            Text(caption(weeks)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().padding(.top, 16).padding(.bottom, 8)
+            Chart(weeks, id: \.date) { entry in
+                BarMark(x: .value("Day", entry.date, unit: .day), y: .value("Tabs", entry.day.tabs), width: .ratio(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                    .foregroundStyle(Color.primary.opacity(highlighted(entry.date) ? 0.85 : 0.18))
+            }
+            .chartXSelection(value: $picked)
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day)) { value in
+                    AxisValueLabel(format: .dateTime.weekday(.narrow), centered: true)
+                }
+            }
+            .chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { AxisGridLine(); AxisValueLabel() } }
+            .frame(height: 140)
+            Text(footnote).font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 20)
+        }
+    }
+
+    private func highlighted(_ date: Date) -> Bool { Calendar.current.isDate(date, inSameDayAs: picked ?? Date()) }
+
+    /// The hovered day, or else the two weeks in sum.
+    private func caption(_ weeks: [(date: Date, day: Tally.Day)]) -> String {
+        if let picked, let entry = weeks.first(where: { Calendar.current.isDate($0.date, inSameDayAs: picked) }) {
+            return "\(entry.date.formatted(.dateTime.weekday(.wide).month().day())): \(entry.day.tabs) Tabs, \(entry.day.characters) letters"
+        }
+        let tabs = weeks.reduce(0) { $0 + $1.day.tabs }
+        return "Last \(Self.days) days: \(tabs.formatted()) Tabs"
+    }
+
+    private var footnote: String {
+        let total = app.tally.total
+        guard total.tabs > 0 else { return "Press Tab on grey text and it counts here. Only counts are kept, never what you type." }
+        return "\(total.tabs.formatted()) Tabs and \(total.characters.formatted()) letters in all. Only counts are kept, never what you type."
+    }
+}
+
+private struct Figure: View {
+    let value: String
+    let label: String
+    var big = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.system(size: big ? 44 : 26, weight: big ? .semibold : .regular)).monospacedDigit()
+                .contentTransition(.numericText()).animation(.snappy, value: value)
+            Text(label).font(.system(size: 12)).foregroundStyle(.secondary)
+        }
+    }
+}
+
 private struct ModelsPage: View {
     @ObservedObject var app: App
     @State private var deleting: ModelStore.Model?
@@ -353,7 +424,7 @@ private struct GeneralPage: View {
             Row(title: "Whole suggestion") { key("⇧ Tab") }
             Row(title: "Hide the suggestion") { key("Esc") }
             Divider()
-            Text("Everything runs on this Mac. Nothing you type is saved or sent.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 12)
+            Text("Everything runs on this Mac. Nothing you type is sent, and only counts are saved, never text.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 12)
         }
     }
     private func key(_ name: String) -> some View {

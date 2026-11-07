@@ -16,7 +16,21 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private let panel = GhostPanel()
     private lazy var watcher = Watcher(tap: tap, panel: panel)
     private lazy var status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    let store = ModelStore(directory: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda"))
+    static let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda")
+    let store = ModelStore(directory: App.support)
+    /// Counts only, for the Stats page. Written on each change, which is a few hundred small writes on a busy day.
+    @Published var tally = App.tallyFile.flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONDecoder().decode(Tally.self, from: $0) } ?? Tally() {
+        didSet {
+            guard let file = App.tallyFile, let data = try? JSONEncoder().encode(tally) else { return }
+            // A model chosen from elsewhere means no download has made the folder yet.
+            try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? data.write(to: file, options: .atomic)
+        }
+    }
+    /// Nil in the window pictures, whose made-up counts must not reach the real file. Set before any App exists.
+    /// Main thread only: the suggestion the last Tab took from.
+    private var lastTaken = -1
+    nonisolated(unsafe) static var tallyFile: URL? = support.appendingPathComponent("stats.json")
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     @Published var ready = false
     /// What just went wrong with a download or a switch.
@@ -108,6 +122,14 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     func applicationDidFinishLaunching(_ note: Notification) {
         tune()
+        watcher.onShown = { [weak self] in self?.tally.shown() }
+        tap.onAccept = { [weak self] added, suggestion in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.tally.took(added, first: suggestion != self.lastTaken)
+                self.lastTaken = suggestion
+            }
+        }
         // The symbol is for a binary run outside the bundle, as the e2e checks do.
         let glyph = Bundle.main.image(forResource: "MenuBarTemplate") ?? NSImage(systemSymbolName: "text.cursor", accessibilityDescription: "Itda")
         glyph?.isTemplate = true

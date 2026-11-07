@@ -1,6 +1,6 @@
 # Itda (잇다)
 
-**Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. What you type never leaves your Mac and is never saved. *Itda* means "to continue, to join".
+**Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. What you type never leaves your Mac and is never saved: Itda keeps only counts, for its Stats page. *Itda* means "to continue, to join".
 
 ![Typing in English, with Tab taking each suggested word](docs/media/en.gif)
 
@@ -24,6 +24,10 @@ It keeps itself up to date, with signed and notarized releases. Turn that off un
 | The window | Your models |
 |---|---|
 | ![The window: one field, with the model and an on/off button inside it](docs/media/window-field.png) | ![The Models page: models to download or switch between](docs/media/window-models.png) |
+
+| How much it typed for you (Stats; these counts are made up) |
+|---|
+| ![The Stats page: Tabs today, letters typed for you, share of suggestions taken, and the last 14 days as bars](docs/media/window-stats.png) |
 
 ## Use
 
@@ -104,6 +108,6 @@ Korean has been used by hand in T3 Code, a Chromium app, and works, though the s
 - **사용법:** 회색 글자가 제안입니다. Tab은 다음 단어, Shift-Tab은 전체, Esc는 닫기입니다.
 - **다른 점:** 조합 중인 글자를 모델에 보내지 않고, 두벌식 키 입력에 맞는 결과만 받습니다. Tab을 누르면 남은 키를 실제로 눌러 입력기가 글자를 마저 조합합니다.
 - **비용:** 입력 중과 그 후 15초 동안 약 0.56 GB를 점유하고(wired), 5분 쉬면 79 MB로 줄어듭니다. 모델은 처음 한 번 0.5 GB를 받습니다.
-- **개인정보:** 손쉬운 사용 권한만 씁니다. 네트워크는 모델 다운로드와 업데이트 확인(일반 설정에서 끌 수 있음)에만 쓰고, 입력한 글을 저장하지 않으며, 비밀번호 칸은 건너뜁니다.
+- **개인정보:** 손쉬운 사용 권한만 씁니다. 네트워크는 모델 다운로드와 업데이트 확인(일반 설정에서 끌 수 있음)에만 쓰고, 입력한 글은 저장하지 않고 횟수만 셉니다(통계 페이지용). 비밀번호 칸은 건너뜁니다.
 - **설치:** [Itda.dmg](https://github.com/hrsong99/itda/releases/latest/download/Itda.dmg)를 내려받거나 `brew tap hrsong99/itda && brew trust hrsong99/itda` 후 `brew install --cask itda`를 실행하세요. 자동으로 업데이트됩니다.
 - **한계:** macOS 26 이상, Apple Silicon, 두벌식이 필요합니다. 한국어 정확도는 영어보다 낮습니다. 기본 모델은 공개 대화 데이터에서 보여 준 제안의 21%가 정확히 일치했고, 전체 메시지 기준으로 키 입력을 4.8% 줄였습니다. 한국어를 많이 쓴다면 창에서 Kanana 1.5를 고르세요(31-34%, 8.8%).

@@ -16,6 +16,8 @@ final class KeyTap: @unchecked Sendable {
         var typesKeys: Bool
         var committed: String
         var before: String
+        /// Which of the model's suggestions this is, for the counts: redraws and the rest after a Tab keep it.
+        var suggestion = 0
     }
 
     struct State {
@@ -30,16 +32,18 @@ final class KeyTap: @unchecked Sendable {
         /// field then holds something else: Tab, Backspace, and `hello ther` would otherwise read as on its way to `hello there`.
         var pending: (from: String, to: String)?
 
-        mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String)? {
+        mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)? {
             let next = all ? Accept.all(armed.ghost) : Accept.nextWord(armed.ghost)
             let strokes = armed.typesKeys ? TwoSetLayout.strokes(next.keys + Hangul.keys(next.text)) : nil
             if armed.typesKeys && strokes == nil { return nil }
             let to = armed.committed + armed.ghost.composing + next.text
             let rest = String(armed.ghost.remainder.dropFirst(next.text.count))
             pending = (pending?.from ?? armed.before, to)
-            self.armed = rest.isEmpty ? nil : Armed(pid: armed.pid, ghost: Ghost(remainder: rest), typesKeys: armed.typesKeys, committed: to, before: to)
+            self.armed = rest.isEmpty ? nil : Armed(pid: armed.pid, ghost: Ghost(remainder: rest), typesKeys: armed.typesKeys, committed: to, before: to,
+                                                         suggestion: armed.suggestion)
             composing = strokes?.last.map { TwoSetLayout.letterCodes.contains(Int64($0.code)) } ?? false  // As if the user typed it.
-            return (strokes, next.text)
+            // Finishing a syllable can add more than the text typed: `그 달` to `그 다라가` is two characters, from `가` alone.
+            return (strokes, next.text, max(0, to.count - armed.before.count))
         }
     }
 
@@ -51,6 +55,8 @@ final class KeyTap: @unchecked Sendable {
     /// Off this thread at once. Given the generation this input moved to.
     var onInput: (@Sendable (Int) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
+    /// Given the characters a Tab added, and which suggestion it took from. Off this thread at once.
+    var onAccept: (@Sendable (_ added: Int, _ suggestion: Int) -> Void)?
     private var port: CFMachPort?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
     private let pid: pid_t?
@@ -95,7 +101,8 @@ final class KeyTap: @unchecked Sendable {
         guard event.getIntegerValueField(.eventSourceUserData) != Self.ownEvent else { return false }
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode), flags = event.flags
         let target = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
-        var plan: (strokes: [TwoSetLayout.Stroke]?, text: String)?
+        var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)?
+        var suggestion = 0
         var generation = 0
         let decision = state.withLock { s -> Decision in
             let armed = s.armed
@@ -104,12 +111,16 @@ final class KeyTap: @unchecked Sendable {
             generation = s.generation
             s.armed = nil
             s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
-            if case .accept(let all) = decision, let armed, armed.pid == target { plan = s.accept(armed, all: all) }
+            if case .accept(let all) = decision, let armed, armed.pid == target {
+                plan = s.accept(armed, all: all)
+                suggestion = armed.suggestion
+            }
             if plan == nil { s.pending = nil }
             return decision
         }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
+            onAccept?(plan.added, suggestion)
         }
         if decision == .reenable, let port { CGEvent.tapEnable(tap: port, enable: true) }
         if decision == .passAndDismiss { onDismiss?() }
