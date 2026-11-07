@@ -8,7 +8,7 @@ cask "itda" do
   homepage "https://github.com/hrsong99/itda"
 
   auto_updates true
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
   depends_on arch: :arm64
 
   app "Itda.app"
