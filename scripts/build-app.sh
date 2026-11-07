@@ -44,6 +44,11 @@ cat > "$app/Contents/Info.plist" <<PLIST
 </dict></plist>
 PLIST
 
+# A keychain of its own, as CI does, so signing never waits on a dialog nobody may be there to answer.
+if [[ -f ~/.config/itda-signing/env ]]; then
+  source ~/.config/itda-signing/env
+  security unlock-keychain -p "$KEYCHAIN_PASSWORD" itda-signing.keychain
+fi
 identity=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application[^"]*\)".*/\1/p' | head -1)
 flags=(--force --options runtime --timestamp)
 if [[ -z "$identity" ]]; then

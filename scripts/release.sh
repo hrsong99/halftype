@@ -1,13 +1,14 @@
 #!/bin/zsh
 # Publishes a release: signed, notarized DMG, appcast for Sparkle, GitHub release, and the Homebrew cask. Usage: scripts/release.sh 0.1.0
-# Needs, on the releasing Mac only: a Developer ID certificate, Sparkle's signing key in the keychain (made once by
-# Sparkle's generate_keys, public half in scripts/sparkle-public-key.txt), `gh`, and ~/.config/itda-signing/env with
-# NOTARY_KEY (path to an App Store Connect .p8), NOTARY_KEY_ID and NOTARY_ISSUER.
+# Needs, on the releasing Mac only: `gh`, a Developer ID certificate in a keychain called itda-signing, and
+# ~/.config/itda-signing/env with KEYCHAIN_PASSWORD, NOTARY_KEY (path to an App Store Connect .p8), NOTARY_KEY_ID, NOTARY_ISSUER
+# and SPARKLE_KEY (a file from Sparkle's generate_keys -x, public half in scripts/sparkle-public-key.txt).
 set -euo pipefail
 cd "${0:A:h}/.."
 version=$1
 [[ -z "$(git status --porcelain)" ]] || { echo "Commit first: a release is one commit."; exit 1; }
 source ~/.config/itda-signing/env
+security unlock-keychain -p "$KEYCHAIN_PASSWORD" itda-signing.keychain
 security find-identity -v -p codesigning | grep -q "Developer ID Application" || { echo "No Developer ID certificate."; exit 1; }
 
 ITDA_VERSION=$version scripts/build-app.sh
@@ -23,7 +24,7 @@ spctl -a -t open --context context:primary-signature "$dmg"
 
 bin=.build/artifacts/sparkle/Sparkle/bin
 sha=$(shasum -a 256 "$dmg" | cut -d' ' -f1)
-"$bin/generate_appcast" --download-url-prefix "https://github.com/hrsong99/itda/releases/download/v$version/" "$out"
+"$bin/generate_appcast" --ed-key-file "$SPARKLE_KEY" --download-url-prefix "https://github.com/hrsong99/itda/releases/download/v$version/" "$out"
 
 # Everything that can fail goes first. Running it again after a failure past here replaces the assets and carries on.
 tap=$(mktemp -d)
