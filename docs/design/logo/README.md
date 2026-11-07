@@ -45,3 +45,16 @@ The window thread picked dither-look option I (a light halftone sky, powder blue
 Recommended: 3I, a Tab keycap labelled with a caret and ghost text, built as the vector 3C. Whichever wins also replaces the caret mark above the field in the window.
 
 Pick: not yet.
+
+## Round 4
+
+John: "i really want to move away from the caret and line motif, and i honestly think i'm going to change the name of the app so no need to be hung up on that. If i had to say, 3e, 3h, 3j, and 3l look the best (all different styles, I know)"
+
+So: no caret and line, no letters or name. Eight image-tool takes on 3E (hand-drawn), 3H (keycap), 3J (handwriting) and 3L (isometric), alone and crossed, each with its sources as references.
+
+- `round4.html`, `round4.png`: the eight (4A–4H). `round4/page.py` builds the page from `round4/notes.py`.
+- `prompts-round4.txt`, `gen-round4.sh`: the prompts and which reference images each one got.
+
+Recommended: 4H, the risograph Tab key; 4C (doodled key) for looser, 4B (black key, glass key) for minimal. Whichever wins gets re-centred and drawn as a vector.
+
+Pick: not yet.
