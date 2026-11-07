@@ -59,10 +59,11 @@ This is the unknown: does Chromium's composition take our key presses the way a 
     **The ghost grows with the text, about the size of your letters, on their baseline. After Cmd-0 it's back to normal.**
 
 ## When it must stand aside: about 4 minutes
-T1. Revoking the permission. First run `(sleep 45; pkill -9 -x Itda) &` in Terminal, as a tap left in place can hold every click and key. Turn Itda off under Privacy & Security, Accessibility, and click around.
-    **Clicks and keys work within a second. The window offers Allow Accessibility, the menu says it's waiting, and no system dialog appears, once or over and over. If Itda was killed at 45 s, reopen it and say so: the tap didn't come down.**
-    Run the dead-man again, turn Itda back on, and Tab a ghost. Run it again, remove the row with `-`, click around, and add Itda back.
-    **The field is back within 2 s of the grant, and Tab works, each way.**
+T1. The permission, each way. No automatic test reaches this: they stand in for the system. Write down a result for each of a, b and c.
+    Before each, run `(sleep 45; pkill -9 -x Itda) &` in Terminal, as a tap left in place can hold every click and key. If Itda is killed at 45 s, reopen it and say which step: the tap didn't come down.
+    a. First grant: step B, on a Mac where Itda has no row yet. **No system dialog before the button; the field within 2 s of the grant.**
+    b. Turn Itda off under Privacy & Security, Accessibility, and click around. **Clicks and keys work within a second. The window offers Allow Accessibility, the menu says it's waiting, and no system dialog appears, once or over and over.** Turn it back on. **The field within 2 s, and Tab takes a ghost.**
+    c. Remove the row with `-`, click around, and add Itda back. **The same as b, each way.**
 T2. Secure Input. Turn on Terminal's Secure Keyboard Entry, then type in T3. Don't run `scripts/e2e.sh` meanwhile.
     **No ghost, Tab is T3's, and the menu says Secure Input is on.** Turn it off and type: **ghosts are back, and the menu line is gone.**
 T3. In a search field that Esc clears, type until a ghost shows, and press Esc. Press it again.

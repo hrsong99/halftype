@@ -70,6 +70,7 @@ class KeyTap: @unchecked Sendable {
     let keeper = DispatchQueue(label: "itda.tap.keeper", qos: .userInteractive)
     private var up = false
     private var attempt: DispatchWorkItem?
+    private var token: Int32?
     private let retryEvery: TimeInterval
 
     init(pid: pid_t? = nil, retryEvery: TimeInterval = 1) {
@@ -157,13 +158,25 @@ class KeyTap: @unchecked Sendable {
     /// Takes the tap now if it can, and from then on keeps to the permission: up when it's given, down when it goes, whichever
     /// comes first. True if up already, and `onUp` tells the rest.
     func hold() -> Bool {
-        var token: Int32 = 0
-        // Undocumented, posted for any app's permission. Were it to stop, a revoke would again go unnoticed until the next launch.
-        notify_register_dispatch("com.apple.tcc.access.changed", &token, keeper) { [weak self] _ in self?.permissionChanged() }
-        return keeper.sync {
+        keeper.sync {
+            var token: Int32 = 0
+            // Undocumented, posted for any app's permission. Were it to stop, a revoke would again go unnoticed until the next launch.
+            notify_register_dispatch("com.apple.tcc.access.changed", &token, keeper) { [weak self] _ in self?.permissionChanged() }
+            self.token = token
             tryStart()
             return up
         }
+    }
+
+    /// For good, unlike a permission change: no more news of it, no retry, no tap. A notice already queued runs before this.
+    func close() {
+        keeper.sync {
+            if let token { notify_cancel(token) }
+            token = nil
+            attempt?.cancel()
+            attempt = nil
+        }
+        stop()
     }
 
     /// On `keeper`. Down at once, as a tap left in the stream after a revoke can hold every key and click on the Mac. Up again only
@@ -214,7 +227,7 @@ class KeyTap: @unchecked Sendable {
         state.withLock { $0.port = port }
         let source = CFMachPortCreateRunLoopSource(nil, port, 0)
         let thread = Thread { [self] in
-            state.withLock { $0.loop = CFRunLoopGetCurrent() }
+            guard claim(port, loop: CFRunLoopGetCurrent()) else { return }
             CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
             CFRunLoopRun()
         }
@@ -222,6 +235,16 @@ class KeyTap: @unchecked Sendable {
         thread.qualityOfService = .userInteractive
         thread.start()
         return true
+    }
+
+    /// A thread that starts late, after its tap was stopped and another started, would otherwise give the newer tap a loop `stop`
+    /// can't wake.
+    func claim(_ port: CFMachPort, loop: CFRunLoop) -> Bool {
+        state.withLock { s in
+            guard s.port === port else { return false }
+            s.loop = loop
+            return true
+        }
     }
 
     func createPort() -> CFMachPort? {

@@ -484,6 +484,7 @@ final class CountingCompleter: Completer, @unchecked Sendable {
 
     @Test func downLeavesNothingToAcceptAndNoPort() throws {
         let tap = FakeTap()
+        defer { tap.close() }
         #expect(tap.start())
         let port = try #require(tap.state.withLock { $0.port })
         let generation = tap.generation
@@ -498,6 +499,7 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     }
     @Test func aRefusedTapIsRetriedUntilItComesUpAndThenNothingPolls() {
         let tap = FakeTap(retryEvery: 0.01)
+        defer { tap.close() }
         let ups = Mutex<[Bool]>([])
         tap.onUp = { up in ups.withLock { $0.append(up) } }
         tap.refusals.store(3, ordering: .relaxed)
@@ -510,6 +512,7 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     }
     @Test func aRevokeTakesItDownAndTellsAndAGrantBringsItBack() {
         let tap = FakeTap(retryEvery: 0.01)
+        defer { tap.close() }
         let ups = Mutex<[Bool]>([])
         tap.onUp = { up in ups.withLock { $0.append(up) } }
         #expect(tap.hold())
@@ -522,12 +525,40 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     }
     @Test func anotherAppsPermissionLeavesTrustAlone() {
         let tap = FakeTap(retryEvery: 0.01)
+        defer { tap.close() }
         let ups = Mutex<[Bool]>([])
         tap.onUp = { up in ups.withLock { $0.append(up) } }
         #expect(tap.hold())
         tap.keeper.sync { tap.permissionChanged() }
         #expect(until { tap.state.withLock { $0.port != nil } })
         #expect(ups.withLock { $0 } == [true])
+    }
+    @Test func aLateThreadOfAStoppedTapCantTakeTheNewOnesPlace() throws {
+        let tap = FakeTap()
+        defer { tap.close() }
+        let old = try #require(tap.createPort()), current = try #require(tap.createPort())
+        let mine = CFRunLoopGetCurrent()!, stale = CFRunLoopGetMain()!
+        tap.state.withLock { ($0.port, $0.loop) = (current, mine) }
+        #expect(!tap.claim(old, loop: stale))
+        #expect(tap.state.withLock { $0.loop === mine })
+        #expect(tap.claim(current, loop: mine))
+    }
+    @Test func closeEndsTheThreadTheRetryAndTheNews() {
+        weak var gone: FakeTap?
+        // The pool: the test thread's own keeps anything a `keeper.sync` closure captured until the test ends.
+        autoreleasepool {
+            let tap = FakeTap(retryEvery: 0.01)
+            gone = tap
+            #expect(tap.hold())
+            tap.keeper.sync { tap.permissionChanged() }  // A retry now pending.
+            tap.close()
+            let attempts = tap.attempts.load(ordering: .relaxed)
+            tap.keeper.sync {}
+            usleep(50_000)
+            #expect(tap.attempts.load(ordering: .relaxed) == attempts && tap.state.withLock { $0.port == nil })
+        }
+        // The tap thread holds the tap until its run loop ends.
+        #expect(until { gone == nil })
     }
     @Test func noPortIsAnObstacle() {
         #expect(KeyTap().obstacle == .tapOff && !KeyTap().canTake)
@@ -627,6 +658,37 @@ final class CountingCompleter: Completer, @unchecked Sendable {
         await watcher.settle()
         #expect(model.asks.load(ordering: .relaxed) == 1)
         #expect(armed() == nil && !panel.isVisibleGhost)
+    }
+    @Test func secureInputDuringTheReadMeansNoModelAndComesBack() async {
+        let model = CountingCompleter(" there friend")
+        let watcher = watcher(Field(before: "hello"), completer: model)
+        let read = watcher.read
+        watcher.read = { [tap] element in
+            defer { tap.blocked.withLock { $0 = .secureInput } }
+            return read(element)
+        }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(host.reads.load(ordering: .relaxed) == 1 && model.asks.load(ordering: .relaxed) == 0 && armed() == nil)
+        watcher.read = read
+        tap.blocked.withLock { $0 = nil }
+        watcher.scheduleUpdate()  // The same field: it must still ask.
+        #expect(await soon { armed() != nil })
+    }
+    @Test func secureInputBeforeTheDrawMeansNoGhostAndComesBack() async {
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
+        let traits = watcher.traits
+        watcher.traits = { [tap] element, before in
+            defer { tap.blocked.withLock { $0 = .secureInput } }
+            return traits(element, before)
+        }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(armed() == nil && !panel.isVisibleGhost)
+        watcher.traits = traits
+        tap.blocked.withLock { $0 = nil }
+        watcher.scheduleUpdate()  // The same field, with the suggestion still held: it draws now.
+        #expect(await soon { armed() != nil })
     }
     @Test func tabCanReachOnlyWhatADrawnClippedGhostShows() async throws {
         let text = " one two three four five six seven"

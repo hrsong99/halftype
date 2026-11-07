@@ -202,8 +202,9 @@ final class Watcher: @unchecked Sendable {
 
     private func update() {
         let generation = tap.generation  // Before the read: whatever comes after it is a change this read may not have seen.
-        // A ghost Tab can't take would hand Tab to the host, which moves focus out of the field.
-        guard tap.canTake, let focused, var reading = read(focused) else {
+        // A ghost Tab can't take would hand Tab to the host, which moves focus out of the field. Asked again after the read, which
+        // may have stalled while Secure Input began.
+        guard tap.canTake, let focused, var reading = read(focused), tap.canTake else {
             (last, lost) = (nil, true)
             clearSuggestion()
             return
@@ -277,6 +278,11 @@ final class Watcher: @unchecked Sendable {
         if context == nil { context = Reader.context(of: focused) }
         let prompt = Prompt.make(context: context ?? "", field: field)
         guard !prompt.prefix.isEmpty else { return }
+        // The context read may have stalled too. Forgetting the read lets the same field ask again once Tab can be taken.
+        guard tap.canTake else {
+            last = nil
+            return
+        }
         let anchor = field.committed
         request += 1
         let id = request
@@ -320,6 +326,11 @@ final class Watcher: @unchecked Sendable {
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before)
         DispatchQueue.main.async { [self] in
             guard tap.generation == generation else { return }
+            // The last moment before Tab is promised, as Secure Input moves no generation.
+            guard tap.canTake else {
+                queue.async { [self] in last = nil }
+                return hidePanel()
+            }
             guard let drawn = panel.show(spec) else { return hidePanel() }
             var offer = armed
             offer.ghost.remainder = drawn  // `suggestion` keeps the rest, to draw as the field reaches it.
