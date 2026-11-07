@@ -20,7 +20,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var ready = false
     /// What just went wrong with a download or a switch.
     @Published var notice: String?
-    @Published var trusted = AXIsProcessTrusted()
+    /// Whether the system lets the tap run, which is what the permission comes to.
+    @Published var trusted = false
     /// The model being fetched, by file name, and how far along.
     @Published var downloading: String?
     @Published var downloadFraction = 0.0
@@ -46,8 +47,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
     var isRelease: Bool { Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil }
     var askedForAccessibility = false
-    private var tapFailed = false
-    private var permissionTimer: Timer?
     private let loading = DispatchQueue(label: "itda.load", qos: .userInitiated)
     private var latestOpen = 0
 
@@ -100,24 +99,23 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(readInputSource),
                                                             name: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
         let workspace = NSWorkspace.shared.notificationCenter
-        workspace.addObserver(self, selector: #selector(rebind), name: NSWorkspace.didActivateApplicationNotification, object: nil)
-        workspace.addObserver(self, selector: #selector(spaceChanged), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+        for name in [NSWorkspace.didActivateApplicationNotification, NSWorkspace.didWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
+            workspace.addObserver(self, selector: #selector(rebind), name: name, object: nil)
+        }
+        watcher.hideOnSessionChange()
 
         if isRelease { updates.startUpdater() }
         store.removeLeftovers()
         store.onChange = { [weak self] state in self?.modelChanged(state) }
         loadModel()
         // Accessibility is the one permission, and the window asks for it. Nothing runs until the grant.
-        if AXIsProcessTrusted() {
-            startWatching()
-        } else {
-            permissionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
-                guard AXIsProcessTrusted() else { return }
-                timer.invalidate()
-                self?.trusted = true
-                self?.startWatching()
+        tap.onUp = { [weak self] up in
+            DispatchQueue.main.async {
+                self?.trusted = up
+                self?.rebind()
             }
         }
+        trusted = tap.hold()
         // Started by the system at login, it stays out of the way. Started by you, it answers. Without the permission it has to ask.
         let launch = NSAppleEventManager.shared().currentAppleEvent
         let atLogin = launch?.eventID == kAEOpenApplication && launch?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
@@ -134,14 +132,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.queue.sync { watcher.completer }?.unload()
     }
 
-    private func startWatching() {
-        guard tap.start() else {
-            tapFailed = true
-            return
-        }
-        rebind()
-    }
-
     /// TIS must be read on the main thread. Going by the source's language covers third-party Korean input methods too.
     @objc private func readInputSource() {
         let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
@@ -155,14 +145,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.redraw()
     }
 
-    @objc private func spaceChanged() {
-        watcher.hideNow()
-    }
-
     @objc private func rebind() {
         watcher.hideNow()
-        guard AXIsProcessTrusted() else { return }
-        guard on, let front = NSWorkspace.shared.frontmostApplication,
+        tap.reenable()
+        guard trusted, on, let front = NSWorkspace.shared.frontmostApplication,
               !pausedApps.contains(front.bundleIdentifier ?? "") else {
             watcher.unbind()
             return
@@ -258,8 +244,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             pause.representedObject = id
         }
         menu.addItem(.separator())
-        if !AXIsProcessTrusted() { menu.addItem(withTitle: "Waiting for Accessibility permission", action: nil, keyEquivalent: "").isEnabled = false }
-        if tapFailed { menu.addItem(withTitle: "Could not watch for Tab", action: nil, keyEquivalent: "").isEnabled = false }
+        if let why = trusted ? tap.obstacle?.rawValue : "Waiting for Accessibility permission" { menu.addItem(withTitle: why, action: nil, keyEquivalent: "").isEnabled = false }
         menu.addItem(withTitle: modelLine, action: nil, keyEquivalent: "").isEnabled = false
         if let notice { menu.addItem(withTitle: notice, action: nil, keyEquivalent: "").isEnabled = false }
         menu.addItem(.separator())

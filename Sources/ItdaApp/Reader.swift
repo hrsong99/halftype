@@ -28,6 +28,10 @@ enum AX {
         var r = CFRange()
         return AXValueGetValue(v as! AXValue, .cfRange, &r) ? r : nil
     }
+    static func valueIsSettable(_ e: AXUIElement) -> Bool {
+        var settable = DarwinBoolean(false)
+        return AXUIElementIsAttributeSettable(e, "AXValue" as CFString, &settable) == .success && settable.boolValue
+    }
     static func startMarker(_ range: CFTypeRef?) -> AXTextMarker? {
         guard let range, CFGetTypeID(range) == AXTextMarkerRangeGetTypeID() else { return nil }
         return AXTextMarkerRangeCopyStartMarker((range as! AXTextMarkerRange))
@@ -61,21 +65,22 @@ enum Reader {
 
     /// Secure fields and anything that isn't text entry are never read further. A settable value tells a composer from
     /// a terminal or a read-only text area, both of which also report `AXTextArea`.
-    static func isEditableText(_ e: AXUIElement) -> Bool {
-        guard let role = AX.get(e, "AXRole") as? String, textRoles.contains(role),
-              AX.get(e, "AXSubrole") as? String != "AXSecureTextField" else { return false }
-        var settable = DarwinBoolean(false)
-        return AXUIElementIsAttributeSettable(e, "AXValue" as CFString, &settable) == .success && settable.boolValue
+    static func isEditableText(_ e: AXUIElement, get: AttributeGet = AX.get, settable: (AXUIElement) -> Bool = AX.valueIsSettable) -> Bool {
+        guard let role = get(e, "AXRole") as? String, textRoles.contains(role), get(e, "AXSubrole") as? String != "AXSecureTextField" else { return false }
+        return settable(e)
     }
 
-    /// Nil when there is no text to continue from here: no value, or a non-empty selection.
+    typealias AttributeGet = (AXUIElement, String) -> CFTypeRef?
+
+    /// Nil when there is no text to continue from here: not eligible, no value, or a non-empty selection. Eligibility is asked on
+    /// every read, before the value, as a field can turn secure in place and keep its identity; that's three small AX calls per read.
     /// shortcut: reads the whole value on each change (1-3 ms in the fields tested); use AXStringForRange if huge documents lag.
-    static func read(_ e: AXUIElement) -> Reading? {
-        guard let value = AX.get(e, "AXValue") as? String, let selection = AX.range(AX.get(e, "AXSelectedTextRange")),
-              let (before, after) = slice(value, selection) else { return nil }
-        let frame = AX.rect(AX.get(e, "AXFrame")) ?? .zero
+    static func read(_ e: AXUIElement, get: AttributeGet = AX.get, settable: (AXUIElement) -> Bool = AX.valueIsSettable) -> Reading? {
+        guard isEditableText(e, get: get, settable: settable), let value = get(e, "AXValue") as? String,
+              let selection = AX.range(get(e, "AXSelectedTextRange")), let (before, after) = slice(value, selection) else { return nil }
+        let frame = AX.rect(get(e, "AXFrame")) ?? .zero
         return Reading(field: Field(before: before, after: after), caret: caret(e, before: before, frame: frame), frame: frame,
-                       marked: (AX.range(AX.get(e, "AXTextInputMarkedRange"))?.length ?? 0) > 0)
+                       marked: (AX.range(get(e, "AXTextInputMarkedRange"))?.length ?? 0) > 0)
     }
 
     /// By the selection, never the value's length: T3 reports a trailing newline, and length 1 when empty.

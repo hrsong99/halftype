@@ -34,6 +34,10 @@ No code was copied into ItdaApp either. These are the ideas it uses.
 |---|---|---|
 | Insert with `keyboardSetUnicodeString` in short chunks, never splitting a surrogate pair, with no clipboard | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nikiomori/Pretype](https://github.com/nikiomori/Pretype) | MIT; MIT |
 | Mark our own events so the key tap lets them pass | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nikiomori/Pretype](https://github.com/nikiomori/Pretype) | MIT; MIT |
+| Stop while Secure Input is on, and say so in the menu | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nilava/TabType](https://github.com/nilava/TabType) | MIT; MIT |
+| Esc on a ghost hides it and goes no further | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype), [nilava/TabType](https://github.com/nilava/TabType), [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist) | MIT or Apache-2.0; MIT; MIT |
+| Check `isOnActiveSpace`, and hide on sleep, lock and session change | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | MIT or Apache-2.0 |
+| Take the tap down on the permission's Darwin notification, as `AXIsProcessTrusted` can be stale after a revoke | [lwouis/alt-tab-macos](https://github.com/lwouis/alt-tab-macos), [chromium/chromium](https://github.com/chromium/chromium) | GPL-3.0, idea only; BSD-3-Clause |
 | The AX text marker attributes for caret rects and page text in Chromium | [johannes-kaindl/ghostline](https://github.com/johannes-kaindl/ghostline), [stevyhacker/LokalBot](https://github.com/stevyhacker/LokalBot) | AGPL-3.0, idea only; GPL-3.0, idea only |
 
 ## What it runs on and was measured with

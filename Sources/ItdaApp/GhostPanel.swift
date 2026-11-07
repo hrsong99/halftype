@@ -1,4 +1,5 @@
 import AppKit
+import ItdaCore
 
 /// Everything needed to draw one ghost, in AX coordinates (origin top-left of the primary display, y down, points).
 struct GhostSpec {
@@ -141,17 +142,18 @@ class GhostPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    /// False if there is nothing to draw or the caret is on no display. Main thread.
-    @discardableResult
-    func show(_ spec: GhostSpec) -> Bool {
+    /// What it drew, which is all Tab may offer: a narrow field clips. Nil if nothing is on the screen that the user can see. Main thread.
+    func show(_ spec: GhostSpec) -> String? {
         guard let primary = NSScreen.screens.first, let layout = GhostLayout.make(spec),
               NSScreen.screens.contains(where: { $0.frame.contains(GhostLayout.appKitRect(spec.caret, primaryHeight: primary.frame.height).origin) })
-        else { hideGhost(); return false }
+        else { hideGhost(); return nil }
         view.layout = layout
         setFrame(GhostLayout.appKitRect(layout.window, primaryHeight: primary.frame.height), display: false, animate: false)
         view.displayIfNeeded()
         if !isVisible { orderFrontRegardless() }
-        return true
+        // A panel can get stranded on one Space whatever its collection behaviour says, and be drawn where nobody sees it.
+        guard isOnActiveSpace else { hideGhost(); return nil }
+        return String(Word.withoutTrailingSpaces(layout.visibleText))
     }
 
     func hideGhost() {

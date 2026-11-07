@@ -29,8 +29,7 @@ final class Watcher: @unchecked Sendable {
 
     private var app: AXUIElement?
     private var observer: AXObserver?
-    private var focused: AXUIElement?
-    private var editable = false
+    var focused: AXUIElement?
     private var pid: pid_t = 0
     private var context: String?
     private var suggestion: (anchor: String, text: String)?
@@ -41,6 +40,9 @@ final class Watcher: @unchecked Sendable {
     private var unloadWork: DispatchWorkItem?
 
     var completer: Completer?
+    /// The host, as this layer reads it: `Reader`, or a fake.
+    var read: (AXUIElement) -> Reading? = { Reader.read($0) }
+    var traits: (AXUIElement, String) -> FieldTraits? = { Reader.traits($0, before: $1) }
     /// Read on the main thread, as TIS requires, and kept here.
     let koreanInput = Atomic<Bool>(false)
     let twoSet = Atomic<Bool>(false)
@@ -86,6 +88,20 @@ final class Watcher: @unchecked Sendable {
     }
 
     func unbind() { queue.async { [self] in detach() } }
+
+    /// Each of these can leave a ghost over a field that has moved, with no key or activation to clear it. Main thread.
+    func hideOnSessionChange() {
+        let workspace = NSWorkspace.shared.notificationCenter
+        let hiding: [(NotificationCenter, Notification.Name)] = [
+            (workspace, NSWorkspace.activeSpaceDidChangeNotification), (workspace, NSWorkspace.willSleepNotification),
+            (workspace, NSWorkspace.screensDidSleepNotification), (workspace, NSWorkspace.sessionDidResignActiveNotification),
+            (.default, NSApplication.didChangeScreenParametersNotification),
+            (DistributedNotificationCenter.default(), Notification.Name("com.apple.screenIsLocked")),  // Undocumented, and the only word of a lock.
+        ]
+        for (center, name) in hiding {
+            _ = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.hideNow() }
+        }
+    }
 
     private var refcon: UnsafeMutableRawPointer { Unmanaged.passUnretained(self).toOpaque() }
 
@@ -139,7 +155,7 @@ final class Watcher: @unchecked Sendable {
         forget()
         focused = now
         guard let now else { return }
-        editable = Reader.isEditableText(now)
+        let editable = Reader.isEditableText(now)
         if !editable, let role = AX.get(now, "AXRole") as? String, role == "AXWebArea" || role == "AXGroup" {
             // shortcut: Chromium builds its web tree only when asked, and a web view holding focus with no field is its sign. Not
             // tested with the attribute off (Cotypist had it on); see docs/live-test.md.
@@ -153,7 +169,7 @@ final class Watcher: @unchecked Sendable {
     private func forget() {
         completer?.cancel()
         request += 1
-        (editable, context, suggestion, last) = (false, nil, nil, nil)
+        (context, suggestion, last) = (nil, nil, nil)
         tap.state.withLock { ($0.composing, $0.pending) = (false, nil) }
         hideOnMain()
     }
@@ -162,7 +178,8 @@ final class Watcher: @unchecked Sendable {
 
     private func update() {
         let generation = tap.generation  // Before the read: whatever comes after it is a change this read may not have seen.
-        guard editable, let focused, var reading = Reader.read(focused) else {
+        // A ghost Tab can't take would hand Tab to the host, which moves focus out of the field.
+        guard tap.canTake, let focused, var reading = read(focused) else {
             last = nil
             clearSuggestion()
             return
@@ -252,7 +269,7 @@ final class Watcher: @unchecked Sendable {
     }
 
     private func received(id: Int, anchor: String, text: String, gate: Double?) {
-        guard id == request, let gate, gate >= Gate.threshold, let last else { return }
+        guard id == request, tap.canTake, let gate, gate >= Gate.threshold, let last else { return }
         suggestion = (anchor, text)
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
@@ -266,7 +283,7 @@ final class Watcher: @unchecked Sendable {
         // Only as offered: typing through a word has to see it out, or the ghost would blink off for its last letters.
         let typedThrough = suggestion.map { Word.withoutTrailingSpaces($0.anchor) != Word.withoutTrailingSpaces(field.committed) } ?? false
         guard !ghost.remainder.isEmpty, typedThrough || Gate.worthShowing(ghost), let focused, let caret = reading.caret, !Reader.isRightToLeft(field.before, ghost.remainder) else { return hideOnMain() }
-        guard let traits = Reader.traits(focused, before: reading.field.before) else {
+        guard let traits = traits(focused, reading.field.before) else {
             last = nil  // A good read isn't a good draw: the next notification may find the same field, and must try again.
             return hideOnMain()
         }
@@ -276,8 +293,10 @@ final class Watcher: @unchecked Sendable {
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before)
         DispatchQueue.main.async { [self] in
             guard tap.generation == generation else { return }
-            guard panel.show(spec) else { return hidePanel() }
-            if tap.arm(armed, generation: generation) { showScrollWatch() } else { hideDisarmed() }
+            guard let drawn = panel.show(spec) else { return hidePanel() }
+            var offer = armed
+            offer.ghost.remainder = drawn  // `suggestion` keeps the rest, to draw as the field reaches it.
+            if tap.arm(offer, generation: generation) { showScrollWatch() } else { hideDisarmed() }
         }
     }
 

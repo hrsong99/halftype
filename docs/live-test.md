@@ -7,7 +7,7 @@ Any wrong character: tell me what you typed and what came out. Use a new, empty 
 A. Quit Cotypist, which also takes Tab, then quit and reopen T3 and ego lite, so the accessibility switches it turned on are off.
    **Cotypist's icon is gone from the menu bar, and both apps are back.**
 B. Open `build/Itda.app`; its window asks for Accessibility. Press the button and grant it.
-   **Within 2 s the window shows its field, with no restart, and the download below it until the model is ready. Never a prompt for Input Monitoring.**
+   **No system dialog before you press the button. Within 2 s of the grant the window shows its field, with no restart, and the download below it until the model is ready. Never a prompt for Input Monitoring.**
 
 ## T3 composer, Korean 2-set: about 5 minutes
 This is the unknown: does Chromium's composition take our key presses the way a native field does?
@@ -48,9 +48,23 @@ This is the unknown: does Chromium's composition take our key presses the way a 
 16. Tab, then Shift-Tab, then on a new ghost type the letters it shows.
     **One word, then all of it, then it shrinks and never lags the caret.**
 17. With a ghost up, scroll the conversation; on the next, press Esc; on the next, move the window.
-    **Gone at once each time, and Tab is T3's.**
+    **Gone at once each time, and Tab is T3's. Esc does nothing else in T3.**
 18. With no ghost showing, press Tab.
     **T3 gets it as usual.**
+
+## When it must stand aside: about 4 minutes
+T1. Revoking the permission. First run `(sleep 45; pkill -9 -x Itda) &` in Terminal, as a tap left in place can hold every click and key. Turn Itda off under Privacy & Security, Accessibility, and click around.
+    **Clicks and keys work within a second. The window offers Allow Accessibility, the menu says it's waiting, and no system dialog appears, once or over and over. If Itda was killed at 45 s, reopen it and say so: the tap didn't come down.**
+    Run the dead-man again, turn Itda back on, and Tab a ghost. Run it again, remove the row with `-`, click around, and add Itda back.
+    **The field is back within 2 s of the grant, and Tab works, each way.**
+T2. Secure Input. Turn on Terminal's Secure Keyboard Entry, then type in T3. Don't run `scripts/e2e.sh` meanwhile.
+    **No ghost, Tab is T3's, and the menu says Secure Input is on.** Turn it off and type: **ghosts are back, and the menu line is gone.**
+T3. In a search field that Esc clears, type until a ghost shows, and press Esc. Press it again.
+    **The first hides the ghost and leaves your text. The second clears the field. Cmd-Option-Esc with a ghost up still opens Force Quit.**
+T4. Narrow T3's window until a long ghost is cut off at the field's edge. Shift-Tab; on another, Tab as fast as you can; and the same in Korean.
+    **Exactly the words you could see, never more, then Tab is T3's until the rest is drawn.**
+T5. With a ghost up, lock with Ctrl-Cmd-Q and unlock; then close the lid and open it; then unplug a display, if you have one.
+    **Gone each time, and Tab is T3's. Typing brings ghosts back, and Tab takes them.**
 
 ## The window: about 2 minutes
 W1. Type in its field, and Tab on the grey text. Paste with Cmd-V.

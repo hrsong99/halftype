@@ -5,10 +5,15 @@ Every key becomes one question: does the current suggestion still fit? If not, a
 ```
 Accessibility notification from the focused field
   |
-  v
-Read once: { text before, marked text, text after, caret rect, font, secure? }      no polling
+  +-- Tab couldn't reach us: Secure Input, or the tap is off -----------> no read, no model, no suggestion
   |
-  +-- secure, or text after the caret ---------------------------------> no suggestion
+  v
+Eligible, asked on every read: text role, not secure, value settable -- no -> no suggestion
+  |
+  v
+Read once: { text before, marked text, text after, caret rect, font }      no polling
+  |
+  +-- text after the caret ---------------------------------------------> no suggestion
   |
   +-- the suggestion still fits what's typed --------------------------> show the rest, no model call
   |
@@ -24,12 +29,15 @@ llama.cpp, in process: greedy; output must fit what was held out, by bytes or 2-
 Gate: P(first word | it fits what was typed) >= e^-0.7 ------- no ----> no suggestion
   |
   v
-Grey text at the caret, in a panel that takes no focus
+Grey text at the caret, in a panel that takes no focus; Tab can take only what was drawn
   |
   +-- Tab: next word       2-set: real key presses, so the input method finishes the syllable
   +-- Shift-Tab: all       otherwise: inserted as text, in short chunks, with no clipboard
-  +-- Esc or any other input: passes through to the app
+  +-- Esc: hides it and goes no further; with no ghost it's the app's
+  +-- any other input: passes through to the app
 ```
+
+**The tap.** It sits in line with every key and click on the Mac, so it holds to the permission. Any permission change takes it down at once (`com.apple.tcc.access.changed`, undocumented), and one loop in `KeyTap` then retries each second until `tapCreate` works, and stops. `tapCreate` decides, as `AXIsProcessTrusted` can stay true after a revoke; that call only keeps the loop from raising the system's dialog before the user has asked for it. A tap the system disabled is re-enabled on activation and on wake, with no timer.
 
 The pure logic is in `Sources/ItdaCore` and has no model or GUI, so `swift test` can check it. `ItdaEngine` holds llama.cpp, and `ItdaApp` holds Accessibility, the key tap and the panel.
 

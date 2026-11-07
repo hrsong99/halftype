@@ -41,7 +41,9 @@ final class TestTextView: NSTextView {
         guard attribute.rawValue == "AXTextInputMarkedRange" else { return super.accessibilityAttributeValue(attribute) }
         return reportsMarkedText ? reportedMark.map { NSValue(range: $0) } ?? super.accessibilityAttributeValue(attribute) : nil
     }
-    override func complete(_ sender: Any?) {}  // Escape's completion list.
+    /// Escape's completion list: an Escape that reached the app.
+    var escapes = 0
+    override func complete(_ sender: Any?) { escapes += 1 }
 
     /// One font read that comes back empty, as a host's can in passing.
     var failsNextAttributes = false
@@ -81,11 +83,11 @@ final class TestPanel: GhostPanel {
     var lastShow: Bool?
     var hiddenAt: Date?
     var gaps: [Double] = []
-    override func show(_ spec: GhostSpec) -> Bool {
+    override func show(_ spec: GhostSpec) -> String? {
         let shown = super.show(spec)
-        lastShow = shown
-        if shown, let hiddenAt { gaps.append(Date().timeIntervalSince(hiddenAt) * 1000) }
-        if shown { hiddenAt = nil }
+        lastShow = shown != nil
+        if shown != nil, let hiddenAt { gaps.append(Date().timeIntervalSince(hiddenAt) * 1000) }
+        if shown != nil { hiddenAt = nil }
         let hook = afterShow
         afterShow = nil
         hook?()
@@ -515,7 +517,7 @@ enum EndToEnd {
         usleep(100_000)
         let ax = AXUIElementCreateApplication(getpid())
         let focused = AX.element(AX.get(ax, "AXFocusedUIElement"))
-        check(focused.map(Reader.isEditableText) == false, "a secure field isn't text entry")
+        check(focused.map { Reader.isEditableText($0) } == false, "a secure field isn't text entry")
     }
 
     static func insertion() {
@@ -608,6 +610,21 @@ enum EndToEnd {
             model.release(" there friend how are you")
             usleep(150_000)
             check(!h.visible && !h.armed, "the callback held over Escape shows nothing")
+            check(onMain { h.view.escapes } == 0, "Escape on a ghost stops there")
+            physical(53)
+            check(eventually { onMain { h.view.escapes } == 1 }, "the next Escape is the app's")
+        }
+        do {
+            // A tap the system turned off, which no test without a real tap can do.
+            let (h, _) = raceHarness()
+            defer { h.close() }
+            let port = h.tap.state.withLock { $0.port }!
+            CGEvent.tapEnable(tap: port, enable: false)
+            check(h.tap.obstacle == .tapOff, "a disabled tap can't take")
+            h.watcher.redraw()
+            check(eventually { !h.visible && !h.armed }, "a disabled tap: no ghost")
+            h.tap.reenable()
+            check(h.tap.canTake, "reenabled")
         }
         do {
             let (h, _) = raceHarness()
@@ -1063,7 +1080,7 @@ extension EndToEnd {
         onMain { h.view.reportedMark = NSRange(location: 2, length: 1) }
         let marked = h.watcher.queue.sync { () -> Bool in
             let field = AX.element(AX.get(AXUIElementCreateApplication(getpid()), "AXFocusedUIElement"))
-            return field.flatMap(Reader.read)?.marked ?? false
+            return field.flatMap { Reader.read($0) }?.marked ?? false
         }
         check(marked == reportsMarkedText, "AX reports the marked range: \(marked)")
         h.watcher.completer = FakeCompleter("")

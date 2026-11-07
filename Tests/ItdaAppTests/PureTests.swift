@@ -1,5 +1,7 @@
 import AppKit
 import ItdaCore
+import ItdaEngine
+import Synchronization
 import Testing
 @testable import ItdaApp
 
@@ -113,7 +115,27 @@ import Testing
         #expect(decide(48, .maskCommand) == .pass)
         #expect(decide(48, [.maskShift, .maskAlternate]) == .pass)
         #expect(decide(0) == .pass)
-        #expect(decide(53, armed: false) == .passAndDismiss)
+    }
+    @Test func escStopsAtAnArmedGhostAndForceQuitNeverDoes() {
+        #expect(decide(53) == .dismiss(swallow: true))
+        #expect(decide(53, armed: false) == .dismiss(swallow: false))
+        #expect(decide(53, .maskShift) == .dismiss(swallow: true))
+        #expect(decide(53, [.maskCommand, .maskAlternate]) == .dismiss(swallow: false))
+    }
+    @Test func escHidesTheGhostOnceThenIsTheApps() {
+        let dismissed = Atomic<Int>(0)
+        let tap = KeyTap()
+        tap.onDismiss = { dismissed.add(1, ordering: .relaxed) }
+        armed(tap, Ghost(remainder: " there"))
+        #expect(press(tap, key(53)).swallowed)
+        #expect(tap.state.withLock { $0.armed == nil } && dismissed.load(ordering: .relaxed) == 1)
+        #expect(!press(tap, key(53)).swallowed)
+    }
+    @Test func escAimedAtAnotherAppIsThatApps() {
+        let tap = KeyTap()
+        armed(tap, Ghost(remainder: " there"))
+        #expect(!press(tap, key(53, pid: 99)).swallowed)
+        #expect(tap.state.withLock { $0.armed == nil })
     }
     @Test func reenables() {
         #expect(decide(0, type: .tapDisabledByTimeout, ) == .reenable)
@@ -307,6 +329,295 @@ import Testing
         #expect(chunks.map { String(utf16CodeUnits: $0, count: $0.count) }.joined() == text)
         #expect(!chunks.contains { $0.last.map(UTF16.isLeadSurrogate) ?? false })
     }
+}
+
+/// A tap with a port no event reaches, whose system can refuse it, and whose obstacle is the test's to set.
+final class FakeTap: KeyTap, @unchecked Sendable {
+    let refusals = Atomic<Int>(0), attempts = Atomic<Int>(0)
+    let blocked = Mutex<Obstacle?>(nil)
+    override var obstacle: Obstacle? { blocked.withLock { $0 } }
+    override func createPort() -> CFMachPort? {
+        attempts.add(1, ordering: .relaxed)
+        if refusals.load(ordering: .relaxed) > 0 {
+            refusals.subtract(1, ordering: .relaxed)
+            return nil
+        }
+        return CFMachPortCreate(nil, { _, _, _, _ in }, nil, nil)
+    }
+}
+
+/// The real `show`, never ordered onto the screen.
+final class QuietPanel: GhostPanel {
+    var stranded = false
+    override var isOnActiveSpace: Bool { !stranded }
+    override func orderFrontRegardless() {}
+}
+
+final class CountingCompleter: Completer, @unchecked Sendable {
+    let text: String
+    let asks = Atomic<Int>(0)
+    var onAsk: (@Sendable () -> Void)?
+    init(_ text: String) { self.text = text }
+    func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
+        asks.add(1, ordering: .relaxed)
+        onAsk?()
+        onResult(Suggestion(text: text, gate: 0))
+    }
+    func cancel() {}
+    func unload() {}
+}
+
+/// Polled, as hiding and drawing go through the main queue.
+@MainActor func soon(_ condition: () -> Bool) async -> Bool {
+    for _ in 0..<200 {
+        if condition() { return true }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return condition()
+}
+
+@Suite struct TapLifetimeTests {
+    func until(_ condition: () -> Bool) -> Bool {
+        for _ in 0..<300 {
+            if condition() { return true }
+            usleep(10_000)
+        }
+        return condition()
+    }
+
+    @Test func downLeavesNothingToAcceptAndNoPort() throws {
+        let tap = FakeTap()
+        #expect(tap.start())
+        let port = try #require(tap.state.withLock { $0.port })
+        let generation = tap.generation
+        #expect(tap.arm(.init(pid: 1, ghost: Ghost(remainder: " there"), typesKeys: false, committed: "", before: ""), generation: generation))
+        tap.state.withLock { $0.pending = ("a", "b") }
+        tap.stop()
+        #expect(tap.state.withLock { $0.armed == nil && $0.pending == nil && $0.port == nil })
+        #expect(!CFMachPortIsValid(port))
+        // A draw already on its way can't arm over the tap's going.
+        #expect(!tap.arm(.init(pid: 1, ghost: Ghost(remainder: "x"), typesKeys: false, committed: "", before: ""), generation: generation))
+        tap.stop()  // Twice is nothing.
+    }
+    @Test func aRefusedTapIsRetriedUntilItComesUpAndThenNothingPolls() {
+        let tap = FakeTap(retryEvery: 0.01)
+        let ups = Mutex<[Bool]>([])
+        tap.onUp = { up in ups.withLock { $0.append(up) } }
+        tap.refusals.store(3, ordering: .relaxed)
+        #expect(!tap.hold())
+        #expect(until { ups.withLock { $0 } == [true] })
+        let attempts = tap.attempts.load(ordering: .relaxed)
+        #expect(attempts == 4)
+        usleep(100_000)
+        #expect(tap.attempts.load(ordering: .relaxed) == attempts)
+    }
+    @Test func aRevokeTakesItDownAndTellsAndAGrantBringsItBack() {
+        let tap = FakeTap(retryEvery: 0.01)
+        let ups = Mutex<[Bool]>([])
+        tap.onUp = { up in ups.withLock { $0.append(up) } }
+        #expect(tap.hold())
+        #expect(ups.withLock { $0 } == [true])
+        tap.refusals.store(2, ordering: .relaxed)
+        tap.keeper.sync { tap.permissionChanged() }
+        #expect(tap.state.withLock { $0.port == nil })
+        #expect(until { ups.withLock { $0 } == [true, false, true] })
+        #expect(tap.state.withLock { $0.port != nil })
+    }
+    @Test func anotherAppsPermissionLeavesTrustAlone() {
+        let tap = FakeTap(retryEvery: 0.01)
+        let ups = Mutex<[Bool]>([])
+        tap.onUp = { up in ups.withLock { $0.append(up) } }
+        #expect(tap.hold())
+        tap.keeper.sync { tap.permissionChanged() }
+        #expect(until { tap.state.withLock { $0.port != nil } })
+        #expect(ups.withLock { $0 } == [true])
+    }
+    @Test func noPortIsAnObstacle() {
+        #expect(KeyTap().obstacle == .tapOff && !KeyTap().canTake)
+    }
+}
+
+@Suite struct ReadTests {
+    /// A host, with what it's asked written down.
+    final class Host {
+        var attributes: [String: CFTypeRef] = ["AXRole": "AXTextArea" as CFString, "AXValue": "hello" as CFString]
+        var settable = true
+        var asked: [String] = []
+        init() {
+            var caret = CFRange(location: 5, length: 0)
+            attributes["AXSelectedTextRange"] = AXValueCreate(.cfRange, &caret)!
+        }
+        func read() -> Reading? {
+            Reader.read(AXUIElementCreateSystemWide(), get: { _, key in self.asked.append(key); return self.attributes[key] }, settable: { _ in self.settable })
+        }
+    }
+    @Test func aFieldThatTurnsSecureInPlaceIsNeverAskedItsValue() {
+        let host = Host()
+        #expect(host.read()?.field.before == "hello")
+        #expect(host.asked.prefix(3) == ["AXRole", "AXSubrole", "AXValue"])
+        host.asked = []
+        host.attributes["AXSubrole"] = "AXSecureTextField" as CFString
+        #expect(host.read() == nil)
+        #expect(!host.asked.contains("AXValue"))
+    }
+    @Test func aFieldThatGoesReadOnlyOrChangesRoleIsNeverAskedItsValue() {
+        let host = Host()
+        host.settable = false
+        #expect(host.read() == nil && !host.asked.contains("AXValue"))
+        host.settable = true
+        host.asked = []
+        host.attributes["AXRole"] = "AXStaticText" as CFString
+        #expect(host.read() == nil && !host.asked.contains("AXValue"))
+    }
+}
+
+/// `update` to the armed ghost, with a fake host, model and tap, and the real layout.
+@Suite @MainActor struct GhostPathTests {
+    let single = CGRect(x: 100, y: 100, width: 300, height: 26)
+    let tap = FakeTap()
+    let panel = QuietPanel()
+    let keys = KeyTests()
+    let host = FakeField()
+
+    /// What the field holds now, and how often it was read.
+    final class FakeField: @unchecked Sendable {
+        let now = Mutex<(field: Field, caretX: CGFloat)>((Field(before: ""), 300))
+        let reads = Atomic<Int>(0)
+    }
+
+    func watcher(_ field: Field, marked: Bool = false, completer: Completer) -> Watcher {
+        let watcher = Watcher(tap: tap, panel: panel)
+        let frame = single, host = host
+        host.now.withLock { $0.field = field }
+        watcher.focused = AXUIElementCreateSystemWide()
+        watcher.completer = completer
+        watcher.read = { _ in
+            host.reads.add(1, ordering: .relaxed)
+            let (field, caretX) = host.now.withLock { $0 }
+            return Reading(field: field, caret: CGRect(x: caretX, y: frame.minY + 4, width: 0, height: 17), frame: frame, marked: marked)
+        }
+        watcher.traits = { _, _ in FieldTraits(fontSize: 14, fontName: nil, color: nil, lineLeft: 110) }
+        return watcher
+    }
+    func armed() -> KeyTap.Armed? { tap.state.withLock { $0.armed } }
+
+    @Test func noTakerMeansNoReadNoModelAndNoGhost() async {
+        for blocked in [KeyTap.Obstacle.secureInput, .tapOff] {
+            tap.blocked.withLock { $0 = blocked }
+            let model = CountingCompleter(" there friend")
+            let watcher = watcher(Field(before: "hello"), completer: model)
+            watcher.scheduleUpdate()
+            await watcher.settle()
+            #expect(host.reads.load(ordering: .relaxed) == 0 && model.asks.load(ordering: .relaxed) == 0)
+            #expect(armed() == nil && !panel.isVisibleGhost)
+            // The same field with a taker gets all three, or the above proves nothing.
+            tap.blocked.withLock { $0 = nil }
+            watcher.scheduleUpdate()
+            #expect(await soon { armed() != nil })
+            #expect(host.reads.load(ordering: .relaxed) > 0 && model.asks.load(ordering: .relaxed) > 0 && panel.isVisibleGhost)
+            watcher.hideNow()
+            host.reads.store(0, ordering: .relaxed)
+        }
+    }
+    @Test func secureInputArrivingWithTheAnswerDrawsNothing() async {
+        let model = CountingCompleter(" there friend")
+        let watcher = watcher(Field(before: "hello"), completer: model)
+        tap.blocked.withLock { $0 = nil }
+        model.onAsk = { [tap] in tap.blocked.withLock { $0 = .secureInput } }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(model.asks.load(ordering: .relaxed) == 1)
+        #expect(armed() == nil && !panel.isVisibleGhost)
+    }
+    @Test func tabCanReachOnlyWhatADrawnClippedGhostShows() async throws {
+        let text = " one two three four five six seven"
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(text))
+        watcher.scheduleUpdate()
+        #expect(await soon { armed() != nil })
+        let offer = try #require(armed()?.ghost.remainder)
+        #expect(offer == panel.view.layout.map { String(Word.withoutTrailingSpaces($0.visibleText)) })
+        #expect(offer.count < text.count && text.hasPrefix(offer))
+        let all = keys.press(tap, keys.key(48, pid: 0, flags: .maskShift))
+        #expect(all.swallowed && keys.unicode(all.posted) == offer)
+        #expect(!keys.press(tap, keys.key(48, pid: 0)).swallowed)  // The unseen tail is out of reach, and Tab the app's.
+    }
+    @Test func nextWordTabsStopAtTheDrawnEdge() async throws {
+        let text = " one two three four five six seven"
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(text))
+        watcher.scheduleUpdate()
+        #expect(await soon { armed() != nil })
+        let offer = try #require(armed()?.ghost.remainder)
+        var taken = ""
+        while true {
+            let tab = keys.press(tap, keys.key(48, pid: 0))
+            guard tab.swallowed else { break }
+            taken += keys.unicode(tab.posted)
+        }
+        #expect(taken == offer)
+    }
+    @Test func aClippedKoreanGhostKeepsItsSyllableAndTypesOnlyWhatShows() async throws {
+        let text = " 한 다음 날에 다시 만나서 이야기를 나누면 좋겠습니다"  // Carries its own space, as the prompt ends at 그.
+        let watcher = watcher(Field(before: "그 하", mayCompose: true), marked: true, completer: CountingCompleter(text))
+        watcher.twoSet.store(true, ordering: .relaxed)
+        watcher.scheduleUpdate()
+        #expect(await soon { armed() != nil })
+        let ghost = try #require(armed()?.ghost)
+        #expect(ghost.keys == "ㄴ" && ghost.composing == "한")
+        let rest = String(text.dropFirst(2))
+        #expect(ghost.remainder.count < rest.count && rest.hasPrefix(ghost.remainder))
+        let posted = keys.press(tap, keys.key(48, pid: 0, flags: .maskShift)).posted.filter { $0.type == .keyDown }
+        let expected = try #require(TwoSetLayout.strokes("ㄴ" + Hangul.keys(ghost.remainder)))
+        #expect(posted.map { $0.getIntegerValueField(.keyboardEventKeycode) } == expected.map { Int64($0.code) })
+        #expect(tap.state.withLock { $0.pending?.to == "그 한" + ghost.remainder })
+        #expect(!keys.press(tap, keys.key(48, pid: 0)).swallowed)
+    }
+    @Test func theSuggestionKeepsItsTailForTheNextDraw() async throws {
+        let text = " one two three four five six seven", model = CountingCompleter(text)
+        let watcher = watcher(Field(before: "hello"), completer: model)
+        watcher.scheduleUpdate()
+        #expect(await soon { armed() != nil })
+        let offer = try #require(armed()?.ghost.remainder)
+        _ = keys.press(tap, keys.key(48, pid: 0, flags: .maskShift))
+        host.now.withLock { $0 = (Field(before: "hello" + offer), 120) }  // The insert landed, and the rest now fits.
+        await watcher.settle()
+        watcher.redraw()
+        #expect(await soon { armed() != nil })
+        #expect(armed()?.ghost.remainder == String(text.dropFirst(offer.count)))
+        #expect(model.asks.load(ordering: .relaxed) == 1)
+    }
+    @Test func aPanelStrandedOnAnotherSpaceDrawsNothingAndArmsNothing() async {
+        panel.stranded = true
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(armed() == nil && !panel.isVisibleGhost)
+    }
+    @Test func sleepLockAndDisplayChangesHideAndDisarm() async {
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
+        watcher.hideOnSessionChange()
+        let workspace = NSWorkspace.shared.notificationCenter
+        for (center, name) in [(workspace, NSWorkspace.willSleepNotification), (workspace, NSWorkspace.screensDidSleepNotification),
+                               (workspace, NSWorkspace.sessionDidResignActiveNotification), (workspace, NSWorkspace.activeSpaceDidChangeNotification),
+                               (NotificationCenter.default, NSApplication.didChangeScreenParametersNotification)] {
+            watcher.redraw()
+            #expect(await soon { armed() != nil })
+            center.post(name: name, object: nil)
+            #expect(await soon { armed() == nil && !panel.isVisibleGhost }, "\(name.rawValue)")
+        }
+    }
+}
+
+extension Watcher {
+    /// Everything queued for the watcher and the main thread has run.
+    @MainActor func settle() async {
+        for _ in 0..<3 {
+            await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in queue.async { DispatchQueue.main.async { done.resume() } } }
+        }
+    }
+}
+
+extension GhostPanel {
+    var isVisibleGhost: Bool { view.layout != nil }
 }
 
 @Suite struct ModelTests {
