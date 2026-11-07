@@ -13,7 +13,8 @@ These sentences are ones it does well on, and suggestions aren't always this goo
 **[Download Itda.dmg](https://github.com/hrsong99/itda/releases/latest/download/Itda.dmg)**, open it, and drag Itda to Applications. Or:
 
 ```sh
-brew install --cask hrsong99/itda/itda
+brew tap hrsong99/itda && brew trust hrsong99/itda
+brew install --cask itda
 ```
 
 You need macOS 26 on Apple Silicon. Open Itda: its window asks for Accessibility, fetches a 1.4 GB model once, and gives you a field to try it in.
@@ -103,5 +104,5 @@ Korean has been used by hand in T3 Code, a Chromium app, and works, though the s
 - **다른 점:** 조합 중인 글자를 모델에 보내지 않고, 두벌식 키 입력에 맞는 결과만 받습니다. Tab을 누르면 남은 키를 실제로 눌러 입력기가 글자를 마저 조합합니다.
 - **비용:** 입력 중과 그 후 15초 동안 약 1.5 GB를 점유하고(wired), 5분 쉬면 79 MB로 줄어듭니다. 모델은 처음 한 번 1.4 GB를 받습니다.
 - **개인정보:** 손쉬운 사용 권한만 씁니다. 네트워크는 모델 다운로드와 업데이트 확인(일반 설정에서 끌 수 있음)에만 쓰고, 입력한 글을 저장하지 않으며, 비밀번호 칸은 건너뜁니다.
-- **설치:** [Itda.dmg](https://github.com/hrsong99/itda/releases/latest/download/Itda.dmg)를 내려받거나 `brew install --cask hrsong99/itda/itda`를 실행하세요. 자동으로 업데이트됩니다.
+- **설치:** [Itda.dmg](https://github.com/hrsong99/itda/releases/latest/download/Itda.dmg)를 내려받거나 `brew tap hrsong99/itda && brew trust hrsong99/itda` 후 `brew install --cask itda`를 실행하세요. 자동으로 업데이트됩니다.
 - **한계:** macOS 26 이상, Apple Silicon, 두벌식이 필요합니다. 한국어 정확도는 영어보다 낮습니다. 공개 대화 데이터에서 보여 준 제안의 31-34%가 정확히 일치했고, 전체 메시지 기준으로 키 입력을 8.8% 줄였습니다.
