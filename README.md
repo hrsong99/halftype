@@ -17,7 +17,7 @@ brew tap hrsong99/itda && brew trust hrsong99/itda
 brew install --cask itda
 ```
 
-You need macOS 26 on Apple Silicon. Open Itda: its window asks for Accessibility, fetches a 1.4 GB model once, and gives you a field to try it in.
+You need macOS 26 on Apple Silicon. Open Itda: its window asks for Accessibility, fetches a 1.4 GB model once, and gives you a field to try it in, with a sentence already typed so the first suggestion needs no typing.
 
 It keeps itself up to date, with signed and notarized releases. Turn that off under General. To build it yourself, with Swift 6.2 (Xcode 26), run `scripts/build-app.sh` and open `build/Itda.app`.
 
@@ -35,7 +35,9 @@ It keeps itself up to date, with signed and notarized releases. Turn that off un
 
 Or keep typing: the suggestion follows along while you match it. With no suggestion showing, these keys do what they always do.
 
-The window opens on that field alone, with the model and an on/off button inside it. The sidebar icon reveals the rest: models to download or switch between, paused apps, and Start at Login. Close the window and Itda stays in the menu bar, whose icon also pauses it for the current app. Open Itda again to get the window back.
+The window opens on that field alone, with the model and an on/off button inside it. The sidebar icon reveals the rest: models to download, switch between or delete, paused apps, and Start at Login. Close the window and Itda stays in the menu bar, whose icon also pauses it for the current app. Open Itda again to get the window back.
+
+The menu-bar icon dims when Itda is off or paused for the app in front, shows a dot when something needs you, and a percentage while the model downloads. Its menu says in one line why there's no suggestion where you are. Most often that's "Working. Not sure enough to suggest yet.": Itda stays quiet until it's sure. The same line shows under the window's field. If macOS's own grey predictions are on, the window says so and links to the setting; Itda never changes it.
 
 ## Why it's different
 
@@ -74,6 +76,10 @@ Wired memory is what counts: nothing else can use it, and Activity Monitor's per
 - **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. And GitHub, about once a day in a release build, to check for an update and fetch it, which sends your macOS version and Itda's. Turn that off under General. Nothing else. A build you make yourself never checks.
 - **Secure fields** are skipped: Itda checks the field before every read, and reads no text from a secure one or suggests in it. While any app holds Secure Input, it starts no new read or suggestion, and checks again just before drawing; a suggestion already on screen goes at the next change it sees. The menu says so.
 
+## Uninstall
+
+Quit Itda from its menu, drag it from Applications to the Trash, and remove `~/Library/Application Support/Itda`, which holds the models. Its settings are in `~/Library/Preferences/app.itda.Itda.plist`. With Homebrew, `brew uninstall --zap --cask itda` does all of it. To remove only a model, use Delete on the Models page.
+
 ## Limits
 
 - **macOS 26 or later.** Only tested on Apple Silicon, on one M5.
@@ -106,4 +112,5 @@ Korean has been used by hand in T3 Code, a Chromium app, and works, though the s
 - **비용:** 입력 중과 그 후 15초 동안 약 1.5 GB를 점유하고(wired), 5분 쉬면 79 MB로 줄어듭니다. 모델은 처음 한 번 1.4 GB를 받습니다.
 - **개인정보:** 손쉬운 사용 권한만 씁니다. 네트워크는 모델 다운로드와 업데이트 확인(일반 설정에서 끌 수 있음)에만 쓰고, 입력한 글을 저장하지 않으며, 비밀번호 칸은 건너뜁니다.
 - **설치:** [Itda.dmg](https://github.com/hrsong99/itda/releases/latest/download/Itda.dmg)를 내려받거나 `brew tap hrsong99/itda && brew trust hrsong99/itda` 후 `brew install --cask itda`를 실행하세요. 자동으로 업데이트됩니다.
+- **제거:** Itda를 종료하고 휴지통으로 옮긴 뒤 `~/Library/Application Support/Itda`를 지우세요. Homebrew라면 `brew uninstall --zap --cask itda`.
 - **한계:** macOS 26 이상, Apple Silicon, 두벌식이 필요합니다. 한국어 정확도는 영어보다 낮습니다. 공개 대화 데이터에서 보여 준 제안의 31-34%가 정확히 일치했고, 전체 메시지 기준으로 키 입력을 8.8% 줄였습니다.

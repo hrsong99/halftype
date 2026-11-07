@@ -7,7 +7,8 @@ Any wrong character: tell me what you typed and what came out. Use a new, empty 
 A. Quit Cotypist, which also takes Tab, and any other app that reads your screen through Accessibility, such as Raycast or Wispr Flow. Then quit and reopen T3 and ego lite, so the accessibility switches they turned on are off.
    **Cotypist's icon is gone from the menu bar, and both apps are back.**
 B. Open `build/Itda.app`; its window asks for Accessibility. Press the button and grant it.
-   **No system dialog before you press the button. Within 2 s of the grant the window shows its field, with no restart, and the download below it until the model is ready. Never a prompt for Input Monitoring.**
+   **No system dialog before you press the button. Before the grant the download already shows under the button, with its size and "You can close this window." Within 2 s of the grant Itda comes back in front of System Settings and shows its field, with no restart. Never a prompt for Input Monitoring.**
+   Once the model is ready, don't type: **the field holds "Please let me know if you have any" (or a Korean sentence, if a Korean source is on) with a ghost after it, and under it "Tab takes a word. Shift-Tab takes it all. Esc hides it."** Press Tab: **the word goes in, and the line becomes "That's it. Itda works like this in almost any app." with a Start at Login button.** Press it: **the button goes, and General shows Start at Login on.** Turn it back off there if you don't want it.
 C. Once the model is ready, and before anything else touches ego lite: click its address bar or a search box, type `Can you take a look at`, pause, and keep typing slowly for a few seconds if nothing shows.
    **A ghost within about 3 s, with nothing else running that could have woken ego lite's accessibility.** Then in Terminal, `osascript -e 'tell application "System Events" to get value of attribute "AXEnhancedUserInterface" of application process "Finder"'`: **false**, as Itda leaves native apps alone. If ego lite never shows a ghost, say so: that's the case this step is for.
 
@@ -65,7 +66,7 @@ T1. The permission, each way. No automatic test reaches this: they stand in for 
     b. Turn Itda off under Privacy & Security, Accessibility, and click around. **Clicks and keys work within a second. The window offers Allow Accessibility, the menu says it's waiting, and no system dialog appears, once or over and over.** Turn it back on. **The field within 2 s, and Tab takes a ghost.**
     c. Remove the row with `-`, click around, and add Itda back. **The same as b, each way.**
 T2. Secure Input. Turn on Terminal's Secure Keyboard Entry, then type in T3. Don't run `scripts/e2e.sh` meanwhile.
-    **No ghost, Tab is T3's, and the menu says Secure Input is on.** Turn it off and type: **ghosts are back, and the menu line is gone.**
+    **No ghost, Tab is T3's, the menu says Secure Input is on, and the menu-bar icon has a dot.** Turn it off and type: **ghosts are back, the menu line says "Working.", and the dot is gone.**
 T3. In a search field that Esc clears, type until a ghost shows, and press Esc. Press it again.
     **The first hides the ghost and leaves your text. The second clears the field. Cmd-Option-Esc with a ghost up still opens Force Quit.**
 T4. Narrow T3's window until a long ghost is cut off at the field's edge. Shift-Tab; on another, Tab as fast as you can; and the same in Korean.
@@ -85,9 +86,16 @@ W4. Close the window, then open Itda from Finder or the menu.
 W5. Quit Itda, move `kanana-1.5-2.1b-base.Q4_K_M.gguf` out of `~/Library/Application Support/Itda`, turn Wi-Fi off, and open Itda. Turn Wi-Fi on. Mid-download, turn it off again until the line changes, then on, and press Retry. At about half, quit and reopen. Move the model back after, if it didn't finish.
     **"Waiting for a connection", then it starts by itself. The drop shows a failure line with Retry, in the window and in the menu, within a minute. Retry and the reopen both carry on from where it was, not from 0.**
 
+W6. Why there's no ghost. In T3, type with text after the cursor and open the menu; then in a plain field type and pause until no ghost comes, and open the menu.
+    **"Text after the cursor, so no suggestion here." Then "Working. Not sure enough to suggest yet." The window's field shows the same lines, without flickering as you type.**
+W7. Turn on System Settings, Keyboard, Text Input, Input Sources, Edit, "Show inline predictive text". Open the window and the menu.
+    **The window says macOS shows its own grey predictions too, and the menu offers Turn Off macOS Predictions; each opens Keyboard settings.** Turn the setting back off: **both go.**
+W8. Models: Delete on a model you have and aren't using.
+    **It goes back to Get, and the file is gone from `~/Library/Application Support/Itda`. The model in use has no Delete.**
+
 ## The rest: about 1 minute
-21. Menu: "Pause in T3", type, unpause; turn Itda off, type, turn it on.
-    **No ghost and a normal Tab each time.**
+21. Menu: "Pause in T3", type, unpause; turn Suggestions off, type, turn it on.
+    **No ghost and a normal Tab each time, and the menu-bar icon dimmed while paused or off. Paused in T3, it's back to full when another app is in front.**
 22. In TextEdit in dark mode, repeat 1.
     **A readable grey ghost.**
 23. Quit Itda from the menu. Then in Terminal, the command from step C with `"ego lite"` in place of `"Finder"`.

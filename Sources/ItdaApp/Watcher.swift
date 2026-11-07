@@ -55,6 +55,16 @@ final class Watcher: @unchecked Sendable {
     let koreanInput = Atomic<Bool>(false)
     let twoSet = Atomic<Bool>(false)
 
+    /// Why there's no ghost in the focused field, or that one shows: set at each place the path stops, and only when it settles, not
+    /// while a request is out. No typed text in it.
+    enum Why: Equatable { case shown, empty, unsure, unreadable, blocked, textAfter, notTwoSet, noModel, noCaret, noFont, rightToLeft, noRoom }
+    private let why = Mutex(Why.unreadable)
+    /// Told of each change, on whichever thread made it.
+    var onWhy: (@Sendable (Why) -> Void)?
+    private func record(_ now: Why) {
+        if why.withLock({ was in defer { was = now }; return was != now }) { onWhy?(now) }
+    }
+
     init(tap: KeyTap, panel: GhostPanel) {
         self.tap = tap
         self.panel = panel
@@ -117,6 +127,7 @@ final class Watcher: @unchecked Sendable {
         if let observer { CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes) }
         (app, observer, focused) = (nil, nil, nil)
         forget()
+        record(.unreadable)
     }
 
     /// Main run loop, no IPC here.
@@ -217,7 +228,7 @@ final class Watcher: @unchecked Sendable {
         guard tap.canTake, let focused, var reading = read(focused), tap.canTake else {
             (last, lost) = (nil, true)
             clearSuggestion()
-            return
+            return record(tap.canTake ? .unreadable : .blocked)
         }
         lost = false
         reading.field.mayCompose = mayCompose(reading)
@@ -232,16 +243,16 @@ final class Watcher: @unchecked Sendable {
             // reply isn't there yet. An empty field also shows its placeholder, which a ghost would overlap.
             context = nil
             clearSuggestion()
-            return
+            return record(.empty)
         }
         guard !hasTextAfterCaret(field) else {
             clearSuggestion()
-            return
+            return record(.textAfter)
         }
         // Any other Korean layout: a composition could swallow text we insert, and there's no telling, so no ghost.
         if koreanInput.load(ordering: .relaxed), !twoSet.load(ordering: .relaxed), let end = field.before.last, Hangul.isHangul(end) {
             clearSuggestion()
-            return
+            return record(.notTwoSet)
         }
         if let suggestion, let ghost = Follow.check(anchor: suggestion.anchor, suggestion: suggestion.text, field: field) {
             display(ghost, field, reading, generation)
@@ -249,7 +260,7 @@ final class Watcher: @unchecked Sendable {
         }
         clearSuggestion()
         // No ghost could be drawn: Teams, LibreOffice, or a native line start. A suggestion already held still follows above.
-        guard reading.caret != nil else { return }
+        guard reading.caret != nil else { return record(.noCaret) }
         ask(field)
     }
 
@@ -284,14 +295,14 @@ final class Watcher: @unchecked Sendable {
     }
 
     private func ask(_ field: Field) {
-        guard let completer, let focused else { return }
+        guard let completer, let focused else { return record(.noModel) }
         if context == nil { context = Reader.context(of: focused) }
         let prompt = Prompt.make(context: context ?? "", field: field)
-        guard !prompt.prefix.isEmpty else { return }
+        guard !prompt.prefix.isEmpty else { return record(.unsure) }  // Not a whole word yet.
         // The context read may have stalled too. Forgetting the read lets the same field ask again once Tab can be taken.
         guard tap.canTake else {
             last = nil
-            return
+            return record(.blocked)
         }
         let anchor = field.committed
         request += 1
@@ -327,9 +338,11 @@ final class Watcher: @unchecked Sendable {
         guard id == request else { return }
         guard tap.canTake else {
             last = nil  // Never shown, so the same field must ask again once Tab can be taken.
-            return clearSuggestion()
+            clearSuggestion()
+            return record(.blocked)
         }
-        guard let gate, gate >= Gate.threshold, let last else { return }
+        guard let gate, gate >= Gate.threshold else { return record(.unsure) }
+        guard let last else { return }
         suggestion = (anchor, text)
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
@@ -342,10 +355,22 @@ final class Watcher: @unchecked Sendable {
         if twoSet { ghost.remainder = TwoSetLayout.typable(ghost.remainder) }
         // Only as offered: typing through a word has to see it out, or the ghost would blink off for its last letters.
         let typedThrough = suggestion.map { Word.withoutTrailingSpaces($0.anchor) != Word.withoutTrailingSpaces(field.committed) } ?? false
-        guard !ghost.remainder.isEmpty, typedThrough || Gate.worthShowing(ghost), let focused, let caret = reading.caret, !Reader.isRightToLeft(field.before, ghost.remainder) else { return hideOnMain() }
+        guard !ghost.remainder.isEmpty, typedThrough || Gate.worthShowing(ghost), let focused else {
+            hideOnMain()
+            return record(.unsure)
+        }
+        guard let caret = reading.caret else {
+            hideOnMain()
+            return record(.noCaret)
+        }
+        guard !Reader.isRightToLeft(field.before, ghost.remainder) else {
+            hideOnMain()
+            return record(.rightToLeft)
+        }
         guard let traits = traits(focused, reading) else {
             last = nil  // A good read isn't a good draw: the next notification may find the same field, and must try again.
-            return hideOnMain()
+            hideOnMain()
+            return record(.noFont)
         }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
@@ -356,12 +381,19 @@ final class Watcher: @unchecked Sendable {
             // The last moment before Tab is promised, as Secure Input moves no generation.
             guard tap.canTake else {
                 queue.async { [self] in last = nil }
+                record(.blocked)
                 return hidePanel()
             }
-            guard let drawn = panel.show(spec) else { return hidePanel() }
+            guard let drawn = panel.show(spec) else {
+                record(.noRoom)
+                return hidePanel()
+            }
             var offer = armed
             offer.ghost.remainder = drawn  // `suggestion` keeps the rest, to draw as the field reaches it.
-            if tap.arm(offer, generation: generation) { showScrollWatch() } else { hideDisarmed() }
+            if tap.arm(offer, generation: generation) {
+                showScrollWatch()
+                record(.shown)
+            } else { hideDisarmed() }
         }
     }
 

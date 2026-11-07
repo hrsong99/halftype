@@ -1,6 +1,7 @@
 import AppKit
 import ItdaCore
 import ItdaEngine
+import class SwiftUI.NSHostingView
 import Synchronization
 import Testing
 @testable import ItdaApp
@@ -289,6 +290,17 @@ import Testing
         #expect(decide(53, .maskShift) == .dismiss(swallow: true))
         #expect(decide(53, [.maskCommand, .maskAlternate]) == .dismiss(swallow: false))
     }
+    @Test func anAcceptIsReportedAndNothingElseIs() {
+        let accepts = Atomic<Int>(0)
+        let tap = KeyTap()
+        tap.onAccept = { accepts.add(1, ordering: .relaxed) }
+        #expect(!press(tap, key(48)).swallowed && accepts.load(ordering: .relaxed) == 0)  // No ghost: the app's Tab.
+        armed(tap, Ghost(remainder: " there"))
+        _ = press(tap, key(53))
+        #expect(accepts.load(ordering: .relaxed) == 0)
+        armed(tap, Ghost(remainder: " there"))
+        #expect(press(tap, key(48)).swallowed && accepts.load(ordering: .relaxed) == 1)
+    }
     @Test func escHidesTheGhostOnceThenIsTheApps() {
         let dismissed = Atomic<Int>(0)
         let tap = KeyTap()
@@ -524,11 +536,12 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     let text: String
     let asks = Atomic<Int>(0), unloads = Atomic<Int>(0)
     var onAsk: (@Sendable () -> Void)?
+    var gate: Double? = 0
     init(_ text: String) { self.text = text }
     func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
         asks.add(1, ordering: .relaxed)
         onAsk?()
-        onResult(Suggestion(text: text, gate: 0))
+        onResult(Suggestion(text: text, gate: gate))
     }
     func cancel() {}
     func unload() { unloads.add(1, ordering: .relaxed) }
@@ -701,6 +714,48 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     }
     func armed() -> KeyTap.Armed? { tap.state.withLock { $0.armed } }
 
+    /// The reason the watcher settled on for one field, and how many changes it reported.
+    func why(_ field: Field, completer: Completer? = CountingCompleter(" there friend"), _ setup: (Watcher) -> Void = { _ in }) async -> (Watcher.Why, Int) {
+        let seen = Mutex<(Watcher.Why, Int)>((.unreadable, 0))
+        let watcher = watcher(field, completer: completer)
+        watcher.onWhy = { why in seen.withLock { $0 = (why, $0.1 + 1) } }
+        setup(watcher)
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        watcher.redraw()  // The same again, which is no change.
+        await watcher.settle()
+        watcher.hideNow()
+        return seen.withLock { $0 }
+    }
+    @Test func eachPlaceThePathStopsSaysWhyOnce() async {
+        #expect(await why(Field(before: "hello")) == (.shown, 1))
+        #expect(await why(Field(before: "")) == (.empty, 1))
+        #expect(await why(Field(before: "hello", after: "x")) == (.textAfter, 1))
+        #expect(await why(Field(before: "hello"), completer: nil) == (.noModel, 1))
+        let unsure = CountingCompleter(" there friend")
+        unsure.gate = -5
+        #expect(await why(Field(before: "hello"), completer: unsure) == (.unsure, 1))
+        #expect(await why(Field(before: "hello"), completer: CountingCompleter(" a")) == (.unsure, 1), "too short to be worth it")
+        #expect(await why(Field(before: "hello")) { $0.traits = { _, _ in nil } } == (.noFont, 1))
+        #expect(await why(Field(before: "안녕")) { $0.koreanInput.store(true, ordering: .relaxed) } == (.notTwoSet, 1))
+        host.caretless.store(true, ordering: .relaxed)
+        #expect(await why(Field(before: "hello")) == (.noCaret, 1))
+        host.caretless.store(false, ordering: .relaxed)
+        tap.blocked.withLock { $0 = .secureInput }
+        #expect(await why(Field(before: "hello")) == (.blocked, 1))
+        tap.blocked.withLock { $0 = nil }
+        #expect(await why(Field(before: "hello")) { $0.read = { _ in nil } }.1 == 0, "the start, unreadable, is no change")
+    }
+    @Test func aFieldThatStopsBeingReadableSaysSo() async {
+        let seen = Mutex<Watcher.Why?>(nil)
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
+        watcher.onWhy = { why in seen.withLock { $0 = why } }
+        watcher.scheduleUpdate()
+        #expect(await soon { seen.withLock { $0 } == .shown })
+        watcher.read = { _ in nil }
+        watcher.scheduleUpdate()
+        #expect(await soon { seen.withLock { $0 } == .unreadable })
+    }
     @Test func noTakerMeansNoReadNoModelAndNoGhost() async {
         for blocked in [KeyTap.Obstacle.secureInput, .tapOff] {
             tap.blocked.withLock { $0 = blocked }
@@ -1014,7 +1069,82 @@ final class FakeServer: URLProtocol {
         #expect(app.isActive(path: path) && app.notice == nil)
         app.lost(path)
         #expect(!app.ready && !app.isActive(path: path))
-        #expect(app.modelLine == "Model: not loaded" && app.notice == "Could not load gone.gguf")
+        #expect(app.modelLine == "No model loaded" && app.notice == "Could not load gone.gguf")
+    }
+    @Test func theModelLineNamesTheModelAndTheDownloadsSize() {
+        let app = App()
+        app.modelChanged(.downloading(0.37))
+        #expect(app.modelLine == "Downloading Kanana 1.5: 37% of 1.4 GB")
+        app.modelChanged(.cancelled)
+        app.activePath = app.store.path(ModelStore.models[0]).path
+        #expect(app.modelLine == "Kanana 1.5")
+    }
+    @Test func theLineSaysWhyAndNotSureReadsAsWorking() {
+        func line(trusted: Bool = true, active: Bool = true, obstacle: KeyTap.Obstacle? = nil, ready: Bool = true, _ why: Watcher.Why, app: String? = "Notion") -> String? {
+            App.line(trusted: trusted, active: active, obstacle: obstacle, ready: ready, why: why, app: app)
+        }
+        #expect(line(.unsure) == "Working. Not sure enough to suggest yet.")
+        #expect(line(.shown) == "Working." && line(.empty) == "Working.")
+        #expect(line(.noFont) == "Notion doesn't report its font, so no suggestion here.")
+        #expect(line(.noFont, app: nil) == "This app doesn't report its font, so no suggestion here.")
+        #expect(line(.textAfter) == "Text after the cursor, so no suggestion here.")
+        // What comes first: the permission, then off or paused, then Tab's way to us, then the model.
+        #expect(line(trusted: false, active: false, obstacle: .tapOff, .unsure) == "Itda needs Accessibility permission.")
+        #expect(line(active: false, obstacle: .secureInput, .unsure) == nil)
+        #expect(line(obstacle: .secureInput, ready: false, .unsure) == KeyTap.Obstacle.secureInput.rawValue)
+        #expect(line(ready: false, .shown) == "The model isn't ready yet.")
+        #expect(line(.blocked) == "Working.", "an obstacle that has gone")
+        let all: [Watcher.Why] = [.shown, .empty, .unsure, .unreadable, .blocked, .textAfter, .notTwoSet, .noModel, .noCaret, .noFont, .rightToLeft, .noRoom]
+        #expect(all.allSatisfy { line($0)?.hasSuffix(".") == true })
+    }
+    @Test func theIconShowsState() {
+        #expect(App.icon(active: true, problem: false, downloading: nil) == App.Icon())
+        #expect(App.icon(active: false, problem: false, downloading: nil) == App.Icon(dimmed: true))
+        #expect(App.icon(active: true, problem: true, downloading: nil) == App.Icon(mark: true))
+        #expect(App.icon(active: true, problem: false, downloading: 0.374) == App.Icon(title: "37%"))
+    }
+    @Test func theMenuIsPlain() {
+        let app = App()
+        app.activePath = app.store.path(ModelStore.models[0]).path
+        app.readPredictions = { false }
+        let menu = NSMenu()
+        app.menuNeedsUpdate(menu)
+        var titles = menu.items.map(\.title)
+        #expect(titles.contains("Suggestions") && titles.contains("Kanana 1.5") && titles.contains("Itda needs Accessibility permission."))
+        #expect(!titles.contains { $0.contains(".gguf") || $0 == "Itda" })
+        #expect(!titles.contains("Turn Off macOS Predictions…"))
+        app.readPredictions = { true }
+        app.menuNeedsUpdate(menu)
+        titles = menu.items.map(\.title)
+        #expect(titles.contains("Turn Off macOS Predictions…"))
+    }
+    @Test func theFieldIsPrefilledOnlyOnAFreshLaunchOnceReady() {
+        #expect(App.prefill(fresh: true, ready: true, draft: "", korean: false) == "Please let me know if you have any")
+        #expect(App.prefill(fresh: true, ready: true, draft: "", korean: true) == "안녕하세요. 만나서 반갑")
+        #expect(App.prefill(fresh: false, ready: true, draft: "", korean: false) == nil)
+        #expect(App.prefill(fresh: true, ready: false, draft: "", korean: false) == nil)
+        #expect(App.prefill(fresh: true, ready: true, draft: "mine", korean: false) == nil)
+        let app = App()
+        app.activePath = app.store.path(ModelStore.models[0]).path
+        app.fresh = true
+        #expect(app.takePrefill(draft: "") != nil)
+        #expect(app.takePrefill(draft: "") == nil, "once")
+    }
+    @Test func onlyAModelNotInUseCanBeDeleted() throws {
+        let app = App()
+        let (kanana, qwen) = (ModelStore.models[0], ModelStore.models[1])
+        app.activePath = app.store.path(kanana).path
+        #expect(!app.canDelete(kanana) && app.canDelete(qwen))
+        app.downloading = qwen.id
+        #expect(!app.canDelete(qwen))
+        // The file op itself, on a store of its own: never the real models.
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = ModelStore(directory: directory)
+        try Data().write(to: store.path(qwen))
+        store.delete(qwen)
+        #expect(!FileManager.default.fileExists(atPath: store.path(qwen).path))
     }
 }
 
@@ -1049,5 +1179,83 @@ final class FakeServer: URLProtocol {
         #expect(store.resumeData == Data("here".utf8), "cancel records its own, so a cancellation leaves it alone")
         store.urlSession(session, task: task, didCompleteWithError: NSError(domain: NSURLErrorDomain, code: -3003))
         #expect(store.resumeData == nil)
+    }
+}
+
+/// The window's states as PNGs, drawn off screen, so nothing takes focus. `ITDA_SHOTS=<dir> swift test --filter WindowShots`.
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["ITDA_SHOTS"] != nil)) @MainActor struct WindowShots {
+    let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ITDA_SHOTS"] ?? "")
+
+    func app(_ set: (App) -> Void) -> App {
+        let app = App(tap: FakeTap())
+        app.readPredictions = { false }
+        set(app)
+        return app
+    }
+    func textView(in view: NSView) -> NSTextView? { (view as? NSTextView) ?? view.subviews.lazy.compactMap(textView).first }
+
+    @discardableResult func shoot(_ name: String, _ app: App, page: Root.Page = .field, dark: Bool = false) -> NSView {
+        let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field))
+        host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
+        let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
+        host.cacheDisplay(in: host.bounds, to: rep)
+        try! rep.representation(using: .png, properties: [:])!.write(to: dir.appendingPathComponent("\(name).png"))
+        return host
+    }
+
+    @Test func states() throws {
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let ready: (App) -> Void = { $0.trusted = true; $0.activePath = $0.store.path(ModelStore.models[0]).path }
+        shoot("1-allow-downloading", app { $0.modelChanged(.downloading(0.37)) })
+        shoot("2-field-downloading", app { $0.trusted = true; $0.modelChanged(.downloading(0.37)) })
+        let host = shoot("3-prefilled-teach", app { ready($0); $0.fresh = true; $0.why = .shown })
+        let field = try #require(textView(in: host))
+        #expect(field.string == "Please let me know if you have any")
+        #expect(field.selectedRange() == NSRange(location: field.string.utf16.count, length: 0), "the caret at the end, where a ghost goes")
+        shoot("4-teach-dark", app { ready($0); $0.why = .shown }, dark: true)
+        shoot("5-unsure", app { ready($0); $0.why = .unsure })
+        shoot("6-accepted", app { ready($0); $0.accepted = true })
+        shoot("7-predictions", app { ready($0); $0.why = .unsure; $0.readPredictions = { true } })
+        shoot("8-no-font", app { ready($0); $0.why = .noFont })
+        shoot("9-failed-download", app { $0.trusted = true; $0.modelChanged(.failed("Hugging Face answered 503. Try again later.")) })
+        shoot("10-models-delete", app { $0.trusted = true; $0.activePath = $0.store.directory.appendingPathComponent("Qwen3.5-0.8B-Q4_K_M.gguf").path }, page: .models)
+        shoot("11-accepted-dark", app { ready($0); $0.accepted = true; $0.readPredictions = { true } }, dark: true)
+    }
+
+    @Test func icons() throws {
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let resources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources")
+        let glyph = try #require(NSImage(contentsOf: resources.appendingPathComponent("MenuBarTemplate@2x.png")))
+        glyph.size = CGSize(width: 18, height: 18)
+        let marked = App.marked(glyph)
+        for dark in [false, true] {
+            let image = NSImage(size: CGSize(width: 240, height: 24), flipped: false) { rect in
+                (dark ? NSColor(white: 0.15, alpha: 1) : NSColor(white: 0.93, alpha: 1)).setFill()
+                rect.fill()
+                let ink = dark ? NSColor.white : NSColor.black
+                func draw(_ image: NSImage, x: CGFloat, alpha: CGFloat, title: String = "") {
+                    let tinted = NSImage(size: image.size, flipped: false) { r in
+                        image.draw(in: r)
+                        ink.setFill()
+                        r.fill(using: .sourceAtop)
+                        return true
+                    }
+                    tinted.draw(in: CGRect(x: x, y: 3, width: 18, height: 18), from: .zero, operation: .sourceOver, fraction: alpha)
+                    (title as NSString).draw(at: CGPoint(x: x + 21, y: 4), withAttributes: [.font: NSFont.menuBarFont(ofSize: 0), .foregroundColor: ink.withAlphaComponent(alpha)])
+                }
+                draw(glyph, x: 8, alpha: 1)
+                draw(glyph, x: 48, alpha: 0.4)
+                draw(marked, x: 88, alpha: 1)
+                draw(glyph, x: 128, alpha: 1, title: "37%")
+                return true
+            }
+            let rep = NSBitmapImageRep(data: image.tiffRepresentation(using: .none, factor: 2)!)!  // Two pixels a point, as on a Retina bar.
+            try rep.representation(using: .png, properties: [:])!.write(to: dir.appendingPathComponent(dark ? "12-icons-dark.png" : "12-icons.png"))
+        }
     }
 }

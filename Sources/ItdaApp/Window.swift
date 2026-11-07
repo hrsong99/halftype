@@ -84,18 +84,22 @@ private struct FieldPage: View {
     @Binding var page: Root.Page
     @FocusState private var focused: Bool
     @State private var picking: Bool
+    /// The watcher's reason once it has held for a moment, so typing doesn't flicker the line.
+    @State private var settled: Watcher.Why
 
     init(app: App, draft: Binding<String>, page: Binding<Root.Page>, picking: Bool = false) {
         self.app = app
         _draft = draft
         _page = page
         _picking = State(initialValue: picking)
+        _settled = State(initialValue: app.why)
     }
 
     var body: some View {
         VStack(spacing: 16) {
             Mark()
-            if app.trusted { field.zIndex(1); status } else { allow }  // The list hangs over what's below the field.
+            if app.trusted { field.zIndex(1) } else { allow }  // The list hangs over what's below the field.
+            status
         }
         .padding(24)
         .padding(.bottom, 40)
@@ -115,7 +119,8 @@ private struct FieldPage: View {
         VStack(alignment: .trailing, spacing: 4) {
             ZStack(alignment: .topLeading) {
                 if draft.isEmpty {
-                    Text(app.on ? "Type here, then press Tab on the grey text" : "Itda is off").foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
+                    Text(!app.on ? "Itda is off" : app.ready ? "Type here, then press Tab on the grey text" : "Type here once the model is ready")
+                        .foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
                 }
                 TextEditor(text: $draft).focused($focused).scrollContentBackground(.hidden).scrollIndicators(.never).frame(height: 44)
                     .onKeyPress(.escape) {
@@ -151,15 +156,47 @@ private struct FieldPage: View {
         .frame(maxWidth: 500)
         .onAppear { focused = true }
         .onChange(of: draft) { picking = false }
-    }
-
-    /// Nothing at all once it's ready and all is well.
-    @ViewBuilder private var status: some View {
-        VStack(spacing: 6) {
-            if !app.ready || app.notice != nil { NoticeLine(app: app, text: app.notice ?? app.modelLine) }
-            if !app.ready, app.downloading != nil { ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary) }
+        .onChange(of: app.ready, initial: true) { if let sentence = app.takePrefill(draft: draft) { draft = sentence } }
+        .task(id: app.why) {
+            try? await Task.sleep(for: .milliseconds(400))
+            if !Task.isCancelled { settled = app.why }
         }
     }
+
+    /// The model until it's ready, then what the menu says about this field: how to take a ghost, that it worked, or why there's none.
+    @ViewBuilder private var status: some View {
+        VStack(spacing: 6) {
+            if !app.ready || app.notice != nil {
+                NoticeLine(app: app, text: app.notice ?? app.modelLine)
+                if !app.ready, app.downloading != nil {
+                    ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary)
+                    Line(text: "You can close this window.")
+                }
+            } else if app.trusted {
+                if app.accepted {
+                    HStack(spacing: 8) {
+                        Line(text: "That's it. Itda works like this in almost any app.")
+                        if !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }
+                    }
+                } else if settled == .shown {
+                    Line(text: "Tab takes a word. Shift-Tab takes it all. Esc hides it.")
+                } else if let line = app.line(for: settled) {
+                    Line(text: line)
+                }
+            }
+            if app.predictions {
+                HStack(spacing: 8) {
+                    Line(text: "macOS shows its own grey predictions too.")
+                    Button("Turn Them Off…", action: app.openKeyboardSettings).controlSize(.small)
+                }
+            }
+        }
+    }
+}
+
+private struct Line: View {
+    let text: String
+    var body: some View { Text(text).font(.system(size: 12)).foregroundStyle(.secondary) }
 }
 
 /// A line of status, with Retry when it's a download that failed.
@@ -168,7 +205,7 @@ private struct NoticeLine: View {
     let text: String
     var body: some View {
         HStack(spacing: 8) {
-            Text(text).font(.system(size: 12)).foregroundStyle(.secondary)
+            Line(text: text)
             if app.retryable { Button("Retry", action: app.retry).controlSize(.small) }
         }
     }
@@ -305,7 +342,10 @@ private struct ModelsPage: View {
         } else if app.isActive(model) {
             Text("In use").foregroundStyle(.secondary).font(.system(size: 12))
         } else if app.store.has(model) {
-            Button("Use") { app.use(model) }
+            HStack {
+                if app.canDelete(model) { Button("Delete") { app.delete(model) }.help("Removes the file. Get downloads it again.") }
+                Button("Use") { app.use(model) }
+            }
         } else {
             Button("Get") { app.use(model) }.disabled(app.downloading != nil)
         }
@@ -364,6 +404,7 @@ extension App {
             made.setContentSize(CGSize(width: 720, height: 500))
             made.center()
             window = made
+            accepted = false
         }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()

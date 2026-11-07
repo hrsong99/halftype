@@ -12,8 +12,8 @@ class KeyTap: @unchecked Sendable {
 
     /// Why Tab wouldn't reach us, in the menu's words.
     enum Obstacle: String {
-        case tapOff = "Tab isn't reaching Itda right now"
-        case secureInput = "Secure Input is on in another app: no suggestions until it ends"
+        case tapOff = "Tab isn't reaching Itda right now."
+        case secureInput = "Secure Input is on in another app, so no suggestions until it ends."
     }
 
     /// What Tab inserts, and where. Set only by a drawn ghost.
@@ -62,6 +62,8 @@ class KeyTap: @unchecked Sendable {
     /// Off this thread at once. Given the generation this input moved to.
     var onInput: (@Sendable (Int) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
+    /// A suggestion was taken, off this thread at once.
+    var onAccept: (@Sendable () -> Void)?
     /// When the tap comes up or the system refuses it, on `keeper`. Not for a tap back up within the retry.
     var onUp: (@Sendable (Bool) -> Void)?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
@@ -148,6 +150,7 @@ class KeyTap: @unchecked Sendable {
         }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
+            onAccept?()
         }
         if decision == .reenable { reenable() }
         if case .dismiss = decision { onDismiss?() }

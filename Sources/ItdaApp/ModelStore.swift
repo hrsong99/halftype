@@ -79,6 +79,8 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
         task?.resume()
     }
 
+    func delete(_ model: Model) { try? FileManager.default.removeItem(at: path(model)) }
+
     /// A quit during hashing leaves one of these, gigabytes that nothing else cleans up.
     func removeLeftovers() {
         for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] where file.pathExtension == "unverified" {
