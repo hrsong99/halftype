@@ -31,7 +31,7 @@ struct GhostLayout {
         let font = spec.fontName.flatMap { NSFont(name: $0, size: spec.fontSize) } ?? .systemFont(ofSize: spec.fontSize)
         guard spec.webCaret else { return font }
         let zoom = spec.caret.height / NSLayoutManager().defaultLineHeight(for: font)
-        // A band, as the page's font goes unnamed and its glyph box can differ from ours by a tenth at 100%. Past that it is zoom.
+        // A band, as the page's font goes unnamed and its line can differ from ours by about a tenth, estimated from fonts' metrics. Past it is zoom.
         return zoom > 1.15 || zoom < 1 / 1.15 ? font.withSize(spec.fontSize * zoom) : font
     }
 

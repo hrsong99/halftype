@@ -116,6 +116,17 @@ import Testing
         #expect(size(caretHeight: line, web: true) == 14)
         #expect(size(caretHeight: line * 1.1, web: true) == 14)  // Another font's glyph box at 100%.
         #expect(size(caretHeight: line * 1.5, web: false) == 14)  // A native rect, or a line box.
+        #expect(abs(size(caretHeight: line * 0.86, web: true) - 14 * 0.86) < 0.01)  // The band is 1/1.15, about 0.87, below.
+        // A page font whose line is 0.9 of ours: at 125% the ratio is 1.125, inside the band, so no change. At 150% the ghost
+        // follows the caret, 1.35, not the zoom. Both are the estimate's known limits, for live step 20 to judge.
+        #expect(size(caretHeight: line * 0.9 * 1.25, web: true) == 14)
+        #expect(abs(size(caretHeight: line * 0.9 * 1.5, web: true) - 14 * 1.35) < 0.01)
+    }
+    @Test func aWebCaretIsASliverMidLine() {
+        #expect(Reader.isWebCaret(marker: CGRect(x: 746, y: 969, width: 0, height: 16), before: "ab"))
+        #expect(!Reader.isWebCaret(marker: CGRect(x: 738, y: 966, width: 702, height: 23), before: "ab"))  // T3's line box.
+        #expect(!Reader.isWebCaret(marker: CGRect(x: 738, y: 966, width: 0, height: 23), before: "ab\n"))
+        #expect(!Reader.isWebCaret(marker: CGRect(x: 738, y: 966, width: 0, height: 23), before: ""))
     }
 }
 
@@ -128,60 +139,119 @@ import Testing
         #expect(Reader.valueIndex(of: "abX", in: "abc\ndef") == nil)
         #expect(Reader.valueIndex(of: "abcdefg", in: "abc\ndef") == nil)
     }
-    func read(_ value: String, caret: Int, ranged: String?) -> Reading? {
+    /// `web`: the field has text markers, as Chromium's and WebKit's do and a native view's don't.
+    func read(_ value: String, caret: Int, ranged: String?, web: Bool = true) -> Reading? {
         var range = CFRange(location: caret, length: 0)
-        let attributes: [String: CFTypeRef] = ["AXRole": "AXTextArea" as CFString, "AXValue": value as CFString,
+        var attributes: [String: CFTypeRef] = ["AXRole": "AXTextArea" as CFString, "AXValue": value as CFString,
                                                "AXSelectedTextRange": AXValueCreate(.cfRange, &range)!]
+        if web { attributes["AXSelectedTextMarkerRange"] = "marker" as CFString }
         return Reader.read(AXUIElementCreateSystemWide(), get: { attributes[$1] }, settable: { _ in true }, upTo: { _, _ in ranged })
     }
     @Test func secondParagraphReadsToTheCaret() {
         #expect(read("abc\ndef", caret: 6, ranged: "abcdef")?.field == Field(before: "abc\ndef", after: ""))
         #expect(read("a\nb\nc", caret: 3, ranged: "abc")?.field == Field(before: "a\nb\nc", after: ""))
+        #expect(read("a\nb\nc", caret: 3, ranged: "abc")?.skipped == 2)
     }
-    @Test func softBreaksAndNativeFieldsAreLeftAlone() {
+    @Test func softBreaksAreLeftAlone() {
         #expect(read("ab\ncd", caret: 5, ranged: "ab\ncd")?.field == Field(before: "ab\ncd", after: ""))
-        #expect(read("ab\ncd", caret: 2, ranged: nil)?.field == Field(before: "ab", after: "\ncd"))
+        #expect(read("ab\ncd", caret: 5, ranged: "ab\ncd")?.skipped == 0)
     }
-    @Test func textThatDoesntLineUpIsNotRead() {
-        #expect(read("abc\ndef", caret: 6, ranged: "abcxyz") == nil)
+    @Test func aWebOffsetThatCantBeCheckedIsNotRead() {
+        #expect(read("a\nb\nc", caret: 3, ranged: nil) == nil)  // Failed or timed out: would continue `b` with the caret after `c`.
+        #expect(read("a\nb\nc", caret: 3, ranged: "a") == nil)  // Cut short, though it starts the value.
+        #expect(read("abc\ndef", caret: 6, ranged: "abcxyz") == nil)  // Doesn't line up.
+    }
+    @Test func aNativeViewHasOneTextForValueAndRanges() {
+        #expect(read("ab\ncd", caret: 2, ranged: nil, web: false)?.field == Field(before: "ab", after: "\ncd"))
+    }
+    @Test func rangeReadsAfterAlignmentAreAskedInTheHostsOwnOffsets() throws {
+        let reading = try #require(read("abc\ndef", caret: 6, ranged: "abcdef"))
+        let previous = try #require(Reader.previousRange(reading.field.before, skipped: reading.skipped))
+        #expect(previous.location == 5 && previous.length == 1)  // `f`, at 5 of the host's 6, not 6.
+        #expect(Reader.lineStart(reading.field.before, skipped: reading.skipped) == 3)  // `d`.
+        let emoji = try #require(Reader.previousRange("a\nb😀", skipped: 1))
+        #expect(emoji.location == 2 && emoji.length == 2)
+        #expect(Reader.lineStart("abc", skipped: 0) == 0)
     }
 }
 
 @Suite struct PrimingTests {
     let enhanced = Priming.enhanced, manual = Priming.manual
     let start = Date(timeIntervalSince1970: 0)
+    func process(_ pid: pid_t, launched: Double = 0) -> Priming.Process { .init(pid: pid, launched: Date(timeIntervalSince1970: launched)) }
+    func ours(_ priming: Priming) -> Set<pid_t> { Set(priming.ours(launched: { _ in Date(timeIntervalSince1970: 0) })) }
 
     @Test func electronIsSetOnceAndKeptAtQuit() {
         var priming = Priming(), kinds = 0
-        #expect(priming.next(1, now: start, kind: { kinds += 1; return manual }, isOn: { false }) == manual)
-        #expect(priming.next(1, now: start + 60, kind: { kinds += 1; return manual }, isOn: { false }) == nil)
-        #expect(kinds == 1 && priming.ours.isEmpty)
+        #expect(priming.next(process(1), now: start, kind: { kinds += 1; return manual }, voiceOver: { true }, isOn: { false }) == manual)
+        #expect(priming.next(process(1), now: start + 60, kind: { kinds += 1; return manual }, voiceOver: { false }, isOn: { false }) == nil)
+        #expect(kinds == 1 && ours(priming).isEmpty)
     }
     @Test func chromiumIsSetOnlyIfOffAndClearedOnlyIfOurs() {
         var priming = Priming()
-        #expect(priming.next(1, now: start, kind: { enhanced }, isOn: { true }) == nil)
-        #expect(priming.next(2, now: start, kind: { enhanced }, isOn: { false }) == enhanced)
-        #expect(priming.next(3, now: start, kind: { enhanced }, isOn: { nil }) == enhanced)
-        #expect(Set(priming.ours) == [2, 3])
+        #expect(priming.next(process(1), now: start, kind: { enhanced }, voiceOver: { false }, isOn: { true }) == nil)
+        #expect(priming.next(process(2), now: start, kind: { enhanced }, voiceOver: { false }, isOn: { false }) == enhanced)
+        #expect(priming.next(process(3), now: start, kind: { enhanced }, voiceOver: { false }, isOn: { nil }) == enhanced)
+        #expect(ours(priming) == [2, 3])
     }
     @Test func chromiumIsSetAgainOnlyPastItsWaitAndOnlyIfItReadsOff() {
         var priming = Priming(), reads = 0
-        #expect(priming.next(1, now: start, kind: { enhanced }, isOn: { false }) == enhanced)
-        // Within the wait a set would restart it, so the flag isn't even read.
-        #expect(priming.next(1, now: start + 2, kind: { enhanced }, isOn: { reads += 1; return false }) == nil)
-        #expect(reads == 0)
-        #expect(priming.next(1, now: start + 4, kind: { enhanced }, isOn: { nil }) == nil)  // A failed read isn't "off".
-        #expect(priming.next(1, now: start + 8, kind: { enhanced }, isOn: { false }) == enhanced)
-        #expect(priming.next(1, now: start + 12, kind: { enhanced }, isOn: { true }) == nil)
+        func next(_ pid: pid_t, _ t: Double, _ on: Bool?) -> String? {
+            priming.next(process(pid), now: start + t, kind: { enhanced }, voiceOver: { false }, isOn: { reads += 1; return on })
+        }
+        #expect(next(1, 0, false) == enhanced)
+        reads = 0
+        #expect(next(1, 2, false) == nil && reads == 0)  // Within the wait a set would restart it, so the flag isn't even read.
+        #expect(next(1, 4, nil) == nil)  // A failed read isn't "off".
+        #expect(next(1, 8, false) == enhanced)
+        #expect(next(1, 12, true) == nil)
         // Someone else's flag, cleared later and set by us, is then ours to clear.
-        #expect(priming.next(2, now: start, kind: { enhanced }, isOn: { true }) == nil)
-        #expect(priming.next(2, now: start + 4, kind: { enhanced }, isOn: { false }) == enhanced)
-        #expect(priming.ours.contains(2))
+        #expect(next(2, 0, true) == nil)
+        #expect(next(2, 4, false) == enhanced)
+        #expect(ours(priming).contains(2))
+    }
+    @Test func voiceOverIsAskedAtEachSetNotRemembered() {
+        var priming = Priming(), voiceOver = true, kinds = 0
+        func next(_ pid: pid_t, _ t: Double) -> String? {
+            priming.next(process(pid), now: start + t, kind: { kinds += 1; return enhanced }, voiceOver: { voiceOver }, isOn: { false })
+        }
+        #expect(next(1, 0) == nil)  // On: VoiceOver holds the flag.
+        voiceOver = false
+        #expect(next(1, 1) == enhanced)  // Off: never set, so no wait to restart.
+        #expect(next(2, 0) == enhanced)
+        voiceOver = true
+        #expect(next(2, 10) == nil)  // On again: not set again.
+        #expect(kinds == 2)
+    }
+    @Test func aReusedPidIsANewProcessAndTheOldOneIsNotRestored() {
+        var priming = Priming(), kinds = 0
+        #expect(priming.next(process(7, launched: 100), now: start, kind: { kinds += 1; return enhanced }, voiceOver: { false }, isOn: { false }) == enhanced)
+        // The browser quit and pid 7 went to a native app.
+        #expect(priming.next(process(7, launched: 200), now: start + 1, kind: { kinds += 1; return nil }, voiceOver: { false }, isOn: { false }) == nil)
+        #expect(kinds == 2)
+        #expect(priming.ours(launched: { _ in Date(timeIntervalSince1970: 200) }).isEmpty)
+        #expect(priming.ours(launched: { _ in Date(timeIntervalSince1970: 100) }) == [7])
+        #expect(priming.ours(launched: { _ in nil }).isEmpty)  // Gone.
     }
     @Test func nativeAppsAreAskedOnceAndGetNothing() {
         var priming = Priming(), kinds = 0
-        for t in [0.0, 5, 10] { #expect(priming.next(1, now: start + t, kind: { kinds += 1; return nil }, isOn: { false }) == nil) }
-        #expect(kinds == 1 && priming.ours.isEmpty)
+        for t in [0.0, 5, 10] {
+            #expect(priming.next(process(1), now: start + t, kind: { kinds += 1; return nil }, voiceOver: { false }, isOn: { false }) == nil)
+        }
+        #expect(kinds == 1 && ours(priming).isEmpty)
+    }
+    @Test func aBurstOfInputAgainstABlockedHostRunsOneRecoveryAndThenAgain() {
+        let queue = DispatchQueue(label: "test.heal"), gate = DispatchSemaphore(value: 0), job = OneAtATime()
+        let runs = Atomic<Int>(0), seenByBind = Atomic<Int>(-1)
+        job.run(on: queue) { gate.wait(); runs.add(1, ordering: .relaxed) }  // A host that doesn't answer.
+        for _ in 0..<100 { job.run(on: queue) { runs.add(1, ordering: .relaxed) } }
+        queue.async { seenByBind.store(runs.load(ordering: .relaxed), ordering: .relaxed) }  // A bind after the burst.
+        gate.signal()
+        queue.sync {}
+        #expect(runs.load(ordering: .relaxed) == 1 && seenByBind.load(ordering: .relaxed) == 1)
+        job.run(on: queue) { runs.add(1, ordering: .relaxed) }
+        queue.sync {}
+        #expect(runs.load(ordering: .relaxed) == 2)
     }
     @Test func chromiumIsKnownByItsRendererHelper() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("itda-bundles-\(UUID().uuidString)")
@@ -745,6 +815,20 @@ final class CountingCompleter: Completer, @unchecked Sendable {
         #expect(await soon { armed() != nil })
         #expect(armed()?.ghost.remainder == String(text.dropFirst(offer.count)))
         #expect(model.asks.load(ordering: .relaxed) == 1)
+    }
+    @Test func quitRestoresWithinOneDeadlineThoughAHostHangs() {
+        let watcher = Watcher(tap: tap, panel: panel)
+        let me = Priming.Process(pid: getpid(), launched: NSRunningApplication(processIdentifier: getpid())?.launchDate)
+        let restored = Atomic<Int>(0)
+        watcher.queue.sync {
+            _ = watcher.priming.next(me, now: Date(), kind: { Priming.enhanced }, voiceOver: { false }, isOn: { false })
+            watcher.restore = { _ in restored.add(1, ordering: .relaxed); sleep(2) }
+        }
+        watcher.queue.async { usleep(200_000) }  // Busy when the quit comes.
+        let start = Date()
+        watcher.unprime(within: 0.5)
+        #expect(Date().timeIntervalSince(start) < 0.9)
+        if !NSWorkspace.shared.isVoiceOverEnabled { #expect(restored.load(ordering: .relaxed) == 1) }
     }
     @Test func noCaretMeansNoModelCall() async {
         let model = CountingCompleter(" there friend")

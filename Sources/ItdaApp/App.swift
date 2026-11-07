@@ -129,8 +129,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     /// ggml's Metal device asserts at exit if a model is still loaded.
     func applicationWillTerminate(_ note: Notification) {
-        watcher.unprime()
         watcher.queue.sync { watcher.completer }?.unload()
+        watcher.unprime()  // After, as it may give up on hung hosts.
     }
 
     /// TIS must be read on the main thread. Going by the source's language covers third-party Korean input methods too.

@@ -31,6 +31,7 @@ final class Watcher: @unchecked Sendable {
     private var observer: AXObserver?
     var focused: AXUIElement?
     private var pid: pid_t = 0
+    private var process = Priming.Process(pid: 0, launched: nil)
     private var context: String?
     private var suggestion: (anchor: String, text: String)?
     private var last: Reading?
@@ -40,12 +41,15 @@ final class Watcher: @unchecked Sendable {
     private var unloadWork: DispatchWorkItem?
     /// No field could be read at the last try. A host building its tree lazily may say nothing once it's done, so keys then ask again.
     private var lost = false
-    private var priming = Priming()
+    var priming = Priming()
+    private let healing = OneAtATime()
+    /// Turns Chromium's flag off at quit. Watcher queue.
+    var restore: (pid_t) -> Void = { AXUIElementSetAttributeValue(AXUIElementCreateApplication($0), Priming.enhanced as CFString, kCFBooleanFalse) }
 
     var completer: Completer?
     /// The host, as this layer reads it: `Reader`, or a fake.
     var read: (AXUIElement) -> Reading? = { Reader.read($0) }
-    var traits: (AXUIElement, String) -> FieldTraits? = { Reader.traits($0, before: $1) }
+    var traits: (AXUIElement, Reading) -> FieldTraits? = { Reader.traits($0, before: $1.field.before, skipped: $1.skipped) }
     /// Read on the main thread, as TIS requires, and kept here.
     let koreanInput = Atomic<Bool>(false)
     let twoSet = Atomic<Bool>(false)
@@ -60,7 +64,7 @@ final class Watcher: @unchecked Sendable {
         // presses Tab within it, and hiding at once blanks the ghost on half the keys of typing through it. See docs/measuring.md.
         // A later key has its own frame, which this one's timer must not cut short.
         tap.onInput = { [weak self] generation in
-            self?.queue.async { self?.heal() }
+            if let self { healing.run(on: queue) { [weak self] in self?.heal() } }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.oneFrame) {
                 if self?.tap.generation == generation { self?.hideDisarmed() }
             }
@@ -82,6 +86,7 @@ final class Watcher: @unchecked Sendable {
             self.app = app
             self.observer = observer
             self.pid = pid
+            process = Priming.Process(pid: pid, launched: NSRunningApplication(processIdentifier: pid)?.launchDate)
             for name in Self.appNotifications { AXObserverAddNotification(observer, app, name as CFString, refcon) }
             CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
             refocus()
@@ -172,21 +177,25 @@ final class Watcher: @unchecked Sendable {
     /// Chromium and Electron build their accessibility tree only when asked, once per process.
     private func prime(_ app: AXUIElement) {
         let pid = pid
-        guard let attribute = priming.next(pid, now: Date(), kind: { Priming.kind(of: app, pid: pid) },
-                                           isOn: { AX.get(app, Priming.enhanced) as? Bool }) else { return }
+        guard let attribute = priming.next(process, now: Date(), kind: { Priming.kind(of: app, pid: pid) },
+                                           voiceOver: { NSWorkspace.shared.isVoiceOverEnabled }, isOn: { AX.get(app, Priming.enhanced) as? Bool })
+        else { return }
         // Its result says nothing: Chromium answers "not implemented" while it works.
         AXUIElementSetAttributeValue(app, attribute as CFString, kCFBooleanTrue)
     }
 
-    /// Quit: Chromium's flag slows window managers, so it goes back off where we turned it on. VoiceOver's own use of it stays.
-    /// Electron's is left, as its read-back can't tell that it was ours.
-    func unprime() {
-        queue.sync {
-            guard !NSWorkspace.shared.isVoiceOverEnabled else { return }
-            for pid in priming.ours where NSRunningApplication(processIdentifier: pid) != nil {
-                AXUIElementSetAttributeValue(AXUIElementCreateApplication(pid), Priming.enhanced as CFString, kCFBooleanFalse)
+    /// Quit, main thread. Chromium's flag slows window managers, so it goes back off where we turned it on, as best we can: hung hosts
+    /// can't hold the quit past one deadline, the wait for the queue included. VoiceOver's own use stays. Electron's switch is left, as
+    /// its read-back can't tell it was ours.
+    func unprime(within deadline: TimeInterval = 2 * Double(AX.timeout)) {
+        let done = DispatchSemaphore(value: 0)
+        queue.async { [self] in
+            if !NSWorkspace.shared.isVoiceOverEnabled {
+                for pid in priming.ours(launched: { NSRunningApplication(processIdentifier: $0)?.launchDate }) { restore(pid) }
             }
+            done.signal()
         }
+        _ = done.wait(timeout: .now() + deadline)
     }
 
     /// Everything tied to the focused field.
@@ -316,7 +325,7 @@ final class Watcher: @unchecked Sendable {
         // Only as offered: typing through a word has to see it out, or the ghost would blink off for its last letters.
         let typedThrough = suggestion.map { Word.withoutTrailingSpaces($0.anchor) != Word.withoutTrailingSpaces(field.committed) } ?? false
         guard !ghost.remainder.isEmpty, typedThrough || Gate.worthShowing(ghost), let focused, let caret = reading.caret, !Reader.isRightToLeft(field.before, ghost.remainder) else { return hideOnMain() }
-        guard let traits = traits(focused, reading.field.before) else {
+        guard let traits = traits(focused, reading) else {
             last = nil  // A good read isn't a good draw: the next notification may find the same field, and must try again.
             return hideOnMain()
         }
@@ -384,40 +393,44 @@ final class Watcher: @unchecked Sendable {
 
 /// Which accessibility switch an app needs, and when to flip it. Chromium waits 2 s after its flag is set, and each set restarts the wait,
 /// so each process gets one set, and another only if the flag reads off again later. Watcher queue.
-/// shortcut: keyed by pid, so a pid the system reuses within one run isn't primed; key by launch date if that's ever seen.
 struct Priming {
     static let manual = "AXManualAccessibility", enhanced = "AXEnhancedUserInterface"
     /// Past Chromium's 2 s wait, so a second set can't restart it.
     static let recheck: TimeInterval = 3
-    private var apps: [pid_t: (attribute: String?, touched: Date, ours: Bool)] = [:]
+    /// A process, as a pid alone can be given to another app later.
+    struct Process: Hashable {
+        var pid: pid_t
+        var launched: Date?
+    }
+    private var apps: [Process: (attribute: String?, touched: Date, ours: Bool)] = [:]
 
-    /// The attribute to set on `pid` now, if any. `kind` is asked once per process; `isOn` reads Chromium's flag at most once per `recheck`.
-    mutating func next(_ pid: pid_t, now: Date, kind: () -> String?, isOn: () -> Bool?) -> String? {
-        guard var app = apps[pid] else {
-            let attribute = kind()
-            let set = attribute == Self.enhanced ? isOn() != true : attribute != nil
-            apps[pid] = (attribute, now, set && attribute == Self.enhanced)
-            return set ? attribute : nil
-        }
-        // Chromium can clear it. Electron's read-back is unreliable, so its one set stands. A failed read is no reason to set again.
-        guard app.attribute == Self.enhanced, now.timeIntervalSince(app.touched) > Self.recheck else { return nil }
+    /// The attribute to set now, if any. `kind` is asked once per process, `voiceOver` at each Chromium set, as it comes and goes, and
+    /// `isOn` reads Chromium's flag at most once per `recheck`.
+    mutating func next(_ process: Process, now: Date, kind: () -> String?, voiceOver: () -> Bool, isOn: () -> Bool?) -> String? {
+        let first = apps[process] == nil
+        var app = apps[process] ?? (kind(), .distantPast, false)
+        defer { apps[process] = app }
+        // Electron's read-back is unreliable, so its one set stands.
+        if first, app.attribute == Self.manual { return Self.manual }
+        guard app.attribute == Self.enhanced, now.timeIntervalSince(app.touched) > Self.recheck, !voiceOver() else { return nil }
         app.touched = now
-        let set = isOn() == false
+        // Chromium can clear it. A failed read is no reason to set it again, but at first there is nothing else to go on.
+        let on = isOn(), set = first ? on != true : on == false
         app.ours = app.ours || set
-        apps[pid] = app
         return set ? Self.enhanced : nil
     }
 
-    /// Where we turned Chromium's flag on, to turn it off at quit.
-    var ours: [pid_t] { apps.filter(\.value.ours).map(\.key) }
+    /// Where we turned Chromium's flag on and the same process still runs, by `launched`, to turn it off at quit.
+    func ours(launched: (pid_t) -> Date?) -> [pid_t] {
+        apps.filter { $0.value.ours && launched($0.key.pid) == $0.key.launched }.map(\.key.pid)
+    }
 
-    /// Electron answers its documented switch as settable. Else a Chromium bundle gets Chromium's, unless VoiceOver already holds it.
-    /// Native apps get nothing: the flag only slows their windows.
+    /// Electron answers its documented switch as settable. Else a Chromium bundle gets Chromium's. Native apps get nothing: the flag only
+    /// slows their windows.
     static func kind(of app: AXUIElement, pid: pid_t) -> String? {
         var settable = DarwinBoolean(false)
         if AXUIElementIsAttributeSettable(app, manual as CFString, &settable) == .success, settable.boolValue { return manual }
-        guard let bundle = NSRunningApplication(processIdentifier: pid)?.bundleURL, shipsChromium(bundle), !NSWorkspace.shared.isVoiceOverEnabled
-        else { return nil }
+        guard let bundle = NSRunningApplication(processIdentifier: pid)?.bundleURL, shipsChromium(bundle) else { return nil }
         return enhanced
     }
 
@@ -428,6 +441,18 @@ struct Priming {
         func renderer(_ dir: URL) -> Bool { ((try? files.contentsOfDirectory(atPath: dir.path)) ?? []).contains { $0.hasSuffix(" Helper (Renderer).app") } }
         return renderer(frameworks) || ((try? files.contentsOfDirectory(atPath: frameworks.path)) ?? []).contains {
             renderer(frameworks.appendingPathComponent($0).appendingPathComponent("Versions/Current/Helpers"))
+        }
+    }
+}
+
+/// At most one run of a job queued or running, so a hung host can't build a backlog. A call after it ends runs it again.
+final class OneAtATime: Sendable {
+    private let pending = Atomic<Bool>(false)
+    func run(on queue: DispatchQueue, _ work: @escaping @Sendable () -> Void) {
+        guard !pending.exchange(true, ordering: .acquiringAndReleasing) else { return }
+        queue.async { [self] in
+            work()
+            pending.store(false, ordering: .releasing)
         }
     }
 }
