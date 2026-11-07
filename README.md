@@ -49,7 +49,7 @@ Most tools in this category go quiet while you compose Hangul, or suggest from a
 
 **It finishes Korean with real key presses.** The syllable you're composing stays out of the prompt, the model's output must fit its 2-set keys (so `하` allows `한` or `함`), and Tab presses the remaining keys so the input method finishes the syllable itself. On 1,099 requests mid-syllable in public Korean text, keystrokes saved per request went from 0 when sending the syllable to the model to 0.69. It costs more wrong suggestions: 18.2% of those requests, against 8.4%.
 
-Across whole messages, replayed with real typing delays before the latest change to how much a suggestion shows, that saved **22.8% of keystrokes in English** (1,200 keys) and **8.8% in Korean** (1,200 keys of public text), or 13.4% on 70 of the author's own messages. A match has to be exact, so a good paraphrase scores zero. The English messages are the author's and aren't published. Method and more numbers: [docs/measuring.md](docs/measuring.md). The design: [docs/how-it-works.md](docs/how-it-works.md).
+Across whole messages, replayed with real typing delays through the shipped policy, that saves **18.2% of keystrokes in English** (1,200 keys) and **8.1% in Korean** (1,200 keys of public text). Before suggestions were cut short at the first unsure word, the same replay saved 22.8% and 8.8%, with far more wrong grey text. A match has to be exact, so a good paraphrase scores zero. The English messages are the author's and aren't published. Method and more numbers: [docs/measuring.md](docs/measuring.md). The design: [docs/how-it-works.md](docs/how-it-works.md).
 
 ## What it costs
 
@@ -65,7 +65,7 @@ Wired memory is what counts: nothing else can use it, and Activity Monitor's per
 
 - **Disk:** a 1.4 GB model and an app of about 27 MB.
 - **CPU:** 0.13-0.27% of a core idle over 60 s. 7-8% while typing about 5 keys a second.
-- **Speed:** a suggestion's first displayable word arrives in 60 ms in English and 102 ms in Korean (p50, requests that got that far, timed replay). No model call at all on 48% of English keys and 27% of Korean, because the suggestion still fits.
+- **Speed:** a suggestion's first displayable word arrives in 60 ms in English and 98 ms in Korean (p50, requests that got that far, timed replay). No model call at all on 30% of English keys and 13% of Korean, because the suggestion still fits.
 - **Power:** not measured.
 
 ## Privacy
@@ -113,4 +113,4 @@ Korean has been used by hand in T3 Code, a Chromium app, and works, though the s
 - **개인정보:** 손쉬운 사용 권한만 씁니다. 네트워크는 모델 다운로드와 업데이트 확인(일반 설정에서 끌 수 있음)에만 쓰고, 입력한 글을 저장하지 않으며, 비밀번호 칸은 건너뜁니다.
 - **설치:** [Itda.dmg](https://github.com/hrsong99/itda/releases/latest/download/Itda.dmg)를 내려받거나 `brew tap hrsong99/itda && brew trust hrsong99/itda` 후 `brew install --cask itda`를 실행하세요. 자동으로 업데이트됩니다.
 - **제거:** Itda를 종료하고 휴지통으로 옮긴 뒤 `~/Library/Application Support/Itda`를 지우세요. Homebrew라면 `brew uninstall --zap --cask itda`.
-- **한계:** macOS 26 이상, Apple Silicon, 두벌식이 필요합니다. 한국어 정확도는 영어보다 낮습니다. 공개 대화 데이터에서 보여 준 제안의 31-34%가 정확히 일치했고, 전체 메시지 기준으로 키 입력을 8.8% 줄였습니다.
+- **한계:** macOS 26 이상, Apple Silicon, 두벌식이 필요합니다. 한국어 정확도는 영어보다 낮습니다. 공개 대화 데이터에서 보여 준 제안의 31-34%가 정확히 일치했고, 전체 메시지 기준으로 키 입력을 8.1% 줄였습니다.

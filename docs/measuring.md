@@ -66,6 +66,21 @@ Results below are for the default model at the shipped threshold, -0.7, unless a
 
 **The text.** English: the author's own messages, each with the message before it as context. They aren't published, and neither is anything quoting them. Korean, public: dialogue from [SmileStyle](https://github.com/smilegate-ai/korean_smile_style_dataset), which is other people's style-transfer text, so it isn't how anyone writes messages. Korean, own: 70 of the author's messages, with Hangul inside mostly English text. That's a small sample, and half of them come from threads also used to fit the threshold on English. Threads are split, so none is in both the fitting and test sets. A real input method wasn't used in replay: composing states come from a model of 2-set.
 
+**The shipped policy (2026-11-08, branch `bench-2`):** the floor, gate and whole-ghost minimum, with typed spaces forced back. Timed replay, 1,200 keys per language, load under 5 for English and under 3 for Korean; the English timing is approximate.
+
+| What | English | Korean, public |
+|---|---|---|
+| Keystrokes saved, whole messages, Tab costs one key | **18.2%** (17.1% before the two changes above, paired CI +0.6 to +1.9 points) | **8.1%** (8.2% before, CI -0.5 to 0.0) |
+| Tab repeated | 21.5% | 8.2% |
+| Shown ghosts with the first word right | 82.6% | 54.9% |
+| Keys with a wrong ghost visible | 6.8% | 7.7% |
+| Keys with no model call | 29.7% | 12.8% |
+| First displayable word, p50 of requests that got that far | 60 ms, 92% got there | 98 ms, 67% |
+
+Combined, the two changes saved what the minimum alone did in English. Korean, own text wasn't replayed again.
+
+**Before ghosts were cut short (bench-1),** for comparison: ghosts ran to 8 tokens, so more keys were saved and far more grey text was wrong.
+
 | What | English | Korean, public | Korean, own |
 |---|---|---|---|
 | Keystrokes saved, whole messages, Tab costs one key | **22.8%** (1,200 keys) | **8.8%** (1,200 keys) | **13.4%** (1,800 keys) |
