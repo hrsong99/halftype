@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Itda, dithered look</title>
+<style>
+:root{--bg:#f4f4f2;--ink:#1b1b1b;--sub:#6b6b6b;--card:#fff;--line:#0001}
+@media (prefers-color-scheme:dark){:root{--bg:#141414;--ink:#eee;--sub:#999;--card:#1d1d1d;--line:#fff1}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"SF Pro Text",Inter,system-ui,sans-serif;padding:28px 20px 60px}
+.wrap{max-width:1500px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}.q{color:var(--sub);margin:0 0 18px}
+.rec{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:26px}
+.rec b{font-weight:600}
+h2{font-size:15px;margin:30px 0 12px;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.card h3{margin:10px 0 2px;font-size:16px}.card h3 span{display:inline-block;width:24px;height:24px;border-radius:6px;background:var(--ink);color:var(--bg);text-align:center;line-height:24px;font-size:13px;margin-right:8px}
+.card p{margin:4px 0 0;color:var(--sub);font-size:13.5px}
+.controls{display:flex;gap:8px;align-items:center;margin:0 0 6px;font-size:13px;color:var(--sub)}
+.controls button{font:inherit;padding:3px 10px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+/* the mock window */
+.win{position:relative;width:100%;aspect-ratio:720/500;border-radius:11px;overflow:hidden;box-shadow:0 0 0 .5px #0004,0 12px 30px #0003;container-type:inline-size;font-family:-apple-system,"SF Pro Text",Inter,system-ui,sans-serif}
+.win canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.lights{position:absolute;top:2.6cqw;left:2.6cqw;display:flex;gap:1.2cqw;z-index:3}.lights i{width:1.8cqw;height:1.8cqw;border-radius:50%;background:#ff5f57}.lights i+i{background:#febc2e}.lights i+i+i{background:#28c840}
+.sideicon{position:absolute;top:2.2cqw;left:11.6cqw;width:2.6cqw;height:2cqw;border:.2cqw solid currentColor;border-radius:.5cqw;opacity:.5;z-index:3}
+.stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.6cqw;padding-bottom:5cqw;z-index:2}
+.mark{display:flex;align-items:center;gap:.3cqw}.mark b{width:.45cqw;height:3.6cqw;border-radius:1cqw;background:currentColor}.mark s{width:2.5cqw;height:.45cqw;border-radius:1cqw;background:linear-gradient(90deg,currentColor,transparent)}
+.field{width:69cqw;border-radius:2.8cqw;padding:1.7cqw 1.4cqw 1.2cqw 2.2cqw;font-size:2.1cqw}
+.text{height:5cqw;letter-spacing:-.01em}.ghost{opacity:.4}.caret{display:inline-block;width:.15cqw;height:2.3cqw;background:currentColor;vertical-align:-.35cqw;margin:0 .05cqw;animation:bl 1s steps(1) infinite}@keyframes bl{50%{opacity:0}}
+.bar{display:flex;justify-content:flex-end;align-items:center;gap:1.1cqw}
+.pill{font-size:1.67cqw;padding:.55cqw 1.4cqw;border-radius:9cqw}
+.power{width:3.3cqw;height:3.3cqw;border-radius:50%;display:grid;place-items:center}.power svg{width:1.6cqw;height:1.6cqw}
+.status{font-size:1.67cqw;opacity:.6}
+.tag{position:absolute;right:1.6cqw;top:1.6cqw;z-index:4;font-size:1.4cqw;padding:.3cqw .9cqw;border-radius:2cqw;background:#0007;color:#fff;backdrop-filter:blur(6px)}
+/* A today */
+.A{background:#fff;color:#1b1b1b}.A .field{background:#0000000d}.A .pill{background:#fff}.A .power{background:#1b1b1b;color:#fff}
+/* dark glass shared */
+.dk{background:#060708;color:#f2f2f2}
+.glass{background:rgba(22,24,28,.48);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);box-shadow:inset 0 0 0 .1cqw #ffffff1a,0 1cqw 3cqw #0006}
+.dk .pill{background:#ffffff14;box-shadow:inset 0 0 0 .1cqw #ffffff14}.dk .power{background:#e9e9e9;color:#111}
+/* E light paper */
+.E{background:#f6f2ea;color:#1d1b18}.E .glass{background:rgba(255,255,255,.55);box-shadow:inset 0 0 0 .1cqw #0000000f,0 1cqw 3cqw #0000001a}.E .pill{background:#fff9}.E .power{background:#1d1b18;color:#fff}
+/* D pool: plain dark window, dither only under the field */
+.D .pool{position:absolute;left:50%;top:50%;width:84cqw;height:40cqw;transform:translate(-50%,-56%);border-radius:4cqw;overflow:hidden;z-index:1;-webkit-mask:radial-gradient(closest-side,#000 55%,transparent);mask:radial-gradient(closest-side,#000 55%,transparent)}
+.D .pool canvas{position:absolute;inset:0}
+.D{background:#111214}
+.side{position:absolute;left:0;top:0;bottom:0;width:21cqw;background:rgba(18,18,20,.72);backdrop-filter:blur(14px);border-right:.1cqw solid #ffffff12;z-index:3;padding:7.5cqw 1.2cqw 0;font-size:1.8cqw}
+.side div{padding:.7cqw 1.4cqw;border-radius:1cqw;opacity:.75}.side div.on{background:#ffffff14;opacity:1}
+.C .stage,.B2 .stage{padding-left:21cqw}
+.imgs img{width:100%;border-radius:11px;display:block;box-shadow:0 12px 30px #0003}
+.pending{aspect-ratio:16/10;border-radius:11px;display:grid;place-items:center;background:#0001;color:var(--sub);font-size:13px}
+</style></head><body><div class="wrap">
+<h1>Itda's window in the "dithered" look</h1>
+<p class="q">Deciding: should Itda's one window (Try It, and the pages behind the sidebar) take the look of Jon Kelley's Devin redesign: dark, a dithered pixel backdrop, frosted glass on top. John: <i>"I kinda like how this looks, can you show me some variants of our app looking like that."</i></p>
+<div class="rec"><b>Recommendation: D, or B if you want the full Devin feel.</b> The window is the first thing a new user sees and almost nothing after, so a striking backdrop costs little and sells "local, crafted". But Itda's real product is grey ghost text in <i>other</i> apps; a busy full-bleed backdrop (B, C) fights the one thing the window demonstrates, grey text on a field. D keeps the dither as a glow behind the field and plain everywhere else, so the Models / Apps / General pages stay readable. Build cost is small for all of them: the target is macOS 26, so the glass is SwiftUI's own <code>.glassEffect</code>, and the dither is either one bundled PNG per appearance (simplest) or a ~30-line Metal <code>.colorEffect</code> shader if it should move (F). Mac-only app, so the Android/iOS question doesn't apply.</div>
+
+<h2>Built in HTML (the real window, 720×500, real copy)</h2>
+<div class="controls">Motion (F): <button id="replay">Replay</button><button id="slow">Slow ×0.25: off</button></div>
+<div class="grid" id="grid"></div>
+
+<h2>Image ideas (Codex's image tool, not built)</h2>
+<div class="grid imgs">
+ <div class="card"><div id="imgG"></div><h3><span>G</span>Night horizon, as Codex sees it</h3><p>Codex's own take on the Devin-style orbital dither, with an English ghost.</p></div>
+ <div class="card"><div id="imgH"></div><h3><span>H</span>The caret is the sunrise</h3><p>Codex's take on C: the icon mark as the light source of the dither.</p></div>
+ <div class="card"><div id="imgI"></div><h3><span>I</span>Daylight risograph</h3><p>Codex's take on a light-mode dither (E).</p></div>
+</div>
+</div>
+<script>
+const P='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 1.5v6"/><path d="M4.2 4a6 6 0 1 0 7.6 0"/></svg>';
+const OPTS=[
+ {k:'A',cls:'A',name:'Today',note:'What ships: white, a grey rounded field, the caret mark. Calm and native, but forgettable next to a screenshot like Devin\'s.',typed:'',ghost:'',ph:'Type here, then press Tab on the grey text'},
+ {k:'B',cls:'dk',bg:'orbit',glass:1,name:'Night horizon',note:'The Devin look straight: a dithered blue-and-orange planet horizon across the whole window, the field in frosted glass. Most striking; the grey ghost text has to sit on glass dark enough to read. Cost: one bundled PNG (light + dark) and <code>.glassEffect</code>.',typed:'Let me know if',ghost:' you\'re free tomorrow'},
+ {k:'C',cls:'dk C',bg:'orbit2',glass:1,side:1,name:'Night horizon, sidebar open',note:'B with the sidebar shown, in Devin\'s glass column, to see how the pages would sit on the backdrop. The pages (Models, Apps, General) would need a dimmed backdrop or a solid panel to stay readable.',typed:'내일 저녁에 같이',ghost:' 밥 먹을래?'},
+ {k:'D',cls:'dk D',bg:'pool',glass:1,name:'Glow behind the field (recommended)',note:'Plain dark window; the dither appears only as a soft pool of light behind the field, fading out at its edges. Keeps the craft feel and the focus on the grey text. Same cost as B.',typed:'Thanks for the',ghost:' quick reply!'},
+ {k:'E',cls:'E',bg:'paper',glass:1,name:'Daylight dither',note:'The same idea for light mode: a peach-to-blue halftone sky, white glass. Itda follows the system appearance, so B or D needs a light partner anyway; this is it.',typed:'회의 끝나고',ghost:' 바로 연락드릴게요'},
+ {k:'F',cls:'dk',bg:'sunrise',glass:1,anim:1,name:'The caret rises (moving)',note:'The dither is the app icon\'s caret light: it brightens while the model loads and pulses once when you press Tab. Uses the shared clock above. Cost: a Metal <code>.colorEffect</code> shader driven by a <code>TimelineView</code>, plus GPU time while the window is open, small but not zero.',typed:'See you at',ghost:' the station'},
+];
+const grid=document.getElementById('grid');
+for(const o of OPTS){
+ const c=document.createElement('div');c.className='card';
+ const field=`<div class="field ${o.glass?'glass':''}"><div class="text">${o.typed?o.typed+'<span class="caret"></span><span class="ghost">'+o.ghost+'</span>':'<span class="ghost" style="opacity:.35">'+o.ph+'</span>'}</div><div class="bar"><span class="pill">Kanana 1.5</span><span class="power">${P}</span></div></div>`;
+ c.innerHTML=`<div class="win ${o.cls}">${o.bg&&o.bg!=='pool'?'<canvas data-bg="'+o.bg+'"></canvas>':''}${o.bg==='pool'?'<div class="pool"><canvas data-bg="pool"></canvas></div>':''}<div class="lights"><i></i><i></i><i></i></div>${o.side?'':'<div class="sideicon"></div>'}${o.side?'<div class="side"><div class="on">Try It</div><div>Models</div><div>Apps</div><div>General</div></div>':''}<div class="stage"><div class="mark"><b></b><s></s></div>${field}<div class="status">${o.typed?'Tab takes a word, ⇧Tab takes it all':''}</div></div>${o.anim?'<span class="tag">moves</span>':''}</div><h3><span>${o.k}</span>${o.name}</h3><p>${o.note}</p>`;
+ if(o.side)c.querySelector('.win').classList.add('C');
+ grid.appendChild(c);
+}
+// Ordered (Bayer 4x4) dither of a smooth colour field, drawn as dots on a grid like the Devin backdrop.
+const B4=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>(v+.5)/16);
+const clamp=x=>x<0?0:x>1?1:x, mix=(a,b,t)=>a+(b-a)*t;
+function hash(x,y){let h=Math.sin(x*127.1+y*311.7)*43758.5453;return h-Math.floor(h)}
+const FIELDS={
+ orbit(u,v,t){ // planet limb seen from orbit: thin orange rim, blue air above it, dark planet below
+  const d=Math.hypot((u-.95)*1.25,v-2.05)-1.55; const rim=Math.exp(-Math.abs(d+.01)*45);
+  const air=d>0?Math.exp(-d*5.5):0, land=d<0?Math.exp(d*9)*.35:0;
+  return [.015+rim*1.1+land*.15, .02+rim*.5+air*.38+land*.12, .04+rim*.2+air*.95+land*.3];},
+ orbit2(u,v,t){return FIELDS.orbit(u*.85+.12,v,t)},
+ pool(u,v,t){const d=Math.hypot((u-.5)*1.6,v-.5);const k=Math.exp(-d*d*7);return [k*.95*clamp(1.2-u),k*.45,k*(.4+u*.9)]},
+ paper(u,v,t){const s=v;return [mix(.96,1,s),mix(.86,.82,s),mix(.80,.70,s)].map((c,i)=>mix([.70,.80,.95][i],c,clamp(v*1.3-.1)))},
+ sunrise(u,v,t){const p=t;const cx=.5,cy=.30;const d=Math.hypot((u-cx)*1.5,v-cy);const k=Math.exp(-d*d*(9-4*p))*(.55+.6*p);return [k*1.0,k*.55,k*.35+Math.exp(-d*3)*.15*p]},
+};
+function draw(cv,t){
+ const kind=cv.dataset.bg, W=cv.clientWidth, H=cv.clientHeight; if(!W)return;
+ const cell=kind==='paper'?4:3, gw=Math.ceil(W/cell), gh=Math.ceil(H/cell), dpr=2;
+ if(cv.width!==W*dpr){cv.width=W*dpr;cv.height=H*dpr}
+ const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);
+ x.fillStyle=kind==='paper'?'#f6f2ea':'#050607';x.fillRect(0,0,W,H);
+ const img=x.createImageData(gw,gh);
+ for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
+  const f=FIELDS[kind](i/gw,j/gh,t), th=B4[(j&3)*4+(i&3)], n=(hash(i,j)-.5)*.08, o=(j*gw+i)*4;
+  for(let c=0;c<3;c++){const q=clamp(f[c]+n)*3;const lv=Math.floor(q)+((q%1)>th?1:0);img.data[o+c]=Math.min(lv,3)*85}
+  img.data[o+3]=255;
+ }
+ // draw cells as dots with a dark gap
+ const tmp=document.createElement('canvas');tmp.width=gw;tmp.height=gh;tmp.getContext('2d').putImageData(img,0,0);
+ x.imageSmoothingEnabled=false;x.drawImage(tmp,0,0,gw*cell,gh*cell);
+ x.fillStyle=kind==='paper'?'#f6f2ea':'#050607';
+ for(let i=0;i<gw;i++)x.fillRect(i*cell+cell-1,0,1,H);for(let j=0;j<gh;j++)x.fillRect(0,j*cell+cell-1,W,1);
+ if(kind==='paper'){x.globalAlpha=.55;x.fillStyle='#f6f2ea';x.fillRect(0,0,W,H);x.globalAlpha=1}
+}
+const canv=[...document.querySelectorAll('canvas[data-bg]')];
+const still=()=>canv.filter(c=>c.dataset.bg!=='sunrise').forEach(c=>draw(c,1));
+still();addEventListener('resize',()=>{still();t0=performance.now()});
+// shared clock for F: load glow 0→1 over 2.4s, Tab pulse at 4s, loop at 6s
+let t0=performance.now(),speed=1,last=-1;
+document.getElementById('replay').onclick=()=>t0=performance.now();
+document.getElementById('slow').onclick=e=>{speed=speed===1?.25:1;e.target.textContent='Slow ×0.25: '+(speed===1?'off':'on');t0=performance.now()};
+const sun=canv.find(c=>c.dataset.bg==='sunrise'), fCard=sun.closest('.win'), gh=fCard.querySelector('.ghost'), typedNode=gh.previousSibling.previousSibling;
+function frame(now){const s=((now-t0)/1000*speed)%6;const load=Math.min(s/2.4,1);const pulse=s>4?Math.exp(-(s-4)*3)*.6:0;const t=Math.min(load*.75+pulse,1.3);
+ const step=Math.round(t*40);if(step!==last){draw(sun,t);last=step}
+ const accepted=s>4; typedNode.textContent=accepted?'See you at the station':'See you at'; gh.textContent=accepted?'':' the station';
+ requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+// image ideas
+for(const l of 'GHI'){const el=document.getElementById('img'+l);const im=new Image();im.onload=()=>el.appendChild(im);im.onerror=()=>el.innerHTML='<div class="pending">Image '+l+' not generated yet</div>';im.src='images/'+l+'.png'}
+</script></body></html>
