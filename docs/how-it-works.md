@@ -17,6 +17,8 @@ Read once: { text before, marked text, text after, caret rect, font }      no po
   |
   +-- the suggestion still fits what's typed --------------------------> show the rest, no model call
   |
+  +-- no caret rect, so nowhere to draw --------------------------------> no model call
+  |
   v
 Prompt: frozen context + window up to the last whole word
         held out: the half-typed word, and a composing syllable
@@ -38,6 +40,10 @@ Grey text at the caret, in a panel that takes no focus; Tab can take only what w
 ```
 
 **The tap.** It sits in line with every key and click on the Mac, so it holds to the permission. Any permission change takes it down at once (`com.apple.tcc.access.changed`, undocumented), and one loop in `KeyTap` then retries each second until `tapCreate` works, and stops. `tapCreate` decides, as `AXIsProcessTrusted` can stay true after a revoke; that call only keeps the loop from raising the system's dialog before the user has asked for it. A tap the system disabled is re-enabled on activation and on wake, with no timer.
+
+**Chromium and Electron** build their accessibility tree only when a client asks. Itda asks once per process, when it first watches the app. An app that answers Electron's documented `AXManualAccessibility` as settable gets that. An app whose bundle has Chromium's renderer helper, `<Name> Helper (Renderer).app`, gets `AXEnhancedUserInterface`, unless VoiceOver is on or the flag is already on. Native apps get nothing, as the flag slows window managers. Chromium waits 2 s after the flag and starts over on every set, so it is set again only if it reads off 3 s or more after the last look. A fresh Chromium may say nothing once its tree is ready, so while no field can be read, each key looks again, on the watcher queue. On quit, `AXEnhancedUserInterface` goes back off where Itda turned it on; Electron's switch stays, as reading it back can't tell it was ours.
+
+**Web editors.** Between paragraphs, Chromium's `AXValue` has a newline that its selection leaves out, so the caret's index runs one short per paragraph. When the value has a newline and `AXStringForRange` up to the caret isn't its start, the index is walked through the value; a field where they don't line up isn't read. A caret at a paragraph's start counts as the end of the one above. **Page zoom** isn't in the font size Chromium reports, while the caret is on screen, so from a web caret the ghost's size follows the caret's height once it differs from the font's line by more than 15%: the page's font isn't named, and another font's line can differ from ours by a tenth at 100%.
 
 The pure logic is in `Sources/ItdaCore` and has no model or GUI, so `swift test` can check it. `ItdaEngine` holds llama.cpp, and `ItdaApp` holds Accessibility, the key tap and the panel.
 

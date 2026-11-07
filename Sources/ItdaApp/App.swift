@@ -129,6 +129,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     /// ggml's Metal device asserts at exit if a model is still loaded.
     func applicationWillTerminate(_ note: Notification) {
+        watcher.unprime()
         watcher.queue.sync { watcher.completer }?.unload()
     }
 

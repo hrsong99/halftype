@@ -102,6 +102,103 @@ import Testing
         let l = try #require(GhostLayout.make(spec(" x", caretX: 150.4, frame: single)))
         #expect(l.window.origin.x == l.window.origin.x.rounded() && l.window.origin.y == l.window.origin.y.rounded())
     }
+    /// Blink reports the font size before page zoom, while the caret is on screen.
+    @Test func pageZoomScalesTheFontOnlyFromAWebCaret() {
+        let line = NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: 14))
+        func size(caretHeight: CGFloat, web: Bool) -> CGFloat {
+            var s = spec(" x", caretX: 150, frame: tall)
+            s.caret.size.height = caretHeight
+            s.webCaret = web
+            return GhostLayout.font(s).pointSize
+        }
+        #expect(abs(size(caretHeight: line * 1.5, web: true) - 21) < 0.01)
+        #expect(abs(size(caretHeight: line * 1.25, web: true) - 17.5) < 0.01)  // Cmd-= twice in a browser.
+        #expect(size(caretHeight: line, web: true) == 14)
+        #expect(size(caretHeight: line * 1.1, web: true) == 14)  // Another font's glyph box at 100%.
+        #expect(size(caretHeight: line * 1.5, web: false) == 14)  // A native rect, or a line box.
+    }
+}
+
+@Suite struct ParagraphTests {
+    @Test func theCaretIsMovedPastTheNewlinesTheRangesLeaveOut() {
+        #expect(Reader.valueIndex(of: "abcdef", in: "abc\ndef") == 7)
+        #expect(Reader.valueIndex(of: "abc", in: "a\nb\nc") == 5)
+        #expect(Reader.valueIndex(of: "😀ab", in: "😀a\nb") == 5)
+        #expect(Reader.valueIndex(of: "a\nbc", in: "a\nb\nc") == 5)  // A soft break is in both; a paragraph only in the value.
+        #expect(Reader.valueIndex(of: "abX", in: "abc\ndef") == nil)
+        #expect(Reader.valueIndex(of: "abcdefg", in: "abc\ndef") == nil)
+    }
+    func read(_ value: String, caret: Int, ranged: String?) -> Reading? {
+        var range = CFRange(location: caret, length: 0)
+        let attributes: [String: CFTypeRef] = ["AXRole": "AXTextArea" as CFString, "AXValue": value as CFString,
+                                               "AXSelectedTextRange": AXValueCreate(.cfRange, &range)!]
+        return Reader.read(AXUIElementCreateSystemWide(), get: { attributes[$1] }, settable: { _ in true }, upTo: { _, _ in ranged })
+    }
+    @Test func secondParagraphReadsToTheCaret() {
+        #expect(read("abc\ndef", caret: 6, ranged: "abcdef")?.field == Field(before: "abc\ndef", after: ""))
+        #expect(read("a\nb\nc", caret: 3, ranged: "abc")?.field == Field(before: "a\nb\nc", after: ""))
+    }
+    @Test func softBreaksAndNativeFieldsAreLeftAlone() {
+        #expect(read("ab\ncd", caret: 5, ranged: "ab\ncd")?.field == Field(before: "ab\ncd", after: ""))
+        #expect(read("ab\ncd", caret: 2, ranged: nil)?.field == Field(before: "ab", after: "\ncd"))
+    }
+    @Test func textThatDoesntLineUpIsNotRead() {
+        #expect(read("abc\ndef", caret: 6, ranged: "abcxyz") == nil)
+    }
+}
+
+@Suite struct PrimingTests {
+    let enhanced = Priming.enhanced, manual = Priming.manual
+    let start = Date(timeIntervalSince1970: 0)
+
+    @Test func electronIsSetOnceAndKeptAtQuit() {
+        var priming = Priming(), kinds = 0
+        #expect(priming.next(1, now: start, kind: { kinds += 1; return manual }, isOn: { false }) == manual)
+        #expect(priming.next(1, now: start + 60, kind: { kinds += 1; return manual }, isOn: { false }) == nil)
+        #expect(kinds == 1 && priming.ours.isEmpty)
+    }
+    @Test func chromiumIsSetOnlyIfOffAndClearedOnlyIfOurs() {
+        var priming = Priming()
+        #expect(priming.next(1, now: start, kind: { enhanced }, isOn: { true }) == nil)
+        #expect(priming.next(2, now: start, kind: { enhanced }, isOn: { false }) == enhanced)
+        #expect(priming.next(3, now: start, kind: { enhanced }, isOn: { nil }) == enhanced)
+        #expect(Set(priming.ours) == [2, 3])
+    }
+    @Test func chromiumIsSetAgainOnlyPastItsWaitAndOnlyIfItReadsOff() {
+        var priming = Priming(), reads = 0
+        #expect(priming.next(1, now: start, kind: { enhanced }, isOn: { false }) == enhanced)
+        // Within the wait a set would restart it, so the flag isn't even read.
+        #expect(priming.next(1, now: start + 2, kind: { enhanced }, isOn: { reads += 1; return false }) == nil)
+        #expect(reads == 0)
+        #expect(priming.next(1, now: start + 4, kind: { enhanced }, isOn: { nil }) == nil)  // A failed read isn't "off".
+        #expect(priming.next(1, now: start + 8, kind: { enhanced }, isOn: { false }) == enhanced)
+        #expect(priming.next(1, now: start + 12, kind: { enhanced }, isOn: { true }) == nil)
+        // Someone else's flag, cleared later and set by us, is then ours to clear.
+        #expect(priming.next(2, now: start, kind: { enhanced }, isOn: { true }) == nil)
+        #expect(priming.next(2, now: start + 4, kind: { enhanced }, isOn: { false }) == enhanced)
+        #expect(priming.ours.contains(2))
+    }
+    @Test func nativeAppsAreAskedOnceAndGetNothing() {
+        var priming = Priming(), kinds = 0
+        for t in [0.0, 5, 10] { #expect(priming.next(1, now: start + t, kind: { kinds += 1; return nil }, isOn: { false }) == nil) }
+        #expect(kinds == 1 && priming.ours.isEmpty)
+    }
+    @Test func chromiumIsKnownByItsRendererHelper() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("itda-bundles-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        func make(_ path: String) throws { try FileManager.default.createDirectory(at: dir.appendingPathComponent(path), withIntermediateDirectories: true) }
+        try make("Chat.app/Contents/Frameworks/Chat Helper (Renderer).app")  // Electron.
+        try make("Browser.app/Contents/Frameworks/Browser Framework.framework/Versions/1.2.3/Helpers/Browser Helper (Renderer).app")
+        try FileManager.default.createSymbolicLink(atPath: dir.appendingPathComponent("Browser.app/Contents/Frameworks/Browser Framework.framework/Versions/Current").path,
+                                                   withDestinationPath: "1.2.3")
+        try make("Notes.app/Contents/Frameworks/Sparkle.framework/Versions/B/Helpers/Updater.app")
+        try make("Bare.app/Contents/MacOS")
+        #expect(Priming.shipsChromium(dir.appendingPathComponent("Chat.app")))
+        #expect(Priming.shipsChromium(dir.appendingPathComponent("Browser.app")))
+        #expect(!Priming.shipsChromium(dir.appendingPathComponent("Notes.app")))
+        #expect(!Priming.shipsChromium(dir.appendingPathComponent("Bare.app")))
+        #expect(!Priming.shipsChromium(dir.appendingPathComponent("Missing.app")))
+    }
 }
 
 @Suite struct KeyTests {
@@ -483,6 +580,7 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     final class FakeField: @unchecked Sendable {
         let now = Mutex<(field: Field, caretX: CGFloat)>((Field(before: ""), 300))
         let reads = Atomic<Int>(0)
+        let caretless = Atomic<Bool>(false)
     }
 
     func watcher(_ field: Field, marked: Bool = false, completer: Completer) -> Watcher {
@@ -494,7 +592,8 @@ final class CountingCompleter: Completer, @unchecked Sendable {
         watcher.read = { _ in
             host.reads.add(1, ordering: .relaxed)
             let (field, caretX) = host.now.withLock { $0 }
-            return Reading(field: field, caret: CGRect(x: caretX, y: frame.minY + 4, width: 0, height: 17), frame: frame, marked: marked)
+            let caret = host.caretless.load(ordering: .relaxed) ? nil : CGRect(x: caretX, y: frame.minY + 4, width: 0, height: 17)
+            return Reading(field: field, caret: caret, frame: frame, marked: marked)
         }
         watcher.traits = { _, _ in FieldTraits(fontSize: 14, fontName: nil, color: nil, lineLeft: 110) }
         return watcher
@@ -583,6 +682,33 @@ final class CountingCompleter: Completer, @unchecked Sendable {
         watcher.redraw()
         #expect(await soon { armed() != nil })
         #expect(armed()?.ghost.remainder == String(text.dropFirst(offer.count)))
+        #expect(model.asks.load(ordering: .relaxed) == 1)
+    }
+    @Test func noCaretMeansNoModelCall() async {
+        let model = CountingCompleter(" there friend")
+        host.caretless.store(true, ordering: .relaxed)
+        let watcher = watcher(Field(before: "hello"), completer: model)
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(model.asks.load(ordering: .relaxed) == 0 && armed() == nil)
+        host.caretless.store(false, ordering: .relaxed)
+        watcher.redraw()
+        #expect(await soon { armed() != nil })
+        #expect(model.asks.load(ordering: .relaxed) == 1)
+    }
+    @Test func aSuggestionHeldThroughACaretlessReadIsDrawnAgainWithNoModelCall() async {
+        let model = CountingCompleter(" there friend")
+        let watcher = watcher(Field(before: "hello"), completer: model)
+        watcher.scheduleUpdate()
+        #expect(await soon { armed() != nil })
+        host.caretless.store(true, ordering: .relaxed)
+        host.now.withLock { $0.field = Field(before: "hello t") }
+        watcher.scheduleUpdate()
+        #expect(await soon { armed() == nil && !panel.isVisibleGhost })
+        host.caretless.store(false, ordering: .relaxed)
+        host.now.withLock { $0.field = Field(before: "hello th") }
+        watcher.scheduleUpdate()
+        #expect(await soon { armed()?.ghost.remainder == "ere friend" })
         #expect(model.asks.load(ordering: .relaxed) == 1)
     }
     @Test func aPanelStrandedOnAnotherSpaceDrawsNothingAndArmsNothing() async {

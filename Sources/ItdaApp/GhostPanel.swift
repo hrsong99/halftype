@@ -14,6 +14,8 @@ struct GhostSpec {
     var previousCharacter: String
     /// Text below the caret would be drawn over, so the ghost then stays on one line.
     var mayWrap: Bool
+    /// The caret is a web view's sliver, on screen at page zoom, while the font size beside it is before zoom.
+    var webCaret = false
 }
 
 struct GhostLayout {
@@ -26,7 +28,11 @@ struct GhostLayout {
     var visibleText: String { (storage.string as NSString).substring(with: manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)) }
 
     static func font(_ spec: GhostSpec) -> NSFont {
-        spec.fontName.flatMap { NSFont(name: $0, size: spec.fontSize) } ?? .systemFont(ofSize: spec.fontSize)
+        let font = spec.fontName.flatMap { NSFont(name: $0, size: spec.fontSize) } ?? .systemFont(ofSize: spec.fontSize)
+        guard spec.webCaret else { return font }
+        let zoom = spec.caret.height / NSLayoutManager().defaultLineHeight(for: font)
+        // A band, as the page's font goes unnamed and its glyph box can differ from ours by a tenth at 100%. Past that it is zoom.
+        return zoom > 1.15 || zoom < 1 / 1.15 ? font.withSize(spec.fontSize * zoom) : font
     }
 
     /// The host's own text colour, translucent, is readable wherever the host's text is. Without one, the label colour.

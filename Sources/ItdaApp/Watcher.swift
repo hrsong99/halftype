@@ -38,6 +38,9 @@ final class Watcher: @unchecked Sendable {
     private var lastGeneration = 0
     private var request = 0
     private var unloadWork: DispatchWorkItem?
+    /// No field could be read at the last try. A host building its tree lazily may say nothing once it's done, so keys then ask again.
+    private var lost = false
+    private var priming = Priming()
 
     var completer: Completer?
     /// The host, as this layer reads it: `Reader`, or a fake.
@@ -57,6 +60,7 @@ final class Watcher: @unchecked Sendable {
         // presses Tab within it, and hiding at once blanks the ghost on half the keys of typing through it. See docs/measuring.md.
         // A later key has its own frame, which this one's timer must not cut short.
         tap.onInput = { [weak self] generation in
+            self?.queue.async { self?.heal() }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.oneFrame) {
                 if self?.tap.generation == generation { self?.hideDisarmed() }
             }
@@ -70,8 +74,6 @@ final class Watcher: @unchecked Sendable {
         queue.async { [self] in
             detach()
             let app = AXUIElementCreateApplication(pid)
-            // Electron's documented switch; a no-op elsewhere. Chromium's own switch follows in `refocus` if needed.
-            AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
             var created: AXObserver?
             let callback: AXObserverCallback = { _, _, name, refcon in
                 Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String)
@@ -144,25 +146,47 @@ final class Watcher: @unchecked Sendable {
         }
     }
 
-    private func refocus() {
-        guard let app, let observer else { return }
+    /// True if an editable field has focus.
+    @discardableResult private func refocus() -> Bool {
+        guard let app, let observer else { return false }
+        prime(app)
         let now = AX.element(AX.get(app, "AXFocusedUIElement"))
         if let now, let focused, CFEqual(now, focused) {
             last = nil  // Hidden for this notification, with nothing else to bring it back.
-            return
+        } else {
+            if let focused { for name in Self.fieldNotifications { AXObserverRemoveNotification(observer, focused, name as CFString) } }
+            forget()
+            focused = now
         }
-        if let focused { for name in Self.fieldNotifications { AXObserverRemoveNotification(observer, focused, name as CFString) } }
-        forget()
-        focused = now
-        guard let now else { return }
-        let editable = Reader.isEditableText(now)
-        if !editable, let role = AX.get(now, "AXRole") as? String, role == "AXWebArea" || role == "AXGroup" {
-            // shortcut: Chromium builds its web tree only when asked, and a web view holding focus with no field is its sign. Not
-            // tested with the attribute off (Cotypist had it on); see docs/live-test.md.
-            AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
-        }
-        guard editable else { return }
+        // Asked again of the same element, as a field can become editable in place. Adding twice is refused, harmlessly.
+        guard let now, Reader.isEditableText(now) else { return false }
         for name in Self.fieldNotifications { AXObserverAddNotification(observer, now, name as CFString, refcon) }
+        return true
+    }
+
+    /// Queue, from the tap's input: nothing unless the last read failed, then a look for the field and a read only if there is one.
+    private func heal() {
+        if lost, refocus() { scheduleUpdate() }
+    }
+
+    /// Chromium and Electron build their accessibility tree only when asked, once per process.
+    private func prime(_ app: AXUIElement) {
+        let pid = pid
+        guard let attribute = priming.next(pid, now: Date(), kind: { Priming.kind(of: app, pid: pid) },
+                                           isOn: { AX.get(app, Priming.enhanced) as? Bool }) else { return }
+        // Its result says nothing: Chromium answers "not implemented" while it works.
+        AXUIElementSetAttributeValue(app, attribute as CFString, kCFBooleanTrue)
+    }
+
+    /// Quit: Chromium's flag slows window managers, so it goes back off where we turned it on. VoiceOver's own use of it stays.
+    /// Electron's is left, as its read-back can't tell that it was ours.
+    func unprime() {
+        queue.sync {
+            guard !NSWorkspace.shared.isVoiceOverEnabled else { return }
+            for pid in priming.ours where NSRunningApplication(processIdentifier: pid) != nil {
+                AXUIElementSetAttributeValue(AXUIElementCreateApplication(pid), Priming.enhanced as CFString, kCFBooleanFalse)
+            }
+        }
     }
 
     /// Everything tied to the focused field.
@@ -180,10 +204,11 @@ final class Watcher: @unchecked Sendable {
         let generation = tap.generation  // Before the read: whatever comes after it is a change this read may not have seen.
         // A ghost Tab can't take would hand Tab to the host, which moves focus out of the field.
         guard tap.canTake, let focused, var reading = read(focused) else {
-            last = nil
+            (last, lost) = (nil, true)
             clearSuggestion()
             return
         }
+        lost = false
         reading.field.mayCompose = mayCompose(reading)
         // One key brings several notifications; only the first of them finds anything new.
         if reading == last { return }
@@ -212,6 +237,8 @@ final class Watcher: @unchecked Sendable {
             return
         }
         clearSuggestion()
+        // No ghost could be drawn: Teams, LibreOffice, or a native line start. A suggestion already held still follows above.
+        guard reading.caret != nil else { return }
         ask(field)
     }
 
@@ -289,7 +316,7 @@ final class Watcher: @unchecked Sendable {
         }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
-                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace))
+                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret)
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before)
         DispatchQueue.main.async { [self] in
             guard tap.generation == generation else { return }
@@ -341,5 +368,55 @@ final class Watcher: @unchecked Sendable {
         panel.hideGhost()
         if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
         scrollMonitor = nil
+    }
+}
+
+/// Which accessibility switch an app needs, and when to flip it. Chromium waits 2 s after its flag is set, and each set restarts the wait,
+/// so each process gets one set, and another only if the flag reads off again later. Watcher queue.
+/// shortcut: keyed by pid, so a pid the system reuses within one run isn't primed; key by launch date if that's ever seen.
+struct Priming {
+    static let manual = "AXManualAccessibility", enhanced = "AXEnhancedUserInterface"
+    /// Past Chromium's 2 s wait, so a second set can't restart it.
+    static let recheck: TimeInterval = 3
+    private var apps: [pid_t: (attribute: String?, touched: Date, ours: Bool)] = [:]
+
+    /// The attribute to set on `pid` now, if any. `kind` is asked once per process; `isOn` reads Chromium's flag at most once per `recheck`.
+    mutating func next(_ pid: pid_t, now: Date, kind: () -> String?, isOn: () -> Bool?) -> String? {
+        guard var app = apps[pid] else {
+            let attribute = kind()
+            let set = attribute == Self.enhanced ? isOn() != true : attribute != nil
+            apps[pid] = (attribute, now, set && attribute == Self.enhanced)
+            return set ? attribute : nil
+        }
+        // Chromium can clear it. Electron's read-back is unreliable, so its one set stands. A failed read is no reason to set again.
+        guard app.attribute == Self.enhanced, now.timeIntervalSince(app.touched) > Self.recheck else { return nil }
+        app.touched = now
+        let set = isOn() == false
+        app.ours = app.ours || set
+        apps[pid] = app
+        return set ? Self.enhanced : nil
+    }
+
+    /// Where we turned Chromium's flag on, to turn it off at quit.
+    var ours: [pid_t] { apps.filter(\.value.ours).map(\.key) }
+
+    /// Electron answers its documented switch as settable. Else a Chromium bundle gets Chromium's, unless VoiceOver already holds it.
+    /// Native apps get nothing: the flag only slows their windows.
+    static func kind(of app: AXUIElement, pid: pid_t) -> String? {
+        var settable = DarwinBoolean(false)
+        if AXUIElementIsAttributeSettable(app, manual as CFString, &settable) == .success, settable.boolValue { return manual }
+        guard let bundle = NSRunningApplication(processIdentifier: pid)?.bundleURL, shipsChromium(bundle), !NSWorkspace.shared.isVoiceOverEnabled
+        else { return nil }
+        return enhanced
+    }
+
+    /// Chromium's process model names a renderer helper `<Name> Helper (Renderer).app`, beside the app's frameworks (Electron)
+    /// or inside its framework's helpers (ego lite, Helium and Dia, as installed here).
+    static func shipsChromium(_ bundle: URL) -> Bool {
+        let files = FileManager.default, frameworks = bundle.appendingPathComponent("Contents/Frameworks")
+        func renderer(_ dir: URL) -> Bool { ((try? files.contentsOfDirectory(atPath: dir.path)) ?? []).contains { $0.hasSuffix(" Helper (Renderer).app") } }
+        return renderer(frameworks) || ((try? files.contentsOfDirectory(atPath: frameworks.path)) ?? []).contains {
+            renderer(frameworks.appendingPathComponent($0).appendingPathComponent("Versions/Current/Helpers"))
+        }
     }
 }

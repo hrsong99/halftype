@@ -38,6 +38,8 @@ No code was copied into ItdaApp either. These are the ideas it uses.
 | Esc on a ghost hides it and goes no further | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype), [nilava/TabType](https://github.com/nilava/TabType), [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist) | MIT or Apache-2.0; MIT; MIT |
 | Check `isOnActiveSpace`, and hide on sleep, lock and session change | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | MIT or Apache-2.0 |
 | Take the tap down on the permission's Darwin notification, as `AXIsProcessTrusted` can be stale after a revoke | [lwouis/alt-tab-macos](https://github.com/lwouis/alt-tab-macos), [chromium/chromium](https://github.com/chromium/chromium) | GPL-3.0, idea only; BSD-3-Clause |
+| Wake Chromium and Electron accessibility once per process, by what the bundle is built on, not under VoiceOver; set Chromium's flag again only past its 2 s wait, and clear it at quit only where we set it | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | MIT or Apache-2.0 |
+| Map the caret through the newlines Chromium's ranges leave out between paragraphs, and read nothing if they don't line up | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | MIT or Apache-2.0 |
 | The AX text marker attributes for caret rects and page text in Chromium | [johannes-kaindl/ghostline](https://github.com/johannes-kaindl/ghostline), [stevyhacker/LokalBot](https://github.com/stevyhacker/LokalBot) | AGPL-3.0, idea only; GPL-3.0, idea only |
 
 ## What it runs on and was measured with

@@ -36,6 +36,10 @@ enum AX {
         guard let range, CFGetTypeID(range) == AXTextMarkerRangeGetTypeID() else { return nil }
         return AXTextMarkerRangeCopyStartMarker((range as! AXTextMarkerRange))
     }
+    static func string(_ e: AXUIElement, length: Int) -> String? {
+        var r = CFRange(location: 0, length: length)
+        return get(e, "AXStringForRange", AXValueCreate(.cfRange, &r)!) as? String
+    }
     static func bounds(_ e: AXUIElement, location: Int, length: Int) -> CGRect? {
         var r = CFRange(location: location, length: length)
         return rect(get(e, "AXBoundsForRange", AXValueCreate(.cfRange, &r)!))
@@ -57,6 +61,7 @@ struct Reading: Equatable {
     var frame: CGRect
     /// The host reports a non-empty marked range. Absence says nothing: Chromium reports no range, and Apple's 2-set can leave an empty one over a live syllable.
     var marked: Bool
+    var webCaret = false
     var previousCharacter: String { field.before.last.map(String.init) ?? "" }
 }
 
@@ -75,12 +80,35 @@ enum Reader {
     /// Nil when there is no text to continue from here: not eligible, no value, or a non-empty selection. Eligibility is asked on
     /// every read, before the value, as a field can turn secure in place and keep its identity; that's three small AX calls per read.
     /// shortcut: reads the whole value on each change (1-3 ms in the fields tested); use AXStringForRange if huge documents lag.
-    static func read(_ e: AXUIElement, get: AttributeGet = AX.get, settable: (AXUIElement) -> Bool = AX.valueIsSettable) -> Reading? {
+    static func read(_ e: AXUIElement, get: AttributeGet = AX.get, settable: (AXUIElement) -> Bool = AX.valueIsSettable,
+                     upTo: (AXUIElement, Int) -> String? = { AX.string($0, length: $1) }) -> Reading? {
         guard isEditableText(e, get: get, settable: settable), let value = get(e, "AXValue") as? String,
-              let selection = AX.range(get(e, "AXSelectedTextRange")), let (before, after) = slice(value, selection) else { return nil }
+              var selection = AX.range(get(e, "AXSelectedTextRange")) else { return nil }
+        let at = selection.location  // In the host's own ranges, which the caret's rect is asked in.
+        // One more read, only where paragraphs can be: the ranges may leave out the newlines between them.
+        if value.utf16.contains(10), selection.length == 0, at > 0, let ranged = upTo(e, at), !value.utf16.starts(with: ranged.utf16) {
+            guard let index = valueIndex(of: ranged, in: value) else { return nil }
+            selection.location = index
+        }
+        guard let (before, after) = slice(value, selection) else { return nil }
         let frame = AX.rect(get(e, "AXFrame")) ?? .zero
-        return Reading(field: Field(before: before, after: after), caret: caret(e, before: before, frame: frame), frame: frame,
-                       marked: (AX.range(get(e, "AXTextInputMarkedRange"))?.length ?? 0) > 0)
+        let caret = caret(e, before: before, at: at, frame: frame)
+        return Reading(field: Field(before: before, after: after), caret: caret?.rect, frame: frame,
+                       marked: (AX.range(get(e, "AXTextInputMarkedRange"))?.length ?? 0) > 0, webCaret: caret?.web ?? false)
+    }
+
+    /// Chromium's contenteditable has a newline between paragraphs in `AXValue` that its ranges and selection leave out, so the caret's
+    /// index runs one short per paragraph above. This walks the text up to the caret through the value, skipping only such newlines: the
+    /// caret's index in the value, or nil if they don't line up. At a paragraph's start it lands before the break, as both are one offset.
+    static func valueIndex(of ranged: String, in value: String) -> Int? {
+        let r = Array(ranged.utf16), v = Array(value.utf16)
+        var i = 0
+        for unit in r {
+            while i < v.count, v[i] != unit, v[i] == 10 { i += 1 }
+            guard i < v.count, v[i] == unit else { return nil }
+            i += 1
+        }
+        return i
     }
 
     /// By the selection, never the value's length: T3 reports a trailing newline, and length 1 when empty.
@@ -104,13 +132,17 @@ enum Reader {
         return rect
     }
 
-    private static func caret(_ e: AXUIElement, before: String, frame: CGRect) -> CGRect? {
+    /// `web`: a web view's caret sliver, mid-line, drawn at page zoom while the font size it reports isn't. Not a line box, which is wide.
+    private static func caret(_ e: AXUIElement, before: String, at: Int, frame: CGRect) -> (rect: CGRect, web: Bool)? {
         let marker = AX.get(e, "AXSelectedTextMarkerRange").flatMap { AX.rect(AX.get(e, "AXBoundsForTextMarkerRange", $0)) }
-        if let marker, marker.height > 0 { return caretRect(marker: marker, previous: nil, frame: frame) }
+        if let marker, marker.height > 0 {
+            let web = marker.width < marker.height && !(before.last?.isNewline ?? true)
+            return caretRect(marker: marker, previous: nil, frame: frame).map { ($0, web) }
+        }
         // The previous character is one composed sequence, and a newline has no useful right edge.
         guard let last = before.last, !last.isNewline else { return nil }
         let length = last.utf16.count
-        return caretRect(marker: nil, previous: AX.bounds(e, location: before.utf16.count - length, length: length), frame: frame)
+        return caretRect(marker: nil, previous: AX.bounds(e, location: at - length, length: length), frame: frame).map { ($0, false) }
     }
 
     /// The ghost is laid out rightward from the caret, and on a right-to-left line neither that nor the caret's edge holds, so no ghost.
