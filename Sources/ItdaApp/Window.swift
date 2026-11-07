@@ -130,10 +130,14 @@ private struct FieldPage: View {
             .font(.system(size: 15))
             HStack(spacing: 8) {
                 Button { picking.toggle() } label: {
-                    Text(app.activeName).font(.system(size: 12)).padding(.horizontal, 10).padding(.vertical, 4).background(Color(nsColor: .textBackgroundColor), in: Capsule())
+                    HStack(spacing: 6) {
+                        if app.loadingName != nil { ProgressView().controlSize(.mini) }
+                        Text(app.loadingName ?? app.activeName)
+                    }
+                    .font(.system(size: 12)).padding(.horizontal, 10).padding(.vertical, 4).background(Color(nsColor: .textBackgroundColor), in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Model: \(app.activeName)")
+                .accessibilityLabel(app.loadingName.map { "Loading model: \($0)" } ?? "Model: \(app.activeName)")
                 .overlay(alignment: .topTrailing) {
                     if picking {
                         ModelList(app: app) { picking = false } showAll: { picking = false; page = .models }.offset(y: 32)
@@ -346,7 +350,9 @@ private struct ModelsPage: View {
             }
             ForEach(app.ownModels, id: \.self) { path in
                 Row(title: App.fileName(path), note: "Your own, from \(URL(fileURLWithPath: path).deletingLastPathComponent().path)") {
-                    if app.isActive(path: path) {
+                    if app.isLoading(path: path) {
+                        loading
+                    } else if app.isActive(path: path) {
                         Text("In use").foregroundStyle(.secondary).font(.system(size: 12)).frame(width: Self.column)
                     } else {
                         Button("Forget") { app.forgetOwnModel(path) }.help("Takes it off this list. The file stays.")
@@ -372,11 +378,17 @@ private struct ModelsPage: View {
         Button(action: action) { Text(title).frame(maxWidth: .infinity) }.frame(width: Self.column)
     }
 
+    private var loading: some View {
+        HStack(spacing: 5) { ProgressView().controlSize(.mini); Text("Loading").font(.system(size: 12)).foregroundStyle(.secondary) }.frame(width: Self.column)
+    }
+
     @ViewBuilder private func action(_ model: ModelStore.Model) -> some View {
         if app.downloading == model.id, app.verifying {
             Text("Checking…").foregroundStyle(.secondary).font(.system(size: 12))
         } else if app.downloading == model.id {
             wide("\(Int(app.downloadFraction * 100))%  ✕") { app.store.cancel() }.help("Stop the download")
+        } else if app.isLoading(model) {
+            loading
         } else if app.isActive(model) {
             Text("In use").foregroundStyle(.secondary).font(.system(size: 12))
         } else if app.store.has(model) {

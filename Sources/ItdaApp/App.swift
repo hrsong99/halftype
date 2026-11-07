@@ -119,6 +119,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private func name(_ path: String) -> String { ModelStore.models.first { store.path($0).path == path }?.name ?? App.fileName(path) }
     /// What the window calls the loaded model: its name if it's one of ours, or else its file.
     var activeName: String { activePath.map(name) ?? "No Model" }
+    /// The model being switched to, which can take seconds for a large one: the window shows it at once, so a click is never met with nothing.
+    var loadingName: String? { loadingPath.map(name) }
+    func isLoading(_ model: ModelStore.Model) -> Bool { loadingPath == store.path(model).path }
+    func isLoading(path: String) -> Bool { loadingPath == path }
 
     func applicationDidFinishLaunching(_ note: Notification) {
         tune()
