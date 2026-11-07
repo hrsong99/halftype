@@ -103,11 +103,11 @@ function fields(k,u,v,s,st){
 const st={};for(const c of cards)st[c.k]={progress:0,drift:0};
 function draw(c,s,dt){
  const cv=c.cv,W=cv.clientWidth,H=cv.clientHeight;if(!W)return;const dpr=2;
- const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle=BG;x.fillRect(0,0,W,H);
  const S=st[c.k],chars=(pre+acc+post).length,goal=Math.min(chars/34,1);
  const busy=c.k==='E'||ev.some(e=>s-e.t<3)||Math.abs(goal-S.progress)>.002||cv.width!==W*dpr||S.lastBusy;
  S.lastBusy=c.k==='E'||ev.some(e=>s-e.t<3);if(!busy&&S.drawn)return;S.drawn=1;
  if(cv.width!==W*dpr){cv.width=W*dpr;cv.height=H*dpr}
+ const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle=BG;x.fillRect(0,0,W,H);
  S.progress+=(goal-S.progress)*Math.min(dt*4,1);
  const lastKey=ev.filter(e=>e.type==='key').pop();S.drift+=dt*(.04+(lastKey?.35*Math.exp(-(s-lastKey.t)*2.5):0));
  const cell=Math.max(W/82,4),gw=Math.ceil(W/cell)+1,gh=Math.ceil(H/cell)+1,R=cell*.62;
