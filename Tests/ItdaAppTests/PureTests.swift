@@ -1092,12 +1092,12 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
     @Test func aRequestQueuedBeforeTheIdleDeadlineCancelsTheUnload() async {
         let model = CountingCompleter(" there friend")
         let watcher = watcher(Field(before: "hello"), completer: nil)
-        watcher.idleUnload = 0.2
+        watcher.idleUnload = 0.4  // The margin for settle() below, under load.
         // The install asks and starts the wait. Its deadline passes while the watcher is busy, with a request queued behind it: the
         // request comes first, and starts the wait again.
         watcher.install(model)
         watcher.queue.async { [host] in
-            usleep(500_000)
+            usleep(1_000_000)
             host.now.withLock { $0.field = Field(before: "hello w") }
         }
         watcher.scheduleUpdate()
