@@ -52,13 +52,12 @@ public struct Prompt: Equatable, Sendable {
     /// What the output must next agree with in 2-set keystrokes, not bytes: spaces the prompt dropped, then the withheld syllable.
     public var composing = ""
 
-    /// A composing syllable is withheld, because `하` on its way to `한` cannot be continued into `한`.
+    /// A composing syllable is withheld, because `하` on its way to `한` cannot be continued into `한`. A typed space the prompt
+    /// dropped is forced back too, in any language: replay saved 17.8% of English keys against 17.1% (docs/measuring.md).
     public static func make(context: String, field: Field) -> Prompt {
         var prompt = make(context: context, before: field.committed)
-        if !field.composing.isEmpty {
-            let spaces = field.committed.count - Word.withoutTrailingSpaces(field.committed).count
-            prompt.composing = String(repeating: " ", count: prompt.fragment.isEmpty ? spaces : 0) + field.composing
-        }
+        let spaces = field.committed.count - Word.withoutTrailingSpaces(field.committed).count
+        prompt.composing = String(repeating: " ", count: prompt.fragment.isEmpty ? spaces : 0) + field.composing
         return prompt
     }
 

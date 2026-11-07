@@ -48,6 +48,8 @@ The replay counts characters including the leading space, while the app counts k
 
 **Judging the three-key minimum on the whole ghost (2026-11), on the branch `bench-2` (local, not yet tagged),** which replays the shipped policy (stop floor, gate, minimum). Tab repeated or Shift-Tab takes the lot, so `to the` is worth showing although `to` is short. Picked on the English dev threads, confirmed on test (2,400 requests each): keys saved per request with one Tab +0.111 on dev (CI +0.090 to +0.133) and +0.110 on test (CI +0.089 to +0.132), for wrong and shown per request +0.9% and +0.6%. A minimum of four saved nothing with one Tab. Timed English, 1,200 keys at load under 2: keystrokes saved 17.1% to **18.2%** (paired CI +0.6 to +1.9 points). CIs are paired bootstraps over messages.
 
+**Forcing a typed space back in English too,** as the composing case always did: when the field ends in a space, the ghost must start with one. Dev +0.008 keys per request (CI +0.002 to +0.016), test +0.006 (CI +0.001 to +0.013), wrong and shown +0.0-0.1%. Timed English, 1,200 keys: 17.1% to **17.8%** saved (paired CI +0.1 to +1.4 points); its timing was taken while other jobs loaded the Mac, so its 61 ms first displayable word against 58 ms is approximate. Measured separately from the minimum above, not combined.
+
 Your own phrases didn't help. A next-word lookup from strictly older messages, tried ahead of the model, was right about as often (78%) but saved less: 0.10 alone and 0.50 merged, against 0.56.
 
 The replay harness runs the real engine and policy with real typing delays. It isn't in this tree, as it would add 400 lines and hold the engine's API open for one tool. It's at the tag `bench-1`:

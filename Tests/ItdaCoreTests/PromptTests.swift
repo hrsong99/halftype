@@ -89,4 +89,5 @@ func aPossiblyComposingCharacterIsWithheld(before: String, korean: Bool, prefix:
     #expect(midWord.fragment == " 날")
     #expect(midWord.composing == "씨")
     #expect(Prompt.make(context: "", field: Field(before: "the wor")).composing == "")
+    #expect(Prompt.make(context: "", field: Field(before: "the word ")).composing == " ")
 }
