@@ -728,6 +728,13 @@ final class CountingCompleter: Completer, @unchecked Sendable {
         await watcher.settle()
         #expect(model.asks.load(ordering: .relaxed) == 1)
         #expect(armed() == nil && !panel.isVisibleGhost)
+        // Secure Input ends with the field unchanged: the same field asks again and shows.
+        model.onAsk = nil
+        tap.blocked.withLock { $0 = nil }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(model.asks.load(ordering: .relaxed) == 2)
+        #expect(armed() != nil && panel.isVisibleGhost)
     }
     @Test func secureInputDuringTheReadMeansNoModelAndComesBack() async {
         let model = CountingCompleter(" there friend")

@@ -72,14 +72,14 @@ Wired memory is what counts: nothing else can use it, and Activity Monitor's per
 - **What it reads:** the focused field and text near it in the window, to give the model context. A key tap watches for Tab, Shift-Tab and Esc, and it sees your other keys so it can track Korean composition. All of it stays in memory.
 - **What it writes:** the on/off switch, your paused apps and the paths of models you chose as settings, and model files in Application Support. Nothing with typed text, and no logs. What you type in its own window is held in memory until the window closes.
 - **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. And GitHub, about once a day in a release build, to check for an update and fetch it, which sends your macOS version and Itda's. Turn that off under General. Nothing else. A build you make yourself never checks.
-- **Secure fields** are skipped: Itda checks the field before every read, and reads no text from a secure one or suggests in it. While any app holds Secure Input, it starts no read and shows no suggestion (one already under way finishes, unused), and the menu says so.
+- **Secure fields** are skipped: Itda checks the field before every read, and reads no text from a secure one or suggests in it. While any app holds Secure Input, it starts no new read or suggestion, and checks again just before drawing; a suggestion already on screen goes at the next change it sees. The menu says so.
 
 ## Limits
 
 - **macOS 26 or later.** Only tested on Apple Silicon, on one M5.
 - **Korean accept needs Apple's 2-Set Korean layout.** With another Korean layout, Itda shows nothing after a Hangul character, because a composition could swallow what it inserts.
 - **Korean is the weak spot.** The accuracy figures come mostly from public dialogue text. There, about a third of Korean suggestions shown match exactly (31-34%) and raising the threshold doesn't help; about half of the wrong ones are near misses. English is much better.
-- **No suggestion with text after the caret.** Itda only continues at the end of a field's text.
+- **No suggestion with text after the caret on the same line.** Itda continues at the end of a line; with text below, the suggestion stays on one line.
 - **No suggestion during Secure Input.** While a password prompt, a password manager or Terminal's Secure Keyboard Entry holds it, Tab can't reach Itda, so it stops until that ends.
 - **A build you make yourself** without a stable signing identity asks for Accessibility again after each rebuild. Releases don't.
 

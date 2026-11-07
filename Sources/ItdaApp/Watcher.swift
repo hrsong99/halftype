@@ -311,7 +311,12 @@ final class Watcher: @unchecked Sendable {
     }
 
     private func received(id: Int, anchor: String, text: String, gate: Double?) {
-        guard id == request, tap.canTake, let gate, gate >= Gate.threshold, let last else { return }
+        guard id == request else { return }
+        guard tap.canTake else {
+            last = nil  // Never shown, so the same field must ask again once Tab can be taken.
+            return clearSuggestion()
+        }
+        guard let gate, gate >= Gate.threshold, let last else { return }
         suggestion = (anchor, text)
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
