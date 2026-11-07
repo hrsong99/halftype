@@ -23,6 +23,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - `ItdaEngine`: llama.cpp, pinned by URL and checksum in `Package.swift`.
 - `ItdaApp`: Accessibility, key tap, panel, and the window (`Window.swift`). Swift 5 language mode, as state is confined by hand to one queue.
 - The tag `bench-1` keeps the replay harness (`itda-replay`), removed from main. Don't move it.
+- The local branch `bench-2` (worktree `../local-autocomplete/bench2-worktree`) replays the shipped policy; the 2026-11 numbers in `docs/measuring.md` come from it, run by `../local-autocomplete/experiments/bench2/run.sh` and scored by `report.py` there.
 
 ## Traps
 - Activity Monitor's per-app Memory hides the 1.5 GB Metal wires. Read `docs/measuring.md` before claiming a memory number.
