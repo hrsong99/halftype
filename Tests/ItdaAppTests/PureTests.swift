@@ -522,7 +522,7 @@ final class QuietPanel: GhostPanel {
 
 final class CountingCompleter: Completer, @unchecked Sendable {
     let text: String
-    let asks = Atomic<Int>(0)
+    let asks = Atomic<Int>(0), unloads = Atomic<Int>(0)
     var onAsk: (@Sendable () -> Void)?
     init(_ text: String) { self.text = text }
     func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
@@ -531,7 +531,7 @@ final class CountingCompleter: Completer, @unchecked Sendable {
         onResult(Suggestion(text: text, gate: 0))
     }
     func cancel() {}
-    func unload() {}
+    func unload() { unloads.add(1, ordering: .relaxed) }
 }
 
 /// Polled, as hiding and drawing go through the main queue.
@@ -684,7 +684,7 @@ final class CountingCompleter: Completer, @unchecked Sendable {
         let caretless = Atomic<Bool>(false)
     }
 
-    func watcher(_ field: Field, marked: Bool = false, completer: Completer) -> Watcher {
+    func watcher(_ field: Field, marked: Bool = false, completer: Completer?) -> Watcher {
         let watcher = Watcher(tap: tap, panel: panel)
         let frame = single, host = host
         host.now.withLock { $0.field = field }
@@ -871,6 +871,44 @@ final class CountingCompleter: Completer, @unchecked Sendable {
         await watcher.settle()
         #expect(armed() == nil && !panel.isVisibleGhost)
     }
+    @Test func aFieldTypedIntoBeforeTheModelLoadedIsAskedOnceItDoes() async {
+        let watcher = watcher(Field(before: "hello"), completer: nil)
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        let model = CountingCompleter(" there friend")
+        watcher.install(model)  // No edit, so no notification: the install itself must ask.
+        #expect(await soon { armed() != nil })
+        #expect(model.asks.load(ordering: .relaxed) == 1)
+    }
+    @Test func aNewModelDoesntReuseTheOldOnesSuggestion() async {
+        let old = CountingCompleter(" there friend"), new = CountingCompleter(" the end")
+        let watcher = watcher(Field(before: "hello"), completer: old)
+        watcher.scheduleUpdate()
+        #expect(await soon { armed()?.ghost.remainder == " there friend" })
+        watcher.install(new)
+        await watcher.settle()
+        host.now.withLock { $0.field = Field(before: "hello t") }  // Fits either; only the new one may answer.
+        watcher.scheduleUpdate()
+        #expect(await soon { armed()?.ghost.remainder == "he end" })
+        #expect(old.asks.load(ordering: .relaxed) == 1 && new.asks.load(ordering: .relaxed) >= 1)
+    }
+    @Test func aRequestQueuedBeforeTheIdleDeadlineCancelsTheUnload() async {
+        let model = CountingCompleter(" there friend")
+        let watcher = watcher(Field(before: "hello"), completer: nil)
+        watcher.idleUnload = 0.2
+        // The install asks and starts the wait. Its deadline passes while the watcher is busy, with a request queued behind it: the
+        // request comes first, and starts the wait again.
+        watcher.install(model)
+        watcher.queue.async { [host] in
+            usleep(500_000)
+            host.now.withLock { $0.field = Field(before: "hello w") }
+        }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(model.asks.load(ordering: .relaxed) == 2)
+        #expect(model.unloads.load(ordering: .relaxed) == 0)
+        #expect(await soon { model.unloads.load(ordering: .relaxed) == 1 }, "and once idle, it does unload")
+    }
     @Test func sleepLockAndDisplayChangesHideAndDisarm() async {
         let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
         watcher.hideOnSessionChange()
@@ -897,6 +935,87 @@ extension Watcher {
 
 extension GhostPanel {
     var isVisibleGhost: Bool { view.layout != nil }
+}
+
+/// Hugging Face, faked: answers with the status in the model's repo name, `fake/503`, and the body "abd".
+final class FakeServer: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let status = Int(request.url!.pathComponents[2]) ?? 200
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("abd".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+@Suite @MainActor struct DownloadTests {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    func model(status: Int, size: Int64 = 3) -> ModelStore.Model {
+        ModelStore.Model(name: "Test", note: "", file: "test.gguf", sha256: abc, repo: "fake/\(status)", size: size)
+    }
+    /// What the store said, on the main thread.
+    final class States: @unchecked Sendable { var all: [ModelStore.State] = [] }
+    func store() -> (ModelStore, States) {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FakeServer.self]
+        let store = ModelStore(directory: directory, configuration: configuration), states = States()
+        store.onChange = { state in states.all.append(state) }
+        return (store, states)
+    }
+
+    @Test func offlineAtLaunchWaitsForAConnection() {
+        #expect(ModelStore(directory: directory).configuration.waitsForConnectivity)
+    }
+    @Test func aServerErrorSaysSoNotChecksum() async {
+        let (store, states) = store()
+        store.fetch(model(status: 503))
+        #expect(await soon { states.all.last == .failed("Hugging Face answered 503. Try again later.") })
+    }
+    @Test func aBadDownloadLeavesNothingToResumeFrom() async throws {
+        let (store, states) = store()
+        store.fetch(model(status: 200))  // "abd", not "abc".
+        #expect(await soon { states.all.last == .failed("The download didn't match its checksum.") })
+        store.resumeData = Data("stale".utf8)  // Damaged too, so it must start over rather than raise.
+        store.fetch(model(status: 200))
+        #expect(await soon { states.all.last == .failed("The download didn't match its checksum.") && states.all.count > 3 })
+        #expect(store.resumeData == nil)
+    }
+    @Test func noRoomFailsBeforeStartingAndSaysHowMuch() throws {
+        let (store, states) = store()
+        store.fetch(model(status: 200, size: Int64(1) << 60))
+        let failure = try #require(states.all.last)
+        guard case .failed(let why) = failure else { Issue.record("\(failure)"); return }
+        #expect(why.hasPrefix("It needs 1152921504.6 GB free, and this Mac has "))
+        #expect(!store.isBusy)
+    }
+    @Test func whereItStoppedSurvivesAQuit() {
+        ModelStore(directory: directory).resumeData = Data("here".utf8)
+        #expect(ModelStore(directory: directory).resumeData == Data("here".utf8))
+    }
+    @Test func aFailedDownloadOffersRetryAndNothingElseDoes() {
+        let app = App()
+        app.modelChanged(.failed("Hugging Face answered 503. Try again later."))
+        #expect(app.retryable && app.notice == "Model download failed: Hugging Face answered 503. Try again later.")
+        app.modelChanged(.downloading(0))
+        #expect(!app.retryable && app.notice == nil)
+        app.modelChanged(.waiting)
+        #expect(app.modelLine == "Waiting for a connection…")
+        app.modelChanged(.failed("x"))
+        app.notice = "Could not load a.gguf"
+        #expect(!app.retryable)
+    }
+    @Test func aModelThatCantLoadAgainStopsBeingShownAsAnswering() {
+        let app = App(), path = "/nowhere/gone.gguf"
+        app.activePath = path
+        app.lost("/nowhere/other.gguf")  // Not the one answering: no change.
+        #expect(app.isActive(path: path) && app.notice == nil)
+        app.lost(path)
+        #expect(!app.ready && !app.isActive(path: path))
+        #expect(app.modelLine == "Model: not loaded" && app.notice == "Could not load gone.gguf")
+    }
 }
 
 @Suite struct ModelTests {

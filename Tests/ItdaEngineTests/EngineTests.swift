@@ -166,3 +166,25 @@ private let long = String(repeating: "The river runs past the old mill and on to
     for _ in 0..<100 where weakEngine != nil { usleep(10_000) }
     #expect(weakEngine == nil)
 }
+
+@Test func aPieceTooBigForTheBufferIsWrittenInFull() {
+    let long = [CChar](repeating: 0x61, count: 600)
+    var buffer = [CChar](repeating: 0, count: 512)
+    // As llama.cpp does: the negative of the size it needs, if the buffer is short.
+    let n = Vocab.piece(into: &buffer) { out, size in
+        guard size >= 600 else { return -600 }
+        for i in 0..<600 { out[i] = long[i] }
+        return 600
+    }
+    #expect(n == 600 && Array(buffer[..<n]) == long)
+}
+
+private final class Flag: @unchecked Sendable { var set = false }
+
+@Test func aModelThatCantLoadAgainSaysSoApartFromNoSuggestion() {
+    let failed = Flag(), box = Box()
+    let engine = Engine(unloaded: "/nowhere/gone.gguf") { failed.set = true }  // As after an idle unload, with the file since moved.
+    engine.suggest(prefix: "Hello", fragment: "", composing: "", onResult: { box.last = $0 })
+    engine.finish()
+    #expect(failed.set && box.last == nil)
+}

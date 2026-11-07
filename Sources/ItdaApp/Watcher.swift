@@ -19,7 +19,6 @@ final class Watcher: @unchecked Sendable {
                                            "AXSelectedTextChanged"]
     // On the field only: app-wide AXValueChanged storms while a reply streams.
     private static let fieldNotifications = ["AXValueChanged", "AXSelectedTextChanged"]
-    private static let idleUnload: TimeInterval = 300
     private static let oneFrame: TimeInterval = 1.0 / 60
 
     let queue = DispatchQueue(label: "itda.watcher", qos: .userInteractive)
@@ -39,6 +38,8 @@ final class Watcher: @unchecked Sendable {
     private var lastGeneration = 0
     private var request = 0
     private var unloadWork: DispatchWorkItem?
+    /// How long a model stays loaded with nothing asked of it.
+    var idleUnload: TimeInterval = 300
     /// No field could be read at the last try. A host building its tree lazily may say nothing once it's done, so keys then ask again.
     private var lost = false
     var priming = Priming()
@@ -302,12 +303,24 @@ final class Watcher: @unchecked Sendable {
         unloadWhenIdle()
     }
 
-    /// Queue. Runs from the load too, or a model never asked anything would stay.
-    func unloadWhenIdle() {
+    /// Queue. Runs from the install too, or a model never asked anything would stay. On this queue, so a request and an unload whose
+    /// time has come can't interleave: the request cancels it first, or it unloads first and the request loads again.
+    private func unloadWhenIdle() {
         unloadWork?.cancel()
         let work = DispatchWorkItem { [weak completer] in completer?.unload() }
         unloadWork = work
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + Self.idleUnload, execute: work)
+        queue.asyncAfter(deadline: .now() + idleUnload, execute: work)
+    }
+
+    /// A new model, or none: the old one's request and suggestion go, and the field is asked again, as it may not change by itself.
+    func install(_ new: Completer?) {
+        queue.async { [self] in
+            clearSuggestion()  // Cancels the old model's request.
+            completer = new
+            last = nil
+            unloadWhenIdle()
+            update()
+        }
     }
 
     private func received(id: Int, anchor: String, text: String, gate: Double?) {

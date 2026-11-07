@@ -270,7 +270,6 @@ enum EndToEnd {
     /// `--window-shots <dir>`: the real window's pages, rendered without opening anything on screen.
     static func windowShots(to dir: String) {
         let app = App()
-        app.ready = true
         app.trusted = true
         app.activePath = app.store.path(ModelStore.models[0]).path
         for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("models", .models, false), ("general", .general, false), ("apps", .apps, false), ("picker", .field, false)] {
@@ -421,7 +420,7 @@ enum EndToEnd {
             h.window.orderOut(nil)
             let app = App()
             app.trusted = true
-            app.ready = true
+            app.activePath = app.store.path(ModelStore.models[0]).path
             let window = NSPanel(contentRect: CGRect(x: 80, y: 80, width: 720, height: 500), styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
             window.contentView = NSHostingView(rootView: Root(app: app))
             window.orderFrontRegardless()

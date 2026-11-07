@@ -156,8 +156,20 @@ private struct FieldPage: View {
     /// Nothing at all once it's ready and all is well.
     @ViewBuilder private var status: some View {
         VStack(spacing: 6) {
-            if !app.ready || app.notice != nil { Text(app.notice ?? app.modelLine).font(.system(size: 12)).foregroundStyle(.secondary) }
+            if !app.ready || app.notice != nil { NoticeLine(app: app, text: app.notice ?? app.modelLine) }
             if !app.ready, app.downloading != nil { ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary) }
+        }
+    }
+}
+
+/// A line of status, with Retry when it's a download that failed.
+private struct NoticeLine: View {
+    @ObservedObject var app: App
+    let text: String
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(text).font(.system(size: 12)).foregroundStyle(.secondary)
+            if app.retryable { Button("Retry", action: app.retry).controlSize(.small) }
         }
     }
 }
@@ -281,7 +293,7 @@ private struct ModelsPage: View {
             Row(title: "Add Your Own GGUF") {
                 Button("Choose…", action: app.chooseModel).frame(minWidth: 64, alignment: .trailing)
             }
-            if let notice = app.notice { Text(notice).font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 8) }
+            if let notice = app.notice { NoticeLine(app: app, text: notice).padding(.top, 8) }
         }
     }
 

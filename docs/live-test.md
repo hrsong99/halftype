@@ -82,6 +82,8 @@ W3. Models: Get Qwen, stop it with ✕, Get it again, wait, Use it, type, then U
     **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.** Click the pill: **the list opens at once, marks the model in use, and closes on a click outside or Esc.**
 W4. Close the window, then open Itda from Finder or the menu.
     **The Dock icon goes with the window. The same window comes back, and Itda kept working between.**
+W5. Quit Itda, move `kanana-1.5-2.1b-base.Q4_K_M.gguf` out of `~/Library/Application Support/Itda`, turn Wi-Fi off, and open Itda. Turn Wi-Fi on. Mid-download, turn it off again until the line changes, then on, and press Retry. At about half, quit and reopen. Move the model back after, if it didn't finish.
+    **"Waiting for a connection", then it starts by itself. The drop shows a failure line with Retry, in the window and in the menu, within a minute. Retry and the reopen both carry on from where it was, not from 0.**
 
 ## The rest: about 1 minute
 21. Menu: "Pause in T3", type, unpause; turn Itda off, type, turn it on.

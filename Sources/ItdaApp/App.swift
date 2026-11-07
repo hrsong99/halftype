@@ -17,22 +17,25 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private lazy var status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     let store = ModelStore(directory: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda"))
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
-    @Published var ready = false
+    var ready: Bool { activePath != nil }
     /// What just went wrong with a download or a switch.
-    @Published var notice: String?
+    @Published var notice: String? { didSet { retryable = false } }
+    /// The notice is a failed download, which Retry starts again.
+    @Published private(set) var retryable = false
     /// Whether the system lets the tap run, which is what the permission comes to.
     @Published var trusted = false
     /// The model being fetched, by file name, and how far along.
     @Published var downloading: String?
     @Published var downloadFraction = 0.0
     @Published var verifying = false
+    @Published private var waiting = false
     /// The model being opened, while it's the first.
     @Published private var loadingPath: String?
     /// What happens when a fetch ends: the default at first run loads, your choice loads and is remembered, and
     /// choosing another model in the meantime leaves just the file.
     private enum AfterFetch { case load, loadAndRemember, nothing }
     private var afterFetch = AfterFetch.load
-    /// The model that loaded last, which is the one answering.
+    /// The model that loaded last, which is the one answering. Nil again if it can't load after an idle unload.
     @Published var activePath: String?
     var window: NSWindow?
     /// Started only in a released build, whose Info.plist names the feed.
@@ -41,6 +44,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     var modelLine: String {
         if ready, let activePath { return "Model: " + URL(fileURLWithPath: activePath).lastPathComponent }
         if verifying { return "Verifying model…" }
+        if waiting { return "Waiting for a connection…" }
         if downloading != nil { return "Downloading model: \(Int(downloadFraction * 100))%" }
         if let loadingPath { return "Loading " + URL(fileURLWithPath: loadingPath).lastPathComponent + "…" }
         return "Model: not loaded"
@@ -73,11 +77,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// One in use stays, even if its file has since moved.
     var ownModels: [String] { ownPaths.filter { $0 == activePath || FileManager.default.fileExists(atPath: $0) } }
     func forgetOwnModel(_ path: String) { ownPaths.removeAll { $0 == path } }
-    func isActive(path: String) -> Bool { ready && activePath == path }
+    func isActive(path: String) -> Bool { activePath == path }
     /// Takes one of your GGUFs, from the lists.
     func use(path: String) { open(path, remember: true) }
 
-    func isActive(_ model: ModelStore.Model) -> Bool { ready && activePath == store.path(model).path }
+    func isActive(_ model: ModelStore.Model) -> Bool { activePath == store.path(model).path }
 
     static func fileName(_ path: String) -> String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
     private func name(_ path: String) -> String { ModelStore.models.first { store.path($0).path == path }?.name ?? App.fileName(path) }
@@ -125,6 +129,19 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         showWindow()
         return false
+    }
+
+    /// A download stops at quit so the next launch resumes it. At most a second, as a quit from a main-queue block holds back the reply.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard store.isBusy else { return .terminateNow }
+        var replied = false
+        let reply = {
+            if !replied { NSApp.reply(toApplicationShouldTerminate: true) }
+            replied = true
+        }
+        store.cancel(then: reply)
+        RunLoop.main.add(Timer(timeInterval: 1, repeats: false) { _ in reply() }, forMode: .common)
+        return .terminateLater
     }
 
     /// ggml's Metal device asserts at exit if a model is still loaded.
@@ -177,8 +194,14 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         open(store.path(model).path, remember: true)
     }
 
-    private func modelChanged(_ state: ModelStore.State) {
+    /// The fetch that failed, from where it stopped.
+    @objc func retry() { store.fetch(store.current) }
+
+    func modelChanged(_ state: ModelStore.State) {
+        waiting = state == .waiting
         switch state {
+        case .waiting:
+            break
         case .downloading(let done):
             downloading = store.current.id
             downloadFraction = done
@@ -197,6 +220,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             downloading = nil
             verifying = false
             notice = "Model download failed: \(why)"
+            retryable = true
         }
     }
 
@@ -210,7 +234,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         latestOpen += 1
         let id = latestOpen
         loading.async { [self] in
-            let engine = try? Engine(modelPath: path)
+            let engine = try? Engine(modelPath: path) { [weak self] in DispatchQueue.main.async { self?.lost(path) } }
             DispatchQueue.main.async { [self] in
                 guard id == latestOpen else { return }
                 loadingPath = nil
@@ -221,14 +245,17 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                 activePath = path
                 if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
-                ready = true
-                watcher.queue.async { [self] in
-                    watcher.completer?.cancel()
-                    watcher.completer = engine
-                    watcher.unloadWhenIdle()
-                }
+                watcher.install(engine)
             }
         }
+    }
+
+    /// The model answering couldn't load again after an idle unload: its file moved or broke. Nothing answers until another is chosen.
+    func lost(_ path: String) {
+        guard activePath == path else { return }
+        activePath = nil
+        notice = "Could not load " + URL(fileURLWithPath: path).lastPathComponent
+        watcher.install(nil)
     }
 
     // MARK: Menu
@@ -248,6 +275,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if let why = trusted ? tap.obstacle?.rawValue : "Waiting for Accessibility permission" { menu.addItem(withTitle: why, action: nil, keyEquivalent: "").isEnabled = false }
         menu.addItem(withTitle: modelLine, action: nil, keyEquivalent: "").isEnabled = false
         if let notice { menu.addItem(withTitle: notice, action: nil, keyEquivalent: "").isEnabled = false }
+        if retryable { menu.addItem(withTitle: "Retry Download", action: #selector(retry), keyEquivalent: "") }
         menu.addItem(.separator())
         if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")

@@ -23,19 +23,32 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
               sha256: "389c868898bffed97fd178646f88562cafecc6f60983a636bac53b131fd068a2", repo: "mradermacher/gemma-4-E2B-GGUF", size: 3_427_861_984),
     ]
 
-    enum State: Equatable { case downloading(Double), verifying, ready, failed(String), cancelled }
+    enum State: Equatable { case waiting, downloading(Double), verifying, ready, failed(String), cancelled }
 
     let directory: URL
+    /// Offline at launch, a fetch waits for a connection rather than failing.
+    let configuration: URLSessionConfiguration
     var onChange: (@Sendable (State) -> Void)?
     /// The model last fetched. Only changes while nothing is downloading.
     private(set) var current = ModelStore.models[0]
     private var session: URLSession?
     private var task: URLSessionDownloadTask?
-    /// Where a failed download of `current` stopped. Gone if the server refused to resume, so the next try starts over.
-    private(set) var resumeData: Data?
+    /// Where a stopped download of `current` got to, kept beside the models so it survives a quit. Gone if the server refused to resume,
+    /// and once a download completes, so the next try starts over.
+    var resumeData: Data? {
+        get { try? Data(contentsOf: resumeFile) }
+        set {
+            guard let newValue else { return _ = try? FileManager.default.removeItem(at: resumeFile) }
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try? newValue.write(to: resumeFile, options: .atomic)
+        }
+    }
+    private var resumeFile: URL { directory.appendingPathComponent(current.file + ".resume") }
 
-    init(directory: URL) {
+    init(directory: URL, configuration: URLSessionConfiguration = .default) {
         self.directory = directory
+        self.configuration = configuration
+        configuration.waitsForConnectivity = true
     }
 
     func path(_ model: Model) -> URL { directory.appendingPathComponent(model.file) }
@@ -47,15 +60,22 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
 
     var isBusy: Bool { session != nil }
 
-    /// One at a time.
+    /// One at a time, and only with room for the whole file.
     func fetch(_ model: Model) {
         guard session == nil else { return }
-        if model.id != current.id { resumeData = nil }
         current = model
-        let session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        if let free = try? directory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage,
+           free < model.size {
+            onChange?(.failed("It needs \(model.sizeText) free, and this Mac has \(String(format: "%.1f GB", Double(free) / 1e9))."))
+            return
+        }
+        let session = URLSession(configuration: configuration, delegate: self, delegateQueue: .main)
         self.session = session
         onChange?(.downloading(0))
-        task = resumeData.map(session.downloadTask(withResumeData:)) ?? session.downloadTask(with: model.url)
+        // From disk, so it may be damaged, and resume data that isn't URLSession's dictionary raises an exception.
+        let resume = resumeData.flatMap { (try? PropertyListSerialization.propertyList(from: $0, format: nil)) is [String: Any] ? $0 : nil }
+        task = resume.map(session.downloadTask(withResumeData:)) ?? session.downloadTask(with: model.url)
         task?.resume()
     }
 
@@ -66,12 +86,14 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
         }
     }
 
-    /// Keeps what it has, so getting the same model again resumes. It's over only once that is recorded.
-    func cancel() {
-        task?.cancel { data in
+    /// Keeps what it has, so getting the same model again resumes. It's over only once that is recorded, and then `done` runs.
+    func cancel(then done: @escaping () -> Void = {}) {
+        guard let task else { return done() }
+        task.cancel { data in
             DispatchQueue.main.async { [self] in
                 resumeData = data
                 finish(.cancelled)
+                done()
             }
         }
     }
@@ -85,6 +107,10 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
         return hash.finalize().map { String(format: "%02x", $0) }.joined() == sha256
     }
 
+    func urlSession(_ session: URLSession, taskIsWaitingForConnectivity task: URLSessionTask) {
+        onChange?(.waiting)
+    }
+
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData _: Int64, totalBytesWritten written: Int64, totalBytesExpectedToWrite _: Int64) {
         onChange?(.downloading(Double(written) / Double(current.size)))
     }
@@ -92,11 +118,12 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
     /// The system deletes `location` when this returns, so it moves first. Hashing gigabytes then happens off the main thread.
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         self.task = nil  // Past cancelling: the session stays until the hash is done, so nothing else starts.
+        resumeData = nil  // Spent, whatever comes of it: a bad file must not be resumed from.
         onChange?(.verifying)
         let model = current, destination = path(model), unverified = directory.appendingPathComponent(model.file + ".unverified")
         do {
-            guard (downloadTask.response as? HTTPURLResponse).map({ [200, 206].contains($0.statusCode) }) ?? true else {
-                return finish(.failed("The download didn't match its checksum."))
+            if let status = (downloadTask.response as? HTTPURLResponse)?.statusCode, ![200, 206].contains(status) {
+                return finish(.failed("Hugging Face answered \(status). Try again later."))
             }
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             _ = try? FileManager.default.removeItem(at: unverified)
