@@ -24,6 +24,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - The tag `bench-1` keeps the replay harness (`itda-replay`), removed from main. Don't move it.
 
 ## Traps
+- Accessibility grants are pinned to the signing certificate. The Developer ID build can't use a grant made for an Apple Development build, and a relaunch silently loses it. To keep one, re-sign that copy with the granted certificate and check it with `codesign -v -R <csreq from TCC.db>`.
 - Activity Monitor's per-app Memory hides the 1.5 GB Metal wires. Read `docs/measuring.md` before claiming a memory number.
 - `Gate.threshold` is fitted for English, and no Korean threshold exists. Don't tune it on Korean.
 - A delayed cleanup belongs to the input revision that scheduled it. A successful field read is not a successful display.

@@ -307,7 +307,7 @@ enum EndToEnd {
             delays += "\(String(format: "\(name)-%04d", frame)).png \(delay)\n"
         }
         // Chosen as ones where the model does well, which the README says.
-        for (name, sentences) in [("en", ["Please let me know if you have any", "See you tomor", "As soon as possi"]), ("ko", ["안녕하세요. 만나서 반갑", "늦어서 죄송합", "이번 주 금요일까지 보내주시면 감사하겠"])] {
+        for (name, sentences) in [("en", ["Let me know if you have any quest", "See you tomor", "As soon as possi"]), ("ko", ["안녕하세요. 만나서 반갑", "감사합니다. 좋은 하루 보내", "이번 주 금요일까지 보내주시면 감사하겠"])] {
             frame = 0; delays = ""
             for sentence in sentences {
                 var text = ""

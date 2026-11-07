@@ -1,6 +1,6 @@
 # What the numbers mean, and how to get them yourself
 
-All of it on an M5 with 16 GB, llama.cpp b12167, Kanana 1.5 2.1B base (1.4 GB).
+All of it on an M5 with 16 GB, llama.cpp b12167. Unless it says otherwise, on Kanana 1.5 2.1B base (1.4 GB), the default until 0.1.0. The default is now Qwen 3.5 0.8B (0.5 GB): see [Choosing the default model](#choosing-the-default-model). Its memory isn't measured yet.
 
 ## Memory: what a user actually pays
 
@@ -58,7 +58,7 @@ swift run --disable-keychain itda-replay --model model.gguf --in yours.jsonl --o
 `yours.jsonl` has one `{"context": "...", "text": "..."}` per message: `text` is what was typed, `context` what was on screen. Any text of your own will do. The trace holds that text, so keep
 it private. Scoring is exact match, so a good paraphrase scores zero, and it's in `Sources/itda-replay/Score.swift` at that tag.
 
-Results below are for the default model at the shipped threshold, -0.7, unless a cell says otherwise. Typing delays come from a 107-key histogram, p50 264 ms. Later commits only removed unused code from the engine and policy; the app's accepting and display have changed since, and replay doesn't cover those.
+Results below are for Kanana 1.5 at the shipped threshold, -0.7, unless a cell says otherwise. Typing delays come from a 107-key histogram, p50 264 ms. Later commits only removed unused code from the engine and policy; the app's accepting and display have changed since, and replay doesn't cover those.
 
 **The text.** English: the author's own messages, each with the message before it as context. They aren't published, and neither is anything quoting them. Korean, public: dialogue from [SmileStyle](https://github.com/smilegate-ai/korean_smile_style_dataset), which is other people's style-transfer text, so it isn't how anyone writes messages. Korean, own: 70 of the author's messages, with Hangul inside mostly English text. That's a small sample, and half of them come from threads also used to fit the threshold on English. Threads are split, so none is in both the fitting and test sets. A real input method wasn't used in replay: composing states come from a model of 2-set.
 
@@ -90,3 +90,24 @@ Where the syllable is already final, sending it is better on the author's own te
 The live input method is a separate check, `scripts/e2e.sh --ime`: every composing state of 17 hard words, Tab finishing each in a native field. It needs you idle for 15 s, as it switches the system's input source.
 
 Each suggestion is also unit tested without a model or GUI (`swift test`), and against a real model with `ITDA_MODEL=<gguf> swift test`.
+
+## Choosing the default model
+
+November 2026, the same replay (`itda-replay` at tag `bench-1`, threshold -0.7) on the newest small base models that fit in memory. English decides; Korean has to work. Tab keys per request, English test threads (2,400 requests per model), with a 95% CI paired by thread against Qwen 3.5 2B. Saved: whole messages with typing delays, the same 40 English messages (800 keys). Korean, own: keys per request on Hangul, 70 of the author's messages. Timed runs shared the Mac with other work.
+
+| Model | File | Right when shown | Wrong and shown, per request | Tab keys per request | Saved, whole messages | First word, p50 | Korean, own |
+|---|---|---|---|---|---|---|---|
+| Granite 4.2 3B | 2.24 GB | 77.6% | 12.2% | 1.06, +0.01 to +0.14 | 23.8% | 79 ms | 0.49 |
+| Gemma 4 E2B | 3.43 GB | 82.3% | 8.7% | 1.00, -0.04 to +0.08 | 23.2% | 71 ms | 0.54 |
+| Qwen 3.5 2B | 1.28 GB | 81.6% | 9.0% | 0.98 | 23.1% | 74 ms | 0.88 |
+| Kanana 1.5 2.1B | 1.39 GB | 84.9% | 6.8% | 0.92, -0.12 to +0.01 | 22.1% | 60 ms | 1.03 |
+| **Qwen 3.5 0.8B** | **0.53 GB** | 81.5% | 8.7% | 0.94, -0.09 to +0.01 | 21.6% | 53 ms | 0.60 |
+| Ternary Bonsai 2 2B, Q2_0 | 0.55 GB | 78.8% | 10.0% | 0.91, -0.13 to -0.02 | 19.8% | 73 ms | 0.68 |
+| Kanana 2 3B | 1.98 GB | 82.7% | 7.9% | 0.90, -0.15 to -0.02 | 19.2% | 74 ms | 0.81 |
+| Gemma 4 E2B QAT, 2-bit | 2.19 GB | 70.0% | 14.2% | 0.78, -0.27 to -0.12 | 19.1% | 61 ms | 0.29 |
+| LFM3 1.7B | 1.10 GB | 78.7% | 8.6% | 0.73, -0.32 to -0.18 | 17.0% | 63 ms | 0.41 |
+
+- Granite leads by showing more wrong suggestions. At its own threshold for 80% precision on dev threads (-0.5) it gives 0.96 keys at 83.0%, level with Qwen 3.5 2B at 1.75 times the size.
+- Qwen 3.5 0.8B ties Qwen 3.5 2B on English within the CI, at 41% of the size and with the quickest first word, so it's the default. What it gives up is Korean: own messages 0.60 against 0.88 keys per request (CI -0.52 to -0.10).
+- Qwen 3.5 0.8B against Kanana 1.5, the old default, in full: English test 922 of 1,131 shown right (81.5%), coverage 47.1%. Whole messages: English 21.6% against 22.1% (800 keys), Korean public 4.8% against 8.8% (1,200 keys), Korean own 10.8% against 13.4% (1,800 keys). Korean public suggestions on Hangul right when shown: 20.9% against 33.7%. First displayable word p50: 53, 97 and 102 ms against 60, 102 and 114 ms. No model call on 47%, 20% and 26% of keys against 48%, 27% and 28%.
+- Not tried: models of 3.5 GB or more, community fine-tunes, and Ternary Bonsai's smaller packings, which need a fork of llama.cpp. Gemma 4's tokenizer fix of 3 November 2026 changed no weights and came after these files.

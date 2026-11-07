@@ -3,7 +3,7 @@
 What the automatic checks can't reach: the real Tab in real apps, and Korean in Chromium. Most important first; each step is what to do, then **what should happen**. Stop when your 10 minutes are up: what's left matters least.
 Any wrong character: tell me what you typed and what came out. Use a new, empty T3 thread, as step 11 sends a message.
 
-## Before you start (the first time, wait for a 1.4 GB download; it isn't part of the 10 minutes)
+## Before you start (the first time, wait for a 0.5 GB download; it isn't part of the 10 minutes)
 A. Quit Cotypist, which also takes Tab, then quit and reopen T3 and ego lite, so the accessibility switches it turned on are off.
    **Cotypist's icon is gone from the menu bar, and both apps are back.**
 B. Open `build/Itda.app`; its window asks for Accessibility. Press the button and grant it.
@@ -57,7 +57,7 @@ W1. Type in its field, and Tab on the grey text. Paste with Cmd-V.
     **The same as in any app.**
 W2. Press the power button, type, press it again. Then the sidebar icon: Apps, add an app, remove it; General, Start at Login on, then off.
     **No ghost while off. The login switch keeps what you set, and System Settings shows Itda under Login Items only while it's on.**
-W3. Models: Get Qwen, stop it with ✕, Get it again, wait, Use it, type, then Use Kanana 1.5.
+W3. Models: Get Kanana 1.5, stop it with ✕, Get it again, wait, Use it, type, then Use Qwen 3.5 0.8B.
     **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.** Click the pill: **the list opens at once, marks the model in use, and closes on a click outside or Esc.**
 W4. Close the window, then open Itda from Finder or the menu.
     **The Dock icon goes with the window. The same window comes back, and Itda kept working between.**

@@ -99,7 +99,7 @@ public enum Stop {
 }
 
 public enum Gate {
-    /// Fitted on dev threads for 80% precision on English: -0.7, -0.7 and -0.6 on Kanana 1.5 2.1B, Qwen 3.5 2B and Gemma 4 E2B.
+    /// Fitted on dev threads for 80% precision on English: -0.7, -0.7, -0.6 and -0.6 on Kanana 1.5 2.1B, Qwen 3.5 2B, Qwen 3.5 0.8B and Gemma 4 E2B.
     public static let threshold = -0.7
 
     /// Tab is a key press, so one that saves one or two keystrokes saves nothing, and showing it only interrupts. By the keys

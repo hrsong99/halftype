@@ -15,10 +15,12 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
 
     /// First is the default. Notes come from the measurements in docs/measuring.md.
     static let models = [
-        Model(name: "Kanana 1.5", note: "The default. From Kakao, and strongest in Korean.", file: "kanana-1.5-2.1b-base.Q4_K_M.gguf",
+        Model(name: "Qwen 3.5 0.8B", note: "The default. The smallest and quickest.", file: "Qwen3.5-0.8B-Q4_K_M.gguf",
+              sha256: "bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517", repo: "unsloth/Qwen3.5-0.8B-GGUF", size: 532_517_120),
+        Model(name: "Qwen 3.5 2B", note: "Better in Korean, and 2.4 times the size.", file: "Qwen3.5-2B-Q4_K_M.gguf",
+              sha256: "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223", repo: "unsloth/Qwen3.5-2B-GGUF", size: 1_280_835_840),
+        Model(name: "Kanana 1.5", note: "From Kakao, and strongest in Korean.", file: "kanana-1.5-2.1b-base.Q4_K_M.gguf",
               sha256: "e5ac9254ca38cab1a8c0821d7b67e4b4bb0fe6e901c10569e77125b252b14ff1", repo: "mradermacher/kanana-1.5-2.1b-base-GGUF", size: 1_393_493_632),
-        Model(name: "Qwen 3.5 2B", note: "The smallest, and slightly better in English.", file: "Qwen3.5-2B-Base.Q4_K_M.gguf",
-              sha256: "1c42c644e4018f02ddf736e08426aa4597ba76f9de2aa649ef4cd669231743d3", repo: "mradermacher/Qwen3.5-2B-Base-GGUF", size: 1_274_396_800),
         Model(name: "Gemma 4 E2B", note: "Slightly better in English, and much larger.", file: "gemma-4-E2B.Q4_K_M.gguf",
               sha256: "389c868898bffed97fd178646f88562cafecc6f60983a636bac53b131fd068a2", repo: "mradermacher/gemma-4-E2B-GGUF", size: 3_427_861_984),
     ]
