@@ -1,8 +1,12 @@
 # What the numbers mean, and how to get them yourself
 
-All of it on an M5 with 16 GB, llama.cpp b12167. Unless it says otherwise, on Kanana 1.5 2.1B base (1.4 GB), the default until 0.1.0. The default is now Qwen 3.5 0.8B (0.5 GB): see [Choosing the default model](#choosing-the-default-model). Its memory isn't measured yet.
+All of it on an M5 with 16 GB, llama.cpp b12167. Unless it says otherwise, on Kanana 1.5 2.1B base (1.4 GB), the default until 0.1.0. The default is now Qwen 3.5 0.8B (0.5 GB): see [Choosing the default model](#choosing-the-default-model). Its memory is in the next section; the rest of that section is Kanana's.
 
 ## Memory: what a user actually pays
+
+**Qwen 3.5 0.8B, the default**, the same run on 2026-11-07: while typing (282 keys in 52 s), `MTLDevice.currentAllocatedSize` 562 MB, system wired +542 MB over before loading, footprint 267 MB, CPU 7% of a core. Idle with the model loaded, wired back to where it started; unloaded, Metal 2 MB. 20 reloads: footprint 171-214 MB, no growth. The first run of the harness crashed in its own window's Accessibility read, off the main thread; the second passed.
+
+Kanana 1.5 2.1B, the default until 0.1.0:
 
 `scripts/e2e.sh --measure <gguf>` runs the real path with the real model on a private window: 280 keys of typing, idle, unload, 20 reloads.
 

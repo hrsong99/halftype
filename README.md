@@ -51,16 +51,17 @@ Across whole messages, replayed with real typing delays before the latest change
 
 ## What it costs
 
-Measured on an M5 with 16 GB, running the real app path on a test window with `scripts/e2e.sh --measure`, with Kanana 1.5 (1.4 GB), the default before 0.1.1. Metal wires the whole model file, so the default's 0.5 GB should need about a third of the wired memory below; that isn't measured yet. [Details](docs/measuring.md).
+Measured on an M5 with 16 GB, running the real app path on a test window with `scripts/e2e.sh --measure`, with the default model. [Details](docs/measuring.md).
 
 | State | Memory |
 |---|---|
-| Typing, and for 15 s after | about **1.5 GB wired**, plus 250-310 MB of footprint |
+| Typing, and for 15 s after | about **0.56 GB wired**, plus about 270 MB of footprint |
 | Stopped, model still loaded, up to 5 minutes | 250 MB footprint, nothing wired |
 | Unloaded, after 5 idle minutes | **79 MB** |
 
 Wired memory is what counts: nothing else can use it, and Activity Monitor's per-app number leaves it out. Look at its Wired line.
 
+- A larger model in the window wires about its file size: Kanana 1.5, 1.5 GB.
 - **Disk:** a 0.5 GB model and an app of about 27 MB.
 - **CPU:** 0.13-0.27% of a core idle over 60 s. 7-8% while typing about 5 keys a second.
 - **Speed:** a suggestion's first displayable word arrives in 53 ms in English and 97 ms in Korean (p50, requests that got that far, timed replay). No model call at all on 47% of English keys and 20% of Korean, because the suggestion still fits.
@@ -102,7 +103,7 @@ Korean has been used by hand in T3 Code, a Chromium app, and works, though the s
 
 - **사용법:** 회색 글자가 제안입니다. Tab은 다음 단어, Shift-Tab은 전체, Esc는 닫기입니다.
 - **다른 점:** 조합 중인 글자를 모델에 보내지 않고, 두벌식 키 입력에 맞는 결과만 받습니다. Tab을 누르면 남은 키를 실제로 눌러 입력기가 글자를 마저 조합합니다.
-- **비용:** 입력 중과 그 후 15초 동안 약 1.5 GB를 점유하고(wired), 5분 쉬면 79 MB로 줄어듭니다. 모델은 처음 한 번 0.5 GB를 받습니다. (메모리 수치는 이전 기본 모델 Kanana 1.5로 측정했습니다.)
+- **비용:** 입력 중과 그 후 15초 동안 약 0.56 GB를 점유하고(wired), 5분 쉬면 79 MB로 줄어듭니다. 모델은 처음 한 번 0.5 GB를 받습니다.
 - **개인정보:** 손쉬운 사용 권한만 씁니다. 네트워크는 모델 다운로드와 업데이트 확인(일반 설정에서 끌 수 있음)에만 쓰고, 입력한 글을 저장하지 않으며, 비밀번호 칸은 건너뜁니다.
 - **설치:** [Itda.dmg](https://github.com/hrsong99/itda/releases/latest/download/Itda.dmg)를 내려받거나 `brew tap hrsong99/itda && brew trust hrsong99/itda` 후 `brew install --cask itda`를 실행하세요. 자동으로 업데이트됩니다.
 - **한계:** macOS 26 이상, Apple Silicon, 두벌식이 필요합니다. 한국어 정확도는 영어보다 낮습니다. 기본 모델은 공개 대화 데이터에서 보여 준 제안의 21%가 정확히 일치했고, 전체 메시지 기준으로 키 입력을 4.8% 줄였습니다. 한국어를 많이 쓴다면 창에서 Kanana 1.5를 고르세요(31-34%, 8.8%).
