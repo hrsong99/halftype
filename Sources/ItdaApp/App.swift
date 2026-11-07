@@ -16,7 +16,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private lazy var watcher = Watcher(tap: tap, panel: panel)
     private lazy var status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     let store = ModelStore(directory: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda"))
-    @Published var modelLine = "Model: not loaded"
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     @Published var ready = false
     /// What just went wrong with a download or a switch.
@@ -26,15 +25,25 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var downloading: String?
     @Published var downloadFraction = 0.0
     @Published var verifying = false
-    /// Whether what's being fetched loads when it arrives: a later choice of another model cancels that, and the file just stays.
-    private var fetchLoads = true
-    /// Whether what's being fetched was your choice, to remember once it loads, or just the default at first run.
-    private var fetchIsChoice = false
+    /// The model being opened, while it's the first.
+    @Published private var loadingPath: String?
+    /// What happens when a fetch ends: the default at first run loads, your choice loads and is remembered, and
+    /// choosing another model in the meantime leaves just the file.
+    private enum AfterFetch { case load, loadAndRemember, nothing }
+    private var afterFetch = AfterFetch.load
     /// The model that loaded last, which is the one answering.
     @Published private var activePath: String?
     var window: NSWindow?
     /// Started only in a released build, whose Info.plist names the feed.
     let updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+    /// The one line of status, for the menu and under the field.
+    var modelLine: String {
+        if ready, let activePath { return "Model: " + URL(fileURLWithPath: activePath).lastPathComponent }
+        if verifying { return "Verifying model…" }
+        if downloading != nil { return "Downloading model: \(Int(downloadFraction * 100))%" }
+        if let loadingPath { return "Loading " + URL(fileURLWithPath: loadingPath).lastPathComponent + "…" }
+        return "Model: not loaded"
+    }
     var isRelease: Bool { Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil }
     var askedForAccessibility = false
     private var tapFailed = false
@@ -163,14 +172,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     // MARK: Model
 
-    private func modelName(_ path: String) -> String { "Model: " + URL(fileURLWithPath: path).lastPathComponent }
-
     private func loadModel() {
         if let path = customModel, FileManager.default.fileExists(atPath: path) { return open(path) }
         let first = ModelStore.models[0]
         if store.has(first) { return open(store.path(first).path) }
-        fetchLoads = true
-        fetchIsChoice = false
+        afterFetch = .load
         store.fetch(first)
     }
 
@@ -178,8 +184,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func use(_ model: ModelStore.Model) {
         guard store.has(model) else {
             if store.isBusy { return }
-            fetchLoads = true
-            fetchIsChoice = true
+            afterFetch = .loadAndRemember
             return store.fetch(model)
         }
         open(store.path(model).path, remember: true)
@@ -192,23 +197,19 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             downloadFraction = done
             notice = nil
             verifying = false
-            if !ready { modelLine = "Downloading model: \(Int(done * 100))%" }
         case .verifying:
             verifying = true
-            if !ready { modelLine = "Verifying model…" }
         case .ready:
             downloading = nil
             verifying = false
-            if fetchLoads { open(store.path(store.current).path, remember: fetchIsChoice) }
+            if afterFetch != .nothing { open(store.path(store.current).path, remember: afterFetch == .loadAndRemember) }
         case .cancelled:
             downloading = nil
             verifying = false
-            if !ready { modelLine = "Model: not loaded" }
         case .failed(let why):
             downloading = nil
             verifying = false
             notice = "Model download failed: \(why)"
-            if !ready { modelLine = "Model: not loaded" }
         }
     }
 
@@ -216,8 +217,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The model answering now keeps answering until another has loaded, and it stays if that one can't.
     /// The launch's own load only reads the preference: a choice is what writes it, and only once it has worked.
     private func open(_ path: String, remember: Bool = false) {
-        if remember { fetchLoads = false }
-        if !ready { modelLine = "Loading " + URL(fileURLWithPath: path).lastPathComponent + "…" }
+        if remember { afterFetch = .nothing }
+        loadingPath = path
         notice = nil
         latestOpen += 1
         let id = latestOpen
@@ -225,15 +226,14 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             let engine = try? Engine(modelPath: path)
             DispatchQueue.main.async { [self] in
                 guard id == latestOpen else { return }
+                loadingPath = nil
                 guard let engine else {
                     notice = "Could not load " + URL(fileURLWithPath: path).lastPathComponent
-                    if !ready { modelLine = "Model: not loaded" }
                     return
                 }
                 activePath = path
                 if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
-                modelLine = modelName(path)
                 ready = true
                 watcher.queue.async { [self] in
                     watcher.completer?.cancel()
@@ -262,9 +262,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if tapFailed { menu.addItem(withTitle: "Could not watch for Tab", action: nil, keyEquivalent: "").isEnabled = false }
         menu.addItem(withTitle: modelLine, action: nil, keyEquivalent: "").isEnabled = false
         if let notice { menu.addItem(withTitle: notice, action: nil, keyEquivalent: "").isEnabled = false }
-        if notice?.hasPrefix("Model download failed") == true { menu.addItem(withTitle: "Try Download Again", action: #selector(retryDownload), keyEquivalent: "") }
-        menu.addItem(withTitle: "Choose GGUF…", action: #selector(chooseModel), keyEquivalent: "")
-        if customModel != nil { menu.addItem(withTitle: "Use Default Model", action: #selector(useDefaultModel), keyEquivalent: "") }
         menu.addItem(.separator())
         if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
@@ -283,9 +280,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @objc private func openWindow() { showWindow() }
     @objc func checkForUpdates() { updates.checkForUpdates(nil) }
 
-    @objc private func retryDownload() { store.fetch(store.current) }
-
-    @objc func chooseModel() {
+    func chooseModel() {
         let open = NSOpenPanel()
         open.allowedContentTypes = []
         open.allowsOtherFileTypes = true
@@ -295,7 +290,4 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         self.open(url.path, remember: true)
     }
 
-    @objc private func useDefaultModel() {
-        use(ModelStore.models[0])
-    }
 }

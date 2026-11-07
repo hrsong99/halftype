@@ -14,7 +14,7 @@ ITDA_VERSION=$version scripts/build-app.sh
 out=build/release; rm -rf "$out"; mkdir -p "$out"
 staging=$(mktemp -d); cp -R build/Itda.app "$staging/"; ln -s /Applications "$staging/Applications"
 dmg="$out/Itda.dmg"
-hdiutil create -quiet -volname Itda -srcfolder "$staging" -ov -format UDZO "$dmg"
+hdiutil create -quiet -volname Itda -srcfolder "$staging" -ov -fs APFS -format ULFO "$dmg"
 identity=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application[^"]*\)".*/\1/p' | head -1)
 codesign --force --timestamp --sign "$identity" "$dmg"
 xcrun notarytool submit "$dmg" --key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
@@ -22,16 +22,8 @@ xcrun stapler staple "$dmg"
 spctl -a -t open --context context:primary-signature "$dmg"
 
 bin=.build/artifacts/sparkle/Sparkle/bin
-signature=$("$bin/sign_update" "$dmg")
 sha=$(shasum -a 256 "$dmg" | cut -d' ' -f1)
-cat > "$out/appcast.xml" <<XML
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><title>Itda</title>
-<item><title>$version</title><sparkle:version>$(git rev-list --count HEAD)</sparkle:version><sparkle:shortVersionString>$version</sparkle:shortVersionString>
-<sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion><pubDate>$(LC_ALL=C date -R)</pubDate>
-<enclosure url="https://github.com/hrsong99/itda/releases/download/v$version/Itda.dmg" type="application/octet-stream" $signature/></item>
-</channel></rss>
-XML
+"$bin/generate_appcast" --download-url-prefix "https://github.com/hrsong99/itda/releases/download/v$version/" "$out"
 
 # Everything that can fail goes first. Running it again after a failure past here replaces the assets and carries on.
 tap=$(mktemp -d)

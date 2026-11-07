@@ -32,6 +32,20 @@ extension [Token] {
     }
 }
 
+extension Collection<Token> {
+    /// Log P of the text up to `end`: every token with a new byte before it, so one crossing `end` counts. Text running to
+    /// its end may go on into bytes that don't decode yet, so there all tokens count.
+    fileprivate func logprob(through end: String.Index, of text: String) -> Double {
+        let bytes = end == text.endIndex ? Int.max : text[..<end].utf8.count
+        var start = 0, sum = 0.0
+        for token in self where start < bytes {
+            sum += token.logprob
+            start += token.bytes.count
+        }
+        return sum
+    }
+}
+
 /// A token may end inside a character, so the last bytes may not decode yet. Nil if earlier bytes are invalid.
 private func decode(_ tokens: [Token]) -> String? {
     let bytes = tokens.flatMap(\.bytes)
@@ -66,14 +80,7 @@ public enum Stop {
         while wordEnd < end {
             let next = Word.firstEnd(text[wordEnd..<end])
             guard next > wordEnd, text[wordEnd..<next].contains(where: Word.isPart) else { break }
-            // A word running to the end may go on into bytes that don't decode yet, so all tokens count, as in the gate.
-            let bytes = next == text.endIndex ? Int.max : text[..<next].utf8.count
-            var start = 0, sum = 0.0
-            for token in free.prefix(maxTokens) where start < bytes {
-                sum += token.logprob
-                start += token.bytes.count
-            }
-            if sum < floor {
+            if free.prefix(maxTokens).logprob(through: next, of: text) < floor {
                 end = wordEnd
                 done = true
                 break
@@ -110,14 +117,6 @@ public enum Gate {
     public static func firstWord(_ tokens: [Token], fragment: String) -> Double? {
         guard let free = tokens.continuation(after: fragment), let text = decode(free),
               text.contains(where: Word.isPart) else { return nil }
-        let end = Word.firstEnd(text)
-        // A word running to the end may go on into bytes that don't decode yet, so all tokens count.
-        let wordBytes = end == text.endIndex ? Int.max : text[..<end].utf8.count
-        var start = 0, sum = 0.0
-        for token in free where start < wordBytes {
-            sum += token.logprob
-            start += token.bytes.count
-        }
-        return sum
+        return free.logprob(through: Word.firstEnd(text), of: text)
     }
 }

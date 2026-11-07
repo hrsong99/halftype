@@ -293,16 +293,9 @@ enum EndToEnd {
         defer { engine.unload() }
         func ask(_ before: String) -> String? {
             let prompt = Prompt.make(context: "", before: before)
-            let done = DispatchSemaphore(value: 0)
-            let result = Mutex<Suggestion?>(nil)
             let latest = Mutex<Suggestion?>(nil)
-            engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in
-                latest.withLock { $0 = suggestion }
-                if suggestion == nil || suggestion?.gate.map({ $0 < Gate.threshold }) == true { done.signal() }
-            }
-            _ = done.wait(timeout: .now() + 3)
-            engine.cancel()
-            _ = result
+            engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in latest.withLock { $0 = suggestion } }
+            engine.finish()
             guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= Gate.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return nil }
             return s.text
         }
