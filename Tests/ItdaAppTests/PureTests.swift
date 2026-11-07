@@ -1034,6 +1034,11 @@ final class FakeServer: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
+        if request.url!.pathComponents[2] == "stall" {  // Part of a file that can resume, and then nothing.
+            let headers = ["Content-Length": "100000", "Accept-Ranges": "bytes", "ETag": "\"e\""]
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers)!, cacheStoragePolicy: .notAllowed)
+            return client!.urlProtocol(self, didLoad: Data(repeating: 1, count: 5000))
+        }
         let status = Int(request.url!.pathComponents[2]) ?? 200
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data("abd".utf8))
@@ -1045,8 +1050,8 @@ final class FakeServer: URLProtocol {
 @Suite @MainActor struct DownloadTests {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-    func model(status: Int, size: Int64 = 3) -> ModelStore.Model {
-        ModelStore.Model(name: "Test", note: "", file: "test.gguf", sha256: abc, repo: "fake/\(status)", size: size)
+    func model(status: Int, size: Int64 = 3, repo: String? = nil) -> ModelStore.Model {
+        ModelStore.Model(name: "Test", note: "", file: "test.gguf", sha256: abc, repo: "fake/" + (repo ?? "\(status)"), size: size)
     }
     /// What the store said, on the main thread.
     final class States: @unchecked Sendable { var all: [ModelStore.State] = [] }
@@ -1099,14 +1104,67 @@ final class FakeServer: URLProtocol {
         app.notice = "Could not load a.gguf"
         #expect(!app.retryable)
     }
-    @Test func aModelThatCantLoadAgainStopsBeingShownAsAnswering() {
-        let app = App(), path = "/nowhere/gone.gguf"
-        app.activePath = path
-        app.lost("/nowhere/other.gguf")  // Not the one answering: no change.
+    @Test func onlyTheInstalledModelsFailureCountsEvenAtTheSamePath() async {
+        let app = App(), path = app.store.path(ModelStore.models[0]).path  // Ours, so choosing it writes no path to the settings.
+        let failures = Mutex<[@Sendable () -> Void]>([])
+        app.makeEngine = { _, lost in
+            failures.withLock { $0.append(lost) }
+            return CountingCompleter("")
+        }
+        app.use(path: path)
+        #expect(await soon { app.isActive(path: path) })
+        app.use(path: path)  // The same file again: a second engine.
+        #expect(await soon { failures.withLock { $0.count } == 2 })
+        try? await Task.sleep(for: .milliseconds(100))  // Its install, on main.
+        failures.withLock { $0[0] }()  // The replaced one, late.
+        try? await Task.sleep(for: .milliseconds(100))
         #expect(app.isActive(path: path) && app.notice == nil)
-        app.lost(path)
-        #expect(!app.ready && !app.isActive(path: path))
-        #expect(app.modelLine == "No model loaded" && app.notice == "Could not load gone.gguf")
+        failures.withLock { $0[1] }()
+        #expect(await soon { !app.ready })
+        #expect(app.modelLine == "No model loaded" && app.notice == "Could not load " + ModelStore.models[0].file)
+    }
+    @Test func aLoadUnderWayAtQuitFinishesAndCloses() {
+        let app = App(), model = CountingCompleter(""), gate = DispatchSemaphore(value: 0)
+        app.makeEngine = { _, _ in
+            gate.wait()
+            return model
+        }
+        app.use(path: app.store.path(ModelStore.models[0]).path)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) { gate.signal() }
+        app.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
+        #expect(model.unloads.load(ordering: .relaxed) == 1)
+    }
+    @Test func aModelLoadedButNotYetInstalledAtQuitCloses() {
+        let app = App(), model = CountingCompleter(""), built = DispatchSemaphore(value: 0)
+        app.makeEngine = { _, _ in
+            built.signal()
+            return model
+        }
+        app.use(path: app.store.path(ModelStore.models[0]).path)
+        built.wait()  // Main is held, so its install can't run before the quit.
+        app.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
+        #expect(model.unloads.load(ordering: .relaxed) == 1)
+    }
+    @Test func nothingToStopWhileVerifyingSoQuitIsNotHeld() async throws {
+        let (store, states) = store()
+        var stopped = false
+        #expect(!store.stop { stopped = true })
+        store.fetch(model(status: 0, repo: "stall"))
+        #expect(await soon { states.all.contains { if case .downloading(let done) = $0 { done > 0 } else { false } } })
+        let file = directory.appendingPathComponent("partial")
+        try Data("abd".utf8).write(to: file)
+        store.urlSession(URLSession.shared, downloadTask: URLSession.shared.downloadTask(with: URL(fileURLWithPath: "/")), didFinishDownloadingTo: file)
+        #expect(store.isBusy && !store.stop { stopped = true })  // Verifying: a session, but no download.
+        #expect(!stopped)
+    }
+    @Test func aStopSavesWhereItGotToBeforeItSaysDone() async {
+        let (store, states) = store()
+        store.fetch(model(status: 0, repo: "stall"))
+        #expect(await soon { states.all.contains { if case .downloading(let done) = $0 { done > 0 } else { false } } })
+        var savedFirst: Bool?
+        #expect(store.stop { savedFirst = store.resumeData != nil })
+        #expect(await soon { savedFirst != nil })
+        #expect(savedFirst == true && !store.isBusy)
     }
     @Test func theModelLineNamesTheModelAndTheDownloadsSize() {
         let app = App()

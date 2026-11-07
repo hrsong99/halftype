@@ -88,16 +88,23 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
         }
     }
 
-    /// Keeps what it has, so getting the same model again resumes. It's over only once that is recorded, and then `done` runs.
-    func cancel(then done: @escaping () -> Void = {}) {
-        guard let task else { return done() }
+    /// Keeps what it has, so getting the same model again resumes.
+    func cancel() { _ = stop {} }
+
+    /// Like `cancel`, and false if no download is under way to stop, as while verifying; then `done` never runs. Else `done` runs on the
+    /// main thread, later, once what it got is on disk.
+    func stop(then done: @escaping () -> Void) -> Bool {
+        guard let task else { return false }
+        let file = resumeFile
         task.cancel { data in
+            // Saved where the callback comes, before the hop: this model's, whatever has changed by then.
+            if let data { try? data.write(to: file, options: .atomic) } else { try? FileManager.default.removeItem(at: file) }
             DispatchQueue.main.async { [self] in
-                resumeData = data
                 finish(.cancelled)
                 done()
             }
         }
+        return true
     }
 
     static func verify(_ file: URL, size: Int64, sha256: String) throws -> Bool {

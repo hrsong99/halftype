@@ -62,6 +62,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     var askedForAccessibility = false
     private let loading = DispatchQueue(label: "itda.load", qos: .userInitiated)
     private var latestOpen = 0
+    /// The open whose model is installed, so a failure from one it replaced, even at the same path, is ignored. Main thread.
+    private var installed = 0
+    /// Opens a model, on the loading queue: `Engine`, or a fake in tests.
+    var makeEngine: (String, @escaping @Sendable () -> Void) -> Completer? = { path, lost in try? Engine(modelPath: path, onLoadFailure: lost) }
 
     @Published var on = UserDefaults.standard.object(forKey: "on") as? Bool ?? true {
         didSet {
@@ -150,22 +154,26 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         return false
     }
 
-    /// A download stops at quit so the next launch resumes it. At most a second, as a quit from a main-queue block holds back the reply.
+    /// A download stops at quit, and what it got is saved first, so the next launch resumes it. Best effort: the save comes on the main
+    /// queue, which a quit from a main-queue block holds, so after a second it quits without.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard store.isBusy else { return .terminateNow }
         var replied = false
         let reply = {
             if !replied { NSApp.reply(toApplicationShouldTerminate: true) }
             replied = true
         }
-        store.cancel(then: reply)
+        guard store.stop(then: reply) else { return .terminateNow }
         RunLoop.main.add(Timer(timeInterval: 1, repeats: false) { _ in reply() }, forMode: .common)
         return .terminateLater
     }
 
-    /// ggml's Metal device asserts at exit if a model is still loaded.
+    /// ggml's Metal device asserts at exit if a model is still loaded. A load under way finishes first, as it can't be stopped, and none
+    /// starts after; then every model opened closes, installed or not.
     func applicationWillTerminate(_ note: Notification) {
-        watcher.quit(closing: engines.allObjects)
+        watcher.quit(closing: loading.sync {
+            quitting = true
+            return engines.allObjects.compactMap { $0 as? Completer }
+        })
     }
 
     /// TIS must be read on the main thread. Going by the source's language covers third-party Korean input methods too.
@@ -260,8 +268,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Loading takes a moment and compiles Metal pipelines, so it stays off the main thread. One at a time, and the last choice wins.
     /// The model answering now keeps answering until another has loaded, and it stays if that one can't.
     /// The launch's own load only reads the preference: a choice is what writes it, and only once it has worked.
-    /// Every model opened that something still holds, so quit can close each without waiting on the watcher. Main thread.
-    private let engines = NSHashTable<Engine>.weakObjects()
+    /// Every model opened that something still holds, so quit can close each without waiting on the watcher. Loading queue, as is
+    /// `quitting`: an engine is in here before anything else can hold it.
+    private let engines = NSHashTable<AnyObject>.weakObjects()
+    private var quitting = false
 
     private func open(_ path: String, remember: Bool = false) {
         if remember { afterFetch = .nothing }
@@ -270,7 +280,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         latestOpen += 1
         let id = latestOpen
         loading.async { [self] in
-            let engine = try? Engine(modelPath: path) { [weak self] in DispatchQueue.main.async { self?.lost(path) } }
+            guard !quitting else { return }
+            let engine = makeEngine(path) { [weak self] in DispatchQueue.main.async { self?.lost(id) } }
+            if let engine { engines.add(engine) }
             DispatchQueue.main.async { [self] in
                 guard id == latestOpen else { return }
                 loadingPath = nil
@@ -281,16 +293,16 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                 activePath = path
                 if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
-                engines.add(engine)
+                installed = id
                 watcher.install(engine)
             }
         }
     }
 
     /// The model answering couldn't load again after an idle unload: its file moved or broke. Nothing answers until another is chosen.
-    func lost(_ path: String) {
-        guard activePath == path else { return }
-        activePath = nil
+    private func lost(_ id: Int) {
+        guard id == installed, let path = activePath else { return }
+        (installed, activePath) = (0, nil)
         notice = "Could not load " + URL(fileURLWithPath: path).lastPathComponent
         watcher.install(nil)
     }
