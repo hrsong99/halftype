@@ -78,15 +78,15 @@ const SCRIPT=[];{let t=.4;const type=s=>{for(const ch of s){SCRIPT.push([t,()=>k
  type(' See you');t+=.35;SCRIPT.push([t,()=>showGhost(' tomorrow')]);t+=1.0;SCRIPT.push([t,accept]);t+=2.2;SCRIPT.push([t,reset]);var LOOP=t+.3}
 let si=0,live=false;
 // ---- halftone backdrop: two riso inks (blue from the top, peach from the bottom), dot size = ink
-const BG='#fbf8f3',BLUE='#8dbbe8',PEACH='#f2b08c';
+const BG='#fcfaf6',BLUE='#a9cdf0',PEACH='#f6c3a4';
 const clamp=x=>x<0?0:x>1?1:x;
 function h2(x,y){let h=Math.sin(x*127.1+y*311.7)*43758.5453;return h-Math.floor(h)}
 function noise(x,y){const i=Math.floor(x),j=Math.floor(y),f=x-i,g=y-j,a=h2(i,j),b=h2(i+1,j),c=h2(i,j+1),d=h2(i+1,j+1),s=f*f*(3-2*f),t=g*g*(3-2*g);return a+(b-a)*s+(c-a)*t+(a-b-c+d)*s*t}
 const AR=720/500;
 function fields(k,u,v,s,st){
- let horizon=.46,blue=clamp(.92-v*1.85),peach=clamp((v-horizon)*1.75);
+ let horizon=.56,blue=clamp(.62-v*1.5),peach=clamp((v-horizon)*1.45);
  const near=(ex,ey)=>Math.hypot((u-ex)*AR,v-ey);
- if(k==='D'){horizon=.46-.16*st.progress;peach=clamp((v-horizon)*1.75);blue=clamp(.92-v*1.85-.12*st.progress)}
+ if(k==='D'){horizon=.56-.16*st.progress;peach=clamp((v-horizon)*1.45);blue=clamp(.62-v*1.5-.1*st.progress)}
  if(k==='E'){const n=noise(u*5+st.drift,v*5)*.5+noise(u*11-st.drift*1.6,v*11)*.25-.35;blue=clamp(blue+n*.5*(1-v));peach=clamp(peach+n*.5*v)}
  for(const e of ev){const a=s-e.t;if(a<0||a>3)continue;
   if(k==='B'){const sp=e.type==='key'?.5:.75,w=e.type==='key'?.022:.04,amp=e.type==='key'?.4:.95,dec=e.type==='key'?3:1.6;
@@ -103,10 +103,12 @@ function fields(k,u,v,s,st){
 const st={};for(const c of cards)st[c.k]={progress:0,drift:0};
 function draw(c,s,dt){
  const cv=c.cv,W=cv.clientWidth,H=cv.clientHeight;if(!W)return;const dpr=2;
- if(cv.width!==W*dpr){cv.width=W*dpr;cv.height=H*dpr}
  const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle=BG;x.fillRect(0,0,W,H);
- const S=st[c.k],chars=(pre+acc+post).length;
- S.progress+=(Math.min(chars/34,1)-S.progress)*Math.min(dt*4,1);
+ const S=st[c.k],chars=(pre+acc+post).length,goal=Math.min(chars/34,1);
+ const busy=c.k==='E'||ev.some(e=>s-e.t<3)||Math.abs(goal-S.progress)>.002||cv.width!==W*dpr||S.lastBusy;
+ S.lastBusy=c.k==='E'||ev.some(e=>s-e.t<3);if(!busy&&S.drawn)return;S.drawn=1;
+ if(cv.width!==W*dpr){cv.width=W*dpr;cv.height=H*dpr}
+ S.progress+=(goal-S.progress)*Math.min(dt*4,1);
  const lastKey=ev.filter(e=>e.type==='key').pop();S.drift+=dt*(.04+(lastKey?.35*Math.exp(-(s-lastKey.t)*2.5):0));
  const cell=Math.max(W/82,4),gw=Math.ceil(W/cell)+1,gh=Math.ceil(H/cell)+1,R=cell*.62;
  const pb=new Path2D(),pp=new Path2D();
@@ -136,5 +138,9 @@ inp.addEventListener('input',()=>{const target=inp.value,cur=pre+acc+post;
  if(target.startsWith(cur)){for(const ch of target.slice(cur.length))key(ch)}else if(cur.startsWith(target)){for(let n=cur.length-target.length;n>0;n--)key('\b')}else{reset();pre=target;render();key('')}
  clearTimeout(ghostTimer);ghostTimer=setTimeout(()=>{const w=target.trim().split(/\s+/).pop()||'';if(target.trim())showGhost(SUG[w.toLowerCase()]??(target.endsWith(' ')?'and let me know':' and let me know'))},380)});
 inp.addEventListener('keydown',e=>{if(e.key==='Tab'&&ghost){e.preventDefault();inp.value+=ghost;accept()}});
-render();requestAnimationFrame(frame);
+render();
+const T=+(location.hash.match(/t=([\d.]+)/)||[])[1];
+if(T){for(let s=0;s<=T;s+=1/60){clock=s;while(si<SCRIPT.length&&SCRIPT[si][0]<=s){SCRIPT[si][1]();si++}}
+ for(const c of cards)st[c.k].progress=Math.min((pre+acc+post).length/34,1);paused=true;document.getElementById('pause').textContent='Play';prevS=clock}
+requestAnimationFrame(frame);
 </script></body></html>
