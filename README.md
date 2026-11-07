@@ -1,6 +1,6 @@
 # Itda (잇다)
 
-**Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. Nothing leaves your Mac, and nothing you type is saved. *Itda* means "to continue, to join".
+**Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. What you type never leaves your Mac and is never saved. *Itda* means "to continue, to join".
 
 ![Typing in English, with Tab taking each suggested word](docs/media/en.gif)
 
