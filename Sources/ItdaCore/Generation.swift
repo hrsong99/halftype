@@ -1,3 +1,5 @@
+import Synchronization
+
 /// One decoded token as the engine reports it.
 public struct Token: Equatable, Sendable {
     public var bytes: [UInt8]
@@ -65,7 +67,7 @@ public enum Stop {
     /// The suggestion so far, and whether to stop generating. It ends before a newline, after the first terminal
     /// punctuation, at `maxTokens`, at a special token, or before the word that takes it below `floor`. The first word
     /// is the gate's to judge. Text with no word in it is no suggestion.
-    public static func cut(_ tokens: [Token], fragment: String) -> (text: String, done: Bool) {
+    public static func cut(_ tokens: [Token], fragment: String, floor: Double = Stop.floor) -> (text: String, done: Bool) {
         guard let free = tokens.continuation(after: fragment), let text = decode(Array(free.prefix(maxTokens))) else {
             return ("", true)
         }
@@ -96,6 +98,17 @@ public enum Stop {
     private static func endsClause(_ c: Character) -> Bool {
         c == "~" || c == "…" || c.unicodeScalars.first?.properties.isTerminalPunctuation == true
     }
+}
+
+/// The window's Length and How Often: a floor for `Stop.cut` and a threshold for the gate. Read once per request.
+/// The defaults are the fitted values; the others trade right grey text for more of it (docs/measuring.md).
+public struct Tuning: Sendable, Equatable {
+    public var floor: Double
+    public var threshold: Double
+    public init(floor: Double = Stop.floor, threshold: Double = Gate.threshold) {
+        (self.floor, self.threshold) = (floor, threshold)
+    }
+    public static let current = Mutex(Tuning())
 }
 
 public enum Gate {

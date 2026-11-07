@@ -115,3 +115,18 @@ November 2026, the same replay (`itda-replay` at tag `bench-1`, threshold -0.7) 
 - Qwen 3.5 0.8B ties Qwen 3.5 2B on English within the CI, at 41% of the size and with the quickest first word, so it's the default. What it gives up is Korean: own messages 0.60 against 0.88 keys per request (CI -0.52 to -0.10).
 - Qwen 3.5 0.8B against Kanana 1.5, the old default, in full: English test 922 of 1,131 shown right (81.5%), coverage 47.1%. Whole messages: English 21.6% against 22.1% (800 keys), Korean public 4.8% against 8.8% (1,200 keys), Korean own 10.8% against 13.4% (1,800 keys). Korean public suggestions on Hangul right when shown: 20.9% against 33.7%. First displayable word p50: 53, 97 and 102 ms against 60, 102 and 114 ms. No model call on 47%, 20% and 26% of keys against 48%, 27% and 28%.
 - Not tried: models of 3.5 GB or more, community fine-tunes, and Ternary Bonsai's smaller packings, which need a fork of llama.cpp. Gemma 4's tokenizer fix of 3 November 2026 changed no weights and came after these files.
+
+## Length and How Often
+
+The window's two settings move the two numbers above: Length the floor that ends a suggestion (-1, -2, -3), How Often the gate's threshold (-0.3, -0.7, -1.2). Defaults are Short and Normal, the fitted values. Offline replay, Qwen 3.5 0.8B, English test threads, 2,400 requests, Tab one word, the first word at least 3 keys (`reviews/audit-2026-11/quality-aggregates/length_freq.py` in the bench repo):
+
+| Setting | Shown, of requests | First word right | Wrong and shown, per request | Grey characters per ghost | Grey characters right | Characters saved per request |
+|---|---|---|---|---|---|---|
+| Short, Normal | 20.0% | 75.2% | 5.0% | 5.2 | 76.7% | 0.552 |
+| Medium, Normal | 20.0% | 75.2% | 5.0% | 7.1 | 61.4% | 0.580 |
+| Long, Normal | 20.0% | 75.2% | 5.0% | 9.2 | 49.8% | 0.585 |
+| Short, Less | 12.0% | 89.2% | 1.3% | 5.3 | 85.2% | 0.395 |
+| Short, More | 30.6% | 58.2% | 12.8% | 4.9 | 63.7% | 0.642 |
+
+Longer adds little, as Tab takes one word and more of the extra words are wrong. No floor at all gives 17 characters, 27% right, for the same savings as Long. Suggestions stop at 8 tokens whatever the setting. Not measured in timed replay or on Korean.
+

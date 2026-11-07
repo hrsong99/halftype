@@ -325,6 +325,14 @@ private struct GeneralPage: View {
                     Toggle("", isOn: $app.updatesAutomatically).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
                 }
             }
+            Row(title: "Length", note: "Longer suggestions are wrong more often.") {
+                Picker("", selection: $app.length) { Text("Short").tag(Length.short); Text("Medium").tag(Length.medium); Text("Long").tag(Length.long) }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+            }
+            Row(title: "How Often", note: "More often means more wrong ones.") {
+                Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more) }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+            }
             Row(title: "Next word") { key("Tab") }
             Row(title: "Whole suggestion") { key("⇧ Tab") }
             Row(title: "Hide the suggestion") { key("Esc") }

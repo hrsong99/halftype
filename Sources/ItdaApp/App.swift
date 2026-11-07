@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import ItdaCore
 import ItdaEngine
 import Sparkle
 
@@ -57,6 +58,16 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             rebind()
         }
     }
+    @Published var length = Length(rawValue: UserDefaults.standard.string(forKey: "length") ?? "") ?? .short {
+        didSet { UserDefaults.standard.set(length.rawValue, forKey: "length"); tune() }
+    }
+    @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
+        didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
+    }
+    func tune() {
+        Tuning.current.withLock { $0 = Tuning(floor: length.floor, threshold: often.threshold) }
+        watcher.retune()
+    }
     @Published var pausedApps = Set(UserDefaults.standard.stringArray(forKey: "pausedApps") ?? []) {
         didSet {
             UserDefaults.standard.set(Array(pausedApps), forKey: "pausedApps")
@@ -86,6 +97,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     var activeName: String { activePath.map(name) ?? "No Model" }
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        tune()
         // The symbol is for a binary run outside the bundle, as the e2e checks do.
         let glyph = Bundle.main.image(forResource: "MenuBarTemplate") ?? NSImage(systemSymbolName: "text.cursor", accessibilityDescription: "Itda")
         glyph?.isTemplate = true
@@ -291,3 +303,16 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
 }
+
+/// Replayed on English test threads with Qwen 3.5 0.8B (docs/measuring.md): grey characters right 77%, 61%, 50%.
+enum Length: String, CaseIterable {
+    case short, medium, long
+    var floor: Double { switch self { case .short: Stop.floor; case .medium: -2; case .long: -3 } }
+}
+
+/// The same replay: suggestions shown on 12%, 20% and 31% of requests, with the first word right 89%, 75% and 58% of the time.
+enum Often: String, CaseIterable {
+    case less, normal, more
+    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2 } }
+}
+

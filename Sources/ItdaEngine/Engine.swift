@@ -123,6 +123,7 @@ public final class Engine: @unchecked Sendable {
         if prompt.count > room { prompt.removeFirst(prompt.count - room) }
         guard !prompt.isEmpty, prefill(prompt, ctx, id) else { return isStale(id) ? () : onResult(nil) }
 
+        let tuning = Tuning.current.withLock { $0 }
         var need = Constraint(fragment: fragment, composing: composing)
         var suggestion = Suggestion(text: "", gate: nil)
         var shown = ""
@@ -133,12 +134,12 @@ public final class Engine: @unchecked Sendable {
             need.consume(piece)
             suggestion.tokens.append(Token(bytes: Array(piece), logprob: pick.logprob, special: pick.isEnd))
 
-            let cut = Stop.cut(suggestion.tokens, fragment: fragment)
+            let cut = Stop.cut(suggestion.tokens, fragment: fragment, floor: tuning.floor)
             let finished = cut.done || (!cut.text.isEmpty && Word.firstEnd(cut.text) != cut.text.endIndex)
             suggestion.text = cut.text
             suggestion.gate = finished ? Gate.firstWord(suggestion.tokens, fragment: fragment) : nil
             guard !isStale(id) else { return }
-            if cut.done || suggestion.gate.map({ $0 < Gate.threshold }) == true { return onResult(cut.text.isEmpty ? nil : suggestion) }
+            if cut.done || suggestion.gate.map({ $0 < tuning.threshold }) == true { return onResult(cut.text.isEmpty ? nil : suggestion) }
             if cut.text != shown { onResult(suggestion); shown = cut.text }
 
             var next = pick.token

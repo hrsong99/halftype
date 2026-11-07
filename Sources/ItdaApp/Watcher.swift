@@ -252,7 +252,7 @@ final class Watcher: @unchecked Sendable {
     }
 
     private func received(id: Int, anchor: String, text: String, gate: Double?) {
-        guard id == request, let gate, gate >= Gate.threshold, let last else { return }
+        guard id == request, let gate, gate >= Tuning.current.withLock({ $0.threshold }), let last else { return }
         suggestion = (anchor, text)
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
@@ -280,6 +280,9 @@ final class Watcher: @unchecked Sendable {
             if tap.arm(armed, generation: generation) { showScrollWatch() } else { hideDisarmed() }
         }
     }
+
+    /// A setting changed: nothing asked for or kept under the old one may show.
+    func retune() { queue.async { [self] in clearSuggestion() } }
 
     private func clearSuggestion() {
         suggestion = nil

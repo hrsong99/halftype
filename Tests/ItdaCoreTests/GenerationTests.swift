@@ -108,6 +108,13 @@ func stop(c: StopCase) {
     #expect(cut.done)
 }
 
+@Test func aLowerFloorKeepsLessLikelyWords() {
+    let tokens = [token(" take", -0.2), token(" a", -0.1), token(" look", -0.3), token(" around", -0.5), token(" here", -0.1)]
+    #expect(Stop.cut(tokens, fragment: "", floor: -2).text == " take a look around here")
+    #expect(Stop.cut(tokens, fragment: "", floor: -1.15).text == " take a look around")
+    #expect(Tuning() == Tuning(floor: Stop.floor, threshold: Gate.threshold))
+}
+
 @Test func theFirstWordIsTheGatesToJudge() {
     #expect(Stop.cut([token(" maybe", -3)], fragment: "").text == " maybe")
     #expect(Stop.cut([token(" maybe", -3), token(" so", -0.1)], fragment: "").text == " maybe")
