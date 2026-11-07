@@ -44,9 +44,13 @@ private func decode(_ tokens: [Token]) -> String? {
 public enum Stop {
     /// Counts tokens with new bytes, so a long forced fragment cannot use up the budget.
     public static let maxTokens = 8
+    /// Words after the first stay only while their running log probability holds above this. Without it four in five grey
+    /// characters were wrong; with it, one in four. This alone keeps the measured savings, as Tab takes one word anyway. Fitted on English dev threads, see docs/measuring.md.
+    public static let floor = -1.0
 
     /// The suggestion so far, and whether to stop generating. It ends before a newline, after the first terminal
-    /// punctuation, at `maxTokens`, or at a special token. Text with no word in it is no suggestion.
+    /// punctuation, at `maxTokens`, at a special token, or before the word that takes it below `floor`. The first word
+    /// is the gate's to judge. Text with no word in it is no suggestion.
     public static func cut(_ tokens: [Token], fragment: String) -> (text: String, done: Bool) {
         guard let free = tokens.continuation(after: fragment), let text = decode(Array(free.prefix(maxTokens))) else {
             return ("", true)
@@ -56,6 +60,25 @@ public enum Stop {
         if let i = text.firstIndex(where: { $0.isNewline || endsClause($0) }) {
             end = text[i].isNewline ? i : text.index(after: i)
             done = true
+        }
+        // Past the first word, and where a word ends the tokens that make it are all in the sum.
+        var wordEnd = Word.firstEnd(text[..<end])
+        while wordEnd < end {
+            let next = Word.firstEnd(text[wordEnd..<end])
+            guard next > wordEnd, text[wordEnd..<next].contains(where: Word.isPart) else { break }
+            // A word running to the end may go on into bytes that don't decode yet, so all tokens count, as in the gate.
+            let bytes = next == text.endIndex ? Int.max : text[..<next].utf8.count
+            var start = 0, sum = 0.0
+            for token in free.prefix(maxTokens) where start < bytes {
+                sum += token.logprob
+                start += token.bytes.count
+            }
+            if sum < floor {
+                end = wordEnd
+                done = true
+                break
+            }
+            wordEnd = next
         }
         let cut = text[..<end]
         guard cut.contains(where: Word.isPart) else { return ("", done) }
@@ -71,6 +94,13 @@ public enum Stop {
 public enum Gate {
     /// Fitted on dev threads for 80% precision on English: -0.7, -0.7 and -0.6 on Kanana 1.5 2.1B, Qwen 3.5 2B and Gemma 4 E2B.
     public static let threshold = -0.7
+
+    /// Tab is a key press, so one that saves one or two keystrokes saves nothing, and showing it only interrupts. By the keys
+    /// it stands in for, as a Hangul syllable is two or three, including any that finish the composing syllable.
+    public static func worthShowing(_ ghost: Ghost) -> Bool {
+        let next = Accept.nextWord(ghost)
+        return next.keys.count + Hangul.keys(next.text).count >= 3
+    }
 
     /// Log P(first word | it fits the fragment): the sum of `Token.logprob` from the token that first crosses the end
     /// of the fragment through the one that finishes the first word (`Word.firstEnd` on the new bytes). A token

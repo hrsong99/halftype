@@ -8,14 +8,17 @@ private func firstWord(_ text: String) -> String { String(text[..<Word.firstEnd(
 private func tokens(_ fragment: String, _ text: String) -> [Token] {
     var out = fragment.isEmpty ? [] : [Token(bytes: Array(fragment.utf8), logprob: -9)]
     var word = ""
+    // These fixtures are about the shape of the text: the first word sets the gate, and later ones are sure enough to stay.
+    var logprob = -0.5
     for c in text {
         if c == " ", !word.isEmpty {
-            out.append(Token(bytes: Array(word.utf8), logprob: -0.5))
+            out.append(Token(bytes: Array(word.utf8), logprob: logprob))
+            logprob = -0.01
             word = ""
         }
         word.append(c)
     }
-    if !word.isEmpty { out.append(Token(bytes: Array(word.utf8), logprob: -0.5)) }
+    if !word.isEmpty { out.append(Token(bytes: Array(word.utf8), logprob: logprob)) }
     return out
 }
 

@@ -18,7 +18,7 @@ Prompt: frozen context + window up to the last whole word
   |
   v
 llama.cpp, in process: greedy; output must fit what was held out, by bytes or 2-set keys
-        stop at newline, punctuation or 8 tokens; the latest request wins
+        stop at newline, punctuation, 8 tokens, or the word that takes it below e^-1; the latest request wins
   |
   v
 Gate: P(first word | it fits what was typed) >= e^-0.7 ------- no ----> no suggestion
@@ -46,6 +46,7 @@ Every number is from a replay of real typing, scored by exact match, on an M5. H
 | 5 | A frozen head and a window start that moves in steps | 8.4 prompt tokens per key across all requests, English. The next key after a 226-token prompt: 1 token, 13 ms, against 450 ms from nothing | `--cache-reuse`, a window that slides per key |
 | 6 | Reuse the suggestion while it fits | No model call on 48% of English keys and 27% of Korean, timed | Speculative prefetch: more moving parts, unmeasured |
 | 7 | The prompt never ends in a space | English word starts, useful 0-5% to 13-18% (paired, n=39, an earlier bench) | |
+| 2b | Stop before the first unsure word, and don't show a first word of under three keystrokes | English test threads, Kanana: grey characters that were right went from 19% to 75%, and ghosts on 45% of requests to 18%, for 18% less saved per request. See measuring.md | Filling all 8 tokens: only 23% of ghosts were right to the end |
 | 8 | llama.cpp in process, reading the logits | The gate needs true probability over every allowed token, which `n_probs` can't give. Cancelling during prefill takes 24 ms (p50), which a server disconnect doesn't offer | `llama-server` |
 | 9 | One raw path, no chat template or fill-in-the-middle | Fill-in-the-middle lost and document framing added nothing. All three models tested run on one path with no per-model code | Per-model tables |
 | 10 | Default model Kanana 1.5 2.1B base, 1.4 GB, Apache-2.0 | Korean ahead of Gemma on the author's messages (1.03 against 0.54 keys per request, CI +0.17 to +0.80), level with Qwen. English a little behind (22.1% against 23.2%, same 40 messages), at 40% of Gemma's size | Gemma as default: stays one menu item away, with any GGUF |

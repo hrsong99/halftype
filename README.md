@@ -41,7 +41,7 @@ Most tools in this category go quiet while you compose Hangul, or suggest from a
 
 **It finishes Korean with real key presses.** The syllable you're composing stays out of the prompt, the model's output must fit its 2-set keys (so `하` allows `한` or `함`), and Tab presses the remaining keys so the input method finishes the syllable itself. On 1,099 requests mid-syllable in public Korean text, keystrokes saved per request went from 0 when sending the syllable to the model to 0.69. It costs more wrong suggestions: 18.2% of those requests, against 8.4%.
 
-Across whole messages, replayed with real typing delays, that saves **22.8% of keystrokes in English** (1,200 keys) and **8.8% in Korean** (1,200 keys of public text), or 13.4% on 70 of the author's own messages. A match has to be exact, so a good paraphrase scores zero. The English messages are the author's and aren't published. Method and more numbers: [docs/measuring.md](docs/measuring.md). The design: [docs/how-it-works.md](docs/how-it-works.md).
+Across whole messages, replayed with real typing delays before the latest change to how much a suggestion shows, that saved **22.8% of keystrokes in English** (1,200 keys) and **8.8% in Korean** (1,200 keys of public text), or 13.4% on 70 of the author's own messages. A match has to be exact, so a good paraphrase scores zero. The English messages are the author's and aren't published. Method and more numbers: [docs/measuring.md](docs/measuring.md). The design: [docs/how-it-works.md](docs/how-it-works.md).
 
 ## What it costs
 

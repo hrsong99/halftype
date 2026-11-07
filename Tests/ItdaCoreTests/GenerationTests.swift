@@ -98,3 +98,40 @@ func stop(c: StopCase) {
     #expect(cut.text == c.text)
     #expect(cut.done == c.done)
 }
+
+
+@Test func aSuggestionStopsBeforeTheWordItIsUnsureOf() {
+    let sure = [token(" take", -0.2), token(" a", -0.1), token(" look", -0.3)]
+    #expect(Stop.cut(sure, fragment: "").text == " take a look")
+    let cut = Stop.cut(sure + [token(" around", -0.5), token(" here", -0.1)], fragment: "")
+    #expect(cut.text == " take a look")
+    #expect(cut.done)
+}
+
+@Test func theFirstWordIsTheGatesToJudge() {
+    #expect(Stop.cut([token(" maybe", -3)], fragment: "").text == " maybe")
+    #expect(Stop.cut([token(" maybe", -3), token(" so", -0.1)], fragment: "").text == " maybe")
+}
+
+@Test func theForcedFragmentCostsNothing() {
+    #expect(Stop.cut([Token(bytes: Array(" lo".utf8), logprob: -9), token("ok", -0.1), token(" at", -0.2)], fragment: " lo").text == "ok at")
+}
+
+@Test func aSplitCharacterIsHeldUntilItDecodes() {
+    let bytes = Array(" 시작".utf8)
+    let tokens = [Token(bytes: Array(bytes.prefix(2)), logprob: -0.1), Token(bytes: Array(bytes.dropFirst(2)), logprob: -0.1), token("합니다", -0.2)]
+    #expect(Stop.cut(tokens, fragment: "").text == " 시작합니다")
+}
+
+@Test func heldBytesCountAgainstTheWordTheyWillFinish() {
+    let start = Array("각".utf8)
+    let tokens = [token(" first", -0.2), token(" 가", -0.7), Token(bytes: Array(start.prefix(1)), logprob: -0.3)]
+    #expect(Stop.cut(tokens, fragment: "").text == " first")
+}
+
+@Test(arguments: [(Ghost(remainder: " a"), false), (Ghost(remainder: "g"), false), (Ghost(remainder: "ng"), false), (Ghost(remainder: " an"), true), (Ghost(remainder: " the rest"), true),
+                  (Ghost(remainder: "ing"), true), (Ghost(remainder: "음"), true), (Ghost(remainder: " 네"), true), (Ghost(remainder: "네"), false), (Ghost(remainder: " a lot"), false),
+                  (Ghost(keys: "s", composing: "한", remainder: " a"), true), (Ghost(keys: "s", composing: "한", remainder: "g"), false)])
+func onlyATabThatSavesAKeyIsWorthShowing(ghost: Ghost, worth: Bool) {
+    #expect(Gate.worthShowing(ghost) == worth)
+}

@@ -263,7 +263,9 @@ final class Watcher: @unchecked Sendable {
         let twoSet = twoSet.load(ordering: .relaxed)
         var ghost = ghost
         if twoSet { ghost.remainder = TwoSetLayout.typable(ghost.remainder) }
-        guard !ghost.remainder.isEmpty, let focused, let caret = reading.caret, !Reader.isRightToLeft(field.before, ghost.remainder) else { return hideOnMain() }
+        // Only as offered: typing through a word has to see it out, or the ghost would blink off for its last letters.
+        let typedThrough = suggestion.map { Word.withoutTrailingSpaces($0.anchor) != Word.withoutTrailingSpaces(field.committed) } ?? false
+        guard !ghost.remainder.isEmpty, typedThrough || Gate.worthShowing(ghost), let focused, let caret = reading.caret, !Reader.isRightToLeft(field.before, ghost.remainder) else { return hideOnMain() }
         guard let traits = Reader.traits(focused, before: reading.field.before) else {
             last = nil  // A good read isn't a good draw: the next notification may find the same field, and must try again.
             return hideOnMain()

@@ -36,6 +36,18 @@ A native host answers in under 8 ms. **Chromium's time isn't measured**: if it i
 
 ## How well it predicts
 
+"Useful" below means the first word is right, which hid a bad experience: a ghost averaged 19 characters and four words, and only 19% of those grey characters were right. Offline replay of the English test threads (2,400 requests, 120 messages, Kanana 1.5; Qwen 3.5 2B within a few points), with the floor and minimum picked on dev threads:
+
+| Policy | Ghost on | First word right | All of the grey right | Grey chars right | Grey chars per ghost | Chars saved per request |
+|---|---|---|---|---|---|---|
+| All 8 tokens | 45% | 85% | 23% | 19% | 19.4 | 0.56 |
+| Stop before a word below e^-1 | 45% | 85% | 79% | 76% | 3.5 | 0.56 |
+| And a first word of at least 3 keys | 18% | 80% | 74% | 75% | 5.1 | 0.46 |
+
+The replay counts characters including the leading space, while the app counts keystrokes, so in Korean the two minimums differ. It doesn't cover Korean accurately, because it can't score a syllable still being composed. The keystroke figures elsewhere on this page were measured before this change.
+
+Your own phrases didn't help. A next-word lookup from strictly older messages, tried ahead of the model, was right about as often (78%) but saved less: 0.10 alone and 0.50 merged, against 0.56.
+
 The replay harness runs the real engine and policy with real typing delays. It isn't in this tree, as it would add 400 lines and hold the engine's API open for one tool. It's at the tag `bench-1`:
 
 ```sh
