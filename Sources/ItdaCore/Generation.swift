@@ -102,11 +102,13 @@ public enum Gate {
     /// Fitted on dev threads for 80% precision on English: -0.7, -0.7 and -0.6 on Kanana 1.5 2.1B, Qwen 3.5 2B and Gemma 4 E2B.
     public static let threshold = -0.7
 
-    /// Tab is a key press, so one that saves one or two keystrokes saves nothing, and showing it only interrupts. By the keys
-    /// it stands in for, as a Hangul syllable is two or three, including any that finish the composing syllable.
+    /// A ghost that saves one or two keystrokes saves nothing, and showing it only interrupts. Judged on all of it, as Tab
+    /// repeated or Shift-Tab takes the lot: `to the` shows although `to` alone is short. By the keys it stands in for, as a
+    /// Hangul syllable is two or three, including any that finish the composing syllable. Against the first word alone, replay
+    /// saved 18.2% of keystrokes, not 17.1%, for 0.6 more wrong ghosts per 100 requests: docs/measuring.md.
     public static func worthShowing(_ ghost: Ghost) -> Bool {
-        let next = Accept.nextWord(ghost)
-        return next.keys.count + Hangul.keys(next.text).count >= 3
+        let all = Accept.all(ghost)
+        return all.keys.count + Hangul.keys(all.text).count >= 3
     }
 
     /// Log P(first word | it fits the fragment): the sum of `Token.logprob` from the token that first crosses the end

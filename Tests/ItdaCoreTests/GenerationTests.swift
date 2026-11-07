@@ -130,8 +130,9 @@ func stop(c: StopCase) {
 }
 
 @Test(arguments: [(Ghost(remainder: " a"), false), (Ghost(remainder: "g"), false), (Ghost(remainder: "ng"), false), (Ghost(remainder: " an"), true), (Ghost(remainder: " the rest"), true),
-                  (Ghost(remainder: "ing"), true), (Ghost(remainder: "음"), true), (Ghost(remainder: " 네"), true), (Ghost(remainder: "네"), false), (Ghost(remainder: " a lot"), false),
+                  (Ghost(remainder: "ing"), true), (Ghost(remainder: "음"), true), (Ghost(remainder: " 네"), true), (Ghost(remainder: "네"), false), (Ghost(remainder: " a lot"), true),
+                  (Ghost(remainder: "o the"), true), (Ghost(remainder: "g a"), true), (Ghost(remainder: "s."), false),
                   (Ghost(keys: "s", composing: "한", remainder: " a"), true), (Ghost(keys: "s", composing: "한", remainder: "g"), false)])
-func onlyATabThatSavesAKeyIsWorthShowing(ghost: Ghost, worth: Bool) {
+func onlyAGhostThatSavesAKeyIsWorthShowing(ghost: Ghost, worth: Bool) {
     #expect(Gate.worthShowing(ghost) == worth)
 }
