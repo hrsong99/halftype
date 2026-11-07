@@ -39,7 +39,7 @@ Grey text at the caret, in a panel that takes no focus; Tab can take only what w
   +-- any other input: passes through to the app
 ```
 
-Each place this path stops records why, with no text in it: no field, text after the caret, not sure, no caret, no font, and so on. The menu and the window show it as one line, the window only once it has held for 0.4 s, so typing doesn't flicker it. The same record tells the menu-bar icon that Secure Input came or went, which nothing else announces.
+Each place this path stops records why, with no text in it: no field, text after the caret, not sure, no caret, no font, and so on. A reason from older input than the last one, or about an app no longer watched, is dropped, and a hidden ghost stops counting as shown. The menu and the window show it as one line, the window only once it has held for 0.4 s, so typing doesn't flicker it. The same record tells the menu-bar icon that Secure Input came or went, which nothing else announces.
 
 **The tap.** It sits in line with every key and click on the Mac, so it holds to the permission. Any permission change takes it down at once (`com.apple.tcc.access.changed`, undocumented), and one loop in `KeyTap` then retries each second until `tapCreate` works, and stops. Each try asks `AXIsProcessTrusted` first, so the loop doesn't raise the system's dialog before the user has asked for it: a no there skips `tapCreate`, so a stale no would keep the tap away until relaunch (not seen). A yes is only let through, as it can stay true after a revoke, and `tapCreate` then refuses. A tap the system disabled is re-enabled on activation and on wake, with no timer.
 

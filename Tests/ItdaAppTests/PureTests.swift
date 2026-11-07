@@ -557,11 +557,13 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     let asks = Atomic<Int>(0), unloads = Atomic<Int>(0)
     var onAsk: (@Sendable () -> Void)?
     var gate: Double? = 0
+    /// False answers nil, the model's "nothing to suggest".
+    var answers = true
     init(_ text: String) { self.text = text }
     func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
         asks.add(1, ordering: .relaxed)
         onAsk?()
-        onResult(Suggestion(text: text, gate: gate))
+        onResult(answers ? Suggestion(text: text, gate: gate) : nil)
     }
     func cancel() {}
     func unload() { unloads.add(1, ordering: .relaxed) }
@@ -747,18 +749,19 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
     func why(_ field: Field, completer: Completer? = CountingCompleter(" there friend"), _ setup: (Watcher) -> Void = { _ in }) async -> (Watcher.Why, Int) {
         let seen = Mutex<(Watcher.Why, Int)>((.unreadable, 0))
         let watcher = watcher(field, completer: completer)
-        watcher.onWhy = { why in seen.withLock { $0 = (why, $0.1 + 1) } }
+        watcher.onWhy = { why, _ in seen.withLock { $0 = (why, $0.1 + 1) } }
         setup(watcher)
         watcher.scheduleUpdate()
         await watcher.settle()
         watcher.redraw()  // The same again, which is no change.
         await watcher.settle()
+        let result = seen.withLock { $0 }
         watcher.hideNow()
-        return seen.withLock { $0 }
+        return result
     }
     @Test func eachPlaceThePathStopsSaysWhyOnce() async {
         #expect(await why(Field(before: "hello")) == (.shown, 1))
-        #expect(await why(Field(before: "")) == (.empty, 1))
+        #expect(await why(Field(before: "")) == (.idle, 1))
         #expect(await why(Field(before: "hello", after: "x")) == (.textAfter, 1))
         #expect(await why(Field(before: "hello"), completer: nil) == (.noModel, 1))
         let unsure = CountingCompleter(" there friend")
@@ -778,12 +781,69 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
     @Test func aFieldThatStopsBeingReadableSaysSo() async {
         let seen = Mutex<Watcher.Why?>(nil)
         let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
-        watcher.onWhy = { why in seen.withLock { $0 = why } }
+        watcher.onWhy = { why, _ in seen.withLock { $0 = why } }
         watcher.scheduleUpdate()
         #expect(await soon { seen.withLock { $0 } == .shown })
+        await watcher.settle()  // The fake belongs to the watcher's queue.
         watcher.read = { _ in nil }
         watcher.scheduleUpdate()
         #expect(await soon { seen.withLock { $0 } == .unreadable })
+    }
+    final class Reasons: Sendable {
+        let last = Mutex<Watcher.Why?>(nil)
+        func withLock<T>(_ body: (inout Watcher.Why?) -> T) -> T { last.withLock(body) }
+    }
+    func reasons(_ watcher: Watcher) -> Reasons {
+        let seen = Reasons()
+        watcher.onWhy = { why, _ in seen.withLock { $0 = why } }
+        return seen
+    }
+    @Test func aGhostHiddenWithTheFieldUnchangedIsNoLongerShown() async {
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
+        let seen = reasons(watcher)
+        watcher.scheduleUpdate()
+        #expect(await soon { seen.withLock { $0 } == .shown })
+        #expect(keys.press(tap, keys.key(53, pid: 0)).swallowed)  // Esc.
+        #expect(await soon { seen.withLock { $0 } == .idle })
+        watcher.redraw()
+        #expect(await soon { seen.withLock { $0 } == .shown })
+        watcher.hideNow()  // Scroll, sleep, lock.
+        #expect(await soon { seen.withLock { $0 } == .idle })
+    }
+    @Test func nothingToSuggestReplacesAnOlderReasonAndAnUnfinishedWordIsNoAnswer() async {
+        let model = CountingCompleter(" there friend")
+        let watcher = watcher(Field(before: "hello"), completer: model)
+        let seen = reasons(watcher)
+        watcher.traits = { _, _ in nil }
+        watcher.scheduleUpdate()
+        #expect(await soon { seen.withLock { $0 } == .noFont })
+        await watcher.settle()
+        watcher.traits = { _, _ in FieldTraits(fontSize: 14, fontName: nil, color: nil, lineLeft: 110) }
+        model.answers = false
+        host.now.withLock { $0.field = Field(before: "hello w") }
+        watcher.scheduleUpdate()
+        #expect(await soon { seen.withLock { $0 } == .idle })
+        // Shown, then a first word still being written: neither shown nor "not sure".
+        model.answers = true
+        watcher.redraw()
+        #expect(await soon { seen.withLock { $0 } == .shown })
+        await watcher.settle()
+        model.gate = nil
+        host.now.withLock { $0.field = Field(before: "hello wo") }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(seen.withLock { $0 } == .idle)
+    }
+    @Test func aReasonFromBeforeALaterOneIsDropped() {
+        let watcher = Watcher(tap: tap, panel: panel)
+        let seen = Mutex<[Watcher.Why]>([])
+        watcher.onWhy = { why, _ in seen.withLock { $0.append(why) } }
+        watcher.queue.sync {
+            watcher.record(.unsure, at: 5)
+            watcher.record(.shown, at: 4)  // A draw for older input, landing late.
+            watcher.record(.textAfter, at: 5)
+        }
+        #expect(seen.withLock { $0 } == [.unsure, .textAfter])
     }
     @Test func noTakerMeansNoReadNoModelAndNoGhost() async {
         for blocked in [KeyTap.Obstacle.secureInput, .tapOff] {
@@ -1175,13 +1235,12 @@ final class FakeServer: URLProtocol {
         #expect(app.modelLine == "Kanana 1.5")
     }
     @Test func theLineSaysWhyAndNotSureReadsAsWorking() {
-        func line(trusted: Bool = true, active: Bool = true, obstacle: KeyTap.Obstacle? = nil, ready: Bool = true, _ why: Watcher.Why, app: String? = "Notion") -> String? {
-            App.line(trusted: trusted, active: active, obstacle: obstacle, ready: ready, why: why, app: app)
+        func line(trusted: Bool = true, active: Bool = true, obstacle: KeyTap.Obstacle? = nil, ready: Bool = true, _ why: Watcher.Why) -> String? {
+            App.line(trusted: trusted, active: active, obstacle: obstacle, ready: ready, why: why)
         }
         #expect(line(.unsure) == "Working. Not sure enough to suggest yet.")
-        #expect(line(.shown) == "Working." && line(.empty) == "Working.")
-        #expect(line(.noFont) == "Notion doesn't report its font, so no suggestion here.")
-        #expect(line(.noFont, app: nil) == "This app doesn't report its font, so no suggestion here.")
+        #expect(line(.shown) == "Working." && line(.idle) == "Working.")
+        #expect(line(.noFont) == "This field doesn't report its font, so no suggestion here.")
         #expect(line(.textAfter) == "Text after the cursor, so no suggestion here.")
         // What comes first: the permission, then off or paused, then Tab's way to us, then the model.
         #expect(line(trusted: false, active: false, obstacle: .tapOff, .unsure) == "Itda needs Accessibility permission.")
@@ -1189,8 +1248,27 @@ final class FakeServer: URLProtocol {
         #expect(line(obstacle: .secureInput, ready: false, .unsure) == KeyTap.Obstacle.secureInput.rawValue)
         #expect(line(ready: false, .shown) == "The model isn't ready yet.")
         #expect(line(.blocked) == "Working.", "an obstacle that has gone")
-        let all: [Watcher.Why] = [.shown, .empty, .unsure, .unreadable, .blocked, .textAfter, .notTwoSet, .noModel, .noCaret, .noFont, .rightToLeft, .noRoom]
+        let all: [Watcher.Why] = [.shown, .idle, .unsure, .unreadable, .blocked, .textAfter, .notTwoSet, .noModel, .noCaret, .noFont, .rightToLeft, .noRoom]
         #expect(all.allSatisfy { line($0)?.hasSuffix(".") == true })
+    }
+    @Test func aReasonAboutAnotherAppIsDropped() {
+        let app = App()
+        app.bound = 7
+        app.whyChanged(.noFont, pid: 8)
+        #expect(app.why == .unreadable)
+        app.whyChanged(.noFont, pid: 7)
+        #expect(app.why == .noFont)
+    }
+    @Test func aLaterReasonInTheWayEndsTheFirstAcceptsLine() {
+        let app = App()
+        app.bound = 7
+        for blocking in [Watcher.Why.textAfter, .blocked, .unreadable] {
+            app.accepted = true
+            app.whyChanged(.unsure, pid: 7)  // Still working: the line stays.
+            #expect(app.accepted)
+            app.whyChanged(blocking, pid: 7)
+            #expect(!app.accepted, "\(blocking)")
+        }
     }
     @Test func theIconShowsState() {
         #expect(App.icon(active: true, problem: false, downloading: nil) == App.Icon())

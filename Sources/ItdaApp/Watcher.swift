@@ -65,12 +65,30 @@ final class Watcher: @unchecked Sendable {
 
     /// Why there's no ghost in the focused field, or that one shows: set at each place the path stops, and only when it settles, not
     /// while a request is out. No typed text in it.
-    enum Why: Equatable { case shown, empty, unsure, unreadable, blocked, textAfter, notTwoSet, noModel, noCaret, noFont, rightToLeft, noRoom }
-    private let why = Mutex(Why.unreadable)
-    /// Told of each change, on whichever thread made it.
-    var onWhy: (@Sendable (Why) -> Void)?
-    private func record(_ now: Why) {
-        if why.withLock({ was in defer { was = now }; return was != now }) { onWhy?(now) }
+    enum Why: Equatable {
+        case shown, idle, unsure, unreadable, blocked, textAfter, notTwoSet, noModel, noCaret, noFont, rightToLeft, noRoom
+        /// Nothing in the way: a ghost, none asked for yet, or the model not sure.
+        var working: Bool { self == .shown || self == .idle || self == .unsure }
+    }
+    /// Told of each change with the app it's about, in order, on this queue.
+    var onWhy: ((Why, pid_t) -> Void)?
+    private var reported: (why: Why, pid: pid_t, generation: Int) = (.unreadable, 0, 0)
+    /// Queue, so reports go out in the order they're made. One from before a later report's input is stale, and dropped.
+    func record(_ now: Why, at generation: Int) {
+        guard generation >= reported.generation else { return }
+        let changed = (now, pid) != (reported.why, reported.pid)
+        reported = (now, pid, generation)
+        if changed { onWhy?(now, pid) }
+    }
+    /// Queue. Esc, or the permission gone.
+    private func dismissed() {
+        clearSuggestion()
+        retire(at: tap.generation)
+    }
+
+    /// Queue. A ghost hidden with nothing new to say about the field.
+    private func retire(at generation: Int) {
+        if reported.why == .shown { record(.idle, at: generation) }
     }
 
     init(tap: KeyTap, panel: GhostPanel) {
@@ -78,7 +96,7 @@ final class Watcher: @unchecked Sendable {
         self.panel = panel
         // On the system-wide element this is the default for every element read later, children included.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), AX.timeout)
-        tap.onDismiss = { [weak self] in self?.queue.async { self?.clearSuggestion() } }
+        tap.onDismiss = { [weak self] in self?.queue.async { self?.dismissed() } }
         // A key that changes nothing brings no update, and only time can tell, so a ghost Tab no longer accepts stays one frame: no hand
         // presses Tab within it, and hiding at once blanks the ghost on half the keys of typing through it. See docs/measuring.md.
         // A later key has its own frame, which this one's timer must not cut short.
@@ -136,7 +154,7 @@ final class Watcher: @unchecked Sendable {
         if let observer { CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes) }
         (app, observer, focused) = (nil, nil, nil)
         forget()
-        record(.unreadable)
+        record(.unreadable, at: tap.generation)
     }
 
     /// Main run loop, no IPC here.
@@ -244,7 +262,7 @@ final class Watcher: @unchecked Sendable {
         guard tap.canTake, let focused, var reading = read(focused), tap.canTake else {
             (last, lost) = (nil, true)
             clearSuggestion()
-            return record(tap.canTake ? .unreadable : .blocked)
+            return record(tap.canTake ? .unreadable : .blocked, at: generation)
         }
         lost = false
         reading.field.mayCompose = mayCompose(reading)
@@ -259,16 +277,16 @@ final class Watcher: @unchecked Sendable {
             // reply isn't there yet. An empty field also shows its placeholder, which a ghost would overlap.
             context = nil
             clearSuggestion()
-            return record(.empty)
+            return record(.idle, at: generation)
         }
         guard !hasTextAfterCaret(field) else {
             clearSuggestion()
-            return record(.textAfter)
+            return record(.textAfter, at: generation)
         }
         // Any other Korean layout: a composition could swallow text we insert, and there's no telling, so no ghost.
         if koreanInput.load(ordering: .relaxed), !twoSet.load(ordering: .relaxed), let end = field.before.last, Hangul.isHangul(end) {
             clearSuggestion()
-            return record(.notTwoSet)
+            return record(.notTwoSet, at: generation)
         }
         if let suggestion, let ghost = Follow.check(anchor: suggestion.anchor, suggestion: suggestion.text, field: field) {
             display(ghost, field, reading, generation)
@@ -276,8 +294,9 @@ final class Watcher: @unchecked Sendable {
         }
         clearSuggestion()
         // No ghost could be drawn: Teams, LibreOffice, or a native line start. A suggestion already held still follows above.
-        guard reading.caret != nil else { return record(.noCaret) }
-        ask(field)
+        guard reading.caret != nil else { return record(.noCaret, at: generation) }
+        retire(at: generation)  // Hidden while the model answers.
+        ask(field, generation)
     }
 
     /// Anything but a line end right after the caret means the ghost would sit on top of it.
@@ -310,22 +329,21 @@ final class Watcher: @unchecked Sendable {
         }
     }
 
-    private func ask(_ field: Field) {
-        guard let completer, let focused else { return record(.noModel) }
+    private func ask(_ field: Field, _ generation: Int) {
+        guard let completer, let focused else { return record(.noModel, at: generation) }
         if context == nil { context = Reader.context(of: focused) }
         let prompt = Prompt.make(context: context ?? "", field: field)
-        guard !prompt.prefix.isEmpty else { return record(.unsure) }  // Not a whole word yet.
+        guard !prompt.prefix.isEmpty else { return record(.unsure, at: generation) }  // Not a whole word yet.
         // The context read may have stalled too. Forgetting the read lets the same field ask again once Tab can be taken.
         guard tap.canTake else {
             last = nil
-            return record(.blocked)
+            return record(.blocked, at: generation)
         }
         let anchor = field.committed
         request += 1
         let id = request
         completer.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: prompt.composing) { [weak self] result in
-            guard let result else { return }
-            self?.queue.async { self?.received(id: id, anchor: anchor, text: result.text, gate: result.gate) }
+            self?.queue.async { self?.received(id: id, anchor: anchor, result) }
         }
         unloadWhenIdle()
     }
@@ -350,15 +368,19 @@ final class Watcher: @unchecked Sendable {
         }
     }
 
-    private func received(id: Int, anchor: String, text: String, gate: Double?) {
+    /// Nil is the model's last word: nothing to suggest. A gate of nil is a first word still being written, not an answer yet.
+    private func received(id: Int, anchor: String, _ result: Suggestion?) {
         guard id == request else { return }
         guard tap.canTake else {
             last = nil  // Never shown, so the same field must ask again once Tab can be taken.
             clearSuggestion()
-            return record(.blocked)
+            return record(.blocked, at: lastGeneration)
         }
-        guard let gate, gate >= Gate.threshold else { return record(.unsure) }
+        guard let result else { return record(.idle, at: lastGeneration) }
+        guard let gate = result.gate else { return }
+        guard gate >= Gate.threshold else { return record(.unsure, at: lastGeneration) }
         guard let last else { return }
+        let text = result.text
         suggestion = (anchor, text)
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
@@ -373,20 +395,20 @@ final class Watcher: @unchecked Sendable {
         let typedThrough = suggestion.map { Word.withoutTrailingSpaces($0.anchor) != Word.withoutTrailingSpaces(field.committed) } ?? false
         guard !ghost.remainder.isEmpty, typedThrough || Gate.worthShowing(ghost), let focused else {
             hideOnMain()
-            return record(.unsure)
+            return record(.unsure, at: generation)
         }
         guard let caret = reading.caret else {
             hideOnMain()
-            return record(.noCaret)
+            return record(.noCaret, at: generation)
         }
         guard !Reader.isRightToLeft(field.before, ghost.remainder) else {
             hideOnMain()
-            return record(.rightToLeft)
+            return record(.rightToLeft, at: generation)
         }
         guard let traits = traits(focused, reading) else {
             last = nil  // A good read isn't a good draw: the next notification may find the same field, and must try again.
             hideOnMain()
-            return record(.noFont)
+            return record(.noFont, at: generation)
         }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
@@ -396,19 +418,21 @@ final class Watcher: @unchecked Sendable {
             guard tap.generation == generation else { return }
             // The last moment before Tab is promised, as Secure Input moves no generation.
             guard tap.canTake else {
-                queue.async { [self] in last = nil }
-                record(.blocked)
+                queue.async { [self] in
+                    last = nil
+                    record(.blocked, at: generation)
+                }
                 return hidePanel()
             }
             guard let drawn = panel.show(spec) else {
-                record(.noRoom)
+                queue.async { [self] in record(.noRoom, at: generation) }
                 return hidePanel()
             }
             var offer = armed
             offer.ghost.remainder = drawn  // `suggestion` keeps the rest, to draw as the field reaches it.
             if tap.arm(offer, generation: generation) {
                 showScrollWatch()
-                record(.shown)
+                queue.async { [self] in record(.shown, at: generation) }
             } else { hideDisarmed() }
         }
     }
@@ -441,6 +465,8 @@ final class Watcher: @unchecked Sendable {
     func hideNow() {
         tap.invalidate()
         hidePanel()
+        let generation = tap.generation
+        queue.async { [self] in retire(at: generation) }
     }
 
     /// Main thread. Armed here is the rest of a suggestion after Tab, which stays up.

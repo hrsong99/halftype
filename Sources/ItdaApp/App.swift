@@ -32,8 +32,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var downloadFraction = 0.0 { didSet { updateIcon() } }
     /// Why there's no ghost in the front app's field, as the watcher last settled it.
     @Published var why = Watcher.Why.unreadable
-    /// A suggestion was taken since the window opened.
+    /// A suggestion was taken since the window opened, and nothing has stood in the way since.
     @Published var accepted = false
+    /// The app the watcher was last told to watch, so a reason about another one is dropped.
+    var bound: pid_t = 0
     /// This launch began without a model or the permission, so the field gets a sentence once, and the first ghost needs no typing.
     var fresh = false
     @Published var verifying = false
@@ -133,12 +135,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         store.onChange = { [weak self] state in self?.modelChanged(state) }
         loadModel()
         // Accessibility is the one permission, and the window asks for it. Nothing runs until the grant.
-        watcher.onWhy = { [weak self] why in
-            DispatchQueue.main.async {
-                self?.why = why
-                self?.updateIcon()  // Secure Input comes and goes with no word to us; the watcher sees it.
-            }
-        }
+        watcher.onWhy = { [weak self] why, pid in DispatchQueue.main.async { self?.whyChanged(why, pid: pid) } }
         tap.onAccept = { [weak self] in DispatchQueue.main.async { if self?.accepted == false { self?.accepted = true } } }
         tap.onUp = { [weak self] up in DispatchQueue.main.async { self?.tapChanged(up: up) } }
         trusted = tap.hold()
@@ -208,10 +205,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tap.reenable()
         updateIcon()
         guard trusted, activeHere, let front = NSWorkspace.shared.frontmostApplication else {
+            bound = 0
             watcher.unbind()
             return
         }
-        watcher.bind(pid: front.processIdentifier)
+        bound = front.processIdentifier
+        watcher.bind(pid: bound)
     }
 
     // MARK: Model
@@ -339,27 +338,35 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     /// The one line saying why there's no suggestion here, for the menu and under the field. Nil when off or paused, which the menu's
     /// own items show. Not sure is a normal state, and reads as working.
-    static func line(trusted: Bool, active: Bool, obstacle: KeyTap.Obstacle?, ready: Bool, why: Watcher.Why, app: String?) -> String? {
+    static func line(trusted: Bool, active: Bool, obstacle: KeyTap.Obstacle?, ready: Bool, why: Watcher.Why) -> String? {
         guard trusted else { return "Itda needs Accessibility permission." }
         guard active else { return nil }
         if let obstacle { return obstacle.rawValue }
         guard ready else { return "The model isn't ready yet." }
         switch why {
-        case .shown, .empty, .blocked: return "Working."  // Blocked with no obstacle now: it has just ended.
+        case .shown, .idle, .blocked: return "Working."  // Blocked with no obstacle now: it has just ended.
         case .unsure: return "Working. Not sure enough to suggest yet."
         case .unreadable: return "No field here that Itda can read."
         case .textAfter: return "Text after the cursor, so no suggestion here."
         case .notTwoSet: return "Korean suggestions need Apple's 2-Set Korean layout."
         case .noModel: return "The model isn't ready yet."
         case .noCaret: return "This app doesn't say where the cursor is."
-        case .noFont: return "\(app ?? "This app") doesn't report its font, so no suggestion here."
+        case .noFont: return "This field doesn't report its font, so no suggestion here."
         case .rightToLeft: return "No suggestions in right-to-left text."
         case .noRoom: return "No room to show a suggestion here."
         }
     }
 
+    /// Main. A reason about an app no longer watched is stale. One that stands in the way ends the first accept's line.
+    func whyChanged(_ new: Watcher.Why, pid: pid_t) {
+        guard pid == bound else { return }
+        why = new
+        if !new.working { accepted = false }
+        updateIcon()  // Secure Input comes and goes with no word to us; the watcher sees it.
+    }
+
     func line(for why: Watcher.Why) -> String? {
-        App.line(trusted: trusted, active: activeHere, obstacle: tap.obstacle, ready: ready, why: why, app: NSWorkspace.shared.frontmostApplication?.localizedName)
+        App.line(trusted: trusted, active: activeHere, obstacle: tap.obstacle, ready: ready, why: why)
     }
 
     /// macOS's own grey inline predictions, which would show beside ours. Read, never written.

@@ -173,7 +173,7 @@ private struct FieldPage: View {
                     Line(text: "You can close this window.")
                 }
             } else if app.trusted {
-                if app.accepted {
+                if app.accepted, app.line(for: settled) != nil {  // Not while off.
                     HStack(spacing: 8) {
                         Line(text: "That's it. Itda works like this in almost any app.")
                         if !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }
