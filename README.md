@@ -65,7 +65,7 @@ Wired memory is what counts: nothing else can use it, and Activity Monitor's per
 - **One permission: Accessibility.** The app asks for nothing else, and it never uses Screen Recording.
 - **What it reads:** the focused field and text near it in the window, to give the model context. A key tap watches for Tab, Shift-Tab and Esc, and it sees your other keys so it can track Korean composition. All of it stays in memory.
 - **What it writes:** the on/off switch, your paused apps and the paths of models you chose as settings, and model files in Application Support. Nothing with typed text, and no logs. What you type in its own window is held in memory until the window closes.
-- **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. Nothing else, ever. With your own model already chosen it doesn't connect at all.
+- **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. And GitHub, about once a day in a release build, to check for an update and fetch it, which sends your macOS version and Itda's. Turn that off under General. Nothing else. A build you make yourself never checks.
 - **Secure fields** are skipped: Itda doesn't read them or suggest in them.
 
 ## Limits

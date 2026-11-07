@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import ItdaEngine
+import Sparkle
 
 public func runItda() {
     let app = NSApplication.shared
@@ -32,6 +33,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The model that loaded last, which is the one answering.
     @Published private var activePath: String?
     var window: NSWindow?
+    /// Started only in a released build, whose Info.plist names the feed.
+    let updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+    var isRelease: Bool { Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil }
     var askedForAccessibility = false
     private var tapFailed = false
     private var permissionTimer: Timer?
@@ -90,6 +94,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         workspace.addObserver(self, selector: #selector(rebind), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         workspace.addObserver(self, selector: #selector(spaceChanged), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
 
+        if isRelease { updates.startUpdater() }
         store.removeLeftovers()
         store.onChange = { [weak self] state in self?.modelChanged(state) }
         loadModel()
@@ -261,6 +266,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         menu.addItem(withTitle: "Choose GGUF…", action: #selector(chooseModel), keyEquivalent: "")
         if customModel != nil { menu.addItem(withTitle: "Use Default Model", action: #selector(useDefaultModel), keyEquivalent: "") }
         menu.addItem(.separator())
+        if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         for item in menu.items where item.action != #selector(NSApplication.terminate(_:)) && item.action != nil { item.target = self }
     }
@@ -275,6 +281,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
     @objc private func openWindow() { showWindow() }
+    @objc func checkForUpdates() { updates.checkForUpdates(nil) }
 
     @objc private func retryDownload() { store.fetch(store.current) }
 

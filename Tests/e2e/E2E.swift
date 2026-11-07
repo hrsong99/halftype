@@ -286,6 +286,51 @@ enum EndToEnd {
         }
     }
 
+    /// `--demo <gguf> <dir>`: the frames of the README's GIF. The sentence is invented, and each ghost is what the real model and
+    /// the real gate said at that point, drawn by the real layout. Tab takes the next word, as in the app. A delay per frame goes in delays.txt.
+    static func demo(model: String, to dir: String) {
+        guard let engine = try? Engine(modelPath: model) else { return check(false, "engine loads") }
+        defer { engine.unload() }
+        func ask(_ before: String) -> String? {
+            let prompt = Prompt.make(context: "", before: before)
+            let done = DispatchSemaphore(value: 0)
+            let result = Mutex<Suggestion?>(nil)
+            let latest = Mutex<Suggestion?>(nil)
+            engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in
+                latest.withLock { $0 = suggestion }
+                if suggestion == nil || suggestion?.gate.map({ $0 < Gate.threshold }) == true { done.signal() }
+            }
+            _ = done.wait(timeout: .now() + 3)
+            engine.cancel()
+            _ = result
+            guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= Gate.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return nil }
+            return s.text
+        }
+        var frame = 0, delays = ""
+        func draw(_ name: String, _ typed: String, _ ghost: String, _ delay: Int) {
+            frame += 1
+            onMain { render(Shot(name: String(format: "\(name)-%04d", frame), typed: typed.isEmpty ? " " : typed, ghost: ghost.isEmpty ? " " : ghost, font: 17, size: CGSize(width: 560, height: 46), dark: false), to: dir) }
+            delays += "\(String(format: "\(name)-%04d", frame)).png \(delay)\n"
+        }
+        for (name, typed, stops) in [("en", "Can you take a look at the", 3), ("ko", "오늘 회의는 세 시에", 3)] {
+            frame = 0; delays = ""
+            var text = ""
+            for c in typed {
+                text.append(c)
+                draw(name, text, "", 7)
+            }
+            for _ in 0..<stops {
+                guard let ghost = ask(text) else { break }
+                draw(name, text, ghost, 110)
+                let word = String(ghost[..<Word.firstEnd(ghost)])
+                text += word
+                draw(name, text, String(ghost.dropFirst(word.count)), 60)
+            }
+            draw(name, text, "", 180)
+            try! delays.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name)-delays.txt"), atomically: true, encoding: .utf8)
+        }
+    }
+
     static func render(_ shot: Shot, to dir: String) {
         let appearance = NSAppearance(named: shot.dark ? .darkAqua : .aqua)!
         final class Flipped: NSView { override var isFlipped: Bool { true } }
@@ -340,6 +385,9 @@ enum EndToEnd {
         if let i = CommandLine.arguments.firstIndex(of: "--engine") { return engine(path: CommandLine.arguments[i + 1]) }
         if let i = CommandLine.arguments.firstIndex(of: "--measure") { return measure(path: CommandLine.arguments[i + 1]) }
         if CommandLine.arguments.contains("--own-window") { return ownWindow() }
+        if let i = CommandLine.arguments.firstIndex(of: "--demo") {
+            return demo(model: CommandLine.arguments[i + 1], to: CommandLine.arguments[i + 2])
+        }
         if let i = CommandLine.arguments.firstIndex(of: "--window-shots") {
             return onMain { windowShots(to: CommandLine.arguments[i + 1]) }
         }

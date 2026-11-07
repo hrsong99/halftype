@@ -319,6 +319,12 @@ private struct GeneralPage: View {
     var body: some View {
         Plain(title: "General") {
             Row(title: "Start at Login") { Toggle("", isOn: $app.startAtLogin).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden() }
+            if app.isRelease {
+                Row(title: "Update Automatically", note: "Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")") {
+                    Button("Check Now", action: app.checkForUpdates)
+                    Toggle("", isOn: $app.updatesAutomatically).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
+                }
+            }
             Row(title: "Next word") { key("Tab") }
             Row(title: "Whole suggestion") { key("⇧ Tab") }
             Row(title: "Hide the suggestion") { key("Esc") }
@@ -392,6 +398,16 @@ extension App {
         } else {
             askedForAccessibility = true
             _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        }
+    }
+
+    /// Sparkle holds this. Checking and installing go together: an update that only nags isn't what the switch says.
+    var updatesAutomatically: Bool {
+        get { updates.updater.automaticallyChecksForUpdates && updates.updater.automaticallyDownloadsUpdates }
+        set {
+            objectWillChange.send()
+            updates.updater.automaticallyChecksForUpdates = newValue
+            updates.updater.automaticallyDownloadsUpdates = newValue
         }
     }
 
