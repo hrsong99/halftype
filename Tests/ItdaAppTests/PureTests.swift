@@ -1183,16 +1183,22 @@ final class FakeServer: URLProtocol {
         #expect(await soon { !app.ready })
         #expect(app.modelLine == "No model loaded" && app.notice == "Could not load " + ModelStore.models[0].file)
     }
-    @Test func aLoadUnderWayAtQuitFinishesAndCloses() {
-        let app = App(), model = CountingCompleter(""), gate = DispatchSemaphore(value: 0)
+    @Test func aLoadUnderWayAtQuitFinishesAndClosesAndOneQueuedBehindItNeverLoads() {
+        let app = App(), model = CountingCompleter(""), gate = DispatchSemaphore(value: 0), started = DispatchSemaphore(value: 0)
+        let builds = Atomic<Int>(0)
         app.makeEngine = { _, _ in
+            builds.add(1, ordering: .relaxed)
+            started.signal()
             gate.wait()
             return model
         }
         app.use(path: app.store.path(ModelStore.models[0]).path)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) { gate.signal() }
+        app.use(path: "/nonexistent/queued.gguf")
+        started.wait()  // The first load is under way; the second waits behind it.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) { gate.signal(); gate.signal() }  // A second so a wrong load fails, not hangs.
         app.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
         #expect(model.unloads.load(ordering: .relaxed) == 1)
+        #expect(builds.load(ordering: .relaxed) == 1)
     }
     @Test func aModelLoadedButNotYetInstalledAtQuitCloses() {
         let app = App(), model = CountingCompleter(""), built = DispatchSemaphore(value: 0)

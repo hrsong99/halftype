@@ -2,6 +2,7 @@ import AppKit
 import Carbon
 import ItdaEngine
 import Sparkle
+import Synchronization
 
 public func runItda() {
     let app = NSApplication.shared
@@ -167,10 +168,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// ggml's Metal device asserts at exit if a model is still loaded. A load under way finishes first, as it can't be stopped, and none
     /// starts after; then every model opened closes, installed or not.
     func applicationWillTerminate(_ note: Notification) {
-        watcher.quit(closing: loading.sync {
-            quitting = true
-            return engines.allObjects.compactMap { $0 as? Completer }
-        })
+        quitting.store(true, ordering: .sequentiallyConsistent)  // Before the drain, so opens queued behind it skip their load.
+        watcher.quit(closing: loading.sync { engines.allObjects.compactMap { $0 as? Completer } })
     }
 
     /// TIS must be read on the main thread. Going by the source's language covers third-party Korean input methods too.
@@ -267,10 +266,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Loading takes a moment and compiles Metal pipelines, so it stays off the main thread. One at a time, and the last choice wins.
     /// The model answering now keeps answering until another has loaded, and it stays if that one can't.
     /// The launch's own load only reads the preference: a choice is what writes it, and only once it has worked.
-    /// Every model opened that something still holds, so quit can close each without waiting on the watcher. Loading queue, as is
-    /// `quitting`: an engine is in here before anything else can hold it.
+    /// Every model opened that something still holds, so quit can close each without waiting on the watcher. Loading queue: an engine
+    /// is in here before anything else can hold it.
     private let engines = NSHashTable<AnyObject>.weakObjects()
-    private var quitting = false
+    private let quitting = Atomic<Bool>(false)
 
     private func open(_ path: String, remember: Bool = false) {
         if remember { afterFetch = .nothing }
@@ -279,7 +278,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         latestOpen += 1
         let id = latestOpen
         loading.async { [self] in
-            guard !quitting else { return }
+            guard !quitting.load(ordering: .sequentiallyConsistent) else { return }
             let engine = makeEngine(path) { [weak self] in DispatchQueue.main.async { self?.lost(id) } }
             if let engine { engines.add(engine) }
             DispatchQueue.main.async { [self] in
