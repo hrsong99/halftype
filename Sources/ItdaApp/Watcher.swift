@@ -415,8 +415,8 @@ final class Watcher: @unchecked Sendable {
                              mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret)
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before)
         let binding = binding
-        /// Back on the queue, and only for the binding this draw was made under.
-        func report(_ why: Why) { queue.async { [self] in if self.binding == binding { record(why) } } }
+        /// Back on the queue, and only for the binding and input this draw was made under: input during the draw has queued a newer report.
+        func report(_ why: Why) { queue.async { [self] in if self.binding == binding, tap.generation == generation { record(why) } } }
         DispatchQueue.main.async { [self] in
             guard tap.generation == generation else { return }
             // The last moment before Tab is promised, as Secure Input moves no generation.

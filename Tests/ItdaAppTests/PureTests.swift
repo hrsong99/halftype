@@ -548,7 +548,14 @@ final class FakeTap: KeyTap, @unchecked Sendable {
 /// The real `show`, never ordered onto the screen.
 final class QuietPanel: GhostPanel {
     var stranded = false
+    /// Runs inside a draw, as input arriving mid-draw does; `refuses` makes the draw find no room.
+    var onShow: (() -> Void)?
+    var refuses = false
     override var isOnActiveSpace: Bool { !stranded }
+    override func show(_ spec: GhostSpec) -> String? {
+        onShow?()
+        return refuses ? nil : super.show(spec)
+    }
     override func orderFrontRegardless() {}
 }
 
@@ -849,6 +856,21 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         watcher.queue.sync {}
         await watcher.settle()  // The draw runs now, after the rebind.
         #expect(seen.withLock { $0 } == ["unreadable 1"])
+    }
+    @Test func aDrawOvertakenByInputDoesntReportOverTheNewerReason() async {
+        let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
+        let seen = reasons(watcher)
+        panel.refuses = true
+        panel.onShow = { [self] in
+            panel.onShow = nil
+            host.now.withLock { $0.field = Field(before: "hello", after: " world") }
+            _ = keys.press(tap, keys.key(0, pid: 0))
+            watcher.scheduleUpdate()  // Queued before the draw's own report.
+        }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        await watcher.settle()
+        #expect(seen.withLock { $0 } == .textAfter)
     }
     @Test func anyKeyThatHidesTheGhostEndsShown() async {
         let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
