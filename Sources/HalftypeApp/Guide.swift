@@ -38,6 +38,12 @@ final class SettingsGuide {
             if !seen, Date().timeIntervalSince(asked) > 120 { close() }
             return
         }
+        // Settings can open behind our window, which then hides the list (seen live). We're active, so we may hand it the front:
+        // the cooperative way since macOS 14, where Settings can't take it alone.
+        if !seen, let app = NSRunningApplication.runningApplications(withBundleIdentifier: SettingsGuide.settingsID).first {
+            NSApp.yieldActivation(to: app)
+            app.activate()
+        }
         seen = true
         let panel = self.panel ?? make()
         guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(settings) }) ?? NSScreen.main else { return }
