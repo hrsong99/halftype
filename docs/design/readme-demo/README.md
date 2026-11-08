@@ -11,3 +11,13 @@ Competitors looked at: Cotabby (open source) records real apps and puts a small 
 Recommendation: B (a compose window on the app's dot sky, with a keycap that dips on each Tab), with C's chip as a hint on the first sentence. Built from the same real-model frames `scripts/demo.sh` makes today.
 
 Pick: John picked F, English only for now, and asked for a stronger example than finishing the last word of a long sentence. Built in `scripts/demo.sh` and `--demo` in Tests/e2e: a real replay with the default model, Tab wherever the grey text is what comes next, so each sentence shows about half its keys saved. Output: `docs/media/demo.gif`.
+
+## Round 2: timing
+
+John, on the glass demo with rapid Tabs (A): "Yikes that looks messy. Give me some variants of different timings and stuff".
+
+- `round2.html`: seven real renders (`round2/A–G.webp`) from `scripts/demo.sh` with `HALFTYPE_DEMO_PACE` set (in `Tests/e2e/E2E.swift`: type, tab, beat, after in hundredths; glint word, burst or none; key 0 or 1). "Replay all together" restarts them at once.
+- `round2.png`: one frame of each.
+- B–G also keep a suggestion while the typing matches it, as the app does; A asked the model again after every letter, so suggestions jumped.
+
+Recommendation: D (`beat=12,tab=14,after=8,glint=burst`).

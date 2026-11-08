@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import HalftypeCore
 
 /// Everything needed to draw one ghost, in AX coordinates (origin top-left of the primary display, y down, points).
@@ -16,6 +17,8 @@ struct GhostSpec {
     var mayWrap: Bool
     /// The caret is a web view's sliver, on screen at page zoom, while the font size beside it is before zoom.
     var webCaret = false
+    /// Our own window's field: the suggestion is drawn in the icon's glass rather than the host's colour.
+    var glass = false
 }
 
 struct GhostLayout {
@@ -25,6 +28,7 @@ struct GhostLayout {
     var storage: NSTextStorage
     var manager: NSLayoutManager
     var glyphs: NSRange
+    var glass = false
     var visibleText: String { (storage.string as NSString).substring(with: manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)) }
 
     static func font(_ spec: GhostSpec) -> NSFont {
@@ -60,7 +64,7 @@ struct GhostLayout {
         paragraph.minimumLineHeight = line
         paragraph.maximumLineHeight = line
         paragraph.lineBreakMode = .byWordWrapping
-        let storage = NSTextStorage(string: spec.text, attributes: [.font: font, .foregroundColor: color(spec), .paragraphStyle: paragraph])
+        let storage = NSTextStorage(string: spec.text, attributes: [.font: font, .foregroundColor: spec.glass ? NSColor.black : color(spec), .paragraphStyle: paragraph])
         let manager = NSLayoutManager()
         let container = NSTextContainer(size: CGSize(width: width, height: CGFloat(lines) * line))
         container.lineFragmentPadding = 0
@@ -89,7 +93,7 @@ struct GhostLayout {
         let top = baseline - baselineInLine
         let window = CGRect(x: floor(left), y: floor(top - margin), width: ceil(width + left - floor(left)), height: ceil(max(used.maxY, first.maxY) + 2 * margin) + 1)
         return GhostLayout(window: window, drawOrigin: CGPoint(x: left - floor(left), y: top - floor(top - margin)),
-                           storage: storage, manager: manager, glyphs: glyphs)
+                           storage: storage, manager: manager, glyphs: glyphs, glass: spec.glass)
     }
 
     /// Inside a word of an alphabet: Hangul and other CJK may break between any two characters, in hosts too.
@@ -121,15 +125,66 @@ struct GhostLayout {
 final class GhostView: NSView {
     var layout: GhostLayout? { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
+    /// The icon's glass, pale blue to peach across the suggestion.
+    static let glass = NSGradient(colors: [NSColor(srgbRed: 0.373, green: 0.608, blue: 0.847, alpha: 1), NSColor(srgbRed: 0.6, green: 0.69, blue: 0.79, alpha: 1),
+                                           NSColor(srgbRed: 0.91, green: 0.561, blue: 0.369, alpha: 1)])!
     override func draw(_ dirtyRect: NSRect) {
         guard let layout else { return }
+        guard layout.glass, let context = NSGraphicsContext.current?.cgContext else { return layout.manager.drawGlyphs(forGlyphRange: layout.glyphs, at: layout.drawOrigin) }
+        // The letters, then the gradient painted only where they are.
+        context.beginTransparencyLayer(auxiliaryInfo: nil)
         layout.manager.drawGlyphs(forGlyphRange: layout.glyphs, at: layout.drawOrigin)
+        context.setBlendMode(.sourceIn)
+        // In reading order: each line takes the next stretch of one gradient as long as all the lines laid end to end.
+        var lines: [CGRect] = []
+        layout.manager.enumerateLineFragments(forGlyphRange: layout.glyphs) { _, _, container, range, _ in
+            lines.append(layout.manager.boundingRect(forGlyphRange: NSIntersectionRange(range, layout.glyphs), in: container)
+                .offsetBy(dx: layout.drawOrigin.x, dy: layout.drawOrigin.y))
+        }
+        let total = lines.reduce(0) { $0 + $1.width }
+        var before: CGFloat = 0
+        for line in lines {
+            context.saveGState()
+            context.clip(to: line.insetBy(dx: 0, dy: -3))
+            Self.glass.draw(from: CGPoint(x: line.minX - before, y: 0), to: CGPoint(x: line.minX - before + total, y: 0), options: [.drawsBeforeStartingLocation, .drawsAfterEndingLocation])
+            context.restoreGState()
+            before += line.width
+        }
+        context.endTransparencyLayer()
+    }
+}
+
+/// One band of light crossing words just taken, painted only on their letters, which now sit where the ghost drew them. Progress 0 to 1.
+/// The app plays it over our own field after a Tab; the README demo draws it frame by frame.
+final class GlintView: NSView {
+    var manager: NSLayoutManager?
+    var glyphs = NSRange()
+    var origin = CGPoint.zero
+    var progress: CGFloat = 1 { didSet { needsDisplay = true } }
+    override var isFlipped: Bool { true }
+    /// Blue, a pale glass highlight (not white, which vanishes on a white field), peach.
+    static let light = NSGradient(colors: [.clear, NSColor(srgbRed: 0.45, green: 0.65, blue: 0.88, alpha: 1), NSColor(srgbRed: 0.76, green: 0.83, blue: 0.91, alpha: 1),
+                                           NSColor(srgbRed: 0.93, green: 0.6, blue: 0.42, alpha: 1), .clear])!
+    override func draw(_ dirtyRect: NSRect) {
+        guard let manager, glyphs.length > 0, progress > 0, progress < 1, let context = NSGraphicsContext.current?.cgContext else { return }
+        let words = manager.boundingRect(forGlyphRange: glyphs, in: manager.textContainers[0]).offsetBy(dx: origin.x, dy: origin.y)
+        let width = max(40, words.height * 2)
+        let band = CGRect(x: words.minX - width + progress * (words.width + width), y: words.minY - 3, width: width, height: words.height + 6)
+        // Only the letters under the band, then the light painted onto them alone.
+        context.beginTransparencyLayer(auxiliaryInfo: nil)
+        context.clip(to: band)
+        manager.drawGlyphs(forGlyphRange: glyphs, at: origin)
+        context.setBlendMode(.sourceIn)
+        Self.light.draw(in: band, angle: 0)
+        context.endTransparencyLayer()
     }
 }
 
 /// Click-through, never key, never activates, over everything on every Space including full-screen apps.
 class GhostPanel: NSPanel {
     let view = GhostView()
+    /// Marks the panel to our own observer: in Try It it is a window of the watched app, and its moves aren't the field's.
+    static let accessibilityID = "app.halftype.ghost"
 
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
@@ -141,6 +196,7 @@ class GhostPanel: NSPanel {
         level = .statusBar
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         animationBehavior = .none
+        setAccessibilityIdentifier(Self.accessibilityID)
         hidesOnDeactivate = false
         contentView = view
     }
@@ -154,6 +210,8 @@ class GhostPanel: NSPanel {
               NSScreen.screens.contains(where: { $0.frame.contains(GhostLayout.appKitRect(spec.caret, primaryHeight: primary.frame.height).origin) })
         else { hideGhost(); return nil }
         view.layout = layout
+        drawing += 1
+        taken = 0
         setFrame(GhostLayout.appKitRect(layout.window, primaryHeight: primary.frame.height), display: false, animate: false)
         view.displayIfNeeded()
         if !isVisible { orderFrontRegardless() }
@@ -165,5 +223,74 @@ class GhostPanel: NSPanel {
     func hideGhost() {
         orderOut(nil)
         view.layout = nil
+    }
+
+    private lazy var shine = GlintPanel()
+    /// Counts what `show` draws, so a Tab armed on an earlier drawing doesn't glint over this one. Main thread.
+    private(set) var drawing = 0
+    /// How much of this layout's text Tabs have taken since it was drawn, so quick Tabs before a redraw light the next words, not the first again.
+    private var taken = 0
+    /// Main thread, after a key typed the ghost's next letter: that letter is no longer drawn, and the rest stays exactly where it was,
+    /// which is where the host is putting it. Nothing hides or moves before the host's update draws the ghost again. False if it can't.
+    @discardableResult func trim(_ text: String, drawing: Int) -> Bool {
+        guard drawing == self.drawing, isVisible, var layout = view.layout, let range = Self.next(text, in: layout.storage.string, after: taken) else { return false }
+        taken = NSMaxRange(range)
+        let start = layout.manager.glyphIndexForCharacter(at: taken)
+        layout.glyphs = NSRange(location: start, length: max(NSMaxRange(layout.glyphs) - start, 0))
+        view.layout = layout
+        return true
+    }
+
+    /// Main thread, right after a Tab: in our own window the words just taken glint where this ghost drew them, if it still shows them.
+    func glint(_ text: String, drawing: Int) {
+        guard drawing == self.drawing, let layout = view.layout, layout.glass, isVisible, let range = Self.next(text, in: layout.storage.string, after: taken) else { return }
+        taken = NSMaxRange(range)
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { shine.play(layout, taken: range, frame: frame) }
+    }
+
+    /// Where `text`, just taken, sits in the drawn ghost: right after what earlier Tabs took from it, or nowhere.
+    static func next(_ text: String, in ghost: String, after taken: Int) -> NSRange? {
+        let range = NSRange(location: taken, length: (text as NSString).length)
+        guard range.length > 0, NSMaxRange(range) <= (ghost as NSString).length, (ghost as NSString).substring(with: range) == text else { return nil }
+        return range
+    }
+}
+
+/// Plays a GlintView for a quarter of a second. A ghost panel too, so Try It's observer knows its moves aren't the field's.
+final class GlintPanel: GhostPanel {
+    private let glint = GlintView()
+    private var link: CADisplayLink?
+    private var start = CFTimeInterval(0)
+    /// Held while it plays: a layout manager doesn't keep its text, and the ghost may drop this layout at once.
+    private var playing: GhostLayout?
+
+    override init() {
+        super.init()
+        contentView = glint
+    }
+
+    func play(_ layout: GhostLayout, taken: NSRange, frame: NSRect) {
+        playing = layout
+        glint.manager = layout.manager
+        glint.origin = layout.drawOrigin
+        glint.glyphs = NSIntersectionRange(layout.manager.glyphRange(forCharacterRange: taken, actualCharacterRange: nil), layout.glyphs)
+        glint.progress = 0
+        setFrame(frame, display: false, animate: false)
+        orderFrontRegardless()
+        link?.invalidate()
+        start = CACurrentMediaTime()
+        // In step with the display, and in every run loop mode, so a drag or an open menu doesn't stall it.
+        link = glint.displayLink(target: self, selector: #selector(step))
+        link?.add(to: .main, forMode: .common)
+    }
+
+    @objc private func step(_ link: CADisplayLink) {
+        let t = min((link.targetTimestamp - start) / 0.25, 1)
+        glint.progress = t * t * (3 - 2 * t)
+        guard t >= 1 else { return }
+        link.invalidate()
+        self.link = nil
+        orderOut(nil)
+        playing = nil
     }
 }

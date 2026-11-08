@@ -123,8 +123,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var why = Watcher.Why.unreadable
     /// A suggestion was taken since the window opened, and nothing has stood in the way since.
     @Published var accepted = false
-    /// Counts every Tab taken anywhere, so the window's sky can swell on one.
-    @Published var tabs = 0
     /// Counts each bind and unbind, so a reason from an earlier one is dropped.
     var binding = 0
     /// This launch began without a model or the permission, so the field gets a sentence once, and the first ghost needs no typing.
@@ -172,8 +170,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
+    /// Try It is where people judge Halftype first, so there it shows a suggestion whenever it can, as long as it can, whatever the settings say.
     func tune() {
-        Tuning.current.withLock { $0 = Tuning(floor: length.floor, threshold: often.threshold) }
+        let tryIt = NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid()
+        let tuning = tryIt ? Tuning(floor: -.infinity, threshold: Often.always.threshold) :Tuning(floor: length.floor, threshold: often.threshold)
+        guard Tuning.current.withLock({ $0 }) != tuning else { return }
+        Tuning.current.withLock { $0 = tuning }
         watcher.retune()
     }
     @Published var pausedApps = Set(UserDefaults.standard.stringArray(forKey: "pausedApps") ?? []) {
@@ -218,12 +220,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
         tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
-        tap.onAccept = { [weak self] added, keys, suggestion in
+        tap.onAccept = { [weak self] added, keys, suggestion, text, drawing in
             DispatchQueue.main.async {
                 guard let self else { return }
+                if let text { self.panel.glint(text, drawing: drawing) }
                 self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
-                self.tabs += 1
                 if !self.accepted { self.accepted = true }
             }
         }
@@ -317,6 +319,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private var activeHere: Bool { on && !pausedApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
 
     @objc private func rebind() {
+        tune()  // Try It and every other app are tuned apart.
         watcher.hideNow()
         tap.reenable()
         updateIcon()
@@ -598,7 +601,8 @@ enum Length: String, CaseIterable {
 enum Personal: String, CaseIterable { case off, compare, on }
 
 enum Often: String, CaseIterable {
-    case less, normal, more
-    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2 } }
+    case less, normal, more, always
+    /// Always has no check at all, unmeasured: what Try It shows.
+    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2; case .always: -.infinity } }
 }
 

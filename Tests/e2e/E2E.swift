@@ -251,9 +251,10 @@ enum EndToEnd {
     struct Shot {
         var name: String, typed: String, ghost: String, font: CGFloat, size: CGSize, dark: Bool
         var stage: Stage? = nil
+        var glass = false
     }
     /// The README demo's surroundings: the counts so far and whether Tab is down.
-    struct Stage { var keys: Int, wrote: Int, letters: Int, down: Bool }
+    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat, glint: CGFloat? = nil, taken: Int = 0 }
 
     /// `--shots <dir>`: a real text view with the real ghost view over it, placed by the real layout from what AX would report.
     static func shots(to dir: String) {
@@ -266,6 +267,13 @@ enum EndToEnd {
             Shot(name: "multi-line-wrap", typed: "This line is already quite close to the edge of", ghost: " the field, so the rest of the suggestion wraps", font: 14, size: CGSize(width: 400, height: 90), dark: true),
             Shot(name: "korean-light", typed: "오늘 회의는 세 시에", ghost: " 시작할 예정입니다", font: 15, size: CGSize(width: 420, height: 40), dark: false),
             Shot(name: "korean-dark-wrap", typed: "내일 오전에 다시 한번 확인해 보고 결과를 정리해서", ghost: " 공유드리겠습니다 감사합니다", font: 15, size: CGSize(width: 380, height: 90), dark: true),
+            Shot(name: "glass", typed: "See you at four, I'll bring the", ghost: " notes from Monday", font: 15, size: CGSize(width: 480, height: 40), dark: false, glass: true),
+            // The glint on " notes", just taken, a third and two thirds of the way across.
+            Shot(name: "glint-30", typed: "See you at four, I'll bring the notes", ghost: "", font: 15, size: CGSize(width: 520, height: 40), dark: false,
+                 stage: Stage(keys: 31, wrote: 6, letters: 37, press: 0, glint: 0.3, taken: 6)),
+            Shot(name: "glint-60", typed: "See you at four, I'll bring the notes", ghost: "", font: 15, size: CGSize(width: 520, height: 40), dark: false,
+                 stage: Stage(keys: 31, wrote: 6, letters: 37, press: 0, glint: 0.6, taken: 6)),
+            Shot(name: "glass-wrap", typed: "See you at four, I'll bring the notes and the", ghost: " slides from Monday's meeting", font: 15, size: CGSize(width: 380, height: 70), dark: false, glass: true),
         ]
         for shot in shots { render(shot, to: dir) }
     }
@@ -314,58 +322,114 @@ enum EndToEnd {
     static func demo(model: String, to dir: String, sentences: [String]) {
         guard let engine = try? Engine(modelPath: model) else { return check(false, "engine loads") }
         defer { engine.unload() }
+        // General's Length Long and How Often More, which anyone can choose: longer suggestions, shown more often. On these sentences it beat
+        // Try It's own (no cap, always) by a few keys (2026-11-09).
+        let tuning = Tuning(floor: Length.long.floor, threshold: Often.more.threshold)
+        Tuning.current.withLock { $0 = tuning }
         func ask(_ before: String) -> String {
             let prompt = Prompt.make(context: "", before: before)
             let latest = Mutex<Suggestion?>(nil)
             engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in latest.withLock { $0 = suggestion } }
             engine.finish()
-            guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= Gate.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return "" }
+            guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= tuning.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return "" }
             return s.text
         }
         var frame = 0, delays = ""
-        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, down: Bool = false, _ delay: Int) {
+        func shot(_ name: String, _ typed: String, _ ghost: String, _ stage: Stage) -> Shot {
+            Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false, stage: stage, glass: true)
+        }
+        // Delays in hundredths; browsers play anything under 2 as 10, so nothing goes below 3.
+        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, glint: CGFloat? = nil, taken: Int = 0, _ delay: Int) {
             frame += 1
             let name = String(format: "en-%04d", frame)
-            onMain { render(Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false,
-                                 stage: Stage(keys: keys, wrote: wrote, letters: typed.count, down: down)), to: dir) }
+            onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, glint: glint, taken: taken)), to: dir) }
             delays += "\(name).png \(delay)\n"
         }
-        // Where the app couldn't draw it (no room at the line's end), there is no suggestion to take.
-        func drawable(_ typed: String, _ ghost: String) -> Bool {
-            onMain { render(Shot(name: "", typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false,
-                                 stage: Stage(keys: 0, wrote: 0, letters: 0, down: false)), to: nil) }
+        func drawable(_ typed: String, _ ghost: String) -> Bool { onMain { render(shot("", typed, ghost, Stage(keys: 0, wrote: 0, letters: 0, press: 0)), to: nil) } }
+        // What the app would show after `text`: the suggestion, if it can be drawn there (no room at the line's end means none).
+        func suggestion(_ text: String) -> String {
+            let ghost = ask(text)
+            return ghost.isEmpty || drawable(text, ghost) ? ghost : ""
         }
+        // No pauses of its own: each frame shows the letter and, at once, what the app suggests after it; Tab comes at the typing rhythm.
+        // The pace, for docs/design/readme-demo round 2: HALFTYPE_DEMO_PACE="type=4,tab=12,beat=0,after=0,glint=word,key=1" (hundredths;
+        // glint word, burst or none). beat waits once a suggestion shows before the first Tab; after waits once a run of Tabs ends.
+        var pace = ["type": "4", "tab": "12", "beat": "0", "after": "0", "glint": "word", "key": "1"]
+        for pair in (ProcessInfo.processInfo.environment["HALFTYPE_DEMO_PACE"] ?? "").split(separator: ",") {
+            let kv = pair.split(separator: "="); if kv.count == 2 { pace[String(kv[0])] = String(kv[1]) }
+        }
+        let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!, glintMode = pace["glint"]!
+        showKey = pace["key"] != "0"
         for target in sentences {
             var text = "", keys = 0, wrote = 0
-            draw("", "", 0, 0, 60)
+            var ghost = "", burst = 0
+            draw("", "", 0, 0, 30)
             while text.count < target.count {
-                var ghost = ask(text)
-                if !ghost.isEmpty, !drawable(text, ghost) { ghost = "" }
-                // Tab while the next word is what comes next; then the app asks again.
-                var took = false
-                while !ghost.isEmpty {
-                    let word = Accept.nextWord(Ghost(remainder: ghost)).text
-                    guard !word.isEmpty, target.dropFirst(text.count).hasPrefix(word) else { break }
-                    draw(text, ghost, keys, wrote, took ? 35 : 55)
-                    draw(text, ghost, keys, wrote, down: true, 9)
-                    text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count)); took = true
+                let rest = target.dropFirst(text.count)
+                let word = ghost.isEmpty ? "" : Accept.nextWord(Ghost(remainder: ghost)).text
+                if !word.isEmpty, rest.hasPrefix(word) {
+                    if burst == 0, beat > 0 { draw(text, ghost, keys, wrote, beat) }
+                    text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count))
+                    if ghost.isEmpty { ghost = suggestion(text) }
+                    let taken = (word as NSString).length
+                    burst += taken
+                    let third = max(3, tabDelay / 3), lit = glintMode == "word"
+                    draw(text, ghost, keys, wrote, press: 1, glint: lit ? 0.3 : nil, taken: taken, third)
+                    draw(text, ghost, keys, wrote, press: 0.4, glint: lit ? 0.7 : nil, taken: taken, third)
+                    draw(text, ghost, keys, wrote, glint: lit ? 0.95 : nil, taken: taken, max(3, tabDelay - 2 * third))
+                    continue
                 }
-                if took { draw(text, ghost, keys, wrote, 25); continue }
-                if !ghost.isEmpty { draw(text, ghost, keys, wrote, 18) }  // Shown, wrong, and typed over.
-                text.append(target[target.index(target.startIndex, offsetBy: text.count)]); keys += 1
-                draw(text, "", keys, wrote, 7)
+                if burst > 0 {
+                    // A run of Tabs just ended: one sweep over all it took, then the pause.
+                    if glintMode == "burst" { for p in [0.25, 0.5, 0.75] { draw(text, ghost, keys, wrote, glint: p, taken: burst, 4) } }
+                    if after > 0 { draw(text, ghost, keys, wrote, after) }
+                    burst = 0
+                }
+                // Type the next letter. As in the app, a suggestion the letter matches stays and follows; otherwise the app asks again.
+                let letter = rest.first!
+                text.append(letter); keys += 1
+                ghost = ghost.first == letter && ghost.count > 1 ? String(ghost.dropFirst()) : suggestion(text)
+                draw(text, ghost, keys, wrote, typeDelay + Int(hash(keys, text.count) * 3))  // Unevenly, like hands.
             }
+            if burst > 0, glintMode == "burst" { for p in [0.25, 0.5, 0.75] { draw(text, ghost, keys, wrote, glint: p, taken: burst, 4) } }
             let saved = 100 * (target.count - keys) / max(target.count, 1)
             print("      \(target.count) letters, \(keys) keys, \(wrote) by Tab: \(saved)% saved | \(target)")
-            draw(text, "", keys, wrote, 220)
+            draw(text, "", keys, wrote, 170)
         }
         try! delays.write(to: URL(fileURLWithPath: dir).appendingPathComponent("en-delays.txt"), atomically: true, encoding: .utf8)
     }
 
-    /// Option F of docs/design/readme-demo: the app's dot sky, a white panel for the field, the counts so far, and a Tab keycap.
+    /// A fixed pseudo-random 0..<1, so the demo's rhythm is the same each run.
+    static func hash(_ a: Int, _ b: Int) -> Double {
+        let h = sin(Double(a) * 127.1 + Double(b) * 311.7) * 43758.5453
+        return h - h.rounded(.down)
+    }
+
+    /// Option F of docs/design/readme-demo in the home window's glass (docs/design/home-glass): cream, the blurred arch, a frosted panel for the
+    /// field with the counts so far, and the tab key. A taken suggestion glints across its own words, as in the app.
+    nonisolated(unsafe) static var showKey = true
     final class DemoStage: NSView {
         static let size = CGSize(width: 760, height: 360)
         static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
+        static let blue = NSColor(srgbRed: 0.561, green: 0.733, blue: 0.91, alpha: 1), peach = NSColor(srgbRed: 0.957, green: 0.706, blue: 0.549, alpha: 1)
+        /// The window's `Backdrop` arch, on its 720 x 460 grid scaled to this stage, blurred once.
+        static let arch: CGImage = {
+            let scale: CGFloat = 2, w = size.width * scale, h = size.height * scale
+            let context = CGContext(data: nil, width: Int(w), height: Int(h), bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.translateBy(x: 0, y: h); context.scaleBy(x: scale, y: -scale)
+            let sx = size.width / 720, sy = size.height / 460, p = { (x: CGFloat, y: CGFloat) in CGPoint(x: x * sx, y: y * sy) }
+            let path = CGMutablePath()
+            path.move(to: p(40, 400)); path.addCurve(to: p(400, 150), control1: p(160, 200), control2: p(300, 120))
+            path.addCurve(to: p(520, 370), control1: p(500, 180), control2: p(470, 330))
+            path.addCurve(to: p(700, 320), control1: p(570, 410), control2: p(640, 380))
+            context.addPath(path.copy(strokingWithWidth: 90 * sx, lineCap: .round, lineJoin: .round, miterLimit: 10))
+            context.clip()
+            let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: [blue.cgColor, NSColor(srgbRed: 0.875, green: 0.906, blue: 0.937, alpha: 1).cgColor, peach.cgColor] as CFArray, locations: nil)!
+            context.drawLinearGradient(gradient, start: p(60, 0), end: p(680, 0), options: [])
+            let blurred = CIImage(cgImage: context.makeImage()!).clampedToExtent().applyingGaussianBlur(sigma: 26 * scale).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
+            return CIContext().createCGImage(blurred, from: blurred.extent)!
+        }()
         let stage: Stage
         init(frame: CGRect, stage: Stage) { self.stage = stage; super.init(frame: frame) }
         required init?(coder: NSCoder) { nil }
@@ -373,61 +437,52 @@ enum EndToEnd {
 
         override func draw(_ dirty: NSRect) {
             let c = NSGraphicsContext.current!.cgContext
-            NSColor(srgbRed: 0.988, green: 0.98, blue: 0.965, alpha: 1).setFill()
+            NSColor(srgbRed: 0.965, green: 0.945, blue: 0.914, alpha: 1).setFill()
             bounds.fill()
-            // Halftone, as in Sky.metal: dot area is ink, blue fading down from the top, peach up from the bottom on the offset grid.
-            let cell: CGFloat = 7, h = bounds.height
-            func dots(_ color: NSColor, offset: CGFloat, ink: (CGFloat) -> CGFloat) {
-                color.setFill()
-                var y = offset
-                while y < h {
-                    let d = ink(y)
-                    if d > 0.04 {
-                        let r = cell * 0.5 * d.squareRoot()
-                        var x = offset
-                        while x < bounds.width { c.fillEllipse(in: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r)); x += cell }
-                    }
-                    y += cell
-                }
-            }
-            dots(NSColor(srgbRed: 0.56, green: 0.73, blue: 0.91, alpha: 1), offset: 0) { y in pow(max(0, 1 - y / (h * 0.34)), 1.2) }
-            dots(NSColor(srgbRed: 0.95, green: 0.68, blue: 0.53, alpha: 1), offset: cell / 2) { y in pow(max(0, (y - h * 0.62) / (h * 0.38)), 1.1) }
-
-            let panel = NSBezierPath(roundedRect: Self.panel, xRadius: 14, yRadius: 14)
-            c.saveGState()
-            c.setShadow(offset: CGSize(width: 0, height: 8), blur: 26, color: NSColor(white: 0.2, alpha: 0.16).cgColor)
-            NSColor.white.setFill(); panel.fill()
+            c.saveGState(); c.setAlpha(0.75)
+            c.translateBy(x: 0, y: bounds.height); c.scaleBy(x: 1, y: -1)  // CGImage draws bottom-up.
+            c.draw(Self.arch, in: bounds)
             c.restoreGState()
-            let divider = Self.panel.maxY - 42
-            NSColor(white: 0.93, alpha: 1).setFill()
-            NSRect(x: Self.panel.minX + 20, y: divider, width: Self.panel.width - 40, height: 1).fill()
 
-            let label: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor(white: 0.42, alpha: 1)]
+            let panel = NSBezierPath(roundedRect: Self.panel, xRadius: 20, yRadius: 20)
+            c.saveGState()
+            c.setShadow(offset: CGSize(width: 0, height: 10), blur: 30, color: NSColor(srgbRed: 0.45, green: 0.38, blue: 0.3, alpha: 0.14).cgColor)
+            NSColor(white: 1, alpha: 0.86).setFill(); panel.fill()
+            c.restoreGState()
+            NSColor(white: 1, alpha: 0.9).setStroke(); panel.lineWidth = 1; panel.stroke()
+            let divider = Self.panel.maxY - 42
+            NSColor(srgbRed: 0.9, green: 0.88, blue: 0.85, alpha: 1).setFill()
+            NSRect(x: Self.panel.minX + 22, y: divider, width: Self.panel.width - 44, height: 1).fill()
+
+            let label: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor(srgbRed: 0.45, green: 0.42, blue: 0.39, alpha: 1)]
             func number(_ n: Int, _ color: NSColor) -> NSAttributedString {
                 NSAttributedString(string: "\(n)", attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .semibold), .foregroundColor: color])
             }
             func pair(_ title: String, _ value: NSAttributedString) -> NSAttributedString {
                 let out = NSMutableAttributedString(string: title + "  ", attributes: label); out.append(value); return out
             }
-            let y = divider + 13, ink = NSColor(white: 0.1, alpha: 1)
-            pair("Keys you pressed", number(stage.keys, NSColor(srgbRed: 0.29, green: 0.55, blue: 0.84, alpha: 1))).draw(at: CGPoint(x: Self.panel.minX + 20, y: y))
-            pair("Letters Tab wrote", number(stage.wrote, ink)).draw(at: CGPoint(x: Self.panel.minX + 200, y: y))
+            let y = divider + 13
+            pair("Keys you pressed", number(stage.keys, NSColor(srgbRed: 0.29, green: 0.52, blue: 0.78, alpha: 1))).draw(at: CGPoint(x: Self.panel.minX + 22, y: y))
+            pair("Letters Halftype wrote", number(stage.wrote, NSColor(white: 0.1, alpha: 1))).draw(at: CGPoint(x: Self.panel.minX + 200, y: y))
             if stage.letters > 0, stage.wrote > 0 {
                 let saved = NSAttributedString(string: "\(100 * (stage.letters - stage.keys) / stage.letters)% fewer keys",
-                                               attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: NSColor(srgbRed: 0.82, green: 0.48, blue: 0.29, alpha: 1)])
-                saved.draw(at: CGPoint(x: Self.panel.maxX - 20 - saved.size().width, y: y))
+                                               attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: NSColor(srgbRed: 0.8, green: 0.47, blue: 0.3, alpha: 1)])
+                saved.draw(at: CGPoint(x: Self.panel.maxX - 22 - saved.size().width, y: y))
             }
 
-            // The keycap: a rounded key on its own darker edge, which it sinks into while down.
-            let key = CGRect(x: bounds.midX - 48, y: Self.panel.maxY + 26, width: 96, height: 40)
-            let sink: CGFloat = stage.down ? 3 : 0
-            NSColor(srgbRed: 0.8, green: 0.78, blue: 0.74, alpha: 1).setFill()
-            NSBezierPath(roundedRect: key.offsetBy(dx: 0, dy: 3), xRadius: 9, yRadius: 9).fill()
-            let top = NSBezierPath(roundedRect: key.offsetBy(dx: 0, dy: sink), xRadius: 9, yRadius: 9)
-            (stage.down ? NSColor(srgbRed: 0.89, green: 0.93, blue: 0.98, alpha: 1) : .white).setFill(); top.fill()
-            NSColor(srgbRed: 0.85, green: 0.83, blue: 0.79, alpha: 1).setStroke(); top.lineWidth = 1; top.stroke()
-            let tab = NSAttributedString(string: "tab ⇥", attributes: [.font: NSFont.systemFont(ofSize: 15, weight: .semibold), .foregroundColor: NSColor(white: 0.24, alpha: 1)])
-            tab.draw(at: CGPoint(x: key.midX - tab.size().width / 2, y: key.midY - tab.size().height / 2 + sink - 1))
+            // Shift and tab, side by side; each sinks into its darker edge while down.
+            func key(_ title: String, _ rect: CGRect, _ press: CGFloat) {
+                let sink = 3 * press
+                NSColor(srgbRed: 0.82, green: 0.79, blue: 0.75, alpha: 1).setFill()
+                NSBezierPath(roundedRect: rect.offsetBy(dx: 0, dy: 3), xRadius: 9, yRadius: 9).fill()
+                let top = NSBezierPath(roundedRect: rect.offsetBy(dx: 0, dy: sink), xRadius: 9, yRadius: 9)
+                NSColor(white: 1, alpha: 1).blended(withFraction: press, of: NSColor(srgbRed: 0.87, green: 0.91, blue: 0.97, alpha: 1))!.setFill(); top.fill()
+                NSColor(srgbRed: 0.86, green: 0.83, blue: 0.79, alpha: 1).setStroke(); top.lineWidth = 1; top.stroke()
+                let text = NSAttributedString(string: title, attributes: [.font: NSFont.systemFont(ofSize: 15, weight: .semibold), .foregroundColor: NSColor(white: 0.26, alpha: 1)])
+                text.draw(at: CGPoint(x: rect.midX - text.size().width / 2, y: rect.midY - text.size().height / 2 + sink - 1))
+            }
+            let top = Self.panel.maxY + 26
+            if EndToEnd.showKey { key("tab ⇥", CGRect(x: bounds.midX - 48, y: top, width: 96, height: 40), stage.press) }
         }
     }
 
@@ -467,7 +522,7 @@ enum EndToEnd {
         let caret = CGRect(x: frame.minX + origin.x + glyphRect.maxX, y: frame.minY + origin.y + line.minY, width: 0, height: line.height)
         let spec = GhostSpec(text: shot.ghost, caret: caret, frame: frame, fontSize: shot.font, fontName: nil,
                              color: appearance.performAsCurrentDrawingAppearance2 { NSColor.textColor.usingColorSpace(.sRGB)!.cgColor },
-                             lineLeft: frame.minX + origin.x + container.lineFragmentPadding, previousCharacter: String(shot.typed.last!), mayWrap: true)
+                             lineLeft: frame.minX + origin.x + container.lineFragmentPadding, previousCharacter: String(shot.typed.last!), mayWrap: true, glass: shot.glass)
         if !shot.ghost.isEmpty {
             guard let layout = GhostLayout.make(spec) else { if dir != nil { check(false, "\(shot.name): no ghost") }; return false }
             if dir == nil { return true }
@@ -475,6 +530,16 @@ enum EndToEnd {
             ghost.layout = layout
             scene.addSubview(ghost)
             print("      \(shot.name): visible '\(layout.visibleText)'")
+        }
+        // The app's glint on the words just taken, the last `taken` of what's typed, at this frame's progress.
+        if let glint = shot.stage?.glint, let taken = shot.stage?.taken, taken > 0 {
+            let length = (shot.typed as NSString).length
+            let view = GlintView(frame: frame)
+            view.manager = text.layoutManager
+            view.origin = text.textContainerOrigin
+            view.glyphs = text.layoutManager!.glyphRange(forCharacterRange: NSRange(location: length - taken, length: taken), actualCharacterRange: nil)
+            view.progress = glint
+            scene.addSubview(view)
         }
 
         let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(scene.bounds.width * 2), pixelsHigh: Int(scene.bounds.height * 2), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,

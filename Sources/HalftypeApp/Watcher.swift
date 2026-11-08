@@ -26,6 +26,10 @@ final class Watcher: @unchecked Sendable {
     // On the field only: app-wide AXValueChanged storms while a reply streams.
     private static let fieldNotifications = ["AXValueChanged", "AXSelectedTextChanged"]
     private static let oneFrame: TimeInterval = 1.0 / 60
+    /// shortcut: a guess at the slowest host's answer to a key, half a second; measure Chromium's (docs/measuring.md) and set it from that.
+    private static let unanswered: TimeInterval = 0.5
+    /// The input whose letter the drawing lost in place, which the frame's hide leaves to the host's update. Main thread.
+    private var trimmed = -1
 
     let queue = DispatchQueue(label: "halftype.watcher", qos: .userInteractive)
     let tap: KeyTap
@@ -101,7 +105,20 @@ final class Watcher: @unchecked Sendable {
         tap.onInput = { [weak self] generation in
             if let self { healing.run(on: queue) { [weak self] in self?.heal() } }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.oneFrame) {
-                if self?.tap.generation == generation { self?.hideDisarmed() }
+                if self?.tap.generation == generation, self?.trimmed != generation { self?.hideDisarmed() }
+            }
+        }
+        // Typed through: the drawing loses the letter in place and waits for the host, disarmed, rather than hide after a frame. A host that
+        // never shows the letter can't keep it up: with no new drawing and no other input, it goes after the time any host takes to answer.
+        // Not with a Korean source, which may recompose the letter before. Queued before `onInput`'s frame, so it runs first.
+        tap.onTypedThrough = { [weak self] drawing, text, generation in
+            guard let self, !koreanInput.load(ordering: .relaxed) else { return }
+            DispatchQueue.main.async {
+                guard self.panel.trim(text, drawing: drawing) else { return }
+                self.trimmed = generation
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.unanswered) {
+                    if self.tap.generation == generation, self.panel.drawing == drawing { self.hidePanel() }
+                }
             }
         }
     }
@@ -115,8 +132,8 @@ final class Watcher: @unchecked Sendable {
             detach()
             let app = AXUIElementCreateApplication(pid)
             var created: AXObserver?
-            let callback: AXObserverCallback = { _, _, name, refcon in
-                Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String)
+            let callback: AXObserverCallback = { _, element, name, refcon in
+                Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String, element)
             }
             guard AXObserverCreate(pid, callback, &created) == .success, let observer = created else { return }
             self.app = app
@@ -162,9 +179,11 @@ final class Watcher: @unchecked Sendable {
     }
 
     /// Main run loop, no IPC here.
-    private func notified(_ name: String) {
+    private func notified(_ name: String, _ element: AXUIElement) {
         switch name {
         case "AXWindowMoved", "AXWindowResized":
+            // In Try It our own panel's moves come here too, and drawing a ghost moves it: that hide disarmed every ghost there.
+            guard !Self.isGhostPanel(element) else { return }
             hideNow()
         case "AXFocusedUIElementChanged", "AXFocusedWindowChanged", "AXMainWindowChanged":
             hideNow()  // Before the read, which may stall: from here Tab belongs to whatever has focus.
@@ -175,6 +194,13 @@ final class Watcher: @unchecked Sendable {
         default:
             scheduleUpdate()
         }
+    }
+
+    /// Only asks our own process, which answers in-process: the main thread does no IPC here.
+    static func isGhostPanel(_ element: AXUIElement) -> Bool {
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(element, &pid) == .success, pid == getpid() else { return false }
+        return AX.get(element, "AXIdentifier") as? String == GhostPanel.accessibilityID
     }
 
     /// Reads coalesce, so a hung app can't build a backlog.
@@ -419,7 +445,7 @@ final class Watcher: @unchecked Sendable {
         }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
-                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret)
+                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid())
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before, suggestion: suggestionNumber)
         let binding = binding
         /// Back on the queue, and only for the binding and input this draw was made under: input during the draw has queued a newer report.
@@ -438,6 +464,7 @@ final class Watcher: @unchecked Sendable {
             }
             var offer = armed
             offer.ghost.remainder = drawn  // `suggestion` keeps the rest, to draw as the field reaches it.
+            offer.drawing = panel.drawing
             guard typedThrough || Gate.worthShowing(offer.ghost) else {  // What fits must still be worth a Tab.
                 report(.noRoom)
                 return hidePanel()

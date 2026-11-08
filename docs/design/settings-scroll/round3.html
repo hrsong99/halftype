@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings Scroll, Round 3</title>
+<style>
+:root{--bg:#0d0e10;--ink:#ececee;--mut:#9a9aa2;--line:#2a2b30;--card:#17181b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+header{max-width:1240px;margin:0 auto;padding:28px 16px 8px}
+h1{font-size:22px;margin:0 0 6px}
+.q{color:var(--mut);margin:0 0 14px}
+.rec{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:0 0 10px}
+.bar{display:flex;gap:8px;align-items:center;margin:14px 0 0}
+.bar button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:4px 10px;cursor:pointer}
+main{max-width:1240px;margin:0 auto;padding:8px 16px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(560px,1fr));gap:22px}
+@media (max-width:640px){main{grid-template-columns:1fr}}
+h2.row{grid-column:1/-1;font-size:15px;margin:18px 0 -6px;color:var(--mut);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h3{margin:0 0 4px;font-size:16px}.card h3 b{display:inline-block;width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--bg);text-align:center;line-height:26px;margin-right:8px;font-size:14px}
+.card p{margin:4px 0 0;color:var(--mut);font-size:13px}
+.card img.shot{width:100%;border-radius:10px;margin:10px 0 8px;display:block}
+.stage{width:100%;aspect-ratio:720/500;position:relative;margin:10px 0 8px;container-type:inline-size}
+.stage>.win{position:absolute;top:0;left:0;transform-origin:0 0;transform:scale(calc(100cqw / 720px))}
+
+.win{--paper:#fcfaf6;--wt:#1d1d1f;--ws:#86868b;--hair:rgba(0,0,0,.09);--pane:rgba(252,250,246,.72);--peach:#e9a37c;
+  width:720px;height:500px;border-radius:12px;overflow:hidden;position:relative;background:var(--paper);color:var(--wt);
+  box-shadow:0 0 0 .5px rgba(0,0,0,.25),0 12px 30px rgba(0,0,0,.18);font:13px/1.4 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+.win.dark{--paper:#121317;--wt:#e8e8ea;--ws:#8d8d93;--hair:rgba(255,255,255,.09);--pane:rgba(24,25,30,.78);--peach:#c98a66}
+canvas.sky{position:absolute;left:0;top:0;width:720px;height:500px;pointer-events:none}
+.lights{position:absolute;top:10px;left:13px;display:flex;gap:8px;z-index:9}.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.scroll{position:absolute;inset:0;overflow:auto;z-index:4;scrollbar-width:thin}
+/* the floating card (F) with M's nesting */
+.side{position:absolute;top:36px;bottom:10px;left:10px;width:142px;padding:10px 8px;border-radius:14px;z-index:6;display:flex;flex-direction:column;gap:1px;
+  background:color-mix(in srgb,var(--paper) 90%,transparent);backdrop-filter:blur(8px);box-shadow:0 0 0 .5px var(--hair),0 6px 18px rgba(0,0,0,.08);}
+.win.ready .side{transition:transform .35s ease,opacity .35s}
+.side a{padding:5px 10px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:7px}
+.side a.on{background:color-mix(in srgb,var(--wt) 7%,transparent)}
+.side .hd{font-size:11px;color:var(--ws);padding:10px 10px 3px;border-top:1px solid var(--hair);margin-top:6px}
+.side a.sub{padding-left:12px;font-size:12.5px;color:var(--ws)}.side a.sub.on{color:var(--wt)}
+.side a.sub:before{content:"";width:5px;height:5px;border-radius:50%;background:transparent;flex:none}.side a.sub.on:before{background:var(--peach)}
+.side .sp{flex:1}.side .tog{padding:0 10px;display:flex;align-items:center;gap:8px}
+.sw{width:26px;height:15px;border-radius:8px;background:var(--wt);position:relative;display:inline-block;flex:none}.sw:after{content:"";position:absolute;right:2px;top:2px;width:11px;height:11px;border-radius:50%;background:var(--paper)}
+.sw.off{background:color-mix(in srgb,var(--wt) 20%,transparent)}.sw.off:after{right:auto;left:2px}
+/* hero (E) */
+.hero{position:relative;height:500px}
+.field{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:400px;text-align:center}
+.mark{font:italic 600 34px/1 Georgia,serif;margin-bottom:14px;background:linear-gradient(90deg,var(--wt) 40%,#a9cdf0,#f6c3a4);-webkit-background-clip:text;color:transparent}
+.box{background:var(--pane);backdrop-filter:blur(4px);border-radius:16px;padding:14px 16px 10px;text-align:left;color:var(--ws);height:94px;position:relative;border:1px solid var(--hair)}
+.box .pill{position:absolute;right:44px;bottom:10px;color:var(--wt);font-size:12px;padding:3px 8px 3px 6px;border-radius:9px;background:color-mix(in srgb,var(--wt) 6%,transparent);display:flex;gap:5px;align-items:center}
+.box .pw{position:absolute;right:12px;bottom:8px;width:24px;height:24px;border-radius:50%;background:var(--wt)}
+.status{margin-top:12px;color:var(--ws);font-size:12px}
+.hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:11.5px;color:var(--ws);cursor:pointer}
+/* settings, with M's clarity */
+.pane{background:var(--pane);backdrop-filter:blur(3px);border-radius:16px;padding:18px 20px;box-shadow:0 0 0 .5px var(--hair)}
+.sec{scroll-margin-top:36px}
+.sec h4{font-size:19px;font-weight:650;margin:0}
+.sec .sub{color:var(--ws);font-size:12px;margin:2px 0 10px}
+.sec+.sec{margin-top:30px}
+.figs{display:flex;gap:28px;align-items:baseline;padding:4px 0 12px}
+.fig b{display:block;font-size:24px;font-weight:400}.fig.big b{font-size:38px;font-weight:600}.fig span{font-size:11.5px;color:var(--ws)}
+.chart{display:flex;gap:6px;align-items:flex-end;height:70px;border-top:1px solid var(--hair);padding-top:8px}.chart i{flex:1;background:color-mix(in srgb,var(--wt) 16%,transparent);border-radius:3px}.chart i:last-child{background:color-mix(in srgb,var(--wt) 85%,transparent)}
+.cap{font-size:11.5px;color:var(--ws);margin:10px 0 0}
+.r{border-top:1px solid var(--hair);display:flex;align-items:center;gap:10px;padding:9px 0}.r .t{flex:1;min-width:0}.r .n{display:block;font-size:11px;color:var(--ws)}
+.r.use{border:1px solid color-mix(in srgb,var(--peach) 70%,transparent);border-radius:10px;padding:9px 10px;margin:0 -11px 4px}
+.r.use+.r{border-top:0}
+.ico{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;background:#fff;box-shadow:0 0 0 .5px var(--hair)}
+.ico svg,.ico img{width:20px;height:20px}.ico img.app{width:30px;height:30px}
+.ico.app{background:none;box-shadow:none}
+.ico.file{background:color-mix(in srgb,var(--wt) 6%,transparent);color:var(--ws);font-size:15px}
+.btn{border:1px solid var(--hair);background:color-mix(in srgb,var(--wt) 6%,var(--paper));border-radius:6px;padding:2px 10px;font-size:12px;min-width:64px;text-align:center}
+.mut{color:var(--ws);font-size:12px}
+.dot{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ws);min-width:64px}.dot:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--peach)}
+.seg{display:flex;border:1px solid var(--hair);border-radius:6px;overflow:hidden;font-size:11.5px}.seg span{padding:2px 11px}.seg span.s{background:color-mix(in srgb,var(--wt) 12%,transparent)}
+.key{font-size:11px;border:1px solid var(--hair);border-radius:4px;padding:0 6px}
+.foot{font-size:11.5px;color:var(--ws);margin-top:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mc{border:1px solid var(--hair);border-radius:12px;padding:10px;display:flex;gap:10px;align-items:center;background:color-mix(in srgb,var(--paper) 50%,transparent)}
+.mc.use{border-color:color-mix(in srgb,var(--peach) 75%,transparent)}
+.mc .t{flex:1;min-width:0}.mc .n{display:block;font-size:11px;color:var(--ws)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:7px;border:1px solid var(--hair);border-radius:20px;padding:3px 10px 3px 4px;font-size:12px}
+.chip img{width:22px;height:22px}.chip .x{color:var(--ws);margin-left:2px}
+.tbtn{position:absolute;top:8px;left:84px;z-index:9;width:18px;height:14px;border:1.4px solid var(--ws);border-radius:3px;cursor:pointer}.tbtn:before{content:"";position:absolute;left:4px;top:0;bottom:0;border-left:1.4px solid var(--ws)}
+.win.closed .tbtn{opacity:.6}
+.win.ready .hero,.win.ready .pane.body{transition:margin .35s ease}
+.hero{margin-left:160px}.pane.body{margin:0 24px 24px 168px}
+.win.closed .hero{margin-left:0}.win.closed .pane.body{margin:0 84px 24px 84px}
+.win.railed .pane.body{margin-left:60px}
+.win.closed .side{transform:translateX(-170px);opacity:0}
+.rail{position:absolute;left:12px;top:50%;transform:translate(-30px,-50%);opacity:0;z-index:6;display:flex;flex-direction:column;gap:12px;padding:12px 9px;border-radius:12px;background:color-mix(in srgb,var(--paper) 90%,transparent);box-shadow:0 0 0 .5px var(--hair)}
+.win.ready .rail{transition:.35s}
+.win.railed .rail{transform:translate(0,-50%);opacity:1}
+.rail a{width:8px;height:8px;border-radius:50%;background:color-mix(in srgb,var(--wt) 25%,transparent);cursor:pointer}.rail a.on{background:var(--peach);transform:scale(1.3)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Round 3: where the sidebar toggle goes</h1>
+  <p class="q">John: “A is okay but where's the button to toggle the side bar? C is also not bad tho...” Every window is live: scroll it, and click the toggle right of the traffic lights.</p>
+  <div class="rec"><b>The toggle was missing because I left it out in round 2</b>, on the idea that a floating card that never moves wouldn't need hiding. That was my call, not yours. <b>Recommendation: B.</b> It keeps what you liked in C (Try It gets the whole window, the card comes with the settings) and still lets you hide or pin the card. A is the plainer choice if you'd rather the card always do what you last told it.</div>
+  <div class="bar">Window: <button id="dk">Dark</button><button id="lt">Light</button></div>
+</header>
+<main id="m"></main>
+
+<script>
+const ICON = {
+ qwen: `<img src="images/icons/qwen-color.svg" alt="">`,
+ gemma: `<img src="images/icons/gemma-color.svg" alt="">`,
+ kakao: `<img src="images/icons/kakao.png" alt="" style="width:30px;height:30px;border-radius:8px">`,
+};
+const app = n => `<span class="ico app"><img class="app" src="images/icons/${n}.png" alt=""></span>`;
+const MODELS = [
+ ['qwen','Qwen 3.5 0.8B','The default. The smallest and quickest.','533 MB','use'],
+ ['qwen','Qwen 3.5 2B','Better in Korean, and 2.4 times the size.','1.3 GB','Get'],
+ ['kakao','Kanana 1.5','From Kakao, and strongest in Korean.','1.3 GB','Get'],
+ ['gemma','Gemma 4 E2B','Slightly better in English, and much larger.','3.1 GB','Get'],
+];
+const mrow = ([i,n,note,size,a]) => `<div class="r${a=='use'?' use':''}"><span class="ico">${ICON[i]}</span><span class="t">${n}<span class="n">${note}</span></span><span class="mut">${size}</span>${a=='use'?'<span class="dot">In use</span>':`<span class="btn">${a}</span>`}</div>`;
+const mcard = ([i,n,note,size,a]) => `<div class="mc${a=='use'?' use':''}"><span class="ico">${ICON[i]}</span><span class="t">${n}<span class="n">${size} · ${a=='use'?'In use':note.split(',')[0]}</span></span>${a=='use'?'':`<span class="btn" style="min-width:44px">${a}</span>`}</div>`;
+const STATS = `<section class="sec" data-s="Stats"><h4>Stats</h4><div class="sub">Only counts are kept, never what you type.</div>
+ <div class="figs"><div class="fig big"><b>84</b><span>Tabs today</span></div><div class="fig"><b>378</b><span>letters typed for you</span></div><div class="fig"><b>34%</b><span>of suggestions taken</span></div></div>
+ <div class="chart">${[92,98,125,112,103,20,16,88,117,130,108,121,15,84].map(v=>`<i style="height:${v/1.6}%"></i>`).join('')}</div>
+ <div class="cap">Last 14 days: 1,236 Tabs · 5,560 letters in all</div></section>`;
+const modelsSec = cards => `<section class="sec" data-s="Models"><h4>Models</h4><div class="sub">They run on this Mac. Bigger ones are better and slower.</div>
+ ${cards ? `<div class="grid">${MODELS.map(mcard).join('')}</div><div class="r" style="margin-top:8px"><span class="ico file">＋</span><span class="t">Add Your Own GGUF</span><span class="btn">Choose…</span></div>` : MODELS.map(mrow).join('') + `<div class="r"><span class="ico file">＋</span><span class="t">Add Your Own GGUF<span class="n">Any .gguf file on this Mac.</span></span><span class="btn">Choose…</span></div>`}</section>`;
+const appsSec = chips => `<section class="sec" data-s="Apps"><h4>Paused Apps</h4><div class="sub">Halftype stays quiet in these apps, and Tab is theirs.</div>
+ ${chips ? `<div class="chips">${['Terminal','Ghostty','Xcode'].map(n=>`<span class="chip"><img src="images/icons/${n}.png" alt="">${n}<span class="x">✕</span></span>`).join('')}<span class="chip" style="padding-left:10px">＋ Add App…</span></div>`
+ : ['Terminal','Ghostty','Xcode'].map(n=>`<div class="r">${app(n)}<span class="t">${n}</span><span class="btn">Remove</span></div>`).join('') + `<div class="r"><span class="ico file">＋</span><span class="t">Add App…</span></div>`}</section>`;
+const GENERAL = `<section class="sec" data-s="General"><h4>General</h4><div class="sub">How much it suggests, and how you take it.</div>
+ <div class="r"><span class="t">Start at Login</span><span class="sw"></span></div>
+ <div class="r"><span class="t">Update Automatically<span class="n">Version 0.9</span></span><span class="btn">Check Now</span><span class="sw"></span></div>
+ <div class="r"><span class="t">Length<span class="n">Longer suggestions are wrong more often.</span></span><span class="seg"><span>Short</span><span class="s">Medium</span><span>Long</span></span></div>
+ <div class="r"><span class="t">How Often<span class="n">More often means more wrong ones.</span></span><span class="seg"><span>Less</span><span class="s">Normal</span><span>More</span></span></div>
+ <div class="r"><span class="t">Next word</span><span class="key">Tab</span></div>
+ <div class="r"><span class="t">Whole suggestion</span><span class="key">⇧ Tab</span></div>
+ <div class="r"><span class="t">Hide the suggestion</span><span class="key">Esc</span></div>
+ <div class="foot">Everything runs on this Mac. Nothing you type is sent, and only counts are saved, never text.</div></section>`;
+const SECS = ['Stats','Models','Apps','General'];
+const FIELD = `<div class="field"><div class="mark">h</div><div class="box">Type here, then press Tab on the grey text<span class="pill"><span style="width:14px;height:14px;display:inline-flex">${ICON.qwen.replace('<img','<img style="width:14px;height:14px"')}</span>Qwen 3.5 0.8B</span><span class="pw"></span></div><div class="status">Working.</div></div>`;
+
+// Sky.metal, ported: blue fades out before the clear band's top, peach rises after its bottom.
+function sky(cv, [t, b], dark) {
+  const W = 720, H = 500, r = 2; if (cv.width !== W * r) { cv.width = W * r; cv.height = H * r; }
+  const c = cv.getContext('2d'); c.setTransform(r, 0, 0, r, 0, 0); c.globalCompositeOperation = 'source-over';
+  c.fillStyle = dark ? '#121317' : '#fcfaf6'; c.fillRect(0, 0, W, H);
+  const cell = 6, sat = v => Math.max(0, Math.min(1, v));
+  const draw = (col, off, f) => { c.fillStyle = col; for (let y = off; y < H + cell; y += cell) { const d = f(y); if (d <= .04) continue; const rad = cell * .62 * Math.sqrt(d); c.beginPath(); for (let x = off; x < W + cell; x += cell) { c.moveTo(x + rad, y); c.arc(x, y, rad, 0, 7); } c.fill(); } };
+  c.globalCompositeOperation = dark ? 'lighter' : 'multiply';
+  draw(dark ? '#213850' : '#a9cdf0', 0, y => sat(.62 - (y * .413 / Math.max(t, 1)) * 1.5));
+  draw(dark ? '#4d3024' : '#f6c3a4', cell / 2, y => sat(.44 * (y - b) / Math.max(H - b, 1) * 1.45));
+}
+
+const OPTIONS = [
+ {L:'A', name:'A, with the toggle back', note:'The card shows until you hide it, as the sidebar does today. Hidden, the field and the settings re-centre in the whole window. The toggle sits where it is now, right of the traffic lights. Build: as round 2 A, plus today\'s toggle animating one inset.', mode:'manual', open:true},
+ {L:'B', name:'C, with the toggle as an override', note:'Automatic until you touch it: no card on Try It, the card slides in when you reach the settings. Clicking the toggle pins it open or shut for as long as the window is open. Build: round 2 C plus one optional Bool.', mode:'auto'},
+ {L:'C', name:'C, where the toggle opens a rail', note:'Like B, but hidden means a slim rail of dots, one per section, rather than nothing; hover shows the names. So you always know where you are in the page. Build: medium; the rail is a second layout of the same card.', mode:'rail'},
+];
+
+let dark = true;
+function render() {
+  const m = document.getElementById('m'); m.innerHTML = '';
+  for (const o of OPTIONS) {
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `<h3><b>${o.L}</b>${o.name}</h3><div class="stage"><div class="win${dark ? ' dark' : ''}"></div></div><p>${o.note}</p>`;
+    m.appendChild(card); build(card.querySelector('.win'), o);
+  }
+}
+
+function build(win, o) {
+  const H = 500;
+  win.innerHTML = `<div class="lights"><i></i><i></i><i></i></div><div class="tbtn" title="Show or hide the sidebar"></div>`;
+  const cv = document.createElement('canvas'); cv.className = 'sky'; win.prepend(cv);
+  const sc = document.createElement('div'); sc.className = 'scroll'; win.appendChild(sc);
+  sc.innerHTML = `<div class="hero" style="height:${H}px">${FIELD}<div class="hint">Settings ↓</div></div><div class="pane body">${STATS}${modelsSec(false)}${appsSec(false)}${GENERAL}</div><div style="height:20px"></div>`;
+  const side = document.createElement('div'); side.className = 'side';
+  side.innerHTML = `<a data-p="Try It">Try It</a><div class="hd">Settings</div>${SECS.map(s => `<a class="sub" data-p="${s}"><span class="lb">${s}</span></a>`).join('')}<div class="sp"></div><div class="tog">On <span class="sw"></span></div>`;
+  win.appendChild(side);
+  const rail = document.createElement('div'); rail.className = 'rail';
+  rail.innerHTML = SECS.map(s => `<a data-p="${s}" title="${s}"></a>`).join(''); win.appendChild(rail);
+  const links = [...side.querySelectorAll('a'), ...rail.querySelectorAll('a')];
+  const scale = () => win.getBoundingClientRect().height / H;
+  links.forEach(a => a.onclick = () => { const el = sc.querySelector(`[data-s="${a.dataset.p}"]`);
+    sc.scrollTo({ top: a.dataset.p === 'Try It' ? 0 : sc.scrollTop + (el.getBoundingClientRect().top - sc.getBoundingClientRect().top) / scale() - 36, behavior: 'smooth' }); });
+  sc.querySelector('.hint').onclick = () => sc.scrollTo({ top: H - 30, behavior: 'smooth' });
+  let pinned = o.mode === 'manual' ? o.open : null;
+  win.querySelector('.tbtn').onclick = () => { pinned = !shown(); update(); };
+  const shown = () => pinned ?? (sc.scrollTop > H * .45);
+  let raf = 0;
+  function update() {
+    raf = 0; const s = sc.scrollTop, open = shown(), railOn = o.mode === 'rail' && !open && s > H * .45;
+    win.classList.toggle('closed', !open); win.classList.toggle('railed', railOn);
+    let cur = 'Try It';
+    for (const el of sc.querySelectorAll('.sec')) if ((el.getBoundingClientRect().top - sc.getBoundingClientRect().top) / scale() < 200) cur = el.dataset.s;
+    if (s + sc.clientHeight >= sc.scrollHeight - 4) cur = 'General';
+    links.forEach(a => a.classList.toggle('on', a.dataset.p === cur));
+    const f = Math.min(s / 260, 1); sky(cv, [Math.max(36, 150 - s), (1 - f) * (360 - s) + f * (H - 30)], dark);
+  }
+  sc.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(update); });
+  update(); requestAnimationFrame(() => win.classList.add('ready'));
+}
+document.getElementById('dk').onclick = () => { dark = true; render(); };
+document.getElementById('lt').onclick = () => { dark = false; render(); };
+if (location.hash === '#light') dark = false;
+render();
+</script>
+</body>
+</html>

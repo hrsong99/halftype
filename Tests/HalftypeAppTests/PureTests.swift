@@ -312,16 +312,50 @@ import Testing
         #expect(decide(53, .maskShift) == .dismiss(swallow: true))
         #expect(decide(53, [.maskCommand, .maskAlternate]) == .dismiss(swallow: false))
     }
-    @Test func anAcceptIsReportedAndNothingElseIs() {
-        let accepts = Atomic<Int>(0)
+    func typing(_ text: String, code: CGKeyCode = 17) -> CGEvent {
+        let event = key(code)
+        let units = Array(text.utf16)
+        event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+        return event
+    }
+    @Test func typingTheGhostsNextLetterIsReportedForTheDrawingAndStillDisarms() {
+        let through = Mutex<[String]>([])
         let tap = KeyTap()
-        tap.onAccept = { _, _, _ in accepts.add(1, ordering: .relaxed) }
+        tap.onTypedThrough = { drawing, text, _ in through.withLock { $0.append("\(drawing):\(text)") } }
+        #expect(tap.arm(.init(pid: pid, ghost: Ghost(remainder: "there friend"), typesKeys: false, committed: "hello ", before: "hello ", drawing: 3), generation: tap.generation))
+        _ = press(tap, typing("o"))  // An ordinary English letter first, which `composes` counts as a letter key.
+        #expect(through.withLock { $0 }.isEmpty)
+        #expect(tap.arm(.init(pid: pid, ghost: Ghost(remainder: "there friend"), typesKeys: false, committed: "hello ", before: "hello ", drawing: 3), generation: tap.generation))
+        #expect(!press(tap, typing("t")).swallowed, "the host types it")
+        #expect(tap.state.withLock { $0.armed } == nil, "Tab waits for the host to confirm the letter: a web editor may have eaten it")
+        #expect(!press(tap, key(48)).swallowed)
+        #expect(through.withLock { $0 } == ["3:t"], "after another letter key, still reported")
+        armed(tap, Ghost(remainder: "t"))
+        _ = press(tap, typing("t"))
+        armed(tap, Ghost(remainder: "there"), typesKeys: true)
+        _ = press(tap, typing("t"))
+        #expect(through.withLock { $0 } == ["3:t"], "not the last letter, nor 2-set, which the input method recomposes")
+    }
+    @Test func aTabReportsTheDrawingItWasTakenFromAndTheRestKeepsIt() {
+        let drawings = Mutex<[Int]>([])
+        let tap = KeyTap()
+        tap.onAccept = { _, _, _, _, drawing in drawings.withLock { $0.append(drawing) } }
+        #expect(tap.arm(.init(pid: pid, ghost: Ghost(remainder: " very very good"), typesKeys: false, committed: "hello", before: "hello", drawing: 7), generation: tap.generation))
+        _ = press(tap, key(48))
+        _ = press(tap, key(48))  // Before any redraw: the rest after a Tab, still on drawing 7.
+        #expect(drawings.withLock { $0 } == [7, 7], "a glint is matched to the drawing its words were on, and skipped after a redraw")
+    }
+    @Test func anAcceptIsReportedAndNothingElseIs() {
+        let accepts = Atomic<Int>(0), taken = Mutex("")
+        let tap = KeyTap()
+        tap.onAccept = { _, _, _, text, _ in accepts.add(1, ordering: .relaxed); taken.withLock { $0 = text ?? "" } }
         #expect(!press(tap, key(48)).swallowed && accepts.load(ordering: .relaxed) == 0)  // No ghost: the app's Tab.
         armed(tap, Ghost(remainder: " there"))
         _ = press(tap, key(53))
         #expect(accepts.load(ordering: .relaxed) == 0)
         armed(tap, Ghost(remainder: " there"))
         #expect(press(tap, key(48)).swallowed && accepts.load(ordering: .relaxed) == 1)
+        #expect(taken.withLock { $0 } == " there", "what was typed, for the glint over it")
     }
     @Test func escHidesTheGhostOnceThenIsTheApps() {
         let dismissed = Atomic<Int>(0)
@@ -1439,7 +1473,7 @@ final class FakeServer: URLProtocol {
     }
 }
 
-/// The window's states as PNGs, drawn off screen, so nothing takes focus. `HALFTYPE_SHOTS=<dir> swift test --filter WindowShots`. The sky's shader is blank in these; 13 and 14 draw it alone.
+/// The window's states as PNGs, drawn off screen, so nothing takes focus. `HALFTYPE_SHOTS=<dir> swift test --filter WindowShots`. cacheDisplay leaves out SwiftUI's Canvas, so the ribbon shows only in 15.
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] != nil)) @MainActor struct WindowShots {
     let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] ?? "")
 
@@ -1451,9 +1485,8 @@ final class FakeServer: URLProtocol {
     }
     func textView(in view: NSView) -> NSTextView? { (view as? NSTextView) ?? view.subviews.lazy.compactMap(textView).first }
 
-    @discardableResult func shoot(_ name: String, _ app: App, page: Root.Page = .field, dark: Bool = false) -> NSView {
+    @discardableResult func shoot(_ name: String, _ app: App, page: Root.Page = .field) -> NSView {
         let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field))
-        host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
         let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = host
@@ -1465,6 +1498,23 @@ final class FakeServer: URLProtocol {
         return host
     }
 
+    /// A window ordered in at the back, never key, captured by its ID: the only picture with both the ribbon and a ScrollView.
+    func onScreen(_ name: String, _ root: Root, _ size: CGSize) throws {
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = NSHostingView(rootView: root)
+        window.orderBack(nil)
+        defer { window.orderOut(nil) }
+        RunLoop.main.run(until: Date().addingTimeInterval(1.2))
+        let file = dir.appendingPathComponent("\(name).png"), shot = Process()
+        try? FileManager.default.removeItem(at: file)  // An old PNG must not pass for this run's.
+        shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        shot.arguments = ["-x", "-o", "-l\(window.windowNumber)", file.path]
+        try shot.run()
+        shot.waitUntilExit()
+        #expect(shot.terminationStatus == 0, "screencapture needs Screen Recording for the terminal running the tests")
+        #expect(NSImage(contentsOf: file) != nil, "no picture of \(name)")
+    }
+
     @Test func states() throws {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let ready: (App) -> Void = { $0.trusted = true; $0.activePath = $0.store.path(ModelStore.models[0]).path }
@@ -1474,31 +1524,22 @@ final class FakeServer: URLProtocol {
         let field = try #require(textView(in: host))
         #expect(field.string == "Please let me know if you have any")
         #expect(field.selectedRange() == NSRange(location: field.string.utf16.count, length: 0), "the caret at the end, where a ghost goes")
-        shoot("4-teach-dark", app { ready($0); $0.why = .shown }, dark: true)
+        shoot("4-teach", app { ready($0); $0.why = .shown })
         shoot("5-unsure", app { ready($0); $0.why = .unsure })
         shoot("6-accepted", app { ready($0); $0.why = .idle; $0.accepted = true })
         shoot("7-predictions", app { ready($0); $0.why = .unsure; $0.readPredictions = { true } })
         shoot("8-no-font", app { ready($0); $0.why = .noFont })
         shoot("9-failed-download", app { $0.trusted = true; $0.modelChanged(.failed("Hugging Face answered 503. Try again later.")) })
         shoot("10-models-delete", app { $0.trusted = true; $0.activePath = $0.store.directory.appendingPathComponent("Qwen3.5-0.8B-Q4_K_M.gguf").path }, page: .models)
-        // The sky mid-typing (fast keys lifting the bars) and 0.35 s into a Tab's swell.
-        let now = Date()
-        for (name, keys, tabs) in [("13-sky-typing", [0.3, 0.2, 0.12, 0.05], [Double]()), ("14-sky-tab", [0.5], [0.35])] {
-            // The sky is a Metal shader, which cacheDisplay leaves blank.
-            let renderer = ImageRenderer(content: Sky(rise: 0.6, keys: keys.map { now - $0 }, tabs: tabs.map { now - $0 }))
-            renderer.proposedSize = ProposedViewSize(width: 720, height: 500)
-            renderer.scale = 2
-            let image = try #require(renderer.cgImage)
-            try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])).write(to: dir.appendingPathComponent("\(name).png"))
-        }
-        // The whole window through ImageRenderer, which does draw the sky, at the smallest size and a tall one: the inks keep clear of the content.
+        // The whole window with its ribbon, at the smallest size, the usual one and a tall one, at the field and scrolled into the settings.
+        // ImageRenderer draws no ScrollView, so these are a real window, shown behind everything without taking focus.
         for (width, height) in [(640.0, 440.0), (720.0, 500.0), (900.0, 820.0)] {
-            let renderer = ImageRenderer(content: Root(app: app { ready($0); $0.why = .idle }).environment(\.colorScheme, .dark).frame(width: width, height: height))
-            renderer.scale = 2
-            let image = try #require(renderer.cgImage)
-            try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])).write(to: dir.appendingPathComponent("15-window-\(Int(width))x\(Int(height)).png"))
+            for page in [Root.Page.field, .stats, .models] {
+                try onScreen("15-window-\(Int(width))x\(Int(height))-\(page.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))",
+                             Root(app: app { ready($0); $0.why = .idle }, page: page), CGSize(width: width, height: height))
+            }
         }
-        shoot("11-accepted-dark", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } }, dark: true)
+        shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } })
     }
 
     /// The Stats page with docs/design/stats/sample-tally.json (made-up counts but today's), with the sky blank, as the other cacheDisplay shots. Run it on 2026-11-08: the chart ends today.
@@ -1543,11 +1584,44 @@ final class FakeServer: URLProtocol {
     }
 }
 
-@Suite struct SkyBandTests {
-    @Test func theBandKeepsAMarginThatShrinksButNeverUnderTheShadersFade() {
-        #expect(Root.clear(CGRect(x: 0, y: 150, width: 400, height: 200), in: 500) == 106...394)  // room: 44 each side
-        #expect(Root.clear(CGRect(x: 0, y: 60, width: 400, height: 340), in: 440) == 30...424)    // short: half the free space
-        #expect(Root.clear(CGRect(x: 0, y: 10, width: 400, height: 425), in: 440) == -14...459)   // cramped: still 24
+@Suite struct GlintTests {
+    @MainActor @Test(.enabled(if: !NSScreen.screens.isEmpty)) func typingThroughTrimsTheGhostInPlace() throws {
+        let panel = GhostPanel()
+        defer { panel.hideGhost() }
+        let spec = GhostSpec(text: " notes", caret: CGRect(x: 200, y: 200, width: 0, height: 18), frame: CGRect(x: 100, y: 190, width: 400, height: 40),
+                             fontSize: 15, fontName: nil, color: nil, lineLeft: nil, previousCharacter: "e", mayWrap: false)
+        try #require(panel.show(spec) != nil)
+        let drawn = try #require(panel.view.layout), frame = panel.frame
+        let second = drawn.manager.location(forGlyphAt: 2)
+        panel.trim(" ", drawing: panel.drawing)
+        panel.trim("n", drawing: panel.drawing)
+        let trimmed = try #require(panel.view.layout)
+        #expect(trimmed.glyphs.location == 2 && NSMaxRange(trimmed.glyphs) == NSMaxRange(drawn.glyphs))
+        #expect(trimmed.manager.location(forGlyphAt: 2) == second && panel.frame == frame, "the rest stays exactly where it was")
+        panel.trim("x", drawing: panel.drawing)
+        panel.trim("o", drawing: panel.drawing - 1)
+        #expect(panel.view.layout?.glyphs == trimmed.glyphs, "a letter not next, or for another drawing, changes nothing")
+    }
+
+    // A display link fires only for a view on a display, so a headless run skips this.
+    @MainActor @Test(.enabled(if: !NSScreen.screens.isEmpty)) func aGlintPlaysThroughAndGoes() throws {
+        let spec = GhostSpec(text: " notes", caret: CGRect(x: 200, y: 200, width: 0, height: 18), frame: CGRect(x: 100, y: 190, width: 400, height: 40),
+                             fontSize: 15, fontName: nil, color: nil, lineLeft: nil, previousCharacter: "e", mayWrap: false, glass: true)
+        let layout = try #require(GhostLayout.make(spec))
+        let panel = GlintPanel()
+        panel.play(layout, taken: NSRange(location: 0, length: 6), frame: CGRect(x: 100, y: 100, width: 300, height: 30))
+        #expect(panel.isVisible)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        #expect(!panel.isVisible, "the display link ran it to the end and took it down")
+    }
+
+    @Test func quickTabsLightTheNextWordsNotTheFirstAgain() {
+        #expect(GhostPanel.next(" very", in: " very very good", after: 0) == NSRange(location: 0, length: 5))
+        #expect(GhostPanel.next(" very", in: " very very good", after: 5) == NSRange(location: 5, length: 5))
+        #expect(GhostPanel.next(" good", in: " very very good", after: 10) == NSRange(location: 10, length: 5))
+        #expect(GhostPanel.next(" good", in: " very very good", after: 0) == nil, "not what comes next: no glint, rather than the wrong place")
+        #expect(GhostPanel.next(" good!", in: " very very good", after: 10) == nil)
+        #expect(GhostPanel.next("", in: " very", after: 0) == nil)
     }
 }
 
