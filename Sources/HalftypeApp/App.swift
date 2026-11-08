@@ -18,9 +18,19 @@ public func runHalftype() {
 func moveFromItda(_ defaults: UserDefaults, oldDomain: String = "app.itda.Itda", support: URL = App.support) {
     let old = support.deletingLastPathComponent().appendingPathComponent("Itda")
     let files = FileManager.default
-    if files.fileExists(atPath: old.path), !files.fileExists(atPath: support.path) { try? files.moveItem(at: old, to: support) }
+    if files.fileExists(atPath: old.path) {
+        // Item by item, so a Halftype folder made first doesn't strand the rest; whatever fails to move stays put.
+        try? files.createDirectory(at: support, withIntermediateDirectories: true)
+        for name in (try? files.contentsOfDirectory(atPath: old.path)) ?? [] where !files.fileExists(atPath: support.appendingPathComponent(name).path) {
+            try? files.moveItem(at: old.appendingPathComponent(name), to: support.appendingPathComponent(name))
+        }
+        if (try? files.contentsOfDirectory(atPath: old.path))?.isEmpty == true { try? files.removeItem(at: old) }
+    }
     guard defaults.object(forKey: "movedFromItda") == nil else { return }
-    let moved = { (path: String) in path.replacingOccurrences(of: old.path + "/", with: support.path + "/") }
+    let moved = { (path: String) -> String in
+        let new = path.replacingOccurrences(of: old.path + "/", with: support.path + "/")
+        return files.fileExists(atPath: new) ? new : path  // only where the file really arrived
+    }
     for (key, value) in defaults.persistentDomain(forName: oldDomain) ?? [:] where defaults.object(forKey: key) == nil {
         defaults.set((value as? String).map(moved) ?? (value as? [String])?.map(moved) ?? value, forKey: key)
     }
