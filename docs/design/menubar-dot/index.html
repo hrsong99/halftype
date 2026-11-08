@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu Bar Dot</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
+  .rec { border: 1px solid #8884; border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 14px; }
+  .card { border: 1px solid #8884; border-radius: 12px; overflow: hidden; }
+  .card header { padding: 10px 14px 6px; display: flex; gap: 10px; align-items: baseline; }
+  .letter { font-weight: 700; font-size: 18px; } .name { font-weight: 600; }
+  .card p { margin: 0; padding: 8px 14px 12px; font-size: 13px; opacity: .75; }
+  .bar { display: flex; align-items: center; gap: 22px; height: 70px; padding: 0 16px; }
+  .bar.light { background: linear-gradient(#ececec, #e2e2e2); --ink: #000; }
+  .bar.dark { background: linear-gradient(#3a3532, #2c2826); --ink: #fff; }
+  .clock { font: 13px -apple-system, sans-serif; color: var(--ink); margin-left: auto; }
+  .icon { position: relative; width: 18px; height: 18px; flex: none; }
+  .glyph { position: absolute; inset: 0; background: var(--ink); -webkit-mask: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAABmJLR0QA/wD/AP+gvaeTAAACE0lEQVRYhe3Xy2oUQRTG8Z8xmWjiLaiIgoJCFFe6EFFRV+JGEHwAXWXv2mfwNQRfQN2JCEpEN4J4w+smIkYZN5lEZ+K4qA7p1PRMd09mepUPenHqnJnzr6rTp6rZUG9tKhl/Etcwju+4g5+DhiqiSTxAO3qWcKtqmDE8zoBJP7erBLqRA9PGP5yvCuhVlPwb7qIZjT+sAmaHztW4nPhuRuPvqgA6FSVtoZb4RvEkGV/GTBVAVyOgucg/JtTO9KASjub4t0T2YmQ3hVUamEZy/OOR/WeQybO0AZSnvBoqCjSFXUKRLwjn3HLVQCM4iuMJTFoNvMT7qoB244KwMlmawDlhlT6WAeqnho7gSg+YtM4K2zg0oBouYnNGbAO/hAa6olEcKgNUdsumdF7q6nhhtYtfwsGUfy8+DQuoFdkfMGvtG1WPgLYVhVkv0Gs8z/hNM7LzyqJUcAy0kuxLF5h1Kw9oIrJb+G3AB2paZYGaeKqzltKKi76dGdUnUPznc/hRJoFsoK3YL6NH5RV1LbKLdN14ErF9DKeT3Au4J/SwQkBxUS8VAGpE9s4kzx6cwIGUbxKHhTe2L6Ai1496ZG/H9R7xayYwjPvQvOKf12/xddhA8Ax/e/gX8SiJW1P0eVsWX+rj7eimedzHGeyzOvE6PuON3q2jq2aEc6otNMO8CWSpJtRR/AXTt6aFb69S95oNDUv/ASPOiTcuSzMHAAAAAElFTkSuQmCC) center / 18px 18px no-repeat; mask: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAABmJLR0QA/wD/AP+gvaeTAAACE0lEQVRYhe3Xy2oUQRTG8Z8xmWjiLaiIgoJCFFe6EFFRV+JGEHwAXWXv2mfwNQRfQN2JCEpEN4J4w+smIkYZN5lEZ+K4qA7p1PRMd09mepUPenHqnJnzr6rTp6rZUG9tKhl/Etcwju+4g5+DhiqiSTxAO3qWcKtqmDE8zoBJP7erBLqRA9PGP5yvCuhVlPwb7qIZjT+sAmaHztW4nPhuRuPvqgA6FSVtoZb4RvEkGV/GTBVAVyOgucg/JtTO9KASjub4t0T2YmQ3hVUamEZy/OOR/WeQybO0AZSnvBoqCjSFXUKRLwjn3HLVQCM4iuMJTFoNvMT7qoB244KwMlmawDlhlT6WAeqnho7gSg+YtM4K2zg0oBouYnNGbAO/hAa6olEcKgNUdsumdF7q6nhhtYtfwsGUfy8+DQuoFdkfMGvtG1WPgLYVhVkv0Gs8z/hNM7LzyqJUcAy0kuxLF5h1Kw9oIrJb+G3AB2paZYGaeKqzltKKi76dGdUnUPznc/hRJoFsoK3YL6NH5RV1LbKLdN14ErF9DKeT3Au4J/SwQkBxUS8VAGpE9s4kzx6cwIGUbxKHhTe2L6Ai1496ZG/H9R7xayYwjPvQvOKf12/xddhA8Ax/e/gX8SiJW1P0eVsWX+rj7eimedzHGeyzOvE6PuON3q2jq2aEc6otNMO8CWSpJtRR/AXTt6aFb69S95oNDUv/ASPOiTcuSzMHAAAAAElFTkSuQmCC) center / 18px 18px no-repeat; }
+  .icon.marked .glyph {
+    -webkit-mask: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAABmJLR0QA/wD/AP+gvaeTAAACE0lEQVRYhe3Xy2oUQRTG8Z8xmWjiLaiIgoJCFFe6EFFRV+JGEHwAXWXv2mfwNQRfQN2JCEpEN4J4w+smIkYZN5lEZ+K4qA7p1PRMd09mepUPenHqnJnzr6rTp6rZUG9tKhl/Etcwju+4g5+DhiqiSTxAO3qWcKtqmDE8zoBJP7erBLqRA9PGP5yvCuhVlPwb7qIZjT+sAmaHztW4nPhuRuPvqgA6FSVtoZb4RvEkGV/GTBVAVyOgucg/JtTO9KASjub4t0T2YmQ3hVUamEZy/OOR/WeQybO0AZSnvBoqCjSFXUKRLwjn3HLVQCM4iuMJTFoNvMT7qoB244KwMlmawDlhlT6WAeqnho7gSg+YtM4K2zg0oBouYnNGbAO/hAa6olEcKgNUdsumdF7q6nhhtYtfwsGUfy8+DQuoFdkfMGvtG1WPgLYVhVkv0Gs8z/hNM7LzyqJUcAy0kuxLF5h1Kw9oIrJb+G3AB2paZYGaeKqzltKKi76dGdUnUPznc/hRJoFsoK3YL6NH5RV1LbKLdN14ErF9DKeT3Au4J/SwQkBxUS8VAGpE9s4kzx6cwIGUbxKHhTe2L6Ai1496ZG/H9R7xayYwjPvQvOKf12/xddhA8Ax/e/gX8SiJW1P0eVsWX+rj7eimedzHGeyzOvE6PuON3q2jq2aEc6otNMO8CWSpJtRR/AXTt6aFb69S95oNDUv/ASPOiTcuSzMHAAAAAElFTkSuQmCC) center / 18px 18px no-repeat, radial-gradient(circle at 15px 3px, transparent 4.5px, #000 4.6px);
+    -webkit-mask-composite: source-in;
+    mask: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAABmJLR0QA/wD/AP+gvaeTAAACE0lEQVRYhe3Xy2oUQRTG8Z8xmWjiLaiIgoJCFFe6EFFRV+JGEHwAXWXv2mfwNQRfQN2JCEpEN4J4w+smIkYZN5lEZ+K4qA7p1PRMd09mepUPenHqnJnzr6rTp6rZUG9tKhl/Etcwju+4g5+DhiqiSTxAO3qWcKtqmDE8zoBJP7erBLqRA9PGP5yvCuhVlPwb7qIZjT+sAmaHztW4nPhuRuPvqgA6FSVtoZb4RvEkGV/GTBVAVyOgucg/JtTO9KASjub4t0T2YmQ3hVUamEZy/OOR/WeQybO0AZSnvBoqCjSFXUKRLwjn3HLVQCM4iuMJTFoNvMT7qoB244KwMlmawDlhlT6WAeqnho7gSg+YtM4K2zg0oBouYnNGbAO/hAa6olEcKgNUdsumdF7q6nhhtYtfwsGUfy8+DQuoFdkfMGvtG1WPgLYVhVkv0Gs8z/hNM7LzyqJUcAy0kuxLF5h1Kw9oIrJb+G3AB2paZYGaeKqzltKKi76dGdUnUPznc/hRJoFsoK3YL6NH5RV1LbKLdN14ErF9DKeT3Au4J/SwQkBxUS8VAGpE9s4kzx6cwIGUbxKHhTe2L6Ai1496ZG/H9R7xayYwjPvQvOKf12/xddhA8Ax/e/gX8SiJW1P0eVsWX+rj7eimedzHGeyzOvE6PuON3q2jq2aEc6otNMO8CWSpJtRR/AXTt6aFb69S95oNDUv/ASPOiTcuSzMHAAAAAElFTkSuQmCC) center / 18px 18px no-repeat intersect, radial-gradient(circle at 15px 3px, transparent 4.5px, #000 4.6px);
+  }
+  .dot { position: absolute; right: 0; top: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--dot); }
+  .zoom { zoom: 3; display: inline-flex; }
+</style>
+</head>
+<body>
+  <div class="rec"><b>Recommendation: B, red.</b> It's the colour macOS already uses for "something new" (the badges on Settings, the App Store and Mail), and it reads at 6 points on both bars. D, the system blue, is the calm option if red feels like an error. Each card: the plain icon, the icon with its dot at real size, the same enlarged, and the clock for scale. Live here, not a screenshot: the bars approximate macOS's.</div>
+  <div class="grid" id="grid"></div>
+<script>
+const options = [
+  ["A", "Orange (now)", "#ff9f0a", "#ff9500", "What 2f7d6fd ships: the system orange."],
+  ["B", "Red", "#ff453a", "#ff3b30", "The system red: macOS's own badge colour for updates and new things."],
+  ["C", "Yellow", "#ffd60a", "#ffcc00", "The system yellow. Bright on the dark bar, but thin on the light one."],
+  ["D", "Blue", "#0a84ff", "#007aff", "The system blue, the accent colour: informational, the least alarming."],
+  ["E", "Green", "#30d158", "#34c759", "The system green: reads as 'all good' more than 'look here'."],
+  ["F", "Peach (brand)", "#f4b48c", "#f0a274", "The icon's peach. On brand, but faint on the light bar."],
+  ["G", "Glass blue (brand)", "#8fbbe8", "#5f9bd8", "The icon's blue. Soft; easy to miss."],
+  ["H", "Blue to peach (brand)", "linear-gradient(135deg, #5f9bd8, #f0a274)", "linear-gradient(135deg, #5f9bd8, #f0a274)", "The icon's glass across the dot itself. Too small at 6 points for the gradient to show."],
+  ["I", "White (before)", "var(--ink)", "var(--ink)", "The template dot from 0.1.8: the bar's own colour."],
+];
+const icon = (marked, dot) => '<span class="icon' + (marked ? ' marked' : '') + '"><span class="glyph"></span>' + (marked ? '<span class="dot" style="--dot:' + dot + '"></span>' : '') + '</span>';
+const bar = (cls, dot) => '<div class="bar ' + cls + '">' + icon(false) + icon(true, dot) + '<span class="zoom">' + icon(true, dot) + '</span><span class="clock">Mon 9:41</span></div>';
+document.getElementById("grid").innerHTML = options.map(([l, n, dark, light, note]) =>
+  '<div class="card"><header><span class="letter">' + l + '</span><span class="name">' + n + '</span></header>' + bar("light", light) + bar("dark", dark) + '<p>' + note + '</p></div>').join("");
+</script>
+</body>
+</html>
