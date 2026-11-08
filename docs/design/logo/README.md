@@ -72,3 +72,5 @@ John: "Can we use the name typeless, or would there be a legal problem with that
 
 - [round5.html](round5.html): the name check table and options 5A–5F. Built by `round5/page.py`, with images from `gen-round5.sh` and `prompts-round5.txt` (`images/r5a–f.png`).
 - Recommendation: **Halftype**, with **5A** (a cursive h, half ink, half glass) as the icon and **5F** (the whole word) as the wordmark. A whole word in a ribbon is unreadable at Dock size, so the icon carries only the initial.
+
+Shipped (2026-11-08, `bab669c`): John took the recommendation. The app is Halftype, and 5A is `docs/icon/option-d`, built into `Resources/` with a hand-drawn menu-bar h.
