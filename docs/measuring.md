@@ -137,7 +137,7 @@ November 2026, the same replay (`itda-replay` at tag `bench-1`, threshold -0.7) 
 
 ## Length and How Often
 
-The window's two settings move the two numbers above: Length the floor that ends a suggestion (-1, -2, -3), How Often the gate's threshold (-0.3, -0.7, -1.2). Defaults are Short and Normal, the fitted values. Offline replay, Qwen 3.5 0.8B, English test threads, 2,400 requests, Tab one word, the first word at least 3 keys (`reviews/audit-2026-11/quality-aggregates/length_freq.py` in the bench repo):
+The window's two settings move the two numbers above: Length the floor that ends a suggestion (-1, -2, -3), How Often the gate's threshold (-0.3, -0.7, -1.2, and Always with no gate, not replayed here; the no-gate figure in the README is the nearest). Defaults are Short and Normal, the fitted values. The Try It window ignores both and always runs with no floor and no gate, so a first try shows a suggestion at every pause. Offline replay, Qwen 3.5 0.8B, English test threads, 2,400 requests, Tab one word, the first word at least 3 keys (`reviews/audit-2026-11/quality-aggregates/length_freq.py` in the bench repo):
 
 | Setting | Shown, of requests | First word right | Wrong and shown, per request | Grey characters per ghost | Grey characters right | Characters saved per request |
 |---|---|---|---|---|---|---|
