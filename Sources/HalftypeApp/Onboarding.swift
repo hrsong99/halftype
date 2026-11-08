@@ -124,10 +124,12 @@ struct Onboarding: View {
             Text("You're set").font(.system(size: 28, weight: .semibold))
             Text("Halftype lives in the menu bar, up at the top right.\nOpen any app and start typing.")
                 .font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            Toggle("Start at login", isOn: $app.startAtLogin).toggleStyle(.switch).tint(.black)
-                .padding(.horizontal, 14).padding(.vertical, 8).pane().padding(.top, 8)
+            // One action, then the setting under it, quiet and with room: side by side or stacked in a pane read as two equal
+            // choices (docs/design/onboarding/done-page.html; John picked the switch below).
             Button("Start Writing") { app.finishOnboarding() }
-                .buttonStyle(Ink()).padding(.top, 8)
+                .buttonStyle(Ink()).padding(.top, 14)
+            Toggle("Start at login", isOn: $app.startAtLogin).toggleStyle(.switch).tint(.black).controlSize(.small)
+                .font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 6)
         }
     }
 }

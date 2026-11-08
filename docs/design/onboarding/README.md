@@ -16,3 +16,5 @@ Built on branch `onboarding`: C's four steps (`Sources/HalftypeApp/Onboarding.sw
 ## Live check (2026-11-09)
 
 `built/live/`: the built app opened with `open -a build/Halftype.app --args -onboarded NO -modelPath ""`, with the models folder moved aside so Gemma downloads as on a first install, driven by `scripts/live-keys.swift`. Welcome, Try It with practice suggestions at 4-8% of the download, the glint mid-Tab, Shift-Tab, the last step, the home window after it, and the Settings card (`swift test --filter GuideLive`). Fixed on the way: a SwiftUI crash and black-on-black buttons from `.borderedProminent` tints, a field swapped in without focus, and a ghost left where a sliding step began. Not run: the grant itself and the drag, as this Mac already has the permission.
+
+Last page (2026-11-09): John found the switch pane over the button "a bit cramped"; options in `done-page.html`. Built: the button, then a bare Start at login switch under it.
