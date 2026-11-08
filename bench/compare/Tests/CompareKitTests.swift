@@ -57,6 +57,7 @@ import Testing
     #expect(p.firstWordRight(field: "Hel", ghost: "lo, everyone"))
     #expect(Plan("Hello, world").tab(field: "Hel", ghost: "lo, there", unit: .word) == ["Hello,", "Hello"])  // Either is right.
     #expect(Plan("다라가 보자").tab(field: "달", composing: "달", ghost: "가 보자", unit: .word).first == "다라가")  // 달 reaches into 다라.
+    #expect(Set(Plan("하하하").tab(field: "하", composing: "하", ghost: "하하", unit: .word)) == ["하하", "하하하"])
 }
 
 @Test func delaysAreSeededAndHuman() {

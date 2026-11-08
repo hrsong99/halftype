@@ -46,8 +46,8 @@ public struct Plan: Sendable {
     /// The field a Tab taking `take` would leave, if it stays on the target. While a syllable composes, a ghost may follow
     /// it, replace it, or (Halftype's way) show only what comes after the syllable it will finish: 가 + 다면 for 간다면.
     /// That last reading takes the target's own syllable, which the screen can't tell apart; the field check after Tab can.
-    func after(field: String, composing: String, take: String) -> (text: String, done: Int)? {
-        guard !take.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+    func after(field: String, composing: String, take: String) -> [(text: String, done: Int)] {
+        guard !take.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
         let committed = String(field.dropLast(composing.count))
         var candidates = [field + take]
         if !composing.isEmpty {
@@ -62,23 +62,22 @@ public struct Plan: Sendable {
         // The last syllable may still be composing after a Tab that types keys through the input method.
         return candidates.compactMap { text in
             done(field: text, composing: text.last.map { Hangul.isHangul($0) ? String($0) : "" } ?? "").map { (text, $0) }
-        }.max { $0.1 < $1.1 }
+        }
     }
 
     /// The oracle: press Tab only when what it takes is the true text and saves more than the Tab costs.
     /// Returns every field a right Tab could leave (`Hello,` or `Hello`), to check the app and the OCR against; empty is no Tab.
     public func tab(field: String, composing: String = "", ghost: String, unit: TabUnit) -> [String] {
         guard let now = done(field: field, composing: composing) else { return [] }
-        return (unit == .all ? [ghost] : Plan.words(ghost)).compactMap { after(field: field, composing: composing, take: $0) }
+        return (unit == .all ? [ghost] : Plan.words(ghost)).flatMap { after(field: field, composing: composing, take: $0) }
             .filter { $0.done - now >= 2 }.sorted { $0.done > $1.done }.map(\.text)
     }
 
     /// The first shown word is the true next word, ending where the target's word ends (`lo` is not right for `lot`).
     public func firstWordRight(field: String, composing: String = "", ghost: String) -> Bool {
-        Plan.words(ghost).contains { take in
-            guard let a = after(field: field, composing: composing, take: take),
-                  a.done > (done(field: field, composing: composing) ?? Int.max) else { return false }
-            return a.done == keys.count || !Plan.continuesWord(keys[a.done])
+        let now = done(field: field, composing: composing) ?? Int.max
+        return Plan.words(ghost).flatMap { after(field: field, composing: composing, take: $0) }.contains { a in
+            a.done > now && (a.done == keys.count || !Plan.continuesWord(keys[a.done]))
         }
     }
 
