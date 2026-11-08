@@ -47,7 +47,8 @@ struct Root: View {
             ScrollView {
                 VStack(spacing: 0) {
                     FieldPage(app: app, draft: $draft, picking: picking) { go(.models) }
-                        .overlay(alignment: .bottom) { more { go(.stats) } }
+                        // Behind the field page, so the open model list covers it and a click beside the list only closes the list.
+                        .background(alignment: .bottom) { more { go(.stats) } }
                         .padding(.leading, open ? 160 : 0)  // The card's room, inside the arch, which keeps the whole width.
                         .containerRelativeFrame(.vertical)
                         // The arch belongs to the field, so it scrolls with it; it reaches up under the title bar, as the window's ground did.

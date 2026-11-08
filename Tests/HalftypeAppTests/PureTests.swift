@@ -1563,6 +1563,8 @@ final class FakeServer: URLProtocol {
                              Root(app: app { ready($0); $0.why = .idle }, page: page), CGSize(width: width, height: height))
             }
         }
+        // The model list open in the smallest window, where it reaches the Settings hint and must cover it.
+        try onScreen("15-window-640x440-picker", Root(app: app { ready($0); $0.why = .idle }, picking: true), CGSize(width: 640, height: 440))
         shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } })
     }
 
