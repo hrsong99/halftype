@@ -138,8 +138,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The model that loaded last, which is the one answering. Nil again if it can't load after an idle unload.
     @Published var activePath: String? { didSet { updateIcon() } }
     var window: NSWindow?
-    /// Started only in a released build, whose Info.plist names the feed.
-    let updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+    /// Started only in a released build, whose Info.plist names the feed. Lazy, to be its own delegate.
+    lazy var updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
+    /// An update Sparkle has downloaded, which would wait for a quit that a menu-bar app rarely sees: the dot and a menu item offer it now.
+    var readyUpdate: (version: String, install: () -> Void)? { didSet { updateIcon() } }
     /// The model's line, for the menu and under the field.
     var modelLine: String {
         if ready { return activeName }
@@ -517,7 +519,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// From each place the state it shows changes: rebind (on, pause, front app, permission), the model's state, and the watcher.
     func updateIcon() {
         guard let glyphs, let button = status.button else { return }
-        let icon = App.icon(active: activeHere, problem: !trusted || tap.obstacle != nil || (!ready && notice != nil),
+        let icon = App.icon(active: activeHere, problem: !trusted || tap.obstacle != nil || (!ready && notice != nil) || readyUpdate != nil,
                             downloading: downloading.map { _ in downloadFraction })
         guard icon != shownIcon else { return }
         shownIcon = icon
@@ -562,7 +564,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if retryable { menu.addItem(withTitle: "Retry Download", action: #selector(retry), keyEquivalent: "") }
         if predictions { menu.addItem(withTitle: "Turn Off macOS Predictions…", action: #selector(openKeyboardSettings), keyEquivalent: "") }
         menu.addItem(.separator())
-        if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
+        if let readyUpdate { menu.addItem(withTitle: "Halftype \(readyUpdate.version) is ready: Restart to Update", action: #selector(installUpdate), keyEquivalent: "") }
+        else if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         for item in menu.items where item.action != #selector(NSApplication.terminate(_:)) && item.action != nil { item.target = self }
     }
@@ -578,6 +581,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     @objc private func openWindow() { showWindow() }
     @objc func checkForUpdates() { updates.checkForUpdates(nil) }
+    @objc private func installUpdate() { readyUpdate?.install() }
 
     func chooseModel() {
         let open = NSOpenPanel()
@@ -606,3 +610,14 @@ enum Often: String, CaseIterable {
     var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2; case .always: -.infinity } }
 }
 
+extension App: SPUUpdaterDelegate {
+    /// Downloaded and set to install on quit. Taking it here keeps Sparkle's own alert away; the menu's item runs the install and relaunch.
+    func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        readyUpdate = (item.displayVersionString, immediateInstallHandler)
+        return true
+    }
+    /// The cycle holds while an update waits, so its end means the install ran or failed: either way there's nothing left to offer.
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
+        readyUpdate = nil
+    }
+}

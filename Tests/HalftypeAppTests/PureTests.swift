@@ -1432,6 +1432,14 @@ final class FakeServer: URLProtocol {
         app.menuNeedsUpdate(menu)
         titles = menu.items.map(\.title)
         #expect(titles.contains("Turn Off macOS Predictions…"))
+        // A downloaded update is offered at once, and its item runs Sparkle's install.
+        var installed = false
+        app.readyUpdate = ("0.1.8", { installed = true })
+        app.menuNeedsUpdate(menu)
+        let item = menu.items.first { $0.title == "Halftype 0.1.8 is ready: Restart to Update" }
+        #expect(item != nil)
+        if let item, let action = item.action { NSApp.sendAction(action, to: item.target, from: item) }
+        #expect(installed)
     }
     @Test func theFieldIsPrefilledOnlyOnAFreshLaunchOnceReady() {
         #expect(App.prefill(fresh: true, ready: true, draft: "", korean: false) == "Please let me know if you have any")
