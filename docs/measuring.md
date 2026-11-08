@@ -28,7 +28,7 @@ CPU: the shipped app, idle, 0.13% to 0.27% of a core over 60 s, loaded or unload
 
 ## Against other apps (landing page, 2026-11-09)
 
-Cotypist, Cotabby and KeyType at rest, each with its default model: the method, the numbers and the traps are in [site/compare/README.md](site/compare/README.md), with the script that measured them.
+Cotypist, Cotabby and KeyType at rest, each with its default model: the method, the numbers and the traps are in [site/compare/README.md](site/compare/README.md), with the script that measured them. While typing (speed from the screen, keys saved, first word right, memory, CPU, Korean mid-syllable), with macOS's predictions too: [bench/compare/README.md](../bench/compare/README.md), not run yet.
 - System-wide wired memory is useless while other agents run: it swung 4.9-7.1 GB with one app idle. Use `footprint -p`.
 - Before measuring Halftype the same way, check `pgrep -lf Halftype.app`: another session's dev build may already be running. Check `defaults read app.halftype.Halftype modelPath` too, as it may not be the default.
 
