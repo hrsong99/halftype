@@ -51,11 +51,21 @@ struct Root: View {
                 .padding(.top, 9)
         }
         .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
-        .background { Sky(rise: page == .field ? min(Double(draft.count) / 34, 1) : 0, keys: keys, tabs: tabs) }
+        .backgroundPreferenceValue(Clear.self) { content in
+            GeometryReader { geometry in
+                Sky(rise: page == .field ? min(Double(draft.count) / 34, 1) : 0, keys: keys, tabs: tabs, clear: content.map { Root.clear(geometry[$0], in: geometry.size.height) })
+            }
+        }
         .onChange(of: draft) { if !still { keys = Root.recent(keys) } }
         // A Tab in another app, with this window behind it, isn't this window's.
         .onChange(of: app.tabs) { if !still, active == .key { tabs = Root.recent(tabs) } }
         .ignoresSafeArea()
+    }
+
+    /// The band the sky's dots stay out of: the field page's content plus a margin, smaller when the window is short.
+    static func clear(_ content: CGRect, in height: CGFloat) -> ClosedRange<CGFloat> {
+        let top = content.minY - min(44, content.minY / 2), bottom = content.maxY + min(44, (height - content.maxY) / 2)
+        return top...max(top, bottom)
     }
 
     /// The moments still moving the sky, and now.
@@ -81,14 +91,32 @@ struct Root: View {
     }
 }
 
-/// The app icon's caret and fading continuation, as a small line mark.
+/// The app icon's cursive h (docs/icon/menubar.svg, on an 18-point grid): an inked stem, then an arch that thins into the sky's blue and peach.
 private struct Mark: View {
     var body: some View {
-        HStack(spacing: 2) {
-            Capsule().fill(.primary).frame(width: 3, height: 26)
-            Capsule().fill(LinearGradient(colors: [.primary, .primary.opacity(0)], startPoint: .leading, endPoint: .trailing)).frame(width: 18, height: 3)
+        Canvas { context, size in
+            let s = size.width / 18
+            let p = { (x: CGFloat, y: CGFloat) in CGPoint(x: x * s, y: y * s) }
+            var stem = Path(), arch = Path()
+            stem.move(to: p(8.4, 3.6)); stem.addCurve(to: p(4.9, 4.6), control1: p(7.6, 1.6), control2: p(5, 1.7))
+            stem.addCurve(to: p(4.6, 15.6), control1: p(4.8, 7.5), control2: p(4.7, 11.5))
+            arch.move(to: p(4.9, 12.2)); arch.addCurve(to: p(10.2, 8.4), control1: p(6.5, 9.4), control2: p(8.7, 8))
+            arch.addCurve(to: p(11.3, 13.4), control1: p(11.8, 8.8), control2: p(11.2, 11.6))
+            arch.addCurve(to: p(15.2, 13.9), control1: p(11.4, 15.4), control2: p(13.2, 15.6))
+            let line = StrokeStyle(lineWidth: 1.9 * s, lineCap: .round, lineJoin: .round)
+            context.stroke(arch, with: .linearGradient(Gradient(colors: [.primary, Color(red: 0.663, green: 0.804, blue: 0.941), Color(red: 0.965, green: 0.765, blue: 0.643).opacity(0.7)]),
+                                                     startPoint: p(5.5, 0), endPoint: p(15.2, 0)), style: line)
+            context.stroke(stem, with: .color(.primary), style: line)
         }
+        .frame(width: 36, height: 36)
+        .accessibilityHidden(true)
     }
+}
+
+/// Where the field page's content sits, for the sky.
+private struct Clear: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) { value = value ?? nextValue() }
 }
 
 private struct FieldPage: View {
@@ -117,6 +145,7 @@ private struct FieldPage: View {
             if app.trusted { field.zIndex(1) } else { allow }  // The list hangs over what's below the field.
             status
         }
+        .anchorPreference(key: Clear.self, value: .bounds) { $0 }
         .padding(24)
         .padding(.bottom, 40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

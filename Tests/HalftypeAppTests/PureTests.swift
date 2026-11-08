@@ -1491,6 +1491,13 @@ final class FakeServer: URLProtocol {
             let image = try #require(renderer.cgImage)
             try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])).write(to: dir.appendingPathComponent("\(name).png"))
         }
+        // The whole window through ImageRenderer, which does draw the sky, at the smallest size and a tall one: the inks keep clear of the content.
+        for (width, height) in [(640.0, 440.0), (720.0, 500.0), (900.0, 820.0)] {
+            let renderer = ImageRenderer(content: Root(app: app { ready($0); $0.why = .idle }).environment(\.colorScheme, .dark).frame(width: width, height: height))
+            renderer.scale = 2
+            let image = try #require(renderer.cgImage)
+            try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])).write(to: dir.appendingPathComponent("15-window-\(Int(width))x\(Int(height)).png"))
+        }
         shoot("11-accepted-dark", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } }, dark: true)
     }
 

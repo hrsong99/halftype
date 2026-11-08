@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// The window's backdrop: two riso inks in halftone, blue from the top and peach from the bottom (docs/design/dither-look, round 3 A).
+/// The inks fade out at the edges of the content, so they keep their distance at any window size.
 /// The horizon rises a little as you write, keys bounce the peach up from the bottom like a music visualizer, and a Tab swells it warm up the sky.
 struct Sky: View {
     /// How far the writing has come, 0 to 1.
@@ -8,6 +9,8 @@ struct Sky: View {
     /// Recent keys and Tabs, newest last.
     var keys: [Date]
     var tabs: [Date]
+    /// The band, in points from the top, that the inks fade out before; nil keeps them where the design put them.
+    var clear: ClosedRange<CGFloat>? = nil
 
     @Environment(\.colorScheme) private var scheme
     @State private var eased = Eased()
@@ -46,7 +49,7 @@ struct Sky: View {
         let ages = tabs.reversed().map { now.timeIntervalSince($0) }.filter { $0 >= 0 && $0 < Sky.life }.prefix(3)
         let tab = { (n: Int) in Float(n < ages.count ? ages[ages.startIndex + n] : -1) }
         return ShaderLibrary.bundle(.module).sky(
-            .float2(size), .float(eased.toward(rise, at: now)), .floatArray(lift), .float3(tab(0), tab(1), tab(2)),
+            .float2(size), .float2(clear?.lowerBound ?? size.height * 0.413, clear?.upperBound ?? size.height * 0.56), .float(eased.toward(rise, at: now)), .floatArray(lift), .float3(tab(0), tab(1), tab(2)),
             .color(dark ? Color(red: 0.07, green: 0.075, blue: 0.09) : Color(red: 0.988, green: 0.98, blue: 0.965)),
             .color(dark ? Color(red: 0.13, green: 0.22, blue: 0.31) : Color(red: 0.663, green: 0.804, blue: 0.941)),
             .color(dark ? Color(red: 0.30, green: 0.19, blue: 0.14) : Color(red: 0.965, green: 0.765, blue: 0.643)),
