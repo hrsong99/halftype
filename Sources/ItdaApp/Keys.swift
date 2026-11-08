@@ -1,12 +1,20 @@
 import AppKit
+import Carbon
 import ItdaCore
 import Synchronization
+import notify
 
 /// The active tap, on its own thread. An accept is one transaction here: no AX, no queue, so nothing can come between the Tab
 /// and its text, and any other key or click disarms first, which leaves Tab the app's. Input means any event not marked as ours:
 /// another program's synthetic key counts too, which errs towards disarming.
-final class KeyTap: @unchecked Sendable {
-    enum Decision: Equatable { case pass, passAndDismiss, accept(all: Bool), reenable }
+class KeyTap: @unchecked Sendable {
+    enum Decision: Equatable { case pass, dismiss(swallow: Bool), accept(all: Bool), reenable }
+
+    /// Why Tab wouldn't reach us, in the menu's words.
+    enum Obstacle: String {
+        case tapOff = "Tab isn't reaching Halftype right now."
+        case secureInput = "Secure Input is on in another app, so no suggestions until it ends."
+    }
 
     /// What Tab inserts, and where. Set only by a drawn ghost.
     struct Armed {
@@ -33,6 +41,9 @@ final class KeyTap: @unchecked Sendable {
         var pending: (from: String, to: String)?
         /// Keys that typed a character since `takeTyped`, and when the first of them was, for the Stats page's share typed by Tab.
         var typed = 0, typedSince = Date()
+        /// The live tap, and the run loop of its thread once that has started.
+        var port: CFMachPort?
+        var loop: CFRunLoop?
 
         mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)? {
             let next = all ? Accept.all(armed.ghost) : Accept.nextWord(armed.ghost)
@@ -59,10 +70,21 @@ final class KeyTap: @unchecked Sendable {
     var onDismiss: (@Sendable () -> Void)?
     /// Given the characters a Tab added, and which suggestion it took from. Off this thread at once.
     var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int) -> Void)?
-    private var port: CFMachPort?
+    /// When the tap comes up or the system refuses it, on `keeper`. Not for a tap back up within the retry.
+    var onUp: (@Sendable (Bool) -> Void)?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
     private let pid: pid_t?
-    init(pid: pid_t? = nil) { self.pid = pid }
+    /// Owns `up` and `attempt`. Not the main thread: a tap has to come down even if that's busy.
+    let keeper = DispatchQueue(label: "itda.tap.keeper", qos: .userInteractive)
+    private var up = false
+    private var attempt: DispatchWorkItem?
+    private var token: Int32?
+    private let retryEvery: TimeInterval
+
+    init(pid: pid_t? = nil, retryEvery: TimeInterval = 1) {
+        self.pid = pid
+        self.retryEvery = retryEvery
+    }
 
     var generation: Int { state.withLock { $0.generation } }
     func takeTyped() -> (keys: Int, since: Date) { state.withLock { s in defer { s.typed = 0 }; return (s.typed, s.typedSince) } }
@@ -77,6 +99,20 @@ final class KeyTap: @unchecked Sendable {
 
     func disarm() { state.withLock { $0.armed = nil } }
 
+    /// Nil if Tab would reach us now, so a ghost could be taken. Secure Input keeps keys from a tap that stays present and enabled.
+    var obstacle: Obstacle? {
+        guard let port = state.withLock({ $0.port }), CGEvent.tapIsEnabled(tap: port) else { return .tapOff }
+        return IsSecureEventInputEnabled() ? .secureInput : nil
+    }
+
+    var canTake: Bool { obstacle == nil }
+
+    /// A tap the system turned off stays off if its notice never came, so activation and wake call this.
+    func reenable() {
+        guard let port = state.withLock({ $0.port }), !CGEvent.tapIsEnabled(tap: port) else { return }
+        CGEvent.tapEnable(tap: port, enable: true)
+    }
+
     /// False if anything has happened since `generation`.
     func arm(_ armed: Armed, generation: Int) -> Bool {
         state.withLock {
@@ -89,8 +125,10 @@ final class KeyTap: @unchecked Sendable {
     static func decide(type: CGEventType, keyCode: Int64, flags: CGEventFlags, armed: Bool) -> Decision {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput { return .reenable }
         guard type == .keyDown else { return .pass }
-        if keyCode == escapeKey { return .passAndDismiss }  // Without it a ghost keeps Tab from moving between fields.
-        guard armed, keyCode == tabKey, flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty else { return .pass }
+        let plain = flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty
+        // On a ghost Esc is ours alone: passed on, it would also clear a search field or close a pane. Force Quit always passes.
+        if keyCode == escapeKey { return .dismiss(swallow: armed && plain) }
+        guard armed, keyCode == tabKey, plain else { return .pass }
         return .accept(all: flags.contains(.maskShift))
     }
 
@@ -117,13 +155,13 @@ final class KeyTap: @unchecked Sendable {
         var suggestion = 0
         var generation = 0
         let decision = state.withLock { s -> Decision in
-            let armed = s.armed
+            let armed = s.armed.flatMap { $0.pid == target ? $0 : nil }  // A key for another app is that app's.
             let decision = Self.decide(type: type, keyCode: keyCode, flags: flags, armed: armed != nil)
             s.generation += 1
             generation = s.generation
             s.armed = nil
             s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
-            if case .accept(let all) = decision, let armed, armed.pid == target {
+            if case .accept(let all) = decision, let armed {
                 plan = s.accept(armed, all: all)
                 suggestion = armed.suggestion
             }
@@ -138,14 +176,108 @@ final class KeyTap: @unchecked Sendable {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
             onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion)
         }
-        if decision == .reenable, let port { CGEvent.tapEnable(tap: port, enable: true) }
-        if decision == .passAndDismiss { onDismiss?() }
+        if decision == .reenable { reenable() }
+        if case .dismiss = decision { onDismiss?() }
         onInput?(generation)
-        return plan != nil
+        return plan != nil || decision == .dismiss(swallow: true)
     }
 
-    /// Needs Accessibility, so call only once trusted. Nil if the system refused.
+    /// Takes the tap now if it can, and from then on keeps to the permission: up when it's given, down when it goes, whichever
+    /// comes first. True if up already, and `onUp` tells the rest.
+    func hold() -> Bool {
+        keeper.sync {
+            var token: Int32 = 0
+            // Undocumented, posted for any app's permission. Were it to stop, a revoke would again go unnoticed until the next launch.
+            notify_register_dispatch("com.apple.tcc.access.changed", &token, keeper) { [weak self] _ in self?.permissionChanged() }
+            self.token = token
+            tryStart()
+            return up
+        }
+    }
+
+    /// For good, unlike a permission change: no more news of it, no retry, no tap. A notice already queued runs before this.
+    func close() {
+        keeper.sync {
+            if let token { notify_cancel(token) }
+            token = nil
+            attempt?.cancel()
+            attempt = nil
+        }
+        stop()
+    }
+
+    /// On `keeper`. Down at once, as a tap left in the stream after a revoke can hold every key and click on the Mac. Up again only
+    /// after the retry's delay, so that it asks a system that has settled.
+    func permissionChanged() {
+        stop()
+        onDismiss?()
+        retry()
+    }
+
+    /// The one loop. It ends on success, so nothing polls once the tap is up.
+    private func tryStart() {
+        let now = start()
+        if now != up {
+            up = now
+            onUp?(now)
+        }
+        if !now { retry() }
+    }
+
+    private func retry() {
+        attempt?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.tryStart() }
+        attempt = work
+        keeper.asyncAfter(deadline: .now() + retryEvery, execute: work)
+    }
+
+    /// Any thread, this tap's own too. Nothing can be armed once it's down, and a draw on its way finds a moved generation.
+    func stop() {
+        let (port, loop) = state.withLock { s in
+            let running = (s.port, s.loop)
+            (s.port, s.loop, s.armed, s.pending) = (nil, nil, nil, nil)
+            s.generation += 1
+            return running
+        }
+        guard let port else { return }
+        CGEvent.tapEnable(tap: port, enable: false)
+        CFMachPortInvalidate(port)
+        // Invalidating doesn't wake a sleeping run loop. A thread not there yet adds a dead source and returns from its run at once.
+        if let loop { CFRunLoopStop(loop) }
+    }
+
+    /// True once the tap is up, false while the system refuses it. What `AXIsProcessTrusted` says doesn't make it true: that can be
+    /// a stale cache after a revoke, and tapCreate is what fails then.
     func start() -> Bool {
+        if state.withLock({ $0.port != nil }) { return true }
+        guard let port = createPort() else { return false }
+        state.withLock { $0.port = port }
+        let source = CFMachPortCreateRunLoopSource(nil, port, 0)
+        let thread = Thread { [self] in
+            guard claim(port, loop: CFRunLoopGetCurrent()) else { return }
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+            CFRunLoopRun()
+        }
+        thread.name = "itda.tap"
+        thread.qualityOfService = .userInteractive
+        thread.start()
+        return true
+    }
+
+    /// A thread that starts late, after its tap was stopped and another started, would otherwise give the newer tap a loop `stop`
+    /// can't wake.
+    func claim(_ port: CFMachPort, loop: CFRunLoop) -> Bool {
+        state.withLock { s in
+            guard s.port === port else { return false }
+            s.loop = loop
+            return true
+        }
+    }
+
+    func createPort() -> CFMachPort? {
+        // An untrusted tapCreate is reported to raise the system's own dialog, here ahead of the window that explains it, and every
+        // second. This only keeps that from happening: a yes can be stale, and tapCreate then refuses.
+        guard AXIsProcessTrusted() else { return nil }
         let callback: CGEventTapCallBack = { proxy, type, event, refcon in
             let tap = Unmanaged<KeyTap>.fromOpaque(refcon!).takeUnretainedValue()
             // The proxy puts our events right here in the stream, ahead of any key already queued behind this one.
@@ -155,18 +287,8 @@ final class KeyTap: @unchecked Sendable {
         let events: [CGEventType] = [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
         let mask = events.reduce(0) { $0 | CGEventMask(1 << $1.rawValue) }
         let me = Unmanaged.passUnretained(self).toOpaque()
-        let created = pid.map { CGEvent.tapCreateForPid(pid: $0, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: mask, callback: callback, userInfo: me) }
+        return pid.map { CGEvent.tapCreateForPid(pid: $0, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: mask, callback: callback, userInfo: me) }
             ?? CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: mask, callback: callback, userInfo: me)
-        guard let port = created else { return false }
-        self.port = port
-        let thread = Thread {
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), CFMachPortCreateRunLoopSource(nil, port, 0), .commonModes)
-            CFRunLoopRun()
-        }
-        thread.name = "itda.tap"
-        thread.qualityOfService = .userInteractive
-        thread.start()
-        return true
     }
 }
 

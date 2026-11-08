@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Itda logo, round 1</title>
+<style>
+:root{--bg:#f3f2ef;--card:#fff;--ink:#1b1b1f;--mute:#6b6b73;--line:#e3e1dc}
+@media (prefers-color-scheme:dark){:root{--bg:#141417;--card:#1d1d21;--ink:#eee;--mute:#9a9aa3;--line:#2c2c31}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,sans-serif;padding:24px 16px 60px}
+main{max-width:1180px;margin:auto}h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:36px 0 12px}
+.q{color:var(--mute);margin:0 0 16px}.rec{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h3{margin:0 0 10px;font-size:15px}.card h3 b{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:6px;background:var(--ink);color:var(--card);margin-right:8px;font-size:13px}
+.big{display:block;width:100%;max-width:220px;margin:0 auto 12px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.18))}
+.strip{display:flex;gap:10px;align-items:center;justify-content:center;padding:10px;border-radius:10px}
+.strip.l{background:#ececec}.strip.d{background:#232326;margin-top:6px}
+.note{color:var(--mute);font-size:13.5px;margin:10px 0 0}
+img.big{border-radius:0}
+</style></head><body><main>
+<h1>Itda logo, round 1</h1>
+<p class="q">What should Itda's app icon be? John: <i>"the current one is nice but not balanced enough."</i></p>
+<div class="rec"><b>Why A is off-balance:</b> the solid caret holds nearly all the weight and sits at 22% from the left, while the bar that should balance it fades to nothing, so the mark leans left and the right third of the tile is empty. <b>My pick: C</b>, the caret on the centre line with typed text solid on the left and the suggestion ghosted on the right. It keeps A's idea (a caret and what comes next), it's symmetric so it can't lean, and it still reads at 16 px. <b>B</b> is the smallest change if you want A as it is, just re-weighted. <b>E</b> is the one with character: the caret is the ㅣ of 잇.</div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<linearGradient id="ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14213D"/><stop offset="1" stop-color="#1D2F58"/></linearGradient>
+<linearGradient id="fadeR" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".62"/><stop offset="1" stop-color="#fff" stop-opacity=".2"/></linearGradient>
+<linearGradient id="fadeRc" x1="0" x2="1"><stop offset="0" stop-color="#F26B4F" stop-opacity=".85"/><stop offset="1" stop-color="#F26B4F" stop-opacity=".3"/></linearGradient>
+<symbol id="tile" viewBox="0 0 100 100"><rect width="100" height="100" rx="22.4" fill="url(#ink)"/></symbol>
+
+<!-- B: A re-weighted. Shorter caret, thicker and less-faded tail, group moved right so its weight sits near centre. -->
+<symbol id="B" viewBox="0 0 100 100"><use href="#tile"/>
+ <rect x="30" y="29" width="9" height="42" rx="4.5" fill="#fff"/>
+ <rect x="45" y="45" width="31" height="10" rx="5" fill="url(#fadeR)"/></symbol>
+
+<!-- C: caret on the centre line; typed solid left, ghost right. -->
+<symbol id="C" viewBox="0 0 100 100"><use href="#tile"/>
+ <rect x="16" y="45" width="25" height="10" rx="5" fill="#fff" opacity=".92"/>
+ <rect x="45.5" y="28" width="9" height="44" rx="4.5" fill="#fff"/>
+ <rect x="59" y="45" width="25" height="10" rx="5" fill="#fff" opacity=".3"/></symbol>
+
+<!-- D: a paragraph. Full line, then a word, the caret, and the ghost word. -->
+<symbol id="D" viewBox="0 0 100 100"><use href="#tile"/>
+ <rect x="20" y="31" width="60" height="10" rx="5" fill="#fff" opacity=".92"/>
+ <rect x="20" y="59" width="22" height="10" rx="5" fill="#fff" opacity=".92"/>
+ <rect x="46" y="51" width="7" height="26" rx="3.5" fill="#fff"/>
+ <rect x="57" y="59" width="23" height="10" rx="5" fill="#fff" opacity=".3"/></symbol>
+
+<!-- E: 잇 drawn from the mark: ring ㅇ, the caret is ㅣ, ghost ㅅ not typed yet. -->
+<symbol id="E" viewBox="0 0 100 100"><use href="#tile"/>
+ <circle cx="37" cy="38" r="12.5" fill="none" stroke="#fff" stroke-width="8.5"/>
+ <rect x="61" y="18" width="9" height="42" rx="4.5" fill="#fff"/>
+ <path d="M50 63 L31 83 M50 63 L69 83" stroke="#fff" stroke-opacity=".32" stroke-width="8.5" stroke-linecap="round" fill="none"/></symbol>
+
+<!-- F: a ring split by the caret: what's written, what's next, one whole. -->
+<symbol id="F" viewBox="0 0 100 100"><use href="#tile"/>
+ <path d="M50 24 A26 26 0 0 0 50 76" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+ <path d="M50 24 A26 26 0 0 1 50 76" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="9" stroke-linecap="round"/>
+ <rect x="45.5" y="33" width="9" height="34" rx="4.5" fill="#fff"/></symbol>
+
+<!-- G: C on paper, ink and coral. -->
+<symbol id="G" viewBox="0 0 100 100"><rect width="100" height="100" rx="22.4" fill="#F4EFE6"/>
+ <rect x="16" y="45" width="25" height="10" rx="5" fill="#14213D"/>
+ <rect x="45.5" y="28" width="9" height="44" rx="4.5" fill="#F26B4F"/>
+ <rect x="59" y="45" width="25" height="10" rx="5" fill="#14213D" opacity=".22"/></symbol>
+
+<!-- H: E's 잇 with C's colours swapped: coral caret-ㅣ on ink. -->
+<symbol id="H" viewBox="0 0 100 100"><use href="#tile"/>
+ <circle cx="37" cy="38" r="12.5" fill="none" stroke="#fff" stroke-width="8.5"/>
+ <rect x="61" y="18" width="9" height="42" rx="4.5" fill="#F26B4F"/>
+ <path d="M50 63 L31 83 M50 63 L69 83" stroke="#fff" stroke-opacity=".3" stroke-width="8.5" stroke-linecap="round" fill="none"/></symbol>
+</defs></svg>
+
+<h2>Drawn options (vector, ready to build)</h2>
+<div class="grid" id="drawn"><div class="card"><h3><b>A</b>Today</h3><img class="big" src="images/today-tile.png" style="border-radius:22.4%"><div class="strip l"><img src="images/today-tile.png" width="64" height="64" style="border-radius:14.3px"><img src="images/today-tile.png" width="32" height="32" style="border-radius:7.2px"><img src="images/today-tile.png" width="16" height="16" style="border-radius:3.6px"></div><div class="strip d"><img src="images/today-tile.png" width="64" height="64" style="border-radius:14.3px"><img src="images/today-tile.png" width="32" height="32" style="border-radius:7.2px"><img src="images/today-tile.png" width="16" height="16" style="border-radius:3.6px"></div><p class="note">The shipping icon. Caret 22% from the left, tail fading to nothing: the weight leans left and the right of the tile is empty.</p></div></div>
+
+<h2>Image ideas (Codex's image tool, today's icon as reference)</h2>
+<p class="q">Images, not builds: each note says which idea is worth taking into a drawn version.</p>
+<div class="grid"><div class="card"><h3><b>I</b>Balanced cursor</h3><img class="big" src="images/g.png" style="border-radius:22.4%"><div class="strip l"><img src="images/g.png" width="64" height="64" style="border-radius:14.3px"><img src="images/g.png" width="32" height="32" style="border-radius:7.2px"><img src="images/g.png" width="16" height="16" style="border-radius:3.6px"></div><div class="strip d"><img src="images/g.png" width="64" height="64" style="border-radius:14.3px"><img src="images/g.png" width="32" height="32" style="border-radius:7.2px"><img src="images/g.png" width="16" height="16" style="border-radius:3.6px"></div><p class="note">A caret crossing a glowing ghost bar. Balanced, but it reads as a plus sign: not worth building.</p></div><div class="card"><h3><b>J</b>Two strokes joining</h3><img class="big" src="images/h.png" style="border-radius:22.4%"><div class="strip l"><img src="images/h.png" width="64" height="64" style="border-radius:14.3px"><img src="images/h.png" width="32" height="32" style="border-radius:7.2px"><img src="images/h.png" width="16" height="16" style="border-radius:3.6px"></div><div class="strip d"><img src="images/h.png" width="64" height="64" style="border-radius:14.3px"><img src="images/h.png" width="32" height="32" style="border-radius:7.2px"><img src="images/h.png" width="16" height="16" style="border-radius:3.6px"></div><p class="note">잇다 as "to join": a solid stroke linking into a ghost one. The strongest new idea here, but it reads as the hyperlink icon; worth a drawn round only if it drops the chain shape.</p></div><div class="card"><h3><b>K</b>Warm text lines</h3><img class="big" src="images/i.png" style="border-radius:22.4%"><div class="strip l"><img src="images/i.png" width="64" height="64" style="border-radius:14.3px"><img src="images/i.png" width="32" height="32" style="border-radius:7.2px"><img src="images/i.png" width="16" height="16" style="border-radius:3.6px"></div><div class="strip d"><img src="images/i.png" width="64" height="64" style="border-radius:14.3px"><img src="images/i.png" width="32" height="32" style="border-radius:7.2px"><img src="images/i.png" width="16" height="16" style="border-radius:3.6px"></div><p class="note">Paper, ink lines, a coral ghost line and caret. Tidy but generic (a text-align icon); G already carries its colours.</p></div></div>
+</main>
+<script>
+const drawn=[
+ ['B','A, re-weighted','Same marks. Caret shorter, tail thicker and fading less, the pair moved right so its weight sits on the centre. Smallest change; menubar.svg needs the same nudge.','B'],
+ ['C','Caret in the middle','Typed text solid on the left, caret on the centre line, the suggestion ghosted on the right. Symmetric, so it can\'t lean; the story is the whole app in one line. Recommended.','C'],
+ ['D','A paragraph','Two lines of text, the caret mid-second-line and a ghost word after it. Reads as "writing" more than A; busier at 16 px.','D'],
+ ['E','잇 from the caret','ㅇ ring, the caret is the ㅣ, and ㅅ is ghosted, not typed yet. The old option c, but built from the same strokes as the caret, so it balances as a block and holds up small. Says nothing to non-Korean readers beyond "a caret".','E'],
+ ['F','Split ring','A ring cut by the caret: left half written, right half still to come. The most logo-like and the most balanced, but small it reads as a power button.','F'],
+ ['G','C on paper','C in warm paper, ink and a coral caret. Stands out in a dark Dock; the ghost bar gets weak at 16 px on a light menu.','G'],
+ ['H','E with a coral ㅣ','E, with the caret-ㅣ in coral so the "this is a cursor" reading jumps out.','H'],
+];
+const svg=(id,s)=>`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><use href="#${id}"/></svg>`;
+const img=(src,s)=>`<img src="${src}" width="${s}" height="${s}" style="border-radius:${s*.224}px">`;
+const card=([L,name,note,id],src)=>{
+ const big=id?`<svg class="big" viewBox="0 0 100 100"><use href="#${id}"/></svg>`:`<img class="big" src="${src}">`;
+ const at=s=>id?svg(id,s):img(src,s);
+ return `<div class="card"><h3><b>${L}</b>${name}</h3>${big}<div class="strip l">${[64,32,16].map(at).join('')}</div><div class="strip d">${[64,32,16].map(at).join('')}</div><p class="note">${note}</p></div>`};
+document.getElementById('drawn').insertAdjacentHTML('beforeend',drawn.map(d=>card(d)).join(''));
+</script></body></html>

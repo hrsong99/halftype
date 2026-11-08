@@ -28,9 +28,17 @@ enum AX {
         var r = CFRange()
         return AXValueGetValue(v as! AXValue, .cfRange, &r) ? r : nil
     }
+    static func valueIsSettable(_ e: AXUIElement) -> Bool {
+        var settable = DarwinBoolean(false)
+        return AXUIElementIsAttributeSettable(e, "AXValue" as CFString, &settable) == .success && settable.boolValue
+    }
     static func startMarker(_ range: CFTypeRef?) -> AXTextMarker? {
         guard let range, CFGetTypeID(range) == AXTextMarkerRangeGetTypeID() else { return nil }
         return AXTextMarkerRangeCopyStartMarker((range as! AXTextMarkerRange))
+    }
+    static func string(_ e: AXUIElement, length: Int) -> String? {
+        var r = CFRange(location: 0, length: length)
+        return get(e, "AXStringForRange", AXValueCreate(.cfRange, &r)!) as? String
     }
     static func bounds(_ e: AXUIElement, location: Int, length: Int) -> CGRect? {
         var r = CFRange(location: location, length: length)
@@ -53,6 +61,9 @@ struct Reading: Equatable {
     var frame: CGRect
     /// The host reports a non-empty marked range. Absence says nothing: Chromium reports no range, and Apple's 2-set can leave an empty one over a live syllable.
     var marked: Bool
+    var webCaret = false
+    /// Newlines before the caret that the host's own ranges leave out, so a range read here is asked this much lower.
+    var skipped = 0
     var previousCharacter: String { field.before.last.map(String.init) ?? "" }
 }
 
@@ -61,21 +72,50 @@ enum Reader {
 
     /// Secure fields and anything that isn't text entry are never read further. A settable value tells a composer from
     /// a terminal or a read-only text area, both of which also report `AXTextArea`.
-    static func isEditableText(_ e: AXUIElement) -> Bool {
-        guard let role = AX.get(e, "AXRole") as? String, textRoles.contains(role),
-              AX.get(e, "AXSubrole") as? String != "AXSecureTextField" else { return false }
-        var settable = DarwinBoolean(false)
-        return AXUIElementIsAttributeSettable(e, "AXValue" as CFString, &settable) == .success && settable.boolValue
+    static func isEditableText(_ e: AXUIElement, get: AttributeGet = AX.get, settable: (AXUIElement) -> Bool = AX.valueIsSettable) -> Bool {
+        guard let role = get(e, "AXRole") as? String, textRoles.contains(role), get(e, "AXSubrole") as? String != "AXSecureTextField" else { return false }
+        return settable(e)
     }
 
-    /// Nil when there is no text to continue from here: no value, or a non-empty selection.
+    typealias AttributeGet = (AXUIElement, String) -> CFTypeRef?
+
+    /// Nil when there is no text to continue from here: not eligible, no value, or a non-empty selection. Eligibility is asked on
+    /// every read, before the value, as a field can turn secure in place and keep its identity; that's three small AX calls per read.
     /// shortcut: reads the whole value on each change (1-3 ms in the fields tested); use AXStringForRange if huge documents lag.
-    static func read(_ e: AXUIElement) -> Reading? {
-        guard let value = AX.get(e, "AXValue") as? String, let selection = AX.range(AX.get(e, "AXSelectedTextRange")),
-              let (before, after) = slice(value, selection) else { return nil }
-        let frame = AX.rect(AX.get(e, "AXFrame")) ?? .zero
-        return Reading(field: Field(before: before, after: after), caret: caret(e, before: before, frame: frame), frame: frame,
-                       marked: (AX.range(AX.get(e, "AXTextInputMarkedRange"))?.length ?? 0) > 0)
+    static func read(_ e: AXUIElement, get: AttributeGet = AX.get, settable: (AXUIElement) -> Bool = AX.valueIsSettable,
+                     upTo: (AXUIElement, Int) -> String? = { AX.string($0, length: $1) }) -> Reading? {
+        guard isEditableText(e, get: get, settable: settable), let value = get(e, "AXValue") as? String,
+              var selection = AX.range(get(e, "AXSelectedTextRange")) else { return nil }
+        let at = selection.location  // In the host's own ranges.
+        // One more read, only where paragraphs can be: a web view's ranges may leave out the newlines between them. Unchecked, the
+        // offset could be a paragraph off, so a range read that fails, times out or comes back short means no reading, in any host.
+        if value.utf16.contains(10), selection.length == 0, at > 0 {
+            guard let ranged = upTo(e, at), ranged.utf16.count == at else { return nil }
+            if !value.utf16.starts(with: ranged.utf16) {
+                guard let index = valueIndex(of: ranged, in: value) else { return nil }
+                selection.location = index
+            }
+        }
+        guard let (before, after) = slice(value, selection) else { return nil }
+        let skipped = selection.location - at
+        let frame = AX.rect(get(e, "AXFrame")) ?? .zero
+        let caret = caret(e, before: before, skipped: skipped, frame: frame)
+        return Reading(field: Field(before: before, after: after), caret: caret?.rect, frame: frame,
+                       marked: (AX.range(get(e, "AXTextInputMarkedRange"))?.length ?? 0) > 0, webCaret: caret?.web ?? false, skipped: skipped)
+    }
+
+    /// Chromium's contenteditable has a newline between paragraphs in `AXValue` that its ranges and selection leave out, so the caret's
+    /// index runs one short per paragraph above. This walks the text up to the caret through the value, skipping only such newlines: the
+    /// caret's index in the value, or nil if they don't line up. At a paragraph's start it lands before the break, as both are one offset.
+    static func valueIndex(of ranged: String, in value: String) -> Int? {
+        let r = Array(ranged.utf16), v = Array(value.utf16)
+        var i = 0
+        for unit in r {
+            while i < v.count, v[i] != unit, v[i] == 10 { i += 1 }
+            guard i < v.count, v[i] == unit else { return nil }
+            i += 1
+        }
+        return i
     }
 
     /// By the selection, never the value's length: T3 reports a trailing newline, and length 1 when empty.
@@ -99,13 +139,30 @@ enum Reader {
         return rect
     }
 
-    private static func caret(_ e: AXUIElement, before: String, frame: CGRect) -> CGRect? {
+    /// A web view's caret sliver, mid-line: drawn at page zoom while the font size it reports isn't. Not a line box, which is wide.
+    static func isWebCaret(marker: CGRect, before: String) -> Bool {
+        marker.width < marker.height && !(before.last?.isNewline ?? true)
+    }
+
+    private static func caret(_ e: AXUIElement, before: String, skipped: Int, frame: CGRect) -> (rect: CGRect, web: Bool)? {
         let marker = AX.get(e, "AXSelectedTextMarkerRange").flatMap { AX.rect(AX.get(e, "AXBoundsForTextMarkerRange", $0)) }
-        if let marker, marker.height > 0 { return caretRect(marker: marker, previous: nil, frame: frame) }
+        if let marker, marker.height > 0 {
+            return caretRect(marker: marker, previous: nil, frame: frame).map { ($0, isWebCaret(marker: marker, before: before)) }
+        }
         // The previous character is one composed sequence, and a newline has no useful right edge.
-        guard let last = before.last, !last.isNewline else { return nil }
-        let length = last.utf16.count
-        return caretRect(marker: nil, previous: AX.bounds(e, location: before.utf16.count - length, length: length), frame: frame)
+        guard before.last.map({ !$0.isNewline }) ?? false, let r = previousRange(before, skipped: skipped) else { return nil }
+        return caretRect(marker: nil, previous: AX.bounds(e, location: r.location, length: r.length), frame: frame).map { ($0, false) }
+    }
+
+    /// The character before the caret, in the host's own ranges.
+    static func previousRange(_ before: String, skipped: Int) -> CFRange? {
+        guard let last = before.last else { return nil }
+        return CFRange(location: before.utf16.count - skipped - last.utf16.count, length: last.utf16.count)
+    }
+
+    /// The caret's line start, in the host's own ranges: every newline they leave out comes before it.
+    static func lineStart(_ before: String, skipped: Int) -> Int {
+        (before as NSString).range(of: "\n", options: .backwards).upperBound - skipped
     }
 
     /// The ghost is laid out rightward from the caret, and on a right-to-left line neither that nor the caret's edge holds, so no ghost.
@@ -117,25 +174,24 @@ enum Reader {
     }
 
     /// Font, colour and left text edge, from the character before the caret.
-    static func traits(_ e: AXUIElement, before: String) -> FieldTraits? {
-        guard let attributes = previousCharacterAttributes(e, before: before),
+    static func traits(_ e: AXUIElement, before: String, skipped: Int) -> FieldTraits? {
+        guard let attributes = previousCharacterAttributes(e, before: before, skipped: skipped),
               let font = attributes[NSAttributedString.Key("AXFont")] as? [String: Any],
               let size = font["AXFontSize"] as? CGFloat, size > 0 else { return nil }
         let color = attributes[NSAttributedString.Key("AXForegroundColor")].flatMap { value -> CGColor? in
             CFGetTypeID(value as CFTypeRef) == CGColor.typeID ? (value as! CGColor) : nil
         }
-        return FieldTraits(fontSize: size, fontName: font["AXFontName"] as? String, color: color, lineLeft: lineLeft(e, before: before))
+        return FieldTraits(fontSize: size, fontName: font["AXFontName"] as? String, color: color, lineLeft: lineLeft(e, before: before, skipped: skipped))
     }
 
-    private static func previousCharacterAttributes(_ e: AXUIElement, before: String) -> [NSAttributedString.Key: Any]? {
+    private static func previousCharacterAttributes(_ e: AXUIElement, before: String, skipped: Int) -> [NSAttributedString.Key: Any]? {
         var text: NSAttributedString?
         if let start = AX.startMarker(AX.get(e, "AXSelectedTextMarkerRange")),
            let previous = AX.get(e, "AXPreviousTextMarkerForTextMarker", start),
            let pair = AX.get(e, "AXTextMarkerRangeForUnorderedTextMarkers", [previous, start] as CFArray) {
             text = AX.get(e, "AXAttributedStringForTextMarkerRange", pair) as? NSAttributedString
         }
-        if text == nil, let last = before.last {
-            var r = CFRange(location: before.utf16.count - last.utf16.count, length: last.utf16.count)
+        if text == nil, var r = previousRange(before, skipped: skipped) {
             text = AX.get(e, "AXAttributedStringForRange", AXValueCreate(.cfRange, &r)!) as? NSAttributedString
         }
         guard let text, text.length > 0 else { return nil }
@@ -143,13 +199,13 @@ enum Reader {
     }
 
     /// The field's text edge, from its current line (markers) or its paragraph's first character (ranges). Nil: not wrapping.
-    private static func lineLeft(_ e: AXUIElement, before: String) -> CGFloat? {
+    private static func lineLeft(_ e: AXUIElement, before: String, skipped: Int) -> CGFloat? {
         if let start = AX.startMarker(AX.get(e, "AXSelectedTextMarkerRange")),
            let line = AX.get(e, "AXLeftLineTextMarkerRangeForTextMarker", start), let r = AX.rect(AX.get(e, "AXBoundsForTextMarkerRange", line)), r.height > 0 {
             return r.minX
         }
-        let start = (before as NSString).range(of: "\n", options: .backwards).upperBound
-        guard start < before.utf16.count, let r = AX.bounds(e, location: start, length: 1), r.height > 0 else { return nil }
+        let start = lineStart(before, skipped: skipped)
+        guard start < before.utf16.count - skipped, let r = AX.bounds(e, location: start, length: 1), r.height > 0 else { return nil }
         return r.minX
     }
 

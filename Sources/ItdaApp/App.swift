@@ -3,6 +3,7 @@ import Carbon
 import ItdaCore
 import ItdaEngine
 import Sparkle
+import Synchronization
 
 public func runItda() {
     let app = NSApplication.shared
@@ -12,11 +13,15 @@ public func runItda() {
 }
 
 final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate, ObservableObject {
-    private let tap = KeyTap()
+    private let tap: KeyTap
     private let panel = GhostPanel()
     private lazy var watcher = Watcher(tap: tap, panel: panel)
-    private lazy var status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private lazy var status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    /// The menu bar's glyph, plain and with a problem's dot. Nil until launch, so tests make no status item.
+    private var glyphs: (plain: NSImage, marked: NSImage)?
+    private var shownIcon: Icon?
     static let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda")
+    // Still "Itda", the app's old name: renaming it would strand the models people already downloaded.
     let store = ModelStore(directory: App.support)
     /// Counts only, for the Stats page. Written on each change, which is a few hundred small writes on a busy day.
     @Published var tally = App.tallyFile.flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONDecoder().decode(Tally.self, from: $0) } ?? Tally() {
@@ -70,39 +75,56 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tally = next
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
-    @Published var ready = false
+    var ready: Bool { activePath != nil }
     /// What just went wrong with a download or a switch.
-    @Published var notice: String?
-    @Published var trusted = AXIsProcessTrusted()
+    @Published var notice: String? { didSet { retryable = false; updateIcon() } }
+    /// The notice is a failed download, which Retry starts again.
+    @Published private(set) var retryable = false
+    /// Whether the system lets the tap run, which is what the permission comes to.
+    @Published var trusted = false { didSet { updateIcon() } }
     /// The model being fetched, by file name, and how far along.
-    @Published var downloading: String?
-    @Published var downloadFraction = 0.0
+    @Published var downloading: String? { didSet { updateIcon() } }
+    @Published var downloadFraction = 0.0 { didSet { updateIcon() } }
+    /// Why there's no ghost in the front app's field, as the watcher last settled it.
+    @Published var why = Watcher.Why.unreadable
+    /// A suggestion was taken since the window opened, and nothing has stood in the way since.
+    @Published var accepted = false
+    /// Counts every Tab taken anywhere, so the window's sky can swell on one.
+    @Published var tabs = 0
+    /// Counts each bind and unbind, so a reason from an earlier one is dropped.
+    var binding = 0
+    /// This launch began without a model or the permission, so the field gets a sentence once, and the first ghost needs no typing.
+    var fresh = false
     @Published var verifying = false
+    @Published private var waiting = false
     /// The model being opened, while it's the first.
     @Published private var loadingPath: String?
     /// What happens when a fetch ends: the default at first run loads, your choice loads and is remembered, and
     /// choosing another model in the meantime leaves just the file.
     private enum AfterFetch { case load, loadAndRemember, nothing }
     private var afterFetch = AfterFetch.load
-    /// The model that loaded last, which is the one answering.
-    @Published var activePath: String?
+    /// The model that loaded last, which is the one answering. Nil again if it can't load after an idle unload.
+    @Published var activePath: String? { didSet { updateIcon() } }
     var window: NSWindow?
     /// Started only in a released build, whose Info.plist names the feed.
     let updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
-    /// The one line of status, for the menu and under the field.
+    /// The model's line, for the menu and under the field.
     var modelLine: String {
-        if ready, let activePath { return "Model: " + URL(fileURLWithPath: activePath).lastPathComponent }
-        if verifying { return "Verifying model…" }
-        if downloading != nil { return "Downloading model: \(Int(downloadFraction * 100))%" }
-        if let loadingPath { return "Loading " + URL(fileURLWithPath: loadingPath).lastPathComponent + "…" }
-        return "Model: not loaded"
+        if ready { return activeName }
+        if verifying { return "Checking the download…" }
+        if waiting { return "Waiting for a connection…" }
+        if downloading != nil { return "Downloading \(store.current.name): \(Int(downloadFraction * 100))% of \(store.current.sizeText)" }
+        if let loadingPath { return "Loading \(name(loadingPath))…" }
+        return "No model loaded"
     }
     var isRelease: Bool { Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil }
     var askedForAccessibility = false
-    private var tapFailed = false
-    private var permissionTimer: Timer?
     private let loading = DispatchQueue(label: "itda.load", qos: .userInitiated)
     private var latestOpen = 0
+    /// The open whose model is installed, so a failure from one it replaced, even at the same path, is ignored. Main thread.
+    private var installed = 0
+    /// Opens a model, on the loading queue: `Engine`, or a fake in tests.
+    var makeEngine: (String, @escaping @Sendable () -> Void) -> Completer? = { path, lost in try? Engine(modelPath: path, onLoadFailure: lost, adapter: App.adapterToday(model:)) }
 
     @Published var on = UserDefaults.standard.object(forKey: "on") as? Bool ?? true {
         didSet {
@@ -138,20 +160,15 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// One in use stays, even if its file has since moved.
     var ownModels: [String] { ownPaths.filter { $0 == activePath || FileManager.default.fileExists(atPath: $0) } }
     func forgetOwnModel(_ path: String) { ownPaths.removeAll { $0 == path } }
-    func isActive(path: String) -> Bool { ready && activePath == path }
+    func isActive(path: String) -> Bool { activePath == path }
     /// Takes one of your GGUFs, from the lists.
     func use(path: String) { open(path, remember: true) }
 
     func isActive(_ model: ModelStore.Model) -> Bool { ready && activePath == store.path(model).path }
-    /// Downloaded, and neither loaded nor loading, so its file can go.
-    func canDelete(_ model: ModelStore.Model) -> Bool {
-        let path = store.path(model).path
-        return store.has(model) && path != activePath && path != loadingPath
-    }
-    func delete(_ model: ModelStore.Model) {
-        guard canDelete(model) else { return }
-        try? FileManager.default.removeItem(at: store.path(model))
-        objectWillChange.send()
+
+    /// The tap is a fake in tests.
+    init(tap: KeyTap = KeyTap()) {
+        self.tap = tap
     }
 
     static func fileName(_ path: String) -> String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
@@ -173,13 +190,17 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                 guard let self else { return }
                 self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
+                self.tabs += 1
+                if !self.accepted { self.accepted = true }
             }
         }
         // The symbol is for a binary run outside the bundle, as the e2e checks do.
-        let glyph = Bundle.main.image(forResource: "MenuBarTemplate") ?? NSImage(systemSymbolName: "text.cursor", accessibilityDescription: "Itda")
-        glyph?.isTemplate = true
-        glyph?.accessibilityDescription = "Itda"
-        status.button?.image = glyph
+        let glyph = Bundle.main.image(forResource: "MenuBarTemplate") ?? NSImage(systemSymbolName: "text.cursor", accessibilityDescription: "Halftype")!
+        glyph.isTemplate = true
+        glyph.accessibilityDescription = "Halftype"
+        glyphs = (glyph, App.marked(glyph))
+        status.button?.imagePosition = .imageLeading
+        updateIcon()
         installMainMenu()
         let menu = NSMenu()
         menu.delegate = self
@@ -189,24 +210,20 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(readInputSource),
                                                             name: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
         let workspace = NSWorkspace.shared.notificationCenter
-        workspace.addObserver(self, selector: #selector(rebind), name: NSWorkspace.didActivateApplicationNotification, object: nil)
-        workspace.addObserver(self, selector: #selector(spaceChanged), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+        for name in [NSWorkspace.didActivateApplicationNotification, NSWorkspace.didWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
+            workspace.addObserver(self, selector: #selector(rebind), name: name, object: nil)
+        }
+        watcher.hideOnSessionChange()
 
         if isRelease { updates.startUpdater() }
         store.removeLeftovers()
         store.onChange = { [weak self] state in self?.modelChanged(state) }
         loadModel()
         // Accessibility is the one permission, and the window asks for it. Nothing runs until the grant.
-        if AXIsProcessTrusted() {
-            startWatching()
-        } else {
-            permissionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
-                guard AXIsProcessTrusted() else { return }
-                timer.invalidate()
-                self?.trusted = true
-                self?.startWatching()
-            }
-        }
+        watcher.onWhy = { [weak self] why, binding in DispatchQueue.main.async { self?.whyChanged(why, binding: binding) } }
+        tap.onUp = { [weak self] up in DispatchQueue.main.async { self?.tapChanged(up: up) } }
+        trusted = tap.hold()
+        if !trusted { fresh = true }
         // Started by the system at login, it stays out of the way. Started by you, it answers. Without the permission it has to ask.
         let launch = NSAppleEventManager.shared().currentAppleEvent
         let atLogin = launch?.eventID == kAEOpenApplication && launch?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
@@ -218,18 +235,25 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         return false
     }
 
-    /// ggml's Metal device asserts at exit if a model is still loaded.
-    func applicationWillTerminate(_ note: Notification) {
-        if on { count() }
-        watcher.queue.sync { watcher.completer }?.unload()
+    /// A download stops at quit, and what it got is saved first, so the next launch resumes it. Best effort: the save comes on the main
+    /// queue, which a quit from a main-queue block holds, so after a second it quits without.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        var replied = false
+        let reply = {
+            if !replied { NSApp.reply(toApplicationShouldTerminate: true) }
+            replied = true
+        }
+        guard store.stop(then: reply) else { return .terminateNow }
+        RunLoop.main.add(Timer(timeInterval: 1, repeats: false) { _ in reply() }, forMode: .common)
+        return .terminateLater
     }
 
-    private func startWatching() {
-        guard tap.start() else {
-            tapFailed = true
-            return
-        }
-        rebind()
+    /// ggml's Metal device asserts at exit if a model is still loaded. A load under way finishes first, as it can't be stopped, and none
+    /// starts after; then every model opened closes, installed or not.
+    func applicationWillTerminate(_ note: Notification) {
+        if on { count() }
+        quitting.store(true, ordering: .sequentiallyConsistent)  // Before the drain, so opens queued behind it skip their load.
+        watcher.quit(closing: loading.sync { engines.allObjects.compactMap { $0 as? Completer } })
     }
 
     /// TIS must be read on the main thread. Going by the source's language covers third-party Korean input methods too.
@@ -245,19 +269,31 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.redraw()
     }
 
-    @objc private func spaceChanged() {
-        watcher.hideNow()
+    private func tapChanged(up: Bool) {
+        let granted = up && !trusted
+        trusted = up
+        rebind()
+        // Back in front of System Settings, where the grant was given.
+        if granted, let window {
+            showWindow()
+            window.orderFrontRegardless()
+        }
     }
+
+    /// On, and not paused for the front app.
+    private var activeHere: Bool { on && !pausedApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
 
     @objc private func rebind() {
         watcher.hideNow()
-        guard AXIsProcessTrusted() else { return }
-        guard on, let front = NSWorkspace.shared.frontmostApplication,
-              !pausedApps.contains(front.bundleIdentifier ?? "") else {
-            watcher.unbind()
+        tap.reenable()
+        updateIcon()
+        guard trusted, activeHere, let front = NSWorkspace.shared.frontmostApplication else {
+            binding += 1
+            watcher.unbind(binding: binding)
             return
         }
-        watcher.bind(pid: front.processIdentifier)
+        binding += 1
+        watcher.bind(pid: front.processIdentifier, binding: binding)
     }
 
     // MARK: Model
@@ -267,6 +303,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         let first = ModelStore.models[0]
         if store.has(first) { return open(store.path(first).path) }
         afterFetch = .load
+        fresh = true
         store.fetch(first)
     }
 
@@ -280,8 +317,14 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         open(store.path(model).path, remember: true)
     }
 
-    private func modelChanged(_ state: ModelStore.State) {
+    /// The fetch that failed, from where it stopped.
+    @objc func retry() { store.fetch(store.current) }
+
+    func modelChanged(_ state: ModelStore.State) {
+        waiting = state == .waiting
         switch state {
+        case .waiting:
+            break
         case .downloading(let done):
             downloading = store.current.id
             downloadFraction = done
@@ -300,12 +343,18 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             downloading = nil
             verifying = false
             notice = "Model download failed: \(why)"
+            retryable = true
         }
     }
 
     /// Loading takes a moment and compiles Metal pipelines, so it stays off the main thread. One at a time, and the last choice wins.
     /// The model answering now keeps answering until another has loaded, and it stays if that one can't.
     /// The launch's own load only reads the preference: a choice is what writes it, and only once it has worked.
+    /// Every model opened that something still holds, so quit can close each without waiting on the watcher. Loading queue: an engine
+    /// is in here before anything else can hold it.
+    private let engines = NSHashTable<AnyObject>.weakObjects()
+    private let quitting = Atomic<Bool>(false)
+
     private func open(_ path: String, remember: Bool = false) {
         if remember { afterFetch = .nothing }
         loadingPath = path
@@ -313,7 +362,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         latestOpen += 1
         let id = latestOpen
         loading.async { [self] in
-            let engine = try? Engine(modelPath: path, adapter: App.adapterToday(model:))
+            guard !quitting.load(ordering: .sequentiallyConsistent) else { return }
+            let engine = makeEngine(path) { [weak self] in DispatchQueue.main.async { self?.lost(id) } }
+            if let engine { engines.add(engine) }
             DispatchQueue.main.async { [self] in
                 guard id == latestOpen else { return }
                 loadingPath = nil
@@ -322,26 +373,146 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                     return
                 }
                 activePath = path
-                self.engine = engine
+                self.engine = engine as? Engine
                 if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
-                ready = true
-                watcher.queue.async { [self] in
-                    watcher.completer?.cancel()
-                    watcher.completer = engine
-                    watcher.unloadWhenIdle()
-                }
+                installed = id
+                watcher.install(engine)
             }
         }
+    }
+
+    /// The model answering couldn't load again after an idle unload: its file moved or broke. Nothing answers until another is chosen.
+    private func lost(_ id: Int) {
+        guard id == installed, let path = activePath else { return }
+        (installed, activePath) = (0, nil)
+        notice = "Could not load " + URL(fileURLWithPath: path).lastPathComponent
+        watcher.install(nil)
+    }
+
+    /// Not answering, opening or downloading.
+    func canDelete(_ model: ModelStore.Model) -> Bool {
+        let path = store.path(model).path
+        return activePath != path && loadingPath != path && downloading != model.id
+    }
+
+    /// A fetched model, off the disk. Getting it again downloads it again.
+    func delete(_ model: ModelStore.Model) {
+        guard canDelete(model) else { return }
+        store.delete(model)
+        objectWillChange.send()
+    }
+
+    /// The sentence for the empty field, once a launch that began without a model or the permission has both. From the e2e demo, where
+    /// the default model suggests, so the first ghost needs no typing.
+    static func prefill(fresh: Bool, ready: Bool, draft: String, korean: Bool) -> String? {
+        guard fresh, ready, draft.isEmpty else { return nil }
+        return korean ? "안녕하세요. 만나서 반갑" : "Please let me know if you have any"
+    }
+
+    /// The prefill, taken once. The field is asked again, as a model installed in the same moment may have read it still empty.
+    func takePrefill(draft: String) -> String? {
+        guard let sentence = App.prefill(fresh: fresh, ready: ready, draft: draft, korean: watcher.koreanInput.load(ordering: .relaxed)) else { return nil }
+        fresh = false
+        DispatchQueue.main.async { [self] in watcher.redraw() }
+        return sentence
+    }
+
+    // MARK: Why, and the icon
+
+    /// The one line saying why there's no suggestion here, for the menu and under the field. Nil when off or paused, which the menu's
+    /// own items show. Not sure is a normal state, and reads as working.
+    static func line(trusted: Bool, active: Bool, obstacle: KeyTap.Obstacle?, ready: Bool, why: Watcher.Why) -> String? {
+        guard trusted else { return "Halftype needs Accessibility permission." }
+        guard active else { return nil }
+        if let obstacle { return obstacle.rawValue }
+        guard ready else { return "The model isn't ready yet." }
+        switch why {
+        case .shown, .idle, .blocked: return "Working."  // Blocked with no obstacle now: it has just ended.
+        case .unsure: return "Working. Not sure enough to suggest yet."
+        case .unreadable: return "No field here that Halftype can read."
+        case .textAfter: return "Text after the cursor, so no suggestion here."
+        case .notTwoSet: return "Korean suggestions need Apple's 2-Set Korean layout."
+        case .noModel: return "The model isn't ready yet."
+        case .noCaret: return "This app doesn't say where the cursor is."
+        case .noFont: return "This field doesn't report its font, so no suggestion here."
+        case .rightToLeft: return "No suggestions in right-to-left text."
+        case .noRoom: return "No room to show a suggestion here."
+        }
+    }
+
+    /// Main. A reason about an app no longer watched is stale. One that stands in the way ends the first accept's line.
+    func whyChanged(_ new: Watcher.Why, binding: Int) {
+        guard binding == self.binding else { return }
+        why = new
+        if !new.working { accepted = false }
+        updateIcon()  // Secure Input comes and goes with no word to us; the watcher sees it.
+    }
+
+    func line(for why: Watcher.Why) -> String? {
+        App.line(trusted: trusted, active: activeHere, obstacle: tap.obstacle, ready: ready, why: why)
+    }
+
+    static let lesson = "Tab takes a word. Shift-Tab takes it all. Esc hides it."
+    static let success = "That's it. Halftype works like this in almost any app."
+
+    /// Under the field: the menu's line, or while nothing is in the way, that the first accept worked or how to take the ghost showing.
+    /// Nothing while off, paused or without the permission.
+    func fieldLine(_ why: Watcher.Why) -> String? {
+        guard let line = line(for: why) else { return nil }
+        guard why.working, ready, tap.obstacle == nil else { return line }
+        return accepted ? App.success : why == .shown ? App.lesson : line
+    }
+
+    /// macOS's own grey inline predictions, which would show beside ours. Read, never written.
+    var predictions: Bool { readPredictions() }
+    var readPredictions = { NSSpellChecker.isAutomaticInlinePredictionEnabled }
+    @objc func openKeyboardSettings() { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!) }
+
+    struct Icon: Equatable {
+        var dimmed = false, mark = false, title = ""
+    }
+
+    /// Dimmed when off or paused here, a dot when something needs you, and how far a download has got.
+    static func icon(active: Bool, problem: Bool, downloading: Double?) -> Icon {
+        Icon(dimmed: !active, mark: problem, title: downloading.map { "\(Int($0 * 100))%" } ?? "")
+    }
+
+    /// From each place the state it shows changes: rebind (on, pause, front app, permission), the model's state, and the watcher.
+    func updateIcon() {
+        guard let glyphs, let button = status.button else { return }
+        let icon = App.icon(active: activeHere, problem: !trusted || tap.obstacle != nil || (!ready && notice != nil),
+                            downloading: downloading.map { _ in downloadFraction })
+        guard icon != shownIcon else { return }
+        shownIcon = icon
+        button.image = icon.mark ? glyphs.marked : glyphs.plain
+        button.appearsDisabled = icon.dimmed
+        button.title = icon.title
+    }
+
+    /// The glyph with a dot at its top right, cut clear around it so it reads at menu-bar size.
+    static func marked(_ glyph: NSImage) -> NSImage {
+        let image = NSImage(size: glyph.size, flipped: false) { rect in
+            glyph.draw(in: rect)
+            let dot = CGRect(x: rect.maxX - 6, y: rect.maxY - 6, width: 6, height: 6)
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            NSBezierPath(ovalIn: dot).fill()
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Halftype, needs attention"
+        return image
     }
 
     // MARK: Menu
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        menu.addItem(withTitle: "Open Itda", action: #selector(openWindow), keyEquivalent: "")
+        menu.addItem(withTitle: "Open Halftype", action: #selector(openWindow), keyEquivalent: "")
         menu.addItem(.separator())
-        let toggle = menu.addItem(withTitle: "Itda", action: #selector(toggleOn), keyEquivalent: "")
+        let toggle = menu.addItem(withTitle: "Suggestions", action: #selector(toggleOn), keyEquivalent: "")
         toggle.state = on ? .on : .off
         if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != getpid(), let id = front.bundleIdentifier {
             let pause = menu.addItem(withTitle: "Pause in \(front.localizedName ?? id)", action: #selector(togglePause), keyEquivalent: "")
@@ -349,10 +520,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             pause.representedObject = id
         }
         menu.addItem(.separator())
-        if !AXIsProcessTrusted() { menu.addItem(withTitle: "Waiting for Accessibility permission", action: nil, keyEquivalent: "").isEnabled = false }
-        if tapFailed { menu.addItem(withTitle: "Could not watch for Tab", action: nil, keyEquivalent: "").isEnabled = false }
+        if let line = line(for: why) { menu.addItem(withTitle: line, action: nil, keyEquivalent: "").isEnabled = false }
         menu.addItem(withTitle: modelLine, action: nil, keyEquivalent: "").isEnabled = false
         if let notice { menu.addItem(withTitle: notice, action: nil, keyEquivalent: "").isEnabled = false }
+        if retryable { menu.addItem(withTitle: "Retry Download", action: #selector(retry), keyEquivalent: "") }
+        if predictions { menu.addItem(withTitle: "Turn Off macOS Predictions…", action: #selector(openKeyboardSettings), keyEquivalent: "") }
         menu.addItem(.separator())
         if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")

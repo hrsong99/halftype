@@ -11,6 +11,10 @@ struct Root: View {
     @State private var draft = ""
     @State private var sidebar: Bool
     @State private var page: Page
+    @State private var keys: [Date] = []
+    @State private var tabs: [Date] = []
+    @Environment(\.accessibilityReduceMotion) private var still
+    @Environment(\.controlActiveState) private var active
 
     private let picking: Bool
 
@@ -28,7 +32,7 @@ struct Root: View {
             if sidebar { side.transition(.move(edge: .leading)) }
             ZStack {
                 switch page {
-                case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking)
+                case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking, tab: tabs.last)
                 case .stats: StatsPage(app: app)
                 case .models: ModelsPage(app: app)
                 case .apps: AppsPage(app: app)
@@ -47,9 +51,15 @@ struct Root: View {
                 .padding(.top, 9)
         }
         .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
-        .background(Color(nsColor: .textBackgroundColor))
+        .background { Sky(rise: page == .field ? min(Double(draft.count) / 34, 1) : 0, keys: keys, tabs: tabs) }
+        .onChange(of: draft) { if !still { keys = Root.recent(keys) } }
+        // A Tab in another app, with this window behind it, isn't this window's.
+        .onChange(of: app.tabs) { if !still, active == .key { tabs = Root.recent(tabs) } }
         .ignoresSafeArea()
     }
+
+    /// The moments still moving the sky, and now.
+    static func recent(_ moments: [Date]) -> [Date] { moments.filter { -$0.timeIntervalSinceNow < Sky.life } + [.now] }
 
     private var side: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -85,20 +95,27 @@ private struct FieldPage: View {
     @ObservedObject var app: App
     @Binding var draft: String
     @Binding var page: Root.Page
+    /// The last Tab taken here, which the field breathes with.
+    var tab: Date?
     @FocusState private var focused: Bool
     @State private var picking: Bool
+    /// The watcher's reason once it has held for a moment, so typing doesn't flicker the line.
+    @State private var settled: Watcher.Why
 
-    init(app: App, draft: Binding<String>, page: Binding<Root.Page>, picking: Bool = false) {
+    init(app: App, draft: Binding<String>, page: Binding<Root.Page>, picking: Bool = false, tab: Date? = nil) {
         self.app = app
+        self.tab = tab
         _draft = draft
         _page = page
         _picking = State(initialValue: picking)
+        _settled = State(initialValue: app.why)
     }
 
     var body: some View {
         VStack(spacing: 16) {
             Mark()
-            if app.trusted { field.zIndex(1); status } else { allow }  // The list hangs over what's below the field.
+            if app.trusted { field.zIndex(1) } else { allow }  // The list hangs over what's below the field.
+            status
         }
         .padding(24)
         .padding(.bottom, 40)
@@ -109,7 +126,7 @@ private struct FieldPage: View {
 
     private var allow: some View {
         VStack(spacing: 12) {
-            Text("Itda needs to see what you type. It stays on this Mac.").foregroundStyle(.secondary)
+            Text("Halftype needs to see what you type. It stays on this Mac.").foregroundStyle(.secondary)
             Button("Allow Accessibility", action: app.askForAccessibility).buttonStyle(.borderedProminent).tint(.primary).buttonBorderShape(.capsule)
         }
     }
@@ -118,7 +135,8 @@ private struct FieldPage: View {
         VStack(alignment: .trailing, spacing: 4) {
             ZStack(alignment: .topLeading) {
                 if draft.isEmpty {
-                    Text(app.on ? "Type here, then press Tab on the grey text" : "Itda is off").foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
+                    Text(!app.on ? "Halftype is off" : app.ready ? "Type here, then press Tab on the grey text" : "Type here once the model is ready")
+                        .foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
                 }
                 TextEditor(text: $draft).focused($focused).scrollContentBackground(.hidden).scrollIndicators(.never).frame(height: 44)
                     .onKeyPress(.escape) {
@@ -149,22 +167,71 @@ private struct FieldPage: View {
                         .background(app.on ? Color.primary : Color.secondary.opacity(0.4), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .help(app.on ? "Itda is on. Click to turn it off." : "Itda is off. Click to turn it on.")
-                .accessibilityLabel(app.on ? "Turn Itda off" : "Turn Itda on")
+                .help(app.on ? "Halftype is on. Click to turn it off." : "Halftype is off. Click to turn it on.")
+                .accessibilityLabel(app.on ? "Turn Halftype off" : "Turn Halftype on")
             }
         }
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 20))
+        .pane()
+        .keyframeAnimator(initialValue: 1.0, trigger: tab) { view, scale in view.scaleEffect(scale) } keyframes: { _ in
+            CubicKeyframe(1.006, duration: 0.25)
+            CubicKeyframe(1, duration: 0.45)
+        }
         .frame(maxWidth: 500)
         .onAppear { focused = true }
         .onChange(of: draft) { picking = false }
+        .onChange(of: app.ready, initial: true) { if let sentence = app.takePrefill(draft: draft) { draft = sentence } }
+        .task(id: app.why) {
+            try? await Task.sleep(for: .milliseconds(400))
+            if !Task.isCancelled { settled = app.why }
+        }
     }
 
-    /// Nothing at all once it's ready and all is well.
+    /// The model until it's ready, then what the menu says about this field: how to take a ghost, that it worked, or why there's none.
     @ViewBuilder private var status: some View {
         VStack(spacing: 6) {
-            if !app.ready || app.notice != nil { Text(app.notice ?? app.modelLine).font(.system(size: 12)).foregroundStyle(.secondary) }
-            if !app.ready, app.downloading != nil { ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary) }
+            if !app.ready || app.notice != nil {
+                NoticeLine(app: app, text: app.notice ?? app.modelLine)
+                if !app.ready, app.downloading != nil {
+                    ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary)
+                    Line(text: "You can close this window.")
+                }
+            } else if let line = app.fieldLine(settled) {
+                HStack(spacing: 8) {
+                    Line(text: line)
+                    if line == App.success, !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }
+                }
+            }
+            if app.predictions {
+                HStack(spacing: 8) {
+                    Line(text: "macOS shows its own grey predictions too.")
+                    Button("Turn Them Off…", action: app.openKeyboardSettings).controlSize(.small)
+                }
+            }
+        }
+    }
+}
+
+extension View {
+    /// A milky pane over the sky, as in the design. Not `.glassEffect`: it decides its text colour from what's behind, which went dark on a dark window in our off-screen shots.
+    func pane() -> some View {
+        background(Color(nsColor: .textBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+private struct Line: View {
+    let text: String
+    var body: some View { Text(text).font(.system(size: 12)).foregroundStyle(.secondary) }
+}
+
+/// A line of status, with Retry when it's a download that failed.
+private struct NoticeLine: View {
+    @ObservedObject var app: App
+    let text: String
+    var body: some View {
+        HStack(spacing: 8) {
+            Line(text: text)
+            if app.retryable { Button("Retry", action: app.retry).controlSize(.small) }
         }
     }
 }
@@ -237,7 +304,9 @@ private struct Plain<Content: View>: View {
                 Text(title).font(.system(size: 20, weight: .semibold)).padding(.bottom, 12)
                 content
             }
-            .frame(maxWidth: 480, alignment: .leading)
+            .padding(EdgeInsets(top: 16, leading: 20, bottom: 18, trailing: 20))
+            .pane()
+            .frame(maxWidth: 520, alignment: .leading)
             .padding(.horizontal, 28)
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity)
@@ -377,7 +446,7 @@ private struct ModelsPage: View {
             Row(title: "Add Your Own GGUF") {
                 wide("Choose…", app.chooseModel)
             }
-            if let notice = app.notice { Text(notice).font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 8) }
+            if let notice = app.notice { NoticeLine(app: app, text: notice).padding(.top, 8) }
         }
         .confirmationDialog("Delete \(deleting?.name ?? "")?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("Delete", role: .destructive) { if let deleting { app.delete(deleting) } }
@@ -417,7 +486,7 @@ private struct AppsPage: View {
     @ObservedObject var app: App
     var body: some View {
         Plain(title: "Paused Apps") {
-            Text("Itda stays quiet in these apps, and Tab is theirs.").foregroundStyle(.secondary).padding(.bottom, 12)
+            Text("Halftype stays quiet in these apps, and Tab is theirs.").foregroundStyle(.secondary).padding(.bottom, 12)
             ForEach(app.pausedApps.sorted(), id: \.self) { id in
                 Row(title: App.displayName(id)) { Button("Remove") { app.pausedApps.remove(id) } }
             }
@@ -473,12 +542,13 @@ extension App {
             made.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             made.titlebarAppearsTransparent = true
             made.titleVisibility = .hidden
-            made.title = "Itda"
+            made.title = "Halftype"
             made.isReleasedWhenClosed = false
             made.delegate = self
             made.setContentSize(CGSize(width: 720, height: 500))
             made.center()
             window = made
+            accepted = false
         }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
@@ -499,7 +569,7 @@ extension App {
             return holder
         }
         let main = NSMenu()
-        main.addItem(menu("Itda", [("Quit Itda", #selector(NSApplication.terminate(_:)), "q")]))
+        main.addItem(menu("Halftype", [("Quit Halftype", #selector(NSApplication.terminate(_:)), "q")]))
         main.addItem(menu("Edit", [("Undo", Selector(("undo:")), "z"), ("Redo", Selector(("redo:")), "Z"), ("Cut", #selector(NSText.cut(_:)), "x"), ("Copy", #selector(NSText.copy(_:)), "c"),
                                    ("Paste", #selector(NSText.paste(_:)), "v"), ("Select All", #selector(NSText.selectAll(_:)), "a")]))
         main.addItem(menu("Window", [("Close", #selector(NSWindow.performClose(_:)), "w"), ("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m")]))

@@ -2,8 +2,8 @@ cask "itda" do
   version "@VERSION@"
   sha256 "@SHA@"
 
-  url "https://github.com/hrsong99/itda/releases/download/v#{version}/Itda.dmg"
-  name "Itda"
+  url "https://github.com/hrsong99/itda/releases/download/v#{version}/Halftype.dmg"
+  name "Halftype"
   desc "Inline typing suggestions in Korean and English, from a local model"
   homepage "https://github.com/hrsong99/itda"
 
@@ -11,7 +11,7 @@ cask "itda" do
   depends_on macos: :tahoe
   depends_on arch: :arm64
 
-  app "Itda.app"
+  app "Halftype.app"
 
   uninstall quit: "app.itda.Itda"
   zap trash: [

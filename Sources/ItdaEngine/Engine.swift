@@ -34,8 +34,11 @@ public final class Engine: @unchecked Sendable {
     private var loadedAdapter: String?
     /// The adapter is in use, not only asked for, or nil while no model is loaded. For the Stats page, which reads it from the main thread.
     public let applied = Mutex<Bool?>(nil)
+    /// Runs on the engine's queue when the model, once unloaded, can't be loaded again. Each request then says nil, as with nothing to suggest.
+    private let onLoadFailure: @Sendable () -> Void
     private let queue = DispatchQueue(label: "itda.engine", qos: .userInteractive)
     private let latest = Atomic<Int>(0)
+    private let closed = Atomic<Bool>(false)
     private var model: OpaquePointer?
     private var ctx: OpaquePointer?
     private var vocab: Vocab?
@@ -48,14 +51,15 @@ public final class Engine: @unchecked Sendable {
     /// The recurrent state a few tokens before the last prompt's end, and how many tokens that is.
     private var checkpoint: (count: Int, state: [UInt8])?
 
-    public convenience init(modelPath: String, adapter: @escaping @Sendable (String) -> String? = { _ in nil }) throws {
-        self.init(unloaded: modelPath, adapter: adapter)
+    public convenience init(modelPath: String, onLoadFailure: @escaping @Sendable () -> Void = {}, adapter: @escaping @Sendable (String) -> String? = { _ in nil }) throws {
+        self.init(unloaded: modelPath, onLoadFailure: onLoadFailure, adapter: adapter)
         try queue.sync { try load() }
     }
 
-    init(unloaded modelPath: String, adapter: @escaping @Sendable (String) -> String? = { _ in nil }) {
+    init(unloaded modelPath: String, onLoadFailure: @escaping @Sendable () -> Void = {}, adapter: @escaping @Sendable (String) -> String? = { _ in nil }) {
         path = modelPath
         self.adapter = adapter
+        self.onLoadFailure = onLoadFailure
         // Metal wires the whole model (1.5 GB here) for as long as this lasts, 3 minutes by default, which no one sees in Activity Monitor.
         // 15 s covers typing at full speed; after that the weights are ordinary evictable pages, at about 30 ms on the next request.
         setenv("GGML_METAL_RESIDENCY_KEEP_ALIVE_S", "15", 0)
@@ -83,6 +87,12 @@ public final class Engine: @unchecked Sendable {
     public func unload() {
         cancel()
         queue.sync { release() }
+    }
+
+    /// Unloads for good, at quit: a request already queued, or made later, never loads it again.
+    public func close() {
+        closed.store(true, ordering: .sequentiallyConsistent)
+        unload()
     }
 
     private func release() {
@@ -128,9 +138,9 @@ public final class Engine: @unchecked Sendable {
     }
 
     private func run(_ id: Int, _ prefix: String, _ fragment: String, _ composing: String, _ onResult: (Suggestion?) -> Void) {
-        guard !isStale(id) else { return }
+        guard !isStale(id), !closed.load(ordering: .sequentiallyConsistent) else { return }
         if ctx != nil, adapter(path) != loadedAdapter { release() }
-        if ctx == nil { try? load() }
+        if ctx == nil, (try? load()) == nil { onLoadFailure() }
         guard let ctx, let vocab, !prefix.isEmpty else { return onResult(nil) }
 
         // A fragment too long to force back in the context: nothing to suggest.
@@ -245,7 +255,7 @@ final class Vocab {
         let hidden = LLAMA_TOKEN_ATTR_CONTROL.rawValue | LLAMA_TOKEN_ATTR_UNKNOWN.rawValue | LLAMA_TOKEN_ATTR_UNUSED.rawValue
         for t in 0..<count {
             let token = llama_token(t)
-            let n = Int(llama_token_to_piece(raw, token, &buffer, 512, 0, false))
+            let n = Vocab.piece(into: &buffer) { llama_token_to_piece(vocab, token, $0, $1, 0, false) }
             if n > 0 { buffer[..<n].withUnsafeBytes { bytes.append(contentsOf: $0) } }
             starts.append(Int32(bytes.count))
             ends[t] = llama_vocab_is_eog(raw, token)
@@ -253,6 +263,16 @@ final class Vocab {
             allowed[t] = ends[t] || (n > 0 && attr != LLAMA_TOKEN_ATTR_UNDEFINED.rawValue && attr & hidden == 0)
         }
         (self.bytes, self.starts, self.allowed, self.ends) = (bytes, starts, allowed, ends)
+    }
+
+    /// Writes a piece with `convert`, which reports a buffer too small as the negative of the size it needs: then once more, in that size.
+    static func piece(into buffer: inout [CChar], _ convert: (UnsafeMutablePointer<CChar>, Int32) -> Int32) -> Int {
+        var n = Int(convert(&buffer, Int32(buffer.count)))
+        if n < 0 {
+            buffer = [CChar](repeating: 0, count: -n)
+            n = Int(convert(&buffer, Int32(buffer.count)))
+        }
+        return n
     }
 
     func tokenize(_ text: String) -> [llama_token] {

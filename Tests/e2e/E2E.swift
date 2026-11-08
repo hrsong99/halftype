@@ -41,7 +41,8 @@ final class TestTextView: NSTextView {
         guard attribute.rawValue == "AXTextInputMarkedRange" else { return super.accessibilityAttributeValue(attribute) }
         return reportsMarkedText ? reportedMark.map { NSValue(range: $0) } ?? super.accessibilityAttributeValue(attribute) : nil
     }
-    override func complete(_ sender: Any?) {}  // Escape's completion list.
+    /// Escapes that reached the app.
+    var escapes = 0
 
     /// One font read that comes back empty, as a host's can in passing.
     var failsNextAttributes = false
@@ -57,6 +58,7 @@ final class TestTextView: NSTextView {
     var holdsKeys = false
     private var heldKeys: [NSEvent] = []
     override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { escapes += 1 }
         if holdsKeys { heldKeys.append(event) } else { super.keyDown(with: event) }
     }
     func letKeysThrough() {
@@ -81,11 +83,11 @@ final class TestPanel: GhostPanel {
     var lastShow: Bool?
     var hiddenAt: Date?
     var gaps: [Double] = []
-    override func show(_ spec: GhostSpec) -> Bool {
+    override func show(_ spec: GhostSpec) -> String? {
         let shown = super.show(spec)
-        lastShow = shown
-        if shown, let hiddenAt { gaps.append(Date().timeIntervalSince(hiddenAt) * 1000) }
-        if shown { hiddenAt = nil }
+        lastShow = shown != nil
+        if shown != nil, let hiddenAt { gaps.append(Date().timeIntervalSince(hiddenAt) * 1000) }
+        if shown != nil { hiddenAt = nil }
         let hook = afterShow
         afterShow = nil
         hook?()
@@ -275,7 +277,6 @@ enum EndToEnd {
             let tabs = back > 0 && Calendar.current.isDateInWeekend(date) ? busy / 6 : busy
             app.tally.days[Tally.key(date)] = Tally.Day(shown: tabs * 2 + 17, taken: tabs * 3 / 4, tabs: tabs, characters: tabs * 9 / 2)
         }
-        app.ready = true
         app.trusted = true
         app.activePath = app.store.path(ModelStore.models[0]).path
         for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("stats", .stats, false), ("models", .models, false), ("general", .general, false), ("apps", .apps, false), ("picker", .field, false)] {
@@ -398,6 +399,7 @@ enum EndToEnd {
         if CommandLine.arguments.contains("--ime") { return ime() }
         if CommandLine.arguments.contains("--flicker") { return flicker() }
         if CommandLine.arguments.contains("--stale") { return staleSnapshots() }
+        if CommandLine.arguments.contains("--races") { return races() }
         frontAtStart = frontmost()
         ghostAtCaret()
         ownWindow()
@@ -426,7 +428,7 @@ enum EndToEnd {
             h.window.orderOut(nil)
             let app = App()
             app.trusted = true
-            app.ready = true
+            app.activePath = app.store.path(ModelStore.models[0]).path
             let window = NSPanel(contentRect: CGRect(x: 80, y: 80, width: 720, height: 500), styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
             window.contentView = NSHostingView(rootView: Root(app: app))
             window.orderFrontRegardless()
@@ -522,7 +524,7 @@ enum EndToEnd {
         usleep(100_000)
         let ax = AXUIElementCreateApplication(getpid())
         let focused = AX.element(AX.get(ax, "AXFocusedUIElement"))
-        check(focused.map(Reader.isEditableText) == false, "a secure field isn't text entry")
+        check(focused.map { Reader.isEditableText($0) } == false, "a secure field isn't text entry")
     }
 
     static func insertion() {
@@ -615,6 +617,26 @@ enum EndToEnd {
             model.release(" there friend how are you")
             usleep(150_000)
             check(!h.visible && !h.armed, "the callback held over Escape shows nothing")
+            check(onMain { h.view.escapes } == 0, "Escape on a ghost stops there")
+            physical(53)
+            check(eventually { onMain { h.view.escapes } == 1 }, "the next Escape is the app's")
+        }
+        do {
+            // A tap the system turned off, which no test without a real tap can do.
+            let (h, _) = raceHarness()
+            defer { h.close() }
+            let (port, loop) = h.tap.state.withLock { ($0.port!, $0.loop!) }
+            // Disabling sends the tap its own notice, which re-enables it: held back, as one that never came.
+            let held = DispatchSemaphore(value: 0)
+            CFRunLoopPerformBlock(loop, CFRunLoopMode.commonModes.rawValue) { held.wait() }
+            CFRunLoopWakeUp(loop)
+            CGEvent.tapEnable(tap: port, enable: false)
+            check(h.tap.obstacle == .tapOff, "a disabled tap can't take")
+            h.watcher.redraw()
+            check(eventually { !h.visible && !h.armed }, "a disabled tap: no ghost")
+            held.signal()
+            h.tap.reenable()
+            check(h.tap.canTake, "reenabled")
         }
         do {
             let (h, _) = raceHarness()
@@ -1070,7 +1092,7 @@ extension EndToEnd {
         onMain { h.view.reportedMark = NSRange(location: 2, length: 1) }
         let marked = h.watcher.queue.sync { () -> Bool in
             let field = AX.element(AX.get(AXUIElementCreateApplication(getpid()), "AXFocusedUIElement"))
-            return field.flatMap(Reader.read)?.marked ?? false
+            return field.flatMap { Reader.read($0) }?.marked ?? false
         }
         check(marked == reportsMarkedText, "AX reports the marked range: \(marked)")
         h.watcher.completer = FakeCompleter("")

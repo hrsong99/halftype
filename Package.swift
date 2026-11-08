@@ -14,7 +14,7 @@ let package = Package(
                       checksum: "0af08b3039082b1575e6928063636eeb20d80cb5a389b26e37a36bc496a1066e"),
         .target(name: "ItdaEngine", dependencies: ["ItdaCore", "llama"]),
         // Language mode 5: state here is confined by hand to one queue, with CF types the compiler can't reason about.
-        .target(name: "ItdaApp", dependencies: ["ItdaCore", "ItdaEngine", .product(name: "Sparkle", package: "Sparkle")], swiftSettings: [.swiftLanguageMode(.v5)]),
+        .target(name: "ItdaApp", dependencies: ["ItdaCore", "ItdaEngine", .product(name: "Sparkle", package: "Sparkle")], resources: [.process("Sky.metal")], swiftSettings: [.swiftLanguageMode(.v5)]),
         .executableTarget(name: "Itda", dependencies: ["ItdaApp"]),
         // Checks against a private window. They need a real run loop, so the test runner can't host them. Not part of the app.
         .executableTarget(name: "itda-e2e", dependencies: ["ItdaApp", "ItdaCore", "ItdaEngine"], path: "Tests/e2e", swiftSettings: [.swiftLanguageMode(.v5)]),

@@ -1,5 +1,6 @@
 import Foundation
 import ItdaCore
+import Synchronization
 import Testing
 @testable import ItdaEngine
 
@@ -174,4 +175,39 @@ private let long = String(repeating: "The river runs past the old mill and on to
     let engine = try Engine(modelPath: modelPath!, adapter: { _ in "/nonexistent.gguf" })
     defer { engine.unload() }
     #expect(run(engine, "Hello my", " fr")?.text == text)
+}
+
+@Test func aClosedEngineNeverLoadsAgain() {
+    let loads = Atomic<Int>(0)
+    // No model at this path, so each load that is tried fails and says so.
+    let engine = Engine(unloaded: "/nonexistent.gguf") { loads.add(1, ordering: .relaxed) }
+    engine.suggest(prefix: "x", fragment: "", composing: "") { _ in }
+    engine.finish()
+    #expect(loads.load(ordering: .relaxed) == 1)  // A request does try, or the rest proves nothing.
+    engine.close()
+    engine.suggest(prefix: "x", fragment: "", composing: "") { _ in }
+    engine.finish()
+    #expect(loads.load(ordering: .relaxed) == 1)
+}
+
+@Test func aPieceTooBigForTheBufferIsWrittenInFull() {
+    let long = [CChar](repeating: 0x61, count: 600)
+    var buffer = [CChar](repeating: 0, count: 512)
+    // As llama.cpp does: the negative of the size it needs, if the buffer is short.
+    let n = Vocab.piece(into: &buffer) { out, size in
+        guard size >= 600 else { return -600 }
+        for i in 0..<600 { out[i] = long[i] }
+        return 600
+    }
+    #expect(n == 600 && Array(buffer[..<n]) == long)
+}
+
+private final class Flag: @unchecked Sendable { var set = false }
+
+@Test func aModelThatCantLoadAgainSaysSoApartFromNoSuggestion() {
+    let failed = Flag(), box = Box()
+    let engine = Engine(unloaded: "/nowhere/gone.gguf") { failed.set = true }  // As after an idle unload, with the file since moved.
+    engine.suggest(prefix: "Hello", fragment: "", composing: "", onResult: { box.last = $0 })
+    engine.finish()
+    #expect(failed.set && box.last == nil)
 }

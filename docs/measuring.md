@@ -50,6 +50,10 @@ A native host answers in under 8 ms. **Chromium's time isn't measured**: if it i
 
 The replay counts characters including the leading space, while the app counts keystrokes, so in Korean the two minimums differ. It doesn't cover Korean accurately, because it can't score a syllable still being composed. The keystroke figures elsewhere on this page were measured before this change.
 
+**Judging the three-key minimum on the whole ghost (2026-11), on the branch `bench-2` (local, not yet tagged),** which replays the shipped policy (stop floor, gate, minimum). Tab repeated or Shift-Tab takes the lot, so `to the` is worth showing although `to` is short. Picked on the English dev threads, confirmed on test (2,400 requests each): keys saved per request with one Tab +0.111 on dev (CI +0.090 to +0.133) and +0.110 on test (CI +0.089 to +0.132), for wrong and shown per request +0.9% and +0.6%. A minimum of four saved nothing with one Tab. Timed English, 1,200 keys at load under 2: keystrokes saved 17.1% to **18.2%** (paired CI +0.6 to +1.9 points). CIs are paired bootstraps over messages.
+
+**Forcing a typed space back in English too,** as the composing case always did: when the field ends in a space, the ghost must start with one. Dev +0.008 keys per request (CI +0.002 to +0.016), test +0.006 (CI +0.001 to +0.013), wrong and shown +0.0-0.1%. Timed English, 1,200 keys: 17.1% to **17.8%** saved (paired CI +0.1 to +1.4 points); its timing was taken while other jobs loaded the Mac, so its 61 ms first displayable word against 58 ms is approximate. Measured separately from the minimum above, not combined.
+
 Your own phrases didn't help. A next-word lookup from strictly older messages, tried ahead of the model, was right about as often (78%) but saved less: 0.10 alone and 0.50 merged, against 0.56.
 
 The replay harness runs the real engine and policy with real typing delays. It isn't in this tree, as it would add 400 lines and hold the engine's API open for one tool. It's at the tag `bench-1`:
@@ -65,6 +69,21 @@ it private. Scoring is exact match, so a good paraphrase scores zero, and it's i
 Results below are for Kanana 1.5 at the shipped threshold, -0.7, unless a cell says otherwise. Typing delays come from a 107-key histogram, p50 264 ms. Later commits only removed unused code from the engine and policy; the app's accepting and display have changed since, and replay doesn't cover those.
 
 **The text.** English: the author's own messages, each with the message before it as context. They aren't published, and neither is anything quoting them. Korean, public: dialogue from [SmileStyle](https://github.com/smilegate-ai/korean_smile_style_dataset), which is other people's style-transfer text, so it isn't how anyone writes messages. Korean, own: 70 of the author's messages, with Hangul inside mostly English text. That's a small sample, and half of them come from threads also used to fit the threshold on English. Threads are split, so none is in both the fitting and test sets. A real input method wasn't used in replay: composing states come from a model of 2-set.
+
+**The shipped policy (2026-11-08, branch `bench-2`):** the floor, gate and whole-ghost minimum, with typed spaces forced back. Timed replay, 1,200 keys per language, load under 5 for English and under 3 for Korean; the English timing is approximate.
+
+| What | English | Korean, public |
+|---|---|---|
+| Keystrokes saved, whole messages, Tab costs one key | **18.2%** (17.1% before the two changes above, paired CI +0.6 to +1.9 points) | **8.1%** (8.2% before, CI -0.5 to 0.0) |
+| Tab repeated | 21.5% | 8.2% |
+| Shown ghosts with the first word right | 82.6% | 54.9% |
+| Keys with a wrong ghost visible | 6.8% | 7.7% |
+| Keys with no model call | 29.7% | 12.8% |
+| First displayable word, p50 of requests that got that far | 60 ms, 92% got there | 98 ms, 67% |
+
+Combined, the two changes saved what the minimum alone did in English. Korean, own text wasn't replayed again.
+
+**Before ghosts were cut short (bench-1),** for comparison: ghosts ran to 8 tokens, so more keys were saved and far more grey text was wrong.
 
 | What | English | Korean, public | Korean, own |
 |---|---|---|---|

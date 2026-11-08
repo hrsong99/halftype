@@ -34,6 +34,17 @@ No code was copied into ItdaApp either. These are the ideas it uses.
 |---|---|---|
 | Insert with `keyboardSetUnicodeString` in short chunks, never splitting a surrogate pair, with no clipboard | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nikiomori/Pretype](https://github.com/nikiomori/Pretype) | MIT; MIT |
 | Mark our own events so the key tap lets them pass | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nikiomori/Pretype](https://github.com/nikiomori/Pretype) | MIT; MIT |
+| Stop while Secure Input is on, and say so in the menu | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nilava/TabType](https://github.com/nilava/TabType) | MIT; MIT |
+| Esc on a ghost hides it and goes no further | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype), [nilava/TabType](https://github.com/nilava/TabType), [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist) | MIT or Apache-2.0; MIT; MIT |
+| Check `isOnActiveSpace`, and hide on sleep, lock and session change | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | MIT or Apache-2.0 |
+| Take the tap down on the permission's Darwin notification, as `AXIsProcessTrusted` can be stale after a revoke | [lwouis/alt-tab-macos](https://github.com/lwouis/alt-tab-macos), [chromium/chromium](https://github.com/chromium/chromium) | GPL-3.0, idea only; BSD-3-Clause |
+| Wake Chromium and Electron accessibility once per process, by what the bundle is built on, not under VoiceOver; set Chromium's flag again only past its 2 s wait, and clear it at quit only where we set it | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | MIT or Apache-2.0 |
+| Map the caret through the newlines Chromium's ranges leave out between paragraphs, and read nothing if they don't line up | [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | MIT or Apache-2.0 |
+| Record why there's no suggestion, and say it in one line | [nikiomori/Pretype](https://github.com/nikiomori/Pretype), [Fedotoff-Alex/dopishi](https://github.com/Fedotoff-Alex/dopishi) | MIT; MIT |
+| A menu-bar icon that dims when off, shows a download's percentage, and marks a problem | [nilava/TabType](https://github.com/nilava/TabType), [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [DaraSingh1998/foretype](https://github.com/DaraSingh1998/foretype) | MIT; MIT; MIT or Apache-2.0 |
+| A first-run line that teaches the keys, then confirms the first accept | [nikiomori/Pretype](https://github.com/nikiomori/Pretype) | MIT |
+| Say when macOS's own inline predictions are on, and link to the setting rather than change it | [mshll/ghostwriter](https://github.com/mshll/ghostwriter) | GPL-3.0, idea only |
+| Delete a downloaded model, and an Uninstall section in the README | [BrodySalvucci/Typist](https://github.com/BrodySalvucci/Typist), [nikiomori/Pretype](https://github.com/nikiomori/Pretype), [mekanismvibe/opentypist](https://github.com/mekanismvibe/opentypist), [mshll/ghostwriter](https://github.com/mshll/ghostwriter) | MIT; MIT; MIT; GPL-3.0, idea only |
 | The AX text marker attributes for caret rects and page text in Chromium | [johannes-kaindl/ghostline](https://github.com/johannes-kaindl/ghostline), [stevyhacker/LokalBot](https://github.com/stevyhacker/LokalBot) | AGPL-3.0, idea only; GPL-3.0, idea only |
 
 ## What it runs on and was measured with

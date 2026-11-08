@@ -1,4 +1,5 @@
 import AppKit
+import ItdaCore
 
 /// Everything needed to draw one ghost, in AX coordinates (origin top-left of the primary display, y down, points).
 struct GhostSpec {
@@ -13,6 +14,8 @@ struct GhostSpec {
     var previousCharacter: String
     /// Text below the caret would be drawn over, so the ghost then stays on one line.
     var mayWrap: Bool
+    /// The caret is a web view's sliver, on screen at page zoom, while the font size beside it is before zoom.
+    var webCaret = false
 }
 
 struct GhostLayout {
@@ -25,7 +28,11 @@ struct GhostLayout {
     var visibleText: String { (storage.string as NSString).substring(with: manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)) }
 
     static func font(_ spec: GhostSpec) -> NSFont {
-        spec.fontName.flatMap { NSFont(name: $0, size: spec.fontSize) } ?? .systemFont(ofSize: spec.fontSize)
+        let font = spec.fontName.flatMap { NSFont(name: $0, size: spec.fontSize) } ?? .systemFont(ofSize: spec.fontSize)
+        guard spec.webCaret else { return font }
+        let zoom = spec.caret.height / NSLayoutManager().defaultLineHeight(for: font)
+        // A band, as the page's font goes unnamed and its line can differ from ours by about a tenth, estimated from fonts' metrics. Past it is zoom.
+        return zoom > 1.15 || zoom < 1 / 1.15 ? font.withSize(spec.fontSize * zoom) : font
     }
 
     /// The host's own text colour, translucent, is readable wherever the host's text is. Without one, the label colour.
@@ -141,17 +148,18 @@ class GhostPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    /// False if there is nothing to draw or the caret is on no display. Main thread.
-    @discardableResult
-    func show(_ spec: GhostSpec) -> Bool {
+    /// What it drew, which is all Tab may offer: a narrow field clips. Nil if nothing is on the screen that the user can see. Main thread.
+    func show(_ spec: GhostSpec) -> String? {
         guard let primary = NSScreen.screens.first, let layout = GhostLayout.make(spec),
               NSScreen.screens.contains(where: { $0.frame.contains(GhostLayout.appKitRect(spec.caret, primaryHeight: primary.frame.height).origin) })
-        else { hideGhost(); return false }
+        else { hideGhost(); return nil }
         view.layout = layout
         setFrame(GhostLayout.appKitRect(layout.window, primaryHeight: primary.frame.height), display: false, animate: false)
         view.displayIfNeeded()
         if !isVisible { orderFrontRegardless() }
-        return true
+        // A panel can get stranded on one Space whatever its collection behaviour says, and be drawn where nobody sees it.
+        guard isOnActiveSpace else { hideGhost(); return nil }
+        return String(Word.withoutTrailingSpaces(layout.visibleText))
     }
 
     func hideGhost() {

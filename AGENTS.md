@@ -1,4 +1,4 @@
-# Itda: what a future agent must know
+# Halftype (formerly Itda): what a future agent must know
 
 A menu-bar Mac app: inline Korean and English suggestions from a local model. Read `docs/how-it-works.md` first.
 
@@ -10,12 +10,13 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 
 ## Commands
 - Tests: `swift test --disable-keychain -j 2`. Add `ITDA_MODEL=<gguf>` for the model tests, which otherwise skip.
-- App: `scripts/build-app.sh`, output `build/Itda.app`.
-- Private-window checks: `scripts/e2e.sh`, plus `--measure <gguf>`, `--flicker`, `--engine <gguf>`. `--ime` switches the system's input source and needs the user idle.
+- App: `scripts/build-app.sh`, output `build/Halftype.app`. The app was renamed from Itda on 2026-11-08: only what users see says Halftype. The bundle ID `app.itda.Itda`, the executable, modules, repo, Application Support folder and cask token keep "itda", so grants, settings, models and updates carry over. Don't rename them.
+- Private-window checks: `scripts/e2e.sh`, plus `--races` (30 s, for one failing check), `--measure <gguf>`, `--flicker`, `--engine <gguf>`. `--ime` switches the system's input source and needs the user idle.
+- Window PNGs with no focus taken: `ITDA_SHOTS=<dir> swift test --disable-keychain --filter WindowShots`.
 - Always pass `--disable-keychain`: without it the first SwiftPM download of llama.cpp can hang on keychain credentials.
 - **`scripts/e2e.sh` takes the user's keyboard and cursor focus while it runs. Ask them first, every time.** A 60 s pause in typing doesn't mean they have stopped using the Mac. Unit tests and reviews don't take focus.
 - The Mac has limited memory: run one heavy build or model at a time, and don't steal focus.
-- `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh a` rebuilds `Resources/`.
+- `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh d` rebuilds `Resources/`.
 
 ## Where things are
 - `ItdaCore`: pure logic, with no model or GUI. Test it here first.
@@ -24,6 +25,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - The tag `bench-1` keeps the replay harness (`itda-replay`), removed from main. Don't move it.
 - Learning from use: branch `learn`, `lab/PLAYBOOK.md`. Only a per-user LoRA moved keys saved; prompt, logit and gate methods were ~0. Judge any prompt change against the screen-context baseline there.
 - Personal model: the last `*.gguf` by name in `~/Library/Application Support/Itda/adapters/` (from `lab/dogfood/train.sh` on `learn`) shows General > Personal Model. Compare leaves it off on even dates, and Stats sets the two kinds of day side by side.
+- The local branch `bench-2` (worktree `../local-autocomplete/bench2-worktree`) replays the shipped policy; the 2026-11 numbers in `docs/measuring.md` come from it, run by `../local-autocomplete/experiments/bench2/run.sh` and scored by `report.py` there.
 
 ## Traps
 - Accessibility grants are pinned to the signing certificate. The Developer ID build can't use a grant made for an Apple Development build, and a relaunch silently loses it. To keep one, re-sign that copy with the granted certificate and check it with `codesign -v -R <csreq from TCC.db>`.
