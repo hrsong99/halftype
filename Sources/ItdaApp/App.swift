@@ -48,7 +48,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         }
     }
     @Published var personal = Personal(rawValue: UserDefaults.standard.string(forKey: "personal") ?? "") ?? .compare {
-        didSet { UserDefaults.standard.set(personal.rawValue, forKey: "personal") }
+        didSet {
+            UserDefaults.standard.set(personal.rawValue, forKey: "personal")
+            count { $0.mark(personal: nil) }  // A day the setting changed on is mixed, whatever was sampled.
+        }
     }
     private var engine: Engine?
     /// Adds the keys typed since the last count, on the day the first was typed, the event, and which kind of day it is, in one write.
