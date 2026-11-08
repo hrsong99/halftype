@@ -1547,5 +1547,11 @@ final class FakeServer: URLProtocol {
         defaults.set(true, forKey: "on")
         moveFromItda(defaults, oldDomain: oldName, support: new)
         #expect(defaults.bool(forKey: "on"))
+        // A file that failed to move the first time moves on a later launch, and its path follows.
+        try FileManager.default.createDirectory(at: old, withIntermediateDirectories: true)
+        try Data("l".utf8).write(to: old.appendingPathComponent("late.gguf"))
+        defaults.set(old.path + "/late.gguf", forKey: "modelPath")
+        moveFromItda(defaults, oldDomain: oldName, support: new)
+        #expect(defaults.string(forKey: "modelPath") == new.path + "/late.gguf")
     }
 }
