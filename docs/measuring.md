@@ -1,10 +1,10 @@
 # What the numbers mean, and how to get them yourself
 
-All of it on an M5 with 16 GB, llama.cpp b12167. Unless it says otherwise, on Kanana 1.5 2.1B base (1.4 GB), the default until 0.1.0. The default is now Qwen 3.5 0.8B (0.5 GB): see [Choosing the default model](#choosing-the-default-model). Its memory is in the next section; the rest of that section is Kanana's.
+All of it on an M5 with 16 GB, llama.cpp b12167. Unless it says otherwise, on Kanana 1.5 2.1B base (1.4 GB), the default until 0.1.0. Since 2026-11-09 the default is Gemma 4 E2B (3.4 GB), and before that Qwen 3.5 0.8B (0.5 GB): see [Choosing the default model](#choosing-the-default-model). Qwen 3.5 0.8B's memory is in the next section, and the rest of that section is Kanana's; Gemma's hasn't been measured.
 
 ## Memory: what a user actually pays
 
-**Qwen 3.5 0.8B, the default**, the same run on 2026-11-07: while typing (282 keys in 52 s), `MTLDevice.currentAllocatedSize` 562 MB, system wired +542 MB over before loading, footprint 267 MB, CPU 7% of a core. Idle with the model loaded, wired back to where it started; unloaded, Metal 2 MB. 20 reloads: footprint 171-214 MB, no growth. The first run of the harness crashed in its own window's Accessibility read, off the main thread; the second passed.
+**Qwen 3.5 0.8B, the default until 2026-11-09**, the same run on 2026-11-07: while typing (282 keys in 52 s), `MTLDevice.currentAllocatedSize` 562 MB, system wired +542 MB over before loading, footprint 267 MB, CPU 7% of a core. Idle with the model loaded, wired back to where it started; unloaded, Metal 2 MB. 20 reloads: footprint 171-214 MB, no growth. The first run of the harness crashed in its own window's Accessibility read, off the main thread; the second passed.
 
 Kanana 1.5 2.1B, the default until 0.1.0:
 
@@ -135,8 +135,9 @@ November 2026, the same replay (`itda-replay` at tag `bench-1`, threshold -0.7) 
 | LFM3 1.7B | 1.10 GB | 78.7% | 8.6% | 0.73, -0.32 to -0.18 | 17.0% | 63 ms | 0.41 |
 
 - Granite leads by showing more wrong suggestions. At its own threshold for 80% precision on dev threads (-0.5) it gives 0.96 keys at 83.0%, level with Qwen 3.5 2B at 1.75 times the size.
-- Qwen 3.5 0.8B ties Qwen 3.5 2B on English within the CI, at 41% of the size and with the quickest first word, so it's the default. What it gives up is Korean: own messages 0.60 against 0.88 keys per request (CI -0.52 to -0.10).
+- Qwen 3.5 0.8B ties Qwen 3.5 2B on English within the CI, at 41% of the size and with the quickest first word, so it was the default until 2026-11-09. What it gives up is Korean: own messages 0.60 against 0.88 keys per request (CI -0.52 to -0.10).
 - Qwen 3.5 0.8B against Kanana 1.5, the old default, in full: English test 922 of 1,131 shown right (81.5%), coverage 47.1%. Whole messages: English 21.6% against 22.1% (800 keys), Korean public 4.8% against 8.8% (1,200 keys), Korean own 10.8% against 13.4% (1,800 keys). Korean public suggestions on Hangul right when shown: 20.9% against 33.7%. First displayable word p50: 53, 97 and 102 ms against 60, 102 and 114 ms. No model call on 47%, 20% and 26% of keys against 48%, 27% and 28%.
+- Gemma 4 E2B became the default on 2026-11-09, John's call: the most right when shown after Kanana among the full-precision models, and the most saved on whole messages of those that don't show more wrong ones (Granite does). It costs 6.5 times Qwen 3.5 0.8B's file, and its Korean is a little weaker (0.54 against 0.60). Its memory, Korean whole messages and coverage haven't been measured; `scripts/e2e.sh --measure <gguf>` and the replay above would give them.
 - Not tried: models of 3.5 GB or more, community fine-tunes, and Ternary Bonsai's smaller packings, which need a fork of llama.cpp. Gemma 4's tokenizer fix of 3 November 2026 changed no weights and came after these files.
 
 ## Length and How Often

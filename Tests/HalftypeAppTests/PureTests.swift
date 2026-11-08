@@ -1485,7 +1485,7 @@ final class FakeServer: URLProtocol {
     }
     @Test func onlyAModelNotInUseCanBeDeleted() throws {
         let app = App()
-        let (kanana, qwen) = (ModelStore.models[0], ModelStore.models[1])
+        let (kanana, qwen) = (ModelStore.models[0], ModelStore.models[1])  // Any two of ours.
         app.activePath = app.store.path(kanana).path
         #expect(!app.canDelete(kanana) && app.canDelete(qwen))
         app.downloading = qwen.id

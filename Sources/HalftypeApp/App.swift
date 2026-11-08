@@ -363,6 +363,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if let path = customModel, FileManager.default.fileExists(atPath: path) { return open(path) }
         let first = ModelStore.models[0]
         if store.has(first) { return open(store.path(first).path) }
+        // An install from before Gemma was the default keeps the model it has, rather than fetching 3.4 GB unasked.
+        if let had = ModelStore.models.first(where: store.has) { return open(store.path(had).path) }
         afterFetch = .load
         fresh = true
         store.fetch(first)
