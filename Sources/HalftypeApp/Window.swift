@@ -11,10 +11,6 @@ struct Root: View {
     @State private var draft = ""
     @State private var sidebar: Bool
     @State private var page: Page
-    /// The last Tab taken in this window, which the field breathes with.
-    @State private var tab: Date?
-    @Environment(\.accessibilityReduceMotion) private var still
-    @Environment(\.controlActiveState) private var active
 
     private let picking: Bool
 
@@ -32,7 +28,7 @@ struct Root: View {
             if sidebar { side.transition(.move(edge: .leading)) }
             ZStack {
                 switch page {
-                case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking, tab: tab)
+                case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking)
                 case .stats: StatsPage(app: app)
                 case .models: ModelsPage(app: app)
                 case .apps: AppsPage(app: app)
@@ -54,8 +50,6 @@ struct Root: View {
         .background { Backdrop(ribbon: page == .field) }
         // The icon's cream tile, in dark mode too (docs/design/home-glass).
         .preferredColorScheme(.light)
-        // A Tab in another app, with this window behind it, isn't this window's.
-        .onChange(of: app.tabs) { if !still, active == .key { tab = .now } }
         .ignoresSafeArea()
     }
 
@@ -105,16 +99,13 @@ private struct FieldPage: View {
     @ObservedObject var app: App
     @Binding var draft: String
     @Binding var page: Root.Page
-    /// The last Tab taken here, which the field breathes with.
-    var tab: Date?
     @FocusState private var focused: Bool
     @State private var picking: Bool
     /// The watcher's reason once it has held for a moment, so typing doesn't flicker the line.
     @State private var settled: Watcher.Why
 
-    init(app: App, draft: Binding<String>, page: Binding<Root.Page>, picking: Bool = false, tab: Date? = nil) {
+    init(app: App, draft: Binding<String>, page: Binding<Root.Page>, picking: Bool = false) {
         self.app = app
-        self.tab = tab
         _draft = draft
         _page = page
         _picking = State(initialValue: picking)
@@ -183,10 +174,6 @@ private struct FieldPage: View {
         }
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
         .pane()
-        .keyframeAnimator(initialValue: 1.0, trigger: tab) { view, scale in view.scaleEffect(scale) } keyframes: { _ in
-            CubicKeyframe(1.006, duration: 0.25)
-            CubicKeyframe(1, duration: 0.45)
-        }
         .frame(maxWidth: 500)
         .onAppear { focused = true }
         .onChange(of: draft) { picking = false }

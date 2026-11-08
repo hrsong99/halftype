@@ -123,8 +123,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var why = Watcher.Why.unreadable
     /// A suggestion was taken since the window opened, and nothing has stood in the way since.
     @Published var accepted = false
-    /// Counts every Tab taken anywhere, so the window's field can breathe on one.
-    @Published var tabs = 0
     /// Counts each bind and unbind, so a reason from an earlier one is dropped.
     var binding = 0
     /// This launch began without a model or the permission, so the field gets a sentence once, and the first ghost needs no typing.
@@ -228,7 +226,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                 if let text { self.panel.glint(text, drawing: drawing) }
                 self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
-                self.tabs += 1
                 if !self.accepted { self.accepted = true }
             }
         }
