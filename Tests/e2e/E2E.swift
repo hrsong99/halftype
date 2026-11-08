@@ -267,10 +267,14 @@ enum EndToEnd {
         for shot in shots { render(shot, to: dir) }
     }
 
-    /// `--window-shots <dir>`: the real window's pages, rendered without opening anything on screen.
+    /// `--window-shots <dir>`: the real window's pages. Each is on screen only behind the desktop, as Metal draws the sky only in a
+    /// window on screen, and is taken by the window server (`screencapture -l`); nothing shows and nothing takes focus.
     static func windowShots(to dir: String) {
         App.tallyFile = nil
-        let app = App()
+        // No real tap here, which the line under the field would report; the pictures show the app at work.
+        final class ShownTap: KeyTap, @unchecked Sendable { override var obstacle: Obstacle? { nil } }
+        let app = App(tap: ShownTap())
+        app.why = .idle
         // Made up: busy weekdays, quiet weekends.
         for (back, busy) in [84, 101, 122, 109, 131, 117, 88, 96, 120, 104, 113, 126, 98, 92].enumerated() {
             let date = Calendar.current.date(byAdding: .day, value: -back, to: Date())!
@@ -285,13 +289,19 @@ enum EndToEnd {
             host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
             let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
             window.contentView = host
+            window.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) - 1)
+            window.orderFrontRegardless()
+            defer { window.orderOut(nil) }
             host.layoutSubtreeIfNeeded()
-            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+            RunLoop.main.run(until: Date().addingTimeInterval(0.6))
             func scrollers(_ view: NSView) -> [NSScrollView] { ((view as? NSScrollView).map { [$0] } ?? []) + view.subviews.flatMap(scrollers) }
             if page == .field { for scroll in scrollers(host) where scroll.documentView is NSTextView { check(!scroll.hasVerticalScroller || scroll.verticalScroller?.isHidden == true, "the field shows no scroller") } }
-            let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
-            host.cacheDisplay(in: host.bounds, to: rep)
-            try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir).appendingPathComponent("window-\(name).png"))
+            let shot = Process()
+            shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            shot.arguments = ["-x", "-o", "-l\(window.windowNumber)", URL(fileURLWithPath: dir).appendingPathComponent("window-\(name).png").path]
+            try! shot.run()
+            shot.waitUntilExit()
+            check(shot.terminationStatus == 0, "window-\(name) captured")
         }
     }
 

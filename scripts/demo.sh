@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Makes the README's pictures: docs/media/{en,ko}.gif from the real model, and the window's pages. Opens nothing on screen and takes no keys.
+# Makes the README's pictures: docs/media/{en,ko}.gif from the real model, and the window's pages (on screen only behind the desktop, as
+# Metal draws the sky only there). Shows nothing and takes no keys.
 # Usage: scripts/demo.sh <gguf>
 set -euo pipefail
 cd "${0:A:h}/.."
