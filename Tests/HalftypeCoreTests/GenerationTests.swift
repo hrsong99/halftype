@@ -111,6 +111,7 @@ func stop(c: StopCase) {
 @Test func aClosingBracketStaysWithItsWordWhenTheNextWordIsCut() {
     let tokens = [token(" this", -0.2), token(")", -0.1), token(" and", -2)]
     #expect(Stop.cut(tokens, fragment: "").text == " this)")
+    #expect(Stop.cut([token(" \"this", -0.2), token("\"", -0.1), token(" and", -2)], fragment: "").text == " \"this\"")
     #expect(Stop.cut([token(" this", -0.2), token(")", -2), token(" and", -0.1)], fragment: "").text == " this")
     #expect(Stop.cut([token(" this", -0.2), token("-", -0.1), token("and", -2)], fragment: "").text == " this")
 }
