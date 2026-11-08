@@ -64,7 +64,6 @@
   .kc { display: inline-grid; place-items: center; min-width: 44px; height: 34px; padding: 0 10px; border-radius: 8px; background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 0 rgba(29,28,26,.14); font: 500 14px/1 var(--font-mono); color: var(--ink); transition: transform .09s, box-shadow .09s, background .09s; }
   .kc.is-down { transform: translateY(2px); box-shadow: 0 0 0 rgba(29,28,26,.14); background: #f4b48c; }
   .ht-bar .kc { margin-right: auto; }
-  .ht-note { position: absolute; z-index: 1; left: 24px; right: 64px; bottom: 18px; font: 400 13px/1.45 var(--font-mono); color: #4d4c49; }
   /* the hero window: the field centred in the sky, as the app's window has it */
   .hero__media.sky { display: grid; align-content: center; padding: 48px clamp(20px, 4vw, 48px) 72px; }
   .hero-mark { justify-self: center; margin-bottom: 18px; }
@@ -120,7 +119,6 @@
     .ht-field { min-height: 0; border-radius: 20px; padding: 14px 16px 12px; }
     .ht-text { font-size: 17px; min-height: 2.9em; }
     .ht-pill { font-size: 13px; }
-    .ht-note { left: 16px; right: 52px; bottom: 12px; font-size: 13px; }
     #keys .panel { --p-h: 180px; }
     .hero .brew { display: none; }
     #keys .panel { --p-h: 120px; } #keys .card > p, #keys .section-head > p { display: none; }
@@ -171,11 +169,10 @@ brew install --cask halftype</code>
       </div>
       <div class="hero__media sky span-6 start-7">
         <svg class="hero-mark" viewBox="0 0 18 18" width="40" height="40" fill="none" stroke="#1d1c1a" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke="url(#ht-arch)"/></svg>
-        <div class="ht-field" role="img" aria-label="The Halftype window: a sentence is typed, grey text suggests its ending, and Tab turns it to ink.">
+        <div class="ht-field" role="img" aria-label="The Halftype window: messages are typed, a suggestion finishes them, Tab takes the next word and Shift-Tab the whole suggestion.">
           <div class="ht-text" data-replay aria-hidden="true"></div>
           <div class="ht-bar"><span class="kc" data-tabkey>tab</span><span class="ht-pill">Qwen 3.5 0.8B</span><span class="ht-power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
         </div>
-        <p class="ht-note">Real suggestions, on sentences it does well. Not always this good.</p>
         <button class="loop-pause" type="button" aria-label="Pause the typing" aria-pressed="false" data-replay-pause><svg viewBox="0 0 14 14"><rect x="3" y="2" width="3" height="10"/><rect x="8" y="2" width="3" height="10"/></svg></button>
       </div>
     </div></div>
@@ -189,15 +186,15 @@ brew install --cask halftype</code>
       <div class="grid">
         <article class="card card--row card--open span-4">
           <h3>Tab takes a word</h3>
-          <div class="panel"><div class="mini" role="img" aria-label="“As soon as possi” with “ble,” in grey; Tab takes it"><div class="ht-field"><div class="ht-text">As soon as possi<span class="ghost">ble,</span></div></div><span class="kc">tab</span></div></div>
+          <div class="panel"><div class="mini" role="img" aria-label="“Ha” with “ppy birthday” suggested; Tab takes the next word"><div class="ht-field"><div class="ht-text">Ha<span class="ghost">ppy birthday</span></div></div><span class="kc">tab</span></div></div>
         </article>
         <article class="card card--row card--open span-4">
           <h3>Shift-Tab takes it all</h3>
-          <div class="panel"><div class="mini" role="img" aria-label="“Let me know if you have any quest” with “ions” in grey; Shift-Tab takes it"><div class="ht-field"><div class="ht-text">Let me know if you have any quest<span class="ghost">ions</span></div></div><span class="kc">⇧ tab</span></div></div>
+          <div class="panel"><div class="mini" role="img" aria-label="“I'll t” with “ake a look and get back to you.” suggested; Shift-Tab takes all of it"><div class="ht-field"><div class="ht-text">I'll t<span class="ghost">ake a look and get back to you.</span></div></div><span class="kc">⇧ tab</span></div></div>
         </article>
         <article class="card card--row card--open span-4">
           <h3>Esc hides it</h3>
-          <div class="panel"><div class="mini" role="img" aria-label="“See you tomor” with its suggestion hidden by Esc"><div class="ht-field"><div class="ht-text">See you tomor</div></div><span class="kc">esc</span></div></div>
+          <div class="panel"><div class="mini" role="img" aria-label="“Running 10 m” with its suggestion hidden by Esc"><div class="ht-field"><div class="ht-text">Running 10 m</div></div><span class="kc">esc</span></div></div>
         </article>
       </div>
     </div>
@@ -344,62 +341,58 @@ brew install --cask halftype</code>
 <script type="module" src="assets/motion/motion.js"></script>
 <script type="module" src="assets/layout/layout.js"></script>
 <script>
-// The replay: each typed part and grey ending is what the real model and gate said (docs/media/en.gif, ko.gif, scripts/demo.sh).
+// The replay: the README's demo (scripts/demo.sh, docs/design/readme-demo/round4/B-script.txt), the same messages, suggestions and rules:
+// Tab takes a short suggestion a word at a time, Shift-Tab a long one that's right to the end, and a wrong one is typed over.
 (() => {
-  const lines = [
-    ['Let me know if you have any quest', 'ions'],
-    ['See you tomor', 'row.'],
-    ['감사합니다. 좋은 하루 보내', '세요!'],
-    ['As soon as possi', 'ble,'],
-  ];
-  const L = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ', V = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
-  const T = ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
-  // The jamo of each syllable, in typing order. shortcut: one key per jamo, so compound vowels and finals (none in these lines) aren't split.
-  const keysOf = text => [...text].flatMap(ch => {
-    const n = ch.charCodeAt(0) - 0xAC00;
-    if (n < 0 || n > 11171) return [ch];
-    const t = n % 28;
-    return t ? [L[Math.floor(n / 588)], V[Math.floor((n % 588) / 28)], T[t]] : [L[Math.floor(n / 588)], V[Math.floor((n % 588) / 28)]];
-  });
-  // 2-Set composition of a key sequence: a final consonant moves on when a vowel follows (하ㄹ shows as 할, then 하루).
-  const compose = keys => {
-    let out = '', l = '', v = '', t = '';
-    const flush = () => { out += l && v ? String.fromCharCode(0xAC00 + (L.indexOf(l) * 21 + V.indexOf(v)) * 28 + T.indexOf(t)) : l + v; l = v = t = ''; };
-    for (const k of keys) {
-      if (L.includes(k)) { if (l && v && !t && T.includes(k)) t = k; else { flush(); l = k; } }
-      else if (V.includes(k)) { if (l && !v) v = k; else if (t) { const m = t; t = ''; flush(); l = m; v = k; } else { flush(); v = k; } }
-      else { flush(); out += k; }
-    }
-    flush(); return out;
-  };
-  const ks = keysOf('하루');
-  console.assert([1, 2, 3, 4].map(i => compose(ks.slice(0, i))).join() === 'ㅎ,하,할,하루' && compose(keysOf('감사하겠')) === '감사하겠' && compose(['a', ' ']) === 'a ', 'two-set compose');
+  const script = new Map(Object.entries({
+    'Ha': 'ppy birthday', 'Happy birthday! I ': 'hope you have a great day',
+    'Th': 'anks for the update.', "Thanks for the update. I'll t": 'ake a look and get back to you.',
+    'Ru': 'nning', 'Running 10 m': 'inutes late', 'Running 10 minutes late, sorry! S': 'ee you soon!', 'Running 10 minutes late, sorry! Sa': 've me a seat.',
+  }));
+  const messages = ['Happy birthday! I hope you have a great day!', "Thanks for the update. I'll take a look and get back to you.", 'Running 10 minutes late, sorry! Save me a seat.'];
+  const nextWord = g => g.match(/^\s*\S+/)[0];  // shortcut: a word runs to the next space, as Accept.nextWord does for these lines
+  console.assert(nextWord('ppy birthday') === 'ppy' && nextWord(' birthday') === ' birthday', 'next word');
   const out = document.querySelector('[data-replay]');
   if (!out) return;
   const key = document.querySelector('[data-tabkey]'), pauseBtn = document.querySelector('[data-replay-pause]');
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const show = (typed, ghost, taken = '') => { out.innerHTML = esc(typed) + (taken ? '<span class="taken">' + esc(taken) + '</span>' : '') + '<span class="caret"></span>' + (ghost ? '<span class="ghost">' + esc(ghost) + '</span>' : ''); };
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { show(lines[0][0] + lines[0][1], ''); pauseBtn.hidden = true; return; }
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { show(messages[0], ''); pauseBtn.hidden = true; return; }
   let paused = false, wake = null;
   pauseBtn.addEventListener('click', () => {
     paused = !paused; pauseBtn.setAttribute('aria-pressed', paused); pauseBtn.setAttribute('aria-label', paused ? 'Play the typing' : 'Pause the typing');
     if (!paused && wake) { const w = wake; wake = null; w(); }
   });
   const wait = ms => new Promise(res => setTimeout(() => paused ? (wake = res) : res(), ms));
+  const press = async (shift, text, took, ghost) => {
+    key.textContent = shift ? '⇧ tab' : 'tab'; key.classList.add('is-down');
+    show(text.slice(0, -took.length), ghost, took);
+    await wait(180); key.classList.remove('is-down');
+  };
   (async () => {
-    for (let i = 0; ; i = (i + 1) % lines.length) {
-      const [typed, ghost] = lines[i];
-      const keys = keysOf(typed);
-      for (let k = 1; k <= keys.length; k++) {
-        show(compose(keys.slice(0, k)), ''); await wait(keys[k - 1] === ' ' ? 120 : 70 + Math.random() * 70);
+    for (let m = 0; ; m = (m + 1) % messages.length) {
+      const target = messages[m];
+      let text = '', ghost = '';
+      show('', ''); await wait(300);
+      while (text.length < target.length) {
+        const rest = target.slice(text.length);
+        if (ghost && rest.startsWith(ghost) && ghost.trim().split(/\s+/).length >= 3) {
+          await wait(400);  // a long suggestion, right to the end: a moment to read it, then Shift-Tab takes it all
+          const took = ghost; text += took; ghost = script.get(text) || '';
+          await press(true, text, took, ghost); await wait(500); continue;
+        }
+        const word = ghost && nextWord(ghost);
+        if (word && rest.startsWith(word)) {
+          await wait(260);
+          text += word; ghost = ghost.slice(word.length) || script.get(text) || '';
+          await press(false, text, word, ghost); continue;
+        }
+        if (ghost) await wait(350);  // a wrong suggestion stays a moment, so it's seen being typed over
+        const letter = rest[0]; text += letter;
+        ghost = ghost[0] === letter && ghost.length > 1 ? ghost.slice(1) : script.get(text) || '';
+        show(text, ghost); await wait(45 + Math.random() * 60);
       }
-      await wait(260);
-      show(typed, ghost);
-      await wait(1300);
-      key.classList.add('is-down');
-      await wait(140); key.classList.remove('is-down');
-      show(typed, '', ghost);
-      await wait(1700);
+      key.textContent = 'tab'; show(text, ''); await wait(1600);
     }
   })();
 })();
