@@ -38,3 +38,12 @@ John (after round 3): "Let's go with 'Happy birthday! I hope you have a great da
 No model suggests that from those prefixes (probed 2026-11-09 with `HALFTYPE_DEMO_PROBE=1`: Qwen 3.5 0.8B says "ar's" after "Ha"), so the demo is scripted (`HALFTYPE_DEMO_SCRIPT` in `scripts/demo.sh`) and the README calls it an illustration. H's timing is the default; the keys show only while pressed, then fade.
 
 John then: "is there a low frame rate? It doesn't look very smooth. If so, we should probably just show grey text and instant suggestion acceptance". The glint and key fade each had three or four frames, so they stepped. Now: grey suggestions, taken in one frame, keys simply down then up, no glint or fade.
+
+## Round 4: more text
+
+John: "Okay now it feels too short. Any ideas for text we can add there? Or a new text we can cycle through", then "show me".
+
+- `round4.html`: A (today), B (three messages cycling), C (the birthday message, longer). Scripts in `round4/B-script.txt` and `C-script.txt` (`HALFTYPE_DEMO_SCRIPT`); B with `HALFTYPE_DEMO_PACE=rest=110`. A wrong suggestion now stays 0.35 s (`ignore`) so its being typed over can be seen.
+- `round4.png`: one frame of each.
+
+Recommendation: B.

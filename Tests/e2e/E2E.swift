@@ -374,11 +374,11 @@ enum EndToEnd {
         // The pace (docs/design/readme-demo rounds 2 and 3): HALFTYPE_DEMO_PACE="type=4,tab=14,…" (hundredths;
         // grey suggestions, taken at once). beat waits once a suggestion shows before the first Tab; after waits once a run of Tabs ends.
         // long=N takes a fresh suggestion of N words or more that is right to the end with Shift-Tab, after hold.
-        var pace = ["type": "4", "tab": "14", "beat": "12", "after": "8", "long": "3", "hold": "40"]  // Round 3's H.
+        var pace = ["type": "4", "tab": "14", "beat": "12", "after": "8", "rest": "170", "ignore": "35", "long": "3", "hold": "40"]  // Round 3's H.
         for pair in (ProcessInfo.processInfo.environment["HALFTYPE_DEMO_PACE"] ?? "").split(separator: ",") {
             let kv = pair.split(separator: "="); if kv.count == 2 { pace[String(kv[0])] = String(kv[1]) }
         }
-        let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!
+        let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!, restDelay = Int(pace["rest"]!)!, ignore = Int(pace["ignore"]!)!
         let long = Int(pace["long"]!)!, hold = Int(pace["hold"]!)!
         for target in sentences {
             var text = "", keys = 0, wrote = 0
@@ -412,6 +412,8 @@ enum EndToEnd {
                     if after > 0 { draw(text, ghost, keys, wrote, after) }
                     burst = 0
                 }
+                // A suggestion that isn't what comes next stays a moment, so it can be seen being typed over.
+                if !ghost.isEmpty, ignore > 0 { draw(text, ghost, keys, wrote, ignore) }
                 // Type the next letter. As in the app, a suggestion the letter matches stays and follows; otherwise the app asks again.
                 let letter = rest.first!
                 text.append(letter); keys += 1
@@ -420,7 +422,7 @@ enum EndToEnd {
             }
             let saved = 100 * (target.count - keys) / max(target.count, 1)
             print("      \(target.count) letters, \(keys) keys, \(wrote) by Tab: \(saved)% saved | \(target)")
-            draw(text, "", keys, wrote, 170)
+            draw(text, "", keys, wrote, restDelay)  // Each finished message rests, then the field clears for the next.
         }
         try! delays.write(to: URL(fileURLWithPath: dir).appendingPathComponent("en-delays.txt"), atomically: true, encoding: .utf8)
     }
