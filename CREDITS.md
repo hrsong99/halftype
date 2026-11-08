@@ -58,6 +58,7 @@ No code was copied into HalftypeApp either. These are the ideas it uses.
 | Optional model, Kanana 1.5 2.1B base, by Kakao | [kakaocorp/kanana-1.5-2.1b-base](https://huggingface.co/kakaocorp/kanana-1.5-2.1b-base) | Apache-2.0 | Not in this repo. Downloaded if you pick it |
 | The GGUF the app downloads, by mradermacher, from [OpenLLM-Korea's copy](https://huggingface.co/OpenLLM-Korea/kanana-1.5-2.1b-base) | [mradermacher/kanana-1.5-2.1b-base-GGUF](https://huggingface.co/mradermacher/kanana-1.5-2.1b-base-GGUF) | Apache-2.0 | Q4_K_M, checked by SHA-256 |
 | Public Korean text used to measure accuracy | [smilegate-ai/korean_smile_style_dataset](https://github.com/smilegate-ai/korean_smile_style_dataset) | CC BY-NC 4.0 | Used for measuring only. None of it is in this repo or the app |
+| Public English text typed in the comparison with other apps | [google-research-datasets/Taskmaster](https://github.com/google-research-datasets/Taskmaster), TM-1-2019 self-dialogs, by Bill Byrne and others at Google | CC BY 4.0 | Only sentence IDs are in this repo (`bench/compare/ids.tsv`); `bench/compare/text.py` fetches the text |
 
 The window's look, one field and a lot of white, takes its idea from [Ollama's desktop app](https://ollama.com/blog/new-app). No code or assets from it.
 

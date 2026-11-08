@@ -1,0 +1,139 @@
+import AppKit
+@testable import CompareKit
+import Testing
+
+// Invented sentences only (AGENTS.md: no private text).
+
+@Test func plansCountKeysAsTyped() {
+    #expect(Plan("Hi there").keys.count == 8)
+    #expect(Plan("값 오늘").keys.count == 4 + 1 + 5)
+    let p = Plan("오늘 날씨")
+    #expect(p.done(field: "오느", composing: "느") == 4)
+    #expect(p.next(field: "오느", composing: "느") == "ㄹ")
+    #expect(p.done(field: "온", composing: "온") == 3)  // ㄴ is still free to move on.
+    #expect(p.done(field: "온", composing: "") == nil)  // Committed, it can't.
+    #expect(p.done(field: "오늘 날씨") == p.keys.count)
+    #expect(Plan("gone").done(field: "go!") == nil)
+}
+
+@Test func oracleTakesOnlyTrueText() {
+    let p = Plan("Hello world is round")
+    #expect(p.tab(field: "Hel", ghost: "lo world", unit: .word) == "Hello")
+    #expect(p.tab(field: "Hello", ghost: " world is flat", unit: .word) == "Hello world")
+    #expect(p.tab(field: "Hello", ghost: " world is flat", unit: .all) == nil)  // macOS would take the wrong tail too.
+    #expect(p.tab(field: "Hello", ghost: " world is", unit: .all) == "Hello world is")
+    #expect(p.tab(field: "Hello", ghost: "world", unit: .word) == nil)  // No space: helloworld.
+    #expect(p.tab(field: "Hello worl", ghost: "d", unit: .word) == nil)  // Saves nothing over the key itself.
+    #expect(p.tab(field: "Hello", ghost: " ", unit: .word) == nil)
+}
+
+@Test func firstWordMustEndWhereTheTargetsDoes() {
+    let p = Plan("a lot of time")
+    #expect(p.firstWordRight(field: "a l", ghost: "ot of"))
+    #expect(!p.firstWordRight(field: "a l", ghost: "o"))
+    #expect(p.firstWordRight(field: "a lot", ghost: " of course"))
+    #expect(!p.firstWordRight(field: "a lot", ghost: " off"))
+    #expect(Plan("Sure, why not").firstWordRight(field: "Su", ghost: "re, I can"))
+}
+
+@Test func koreanGhostsReplaceOrFollowTheSyllable() {
+    let p = Plan("오늘 날씨가 좋다")
+    // A ghost that finishes the composing syllable, as Halftype shows it.
+    #expect(p.tab(field: "오", composing: "오", ghost: "오늘 날씨", unit: .word) == "오늘")
+    #expect(p.tab(field: "오느", composing: "느", ghost: "늘 날씨", unit: .word) == nil)  // One key saved, one Tab spent.
+    #expect(p.firstWordRight(field: "오느", composing: "느", ghost: "늘 날씨"))
+    // One that starts after it.
+    #expect(p.tab(field: "오늘", composing: "늘", ghost: " 날씨가 좋네", unit: .word) == "오늘 날씨가")
+    #expect(p.firstWordRight(field: "오늘", composing: "늘", ghost: " 날씨가 좋네"))
+    #expect(!p.firstWordRight(field: "오늘", composing: "늘", ghost: " 날씨 좋네"))  // 날씨 is not 날씨가.
+    #expect(p.tab(field: "오느", composing: "느", ghost: "는 아침", unit: .word) == nil)
+}
+
+@Test func delaysAreSeededAndHuman() {
+    var a = Delays(seed: Delays.seed("x")), b = Delays(seed: Delays.seed("x"))
+    let xs = (0..<4000).map { _ in a.next() }
+    #expect(xs.prefix(50).elementsEqual((0..<50).map { _ in b.next() }))
+    let median = Score.percentile(xs, 0.5)!
+    #expect(abs(median - 264) < 15)
+    #expect(xs.allSatisfy { (90...1200).contains($0) })
+}
+
+@Test func savedCountsTabsAndCarriesAnInterval() {
+    let rows = (0..<10).map { SentenceRecord(app: "a", lang: "en", sentence: "\($0)", total: 40, pressed: $0 < 5 ? 30 : 40, tabs: 2, wrongTabs: 0, tabsAsRead: 2) }
+    let s = Score.saved(rows)!
+    #expect(abs(s.value - 0.125) < 1e-9)
+    #expect(s.low < s.value && s.value < s.high)
+    let keys = [
+        KeyRecord(app: "a", lang: "en", sentence: "0", tab: false, probe: true, fresh: true, latencyMs: 80, shown: true, firstRight: true, composing: false),
+        KeyRecord(app: "a", lang: "en", sentence: "0", tab: false, probe: true, fresh: true, latencyMs: nil, shown: false, firstRight: false, composing: false),
+        KeyRecord(app: "a", lang: "en", sentence: "0", tab: false, probe: false, fresh: false, latencyMs: 16, shown: true, firstRight: false, composing: false),
+    ]
+    let row = Score.rows(keys: keys, sentences: rows, resources: [])[0]
+    #expect(row.shownShare == 2.0 / 3 && row.firstRight == 0.5)
+    #expect(row.freshP50 == 80 && row.probeNone == 0.5 && row.freshN == 1)
+    #expect(Score.markdown([row]).contains("12.5%"))
+}
+
+// MARK: OCR on frames drawn the way an app draws a ghost: typed ink, then grey text from the caret.
+
+/// A BGRA frame of a white field at 2x: `typed` in black, then `ghost` in `grey` from the caret. Returns the caret's x in pixels.
+func frame(typed: String, ghost: String, grey: NSColor = NSColor(white: 0.6, alpha: 1), size: CGFloat = 17,
+           _ body: (Frame, Int) -> Void) {
+    let scale: CGFloat = 2, w = 1400, h = Int(size * 2.4 * scale)
+    let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4, space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)!
+    ctx.setFillColor(.white)
+    ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+    ctx.scaleBy(x: scale, y: scale)
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
+    let font = NSFont.systemFont(ofSize: size)
+    let ink = NSAttributedString(string: typed, attributes: [.font: font, .foregroundColor: NSColor.black])
+    let origin = CGPoint(x: 8, y: size * 0.7)
+    ink.draw(at: origin)
+    let caret = origin.x + ink.size().width
+    NSAttributedString(string: ghost, attributes: [.font: font, .foregroundColor: grey]).draw(at: CGPoint(x: caret, y: origin.y))
+    NSGraphicsContext.restoreGraphicsState()
+    body(Frame(base: UnsafeRawPointer(ctx.data!), width: w, height: h, bytesPerRow: ctx.bytesPerRow), Int((caret * scale).rounded()))
+}
+
+@Test func inkRightOfTheCaretIsOnlyTheGhost() {
+    frame(typed: "Could you send", ghost: "") { f, caret in #expect(Ghost.ink(in: f, fromX: caret + 1) == nil) }
+    frame(typed: "Could you send", ghost: " me the file") { f, caret in
+        let ink = Ghost.ink(in: f, fromX: caret + 1)!
+        #expect(Ghost.leadingSpace(caretX: caret, ink: ink, emPixels: 34))
+    }
+    frame(typed: "Could you se", ghost: "nd me") { f, caret in
+        #expect(!Ghost.leadingSpace(caretX: caret, ink: Ghost.ink(in: f, fromX: caret + 1)!, emPixels: 34))
+    }
+}
+
+@Test(arguments: [
+    ("Could you send", " me the file", false), ("I would like", " to book a table", false), ("Is it wor", "th the trip", false),
+    ("Let's meet at", " noon tomorrow", false), ("오늘", " 저녁에 만나요", true), ("주말에 같이", " 영화 볼래?", true),
+])
+func ocrReadsAGreyGhost(typed: String, ghost: String, korean: Bool) {
+    for grey in [NSColor(white: 0.55, alpha: 1), NSColor(white: 0.72, alpha: 1)] {
+        frame(typed: typed, ghost: ghost, grey: grey) { f, caret in
+            let image = Ghost.binarized(f, fromX: caret + 1)!
+            #expect(Ghost.read(image, korean: korean) == ghost.trimmingCharacters(in: .whitespaces), "grey \(grey.whiteComponent)")
+        }
+    }
+}
+
+/// The oracle waits for OCR before each key (up to 500 ms), so a warm read must be well inside a typing delay.
+@Test func ocrIsQuickOnceWarm() {
+    for korean in [false, true] {
+        frame(typed: korean ? "오늘" : "Could you send", ghost: korean ? " 저녁에 만나요" : " me the file") { f, caret in
+            let image = Ghost.binarized(f, fromX: caret + 1)!
+            _ = Ghost.read(image, korean: korean)
+            let times = (0..<5).map { _ in
+                let t = Date()
+                _ = Ghost.read(image, korean: korean)
+                return Date().timeIntervalSince(t) * 1000
+            }
+            print("OCR \(korean ? "ko" : "en") warm ms:", times.map { Int($0) })
+            #expect(Score.percentile(times, 0.5)! < 250)
+        }
+    }
+}

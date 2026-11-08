@@ -16,6 +16,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - Window PNGs with no focus taken: `HALFTYPE_SHOTS=<dir> swift test --disable-keychain --filter WindowShots`. The window's halftone sky is a Metal shader (`Sky.metal`): off-screen shots leave it grey, so judge it from `13`/`14` (ImageRenderer). The app needs `Halftype_HalftypeApp.bundle` in Contents/Resources, which `build-app.sh` copies, or it stops at launch.
 - Always pass `--disable-keychain`: without it the first SwiftPM download of llama.cpp can hang on keychain credentials.
 - **`scripts/e2e.sh` takes the user's keyboard and cursor focus while it runs. Ask them first, every time.** A 60 s pause in typing doesn't mean they have stopped using the Mac. Unit tests and reviews don't take focus.
+- **`bench/compare/run.sh` (the typing comparison with other apps) takes the keyboard, pointer, front window and input source for ~50 minutes and launches rival apps. Ask first, every time;** `--check` is safe.
 - The Mac has limited memory: run one heavy build or model at a time, and don't steal focus.
 - `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh d` rebuilds `Resources/`. The window's `Mark` (Window.swift) draws `docs/icon/menubar.svg`'s paths by hand: change the logo, change it too.
 

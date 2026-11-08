@@ -18,6 +18,10 @@ let package = Package(
         .executableTarget(name: "Halftype", dependencies: ["HalftypeApp"]),
         // Checks against a private window. They need a real run loop, so the test runner can't host them. Not part of the app.
         .executableTarget(name: "halftype-e2e", dependencies: ["HalftypeApp", "HalftypeCore", "HalftypeEngine"], path: "Tests/e2e", swiftSettings: [.swiftLanguageMode(.v5)]),
+        // The typing comparison against other apps (bench/compare). Not part of the app; the runner borrows the 2-set table from HalftypeApp.
+        .target(name: "CompareKit", dependencies: ["HalftypeCore"], path: "bench/compare/Kit"),
+        .executableTarget(name: "halftype-compare", dependencies: ["CompareKit", "HalftypeApp", "HalftypeCore"], path: "bench/compare/Run", swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(name: "CompareKitTests", dependencies: ["CompareKit"], path: "bench/compare/Tests"),
         .testTarget(name: "HalftypeAppTests", dependencies: ["HalftypeApp", "HalftypeCore", "HalftypeEngine"], swiftSettings: [.swiftLanguageMode(.v5)]),
         .testTarget(name: "HalftypeCoreTests", dependencies: ["HalftypeCore"]),
         .testTarget(name: "HalftypeEngineTests", dependencies: ["HalftypeEngine", "HalftypeCore"]),
