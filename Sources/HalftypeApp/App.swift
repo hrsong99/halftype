@@ -159,6 +159,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var onboarding = false
     /// No model yet, so `Practice` answers Try It's own sentences in the meantime.
     @Published var practicing = false
+    /// The last key that took or hid a suggestion, which onboarding's lessons wait for. Onboarding sets it back to nil.
+    @Published var taught: KeyTap.Taught?
     let guide = SettingsGuide()
     private let loading = DispatchQueue(label: "halftype.load", qos: .userInitiated)
     private var latestOpen = 0
@@ -234,6 +236,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tune()
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
+        tap.onTaught = { [weak self] key in DispatchQueue.main.async { self?.taught = key } }
         tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
         tap.onAccept = { [weak self] added, keys, suggestion, text, drawing in
             DispatchQueue.main.async {

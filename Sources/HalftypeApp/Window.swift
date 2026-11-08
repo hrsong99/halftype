@@ -194,7 +194,7 @@ struct FieldPage: View {
     @ObservedObject var app: App
     @Binding var draft: String
     let showAll: () -> Void
-    /// The mark above and the room below, which onboarding's Try It step draws its own way.
+    /// The mark above, the room below and the line that teaches the keys, which onboarding's lessons draw their own way.
     var chrome = true
     @FocusState private var focused: Bool
     @State private var picking: Bool
@@ -293,7 +293,7 @@ struct FieldPage: View {
                     ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary)
                     Line(text: "You can close this window.")
                 }
-            } else if let line = app.fieldLine(settled) {
+            } else if chrome, let line = app.fieldLine(settled) {
                 HStack(spacing: 8) {
                     Line(text: line)
                     if line == App.success, !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }

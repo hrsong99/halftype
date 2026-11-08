@@ -366,6 +366,19 @@ import Testing
         #expect(tap.state.withLock { $0.armed == nil } && dismissed.load(ordering: .relaxed) == 1)
         #expect(!press(tap, key(53)).swallowed)
     }
+    @Test func theLessonsHearWhichKeyTookOrHidTheGhost() {
+        let heard = Mutex<[KeyTap.Taught]>([])
+        let tap = KeyTap()
+        tap.onTaught = { key in heard.withLock { $0.append(key) } }
+        _ = press(tap, key(53))  // No ghost: the app's Esc, no lesson.
+        armed(tap, Ghost(remainder: " there now"))
+        _ = press(tap, key(48))
+        armed(tap, Ghost(remainder: " there now"))
+        _ = press(tap, key(48, flags: .maskShift))
+        armed(tap, Ghost(remainder: " there now"))
+        _ = press(tap, key(53))
+        #expect(heard.withLock { $0 } == [.tab, .shiftTab, .esc])
+    }
     @Test func escAimedAtAnotherAppIsThatApps() {
         let tap = KeyTap()
         armed(tap, Ghost(remainder: " there"))
@@ -1446,6 +1459,13 @@ final class FakeServer: URLProtocol {
         app.menuNeedsUpdate(menu)
         #expect(menu.items.contains { $0.title == "Halftype 0.1.9 is available: Update…" && $0.action == #selector(App.checkForUpdates) })
     }
+    @Test func eachLessonStartsOnAPracticeSentence() {
+        for step in Onboarding.Step.allCases {
+            guard let lesson = Lesson.of(step) else { continue }
+            #expect(Practice.rest(after: lesson.prefill) != nil, "\(step) would wait for the model")
+        }
+    }
+
     @Test func practiceFinishesOnlyItsOwnSentence() {
         #expect(Practice.rest(after: "Please let me know if you have any") == " questions or concerns.")
         #expect(Practice.rest(after: "Context.\nPlease let me know if you have any qu") == "estions or concerns.")
@@ -1604,7 +1624,7 @@ final class FakeServer: URLProtocol {
         shoot("1-allow-downloading", app { $0.modelChanged(.downloading(0.37)) })
         shoot("2-field-downloading", app { $0.trusted = true; $0.modelChanged(.downloading(0.37)) })
         // The welcome at its offer (glass), then played out; the others as they open.
-        for (step, wait, name) in [(Onboarding.Step.welcome, 2.3, "0-welcome-offer"), (.welcome, 4.5, "0-welcome"), (.allow, 1.2, "1-allow"), (.tryIt, 1.2, "2-try-it"), (.done, 1.2, "3-done")] {
+        for (step, wait, name) in [(Onboarding.Step.welcome, 2.3, "0-welcome-offer"), (.welcome, 4.5, "0-welcome"), (.allow, 1.2, "1-allow"), (.tab, 1.2, "2-tab"), (.shiftTab, 1.2, "3-shift-tab"), (.esc, 1.2, "4-esc"), (.done, 1.2, "5-done")] {
             try onScreen("17-onboarding-\(name)", Root(app: app { $0.onboarding = true; $0.trusted = step.rawValue > 1; $0.practicing = true; $0.fresh = true
                 $0.modelChanged(.downloading(0.41)) }, onboardingStep: step), CGSize(width: 720, height: 500), wait: wait)
         }

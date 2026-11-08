@@ -5,7 +5,9 @@ import SwiftUI
 /// Answers before any model is ready, during onboarding, so Try It's first Tab needs no 3 GB wait: it finishes only its own sentences,
 /// so anywhere else it says nothing. A real model replaces it the moment one loads.
 final class Practice: Completer {
-    static let sentences = ["Please let me know if you have any questions or concerns."]
+    /// Onboarding's three lessons, which start with these sentences' first halves.
+    static let sentences = ["Please let me know if you have any questions or concerns.", "Thanks so much for the birthday wishes, it made my day.",
+                            "Can we move the meeting to Thursday afternoon?"]
 
     /// The rest of a practice sentence whose start, at least `least` characters of it, is the end of what's typed.
     static func rest(after typed: String, least: Int = 8) -> String? {

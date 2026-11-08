@@ -74,6 +74,9 @@ class KeyTap: @unchecked Sendable {
     /// Off this thread at once. Given the generation this input moved to.
     var onInput: (@Sendable (Int) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
+    /// Which key just took or hid a suggestion, for onboarding's lessons. Off this thread at once.
+    enum Taught: Sendable { case tab, shiftTab, esc }
+    var onTaught: (@Sendable (Taught) -> Void)?
     /// Given the characters a Tab added, which suggestion it took from, the text (nil when typed as strokes: an input method may recompose
     /// the letter before it, moving the text from where the ghost was), and the drawing it was taken from. Off this thread at once.
     var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int, _ text: String?, _ drawing: Int) -> Void)?
@@ -176,6 +179,7 @@ class KeyTap: @unchecked Sendable {
         var suggestion = 0, drawing = 0
         var generation = 0
         var held = false
+        var whole = false
         var through: (drawing: Int, text: String)?
         var length = 0, units = [UniChar](repeating: 0, count: 4)
         if Self.types(type, event, flags) { event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &units) }
@@ -198,6 +202,7 @@ class KeyTap: @unchecked Sendable {
             s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
             if case .accept(let all) = decision, let armed {
                 plan = s.accept(armed, all: all)
+                whole = all
                 suggestion = armed.suggestion
                 drawing = armed.drawing
             }
@@ -207,9 +212,13 @@ class KeyTap: @unchecked Sendable {
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
             onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion, plan.strokes == nil ? plan.text : nil, drawing)
+            onTaught?(whole ? .shiftTab : .tab)
         }
         if decision == .reenable { reenable() }
-        if case .dismiss = decision { onDismiss?() }
+        if case .dismiss(let swallow) = decision {
+            onDismiss?()
+            if swallow { onTaught?(.esc) }  // Swallowed: a ghost was up, so this Esc hid it.
+        }
         if held { return true }
         if let through { onTypedThrough?(through.drawing, through.text, generation) }
         if plan == nil, Self.types(type, event, flags) { onTyped?() }

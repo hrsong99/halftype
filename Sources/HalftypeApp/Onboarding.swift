@@ -1,16 +1,19 @@
 import SwiftUI
 
-/// First launch, in four steps (docs/design/onboarding, C): a welcome that shows the product in one sentence, the one permission,
-/// Try It with real glass suggestions (practice ones until the model is in), and where Halftype lives. The model downloads all along.
+/// First launch (docs/design/onboarding, C): a welcome that shows the product in one sentence, the one permission, a lesson for each
+/// key in Try It's real glass suggestions (practice ones until the model is in), and where Halftype lives. The model downloads all along.
 struct Onboarding: View {
     @ObservedObject var app: App
-    enum Step: Int, CaseIterable { case welcome, allow, tryIt, done }
+    enum Step: Int, CaseIterable { case welcome, allow, tab, shiftTab, esc, done }
     @State private var step: Step
-    @State private var draft = ""
+    @State private var draft: String
+    /// This lesson's key was pressed on a suggestion.
+    @State private var did = false
 
     init(app: App, step: Step = .welcome) {
         self.app = app
         _step = State(initialValue: step)
+        _draft = State(initialValue: Lesson.of(step)?.prefill ?? "")
     }
 
     var body: some View {
@@ -20,7 +23,7 @@ struct Onboarding: View {
                 switch step {
                 case .welcome: Welcome { next() }
                 case .allow: allow
-                case .tryIt: tryIt
+                case .tab, .shiftTab, .esc: lesson(Lesson.of(step)!)
                 case .done: done
                 }
             }
@@ -31,12 +34,30 @@ struct Onboarding: View {
         .overlay(alignment: .top) { top.padding(.top, 14) }
         .animation(.easeInOut(duration: 0.35), value: step)
         // The grant brings the window back in front (App.tapChanged); the step moves on with it.
-        .onChange(of: app.trusted) { if app.trusted, step == .allow { step = .tryIt } }
+        .onChange(of: app.trusted) { if app.trusted, step == .allow { go(.tab) } }
+        .onChange(of: app.taught) {
+            guard let lesson = Lesson.of(step), app.taught == lesson.key, !did else { return }
+            did = true
+        }
+        // Moves on by itself once the key has done its job and the line saying so has been read.
+        .task(id: did) {
+            guard did else { return }
+            try? await Task.sleep(for: .seconds(1.6))
+            if !Task.isCancelled, did { next() }
+        }
     }
 
     private func next() {
         guard let after = Step(rawValue: step.rawValue + 1) else { return app.finishOnboarding() }
-        step = after == .allow && app.trusted ? .tryIt : after
+        go(after == .allow && app.trusted ? .tab : after)
+    }
+
+    /// A lesson starts on its own sentence, with nothing pressed yet.
+    private func go(_ to: Step) {
+        did = false
+        app.taught = nil
+        if let lesson = Lesson.of(to) { draft = lesson.prefill }
+        step = to
     }
 
     /// Where you are, and the download, which starts at launch and carries on under every step.
@@ -71,14 +92,21 @@ struct Onboarding: View {
         .padding(.horizontal, 40)
     }
 
-    private var tryIt: some View {
+    /// One key: what to press, in words and as keycaps, the field with a suggestion waiting, and what it did.
+    private func lesson(_ lesson: Lesson) -> some View {
         VStack(spacing: 0) {
             Spacer()
-            Text("Try it").font(.system(size: 24, weight: .semibold))
+            Text("\(lesson.number) of 3").font(.system(size: 12)).foregroundStyle(.secondary).padding(.bottom, 6)
+            HStack(spacing: 12) {
+                Text(lesson.title).font(.system(size: 24, weight: .semibold))
+                HStack(spacing: 4) { ForEach(lesson.keycaps, id: \.self) { Keycap(label: $0) } }
+            }
+            Text(lesson.how).font(.system(size: 13)).foregroundStyle(.secondary).padding(.top, 6)
             FieldPage(app: app, draft: $draft, chrome: false) {}.fixedSize(horizontal: false, vertical: true)
+            Label(lesson.done, systemImage: "checkmark.circle.fill").font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.primary).opacity(did ? 1 : 0)
             Spacer()
-            Button(app.accepted ? "Continue" : "Skip") { next() }
-                .buttonStyle(Ink(quiet: !app.accepted)).padding(.bottom, 40)
+            Button(did ? "Next" : "Skip") { next() }.buttonStyle(Ink(quiet: !did)).padding(.bottom, 40)
         }
     }
 
@@ -181,5 +209,32 @@ struct Ink: ButtonStyle {
             .padding(.horizontal, 20).padding(.vertical, 9)
             .background(quiet ? Color.black.opacity(0.07) : Color.black.opacity(configuration.isPressed ? 0.75 : 0.88), in: Capsule())
             .contentShape(Capsule())
+    }
+}
+
+/// A key drawn as a key, for the lessons.
+private struct Keycap: View {
+    let label: String
+    var body: some View {
+        Text(label).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+            .padding(.horizontal, 10).padding(.vertical, 5).frame(minWidth: 40)
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.9), in: RoundedRectangle(cornerRadius: 6))
+            .shadow(color: .black.opacity(0.15), radius: 0, y: 2)
+    }
+}
+
+/// What each key lesson asks for and starts with. Each sentence is one of `Practice.sentences`, so it gets a suggestion before any model.
+struct Lesson {
+    let key: KeyTap.Taught, number: Int, title: String, keycaps: [String], how: String, prefill: String, done: String
+    static func of(_ step: Onboarding.Step) -> Lesson? {
+        switch step {
+        case .tab: Lesson(key: .tab, number: 1, title: "Press Tab", keycaps: ["tab"], how: "Tab takes the next word of the suggestion.",
+                          prefill: "Please let me know if you have any", done: "That's a word. Tab again takes the next.")
+        case .shiftTab: Lesson(key: .shiftTab, number: 2, title: "Press Shift-Tab", keycaps: ["shift", "tab"], how: "Shift-Tab takes the whole suggestion at once.",
+                               prefill: "Thanks so much for the", done: "All of it, in one go.")
+        case .esc: Lesson(key: .esc, number: 3, title: "Press Esc", keycaps: ["esc"], how: "Esc hides a suggestion you don't want. Then just keep typing.",
+                          prefill: "Can we move the meeting to", done: "Hidden. Type on, and a new one comes.")
+        default: nil
+        }
     }
 }
