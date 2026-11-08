@@ -147,7 +147,7 @@ function B(win, st = { r:'w', back:0 }) {
   const go = () => B(win, st);
   let ds, prev, head, body, label;
   if (st.r === 'w') { const m = add(monday(TODAY), -7 * st.back); ds = range(m, 7); prev = range(add(m, -7), st.back ? 7 : (TODAY.getDay() + 6) % 7 + 1);
-    head = st.back ? `${md(m)} – ${md(add(m, 6))}` : 'This week'; label = st.back ? 'vs the week before' : `vs last week’s first ${(TODAY.getDay() + 6) % 7 + 1} day${TODAY.getDay() === 1 ? '' : 's'}`; body = chart(ds); }
+    head = st.back ? `${md(m)} – ${md(add(m, 6))}` : 'This week'; label = st.back ? 'vs the week before' : (TODAY.getDay() === 1 ? 'vs last Monday' : `vs last week’s first ${(TODAY.getDay() + 6) % 7 + 1} days`); body = chart(ds); }
   else if (st.r === 'm') { const m = new Date(TODAY.getFullYear(), TODAY.getMonth() - st.back, 1, 12), len = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
     ds = range(m, len); prev = range(new Date(m.getFullYear(), m.getMonth() - 1, 1, 12), st.back ? new Date(m.getFullYear(), m.getMonth(), 0).getDate() : TODAY.getDate());
     head = m.toLocaleDateString('en-US', { month:'long', year: m.getFullYear() === TODAY.getFullYear() ? undefined : 'numeric' }); label = st.back ? 'vs the month before' : `vs ${TODAY.getDate()} days of last month`;
@@ -156,7 +156,7 @@ function B(win, st = { r:'w', back:0 }) {
     head = `Since ${md(f)}`; body = cal(26, 18); }
   const s = sum(ds), p = prev && sum(prev), dl = (a, b) => p && b ? signed(a - b) : '';
   const oldest = st.r === 'w' ? add(monday(TODAY), -7 * st.back) <= first() : new Date(TODAY.getFullYear(), TODAY.getMonth() - st.back, 1) <= first();
-  win.innerHTML = chrome(win.dataset.side, `<div class="bar"><div class="pager">${st.r !== 'a' ? `<button data-p="1" ${oldest ? 'disabled' : ''}><span>‹</span></button><button data-p="-1" ${st.back ? '' : 'disabled'}><span>›</span></button>` : ''}<span style="font-size:13em;font-weight:500">${head}</span></div>
+  win.innerHTML = chrome(+win.dataset.side, `<div class="bar"><div class="pager">${st.r !== 'a' ? `<button data-p="1" ${oldest ? 'disabled' : ''}><span>‹</span></button><button data-p="-1" ${st.back ? '' : 'disabled'}><span>›</span></button>` : ''}<span style="font-size:13em;font-weight:500">${head}</span></div>
     <div class="seg">${[['w', 'Week'], ['m', 'Month'], ['a', 'All']].map(([k, t]) => `<span data-r="${k}" class="${st.r === k ? 'on' : ''}">${t}</span>`).join('')}</div></div>
     <div class="figs" style="padding-top:6em">${fig(n(s.tabs), 'Tabs', true, dl(s.tabs, p && p.tabs))}${fig(n(s.characters), 'letters typed for you', false, dl(s.characters, p && p.characters))}${fig(s.typed ? pct(s.saved / (s.saved + s.typed)) : '–', 'of your typing by Tab')}</div>
     <div class="hr"></div><div class="cap" style="padding:1.2em 0 .6em">${p && sum(prev).tabs ? `${label}: ${n(p.tabs)} Tabs` : st.r === 'a' ? 'Each dot a day, bigger for more Tabs. Hover one.' : 'Hover a bar for the day.'}</div>${body}
@@ -168,7 +168,7 @@ function B(win, st = { r:'w', back:0 }) {
 // A: main today, unchanged.
 function A(win) {
   const t = day(TODAY), ds = range(add(TODAY, -13), 14), s = sum(ds);
-  win.innerHTML = chrome(win.dataset.side, `<div class="figs">${fig(n(t.tabs), 'Tabs today', true)}${fig(n(t.characters), 'letters typed for you')}${fig(t.shown ? pct(Math.min(1, t.taken / t.shown)) : '–', 'of suggestions taken')}</div>
+  win.innerHTML = chrome(+win.dataset.side, `<div class="figs">${fig(n(t.tabs), 'Tabs today', true)}${fig(n(t.characters), 'letters typed for you')}${fig(t.shown ? pct(Math.min(1, t.taken / t.shown)) : '–', 'of suggestions taken')}</div>
     <div class="hr"></div><div class="cap" style="padding:1.33em 0 .67em">Last 14 days: ${n(s.tabs)} Tabs</div>${chart(ds)}<div class="foot">${n(sum(Object.values(DATA.days)).tabs)} Tabs in all. Only counts are kept, never what you type.</div><div class="models">Models</div>`);
   const cap = win.querySelector('.cap'), els = [...win.querySelectorAll('.bars > div')];
   els.forEach(el => el.onmouseenter = () => { els.forEach(o => o.classList.toggle('hi', o === el)); const d = ds[+el.dataset.i]; cap.textContent = `${long(d.d)}: ${d.tabs} Tabs, ${d.characters} letters`; });
@@ -177,7 +177,7 @@ function A(win) {
 // C: A as it is, with ‹ › on the 14 days and the calendar under it; a dot jumps the bars to its fortnight.
 function C(win, st = { back:0 }) {
   const t = day(TODAY), end = add(TODAY, -14 * st.back), ds = range(add(end, -13), 14), s = sum(ds), oldest = add(end, -13) <= first();
-  win.innerHTML = chrome(win.dataset.side, `<div class="figs" style="padding-bottom:12em">${fig(n(t.tabs), 'Tabs today', true)}${fig(n(t.characters), 'letters typed for you')}${fig(t.shown ? pct(Math.min(1, t.taken / t.shown)) : '–', 'of suggestions taken')}</div>
+  win.innerHTML = chrome(+win.dataset.side, `<div class="figs" style="padding-bottom:12em">${fig(n(t.tabs), 'Tabs today', true)}${fig(n(t.characters), 'letters typed for you')}${fig(t.shown ? pct(Math.min(1, t.taken / t.shown)) : '–', 'of suggestions taken')}</div>
     <div class="hr"></div><div class="bar" style="padding-bottom:4em"><div class="pager"><button data-p="1" ${oldest ? 'disabled' : ''}><span>‹</span></button><button data-p="-1" ${st.back ? '' : 'disabled'}><span>›</span></button>
     <span class="cap">${st.back ? `${md(add(end, -13))} – ${md(end)}` : 'Last 14 days'}: ${n(s.tabs)} Tabs</span></div></div>${chart(ds, { h: 92 })}
     <div class="cap" style="padding:1.8em 0 0">Since ${md(first())}: ${n(sum(Object.values(DATA.days)).tabs)} Tabs. Click a week to see it above.</div>${cal(26, 14)}<div class="foot">Only counts are kept, never what you type.</div>`);
