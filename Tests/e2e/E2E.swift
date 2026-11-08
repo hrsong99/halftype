@@ -352,28 +352,46 @@ enum EndToEnd {
             return ghost.isEmpty || drawable(text, ghost) ? ghost : ""
         }
         // No pauses of its own: each frame shows the letter and, at once, what the app suggests after it; Tab comes at the typing rhythm.
+        // The pace, for docs/design/readme-demo round 2: HALFTYPE_DEMO_PACE="type=4,tab=12,beat=0,after=0,glint=word,key=1" (hundredths;
+        // glint word, burst or none). beat waits once a suggestion shows before the first Tab; after waits once a run of Tabs ends.
+        var pace = ["type": "4", "tab": "12", "beat": "0", "after": "0", "glint": "word", "key": "1"]
+        for pair in (ProcessInfo.processInfo.environment["HALFTYPE_DEMO_PACE"] ?? "").split(separator: ",") {
+            let kv = pair.split(separator: "="); if kv.count == 2 { pace[String(kv[0])] = String(kv[1]) }
+        }
+        let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!, glintMode = pace["glint"]!
+        showKey = pace["key"] != "0"
         for target in sentences {
             var text = "", keys = 0, wrote = 0
-            var ghost = ""
+            var ghost = "", burst = 0
             draw("", "", 0, 0, 30)
             while text.count < target.count {
                 let rest = target.dropFirst(text.count)
-                // Tab, a word at a time, rapidly: about eight a second, each word's glint still crossing as the next Tab lands.
                 let word = ghost.isEmpty ? "" : Accept.nextWord(Ghost(remainder: ghost)).text
                 if !word.isEmpty, rest.hasPrefix(word) {
+                    if burst == 0, beat > 0 { draw(text, ghost, keys, wrote, beat) }
                     text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count))
                     if ghost.isEmpty { ghost = suggestion(text) }
                     let taken = (word as NSString).length
-                    draw(text, ghost, keys, wrote, press: 1, glint: 0.3, taken: taken, 4)
-                    draw(text, ghost, keys, wrote, press: 0.4, glint: 0.7, taken: taken, 4)
-                    draw(text, ghost, keys, wrote, glint: 0.95, taken: taken, 4)
+                    burst += taken
+                    let third = max(3, tabDelay / 3), lit = glintMode == "word"
+                    draw(text, ghost, keys, wrote, press: 1, glint: lit ? 0.3 : nil, taken: taken, third)
+                    draw(text, ghost, keys, wrote, press: 0.4, glint: lit ? 0.7 : nil, taken: taken, third)
+                    draw(text, ghost, keys, wrote, glint: lit ? 0.95 : nil, taken: taken, max(3, tabDelay - 2 * third))
                     continue
                 }
-                // Type the next letter; a suggestion that no longer fits goes, and the app asks again.
-                text.append(rest.first!); keys += 1
-                ghost = suggestion(text)
-                draw(text, ghost, keys, wrote, 4 + Int(hash(keys, text.count) * 3))  // About 90 words a minute, unevenly, like hands.
+                if burst > 0 {
+                    // A run of Tabs just ended: one sweep over all it took, then the pause.
+                    if glintMode == "burst" { for p in [0.25, 0.5, 0.75] { draw(text, ghost, keys, wrote, glint: p, taken: burst, 4) } }
+                    if after > 0 { draw(text, ghost, keys, wrote, after) }
+                    burst = 0
+                }
+                // Type the next letter. As in the app, a suggestion the letter matches stays and follows; otherwise the app asks again.
+                let letter = rest.first!
+                text.append(letter); keys += 1
+                ghost = ghost.first == letter && ghost.count > 1 ? String(ghost.dropFirst()) : suggestion(text)
+                draw(text, ghost, keys, wrote, typeDelay + Int(hash(keys, text.count) * 3))  // Unevenly, like hands.
             }
+            if burst > 0, glintMode == "burst" { for p in [0.25, 0.5, 0.75] { draw(text, ghost, keys, wrote, glint: p, taken: burst, 4) } }
             let saved = 100 * (target.count - keys) / max(target.count, 1)
             print("      \(target.count) letters, \(keys) keys, \(wrote) by Tab: \(saved)% saved | \(target)")
             draw(text, "", keys, wrote, 170)
@@ -389,6 +407,7 @@ enum EndToEnd {
 
     /// Option F of docs/design/readme-demo in the home window's glass (docs/design/home-glass): cream, the blurred arch, a frosted panel for the
     /// field with the counts so far, and the tab key. A taken suggestion glints across its own words, as in the app.
+    nonisolated(unsafe) static var showKey = true
     final class DemoStage: NSView {
         static let size = CGSize(width: 760, height: 360)
         static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
@@ -463,7 +482,7 @@ enum EndToEnd {
                 text.draw(at: CGPoint(x: rect.midX - text.size().width / 2, y: rect.midY - text.size().height / 2 + sink - 1))
             }
             let top = Self.panel.maxY + 26
-            key("tab ⇥", CGRect(x: bounds.midX - 48, y: top, width: 96, height: 40), stage.press)
+            if EndToEnd.showKey { key("tab ⇥", CGRect(x: bounds.midX - 48, y: top, width: 96, height: 40), stage.press) }
         }
     }
 
