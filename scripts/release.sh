@@ -6,6 +6,8 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 version=$1
+notes=docs/releases/$version.md  # what changed, for users: shown in the update window and on the GitHub release
+[[ -s $notes ]] || { echo "Write $notes first."; exit 1; }
 [[ -z "$(git status --porcelain)" ]] || { echo "Commit first: a release is one commit."; exit 1; }
 source ~/.config/halftype-signing/env
 security unlock-keychain -p "$KEYCHAIN_PASSWORD" halftype-signing.keychain
@@ -26,7 +28,8 @@ bin=.build/artifacts/sparkle/Sparkle/bin
 sha=$(shasum -a 256 "$dmg" | cut -d' ' -f1)
 # The same DMG under a second name for Sparkle, so GitHub's counts tell new installs from updates (scripts/usage.sh).
 cp "$dmg" "$out/Halftype-update.dmg"
-"$bin/generate_appcast" --ed-key-file "$SPARKLE_KEY" --download-url-prefix "https://github.com/hrsong99/halftype/releases/download/v$version/" "$out"
+cp "$notes" "$out/Halftype-update.md"  # generate_appcast takes notes named after the archive
+"$bin/generate_appcast" --embed-release-notes --ed-key-file "$SPARKLE_KEY" --download-url-prefix "https://github.com/hrsong99/halftype/releases/download/v$version/" "$out"
 
 # Everything that can fail goes first. Running it again after a failure past here replaces the assets and carries on.
 tap=$(mktemp -d)
@@ -41,7 +44,7 @@ git push -q origin HEAD
 if gh release view "v$version" >/dev/null 2>&1; then
   gh release upload "v$version" "$dmg" "$out/Halftype-update.dmg" "$out/appcast.xml" --clobber
 else
-  gh release create "v$version" "$dmg" "$out/Halftype-update.dmg" "$out/appcast.xml" --target "$(git rev-parse HEAD)" --title "Halftype $version" --generate-notes
+  gh release create "v$version" "$dmg" "$out/Halftype-update.dmg" "$out/appcast.xml" --target "$(git rev-parse HEAD)" --title "Halftype $version" --notes-file "$notes"
 fi
 git -C "$tap" push -q
 echo "Released $version"
