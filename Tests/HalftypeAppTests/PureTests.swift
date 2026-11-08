@@ -1534,12 +1534,15 @@ final class FakeServer: URLProtocol {
         try FileManager.default.createDirectory(at: old, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: new, withIntermediateDirectories: true)  // made first, as a launch would
         try Data("m".utf8).write(to: old.appendingPathComponent("m.gguf"))
+        for folder in [old, new] { try FileManager.default.createDirectory(at: folder.appendingPathComponent("adapters/k"), withIntermediateDirectories: true) }
+        try Data("a".utf8).write(to: old.appendingPathComponent("adapters/k/a.gguf"))
         let name = "halftype-test-\(UUID().uuidString)", oldName = name + ".old"
         let defaults = try #require(UserDefaults(suiteName: name))
         defaults.setPersistentDomain(["modelPath": old.path + "/m.gguf", "on": false, "pausedApps": ["a"], "ownModels": [old.path + "/gone.gguf"]], forName: oldName)
         defer { defaults.removePersistentDomain(forName: name); defaults.removePersistentDomain(forName: oldName); try? FileManager.default.removeItem(at: root) }
         moveFromItda(defaults, oldDomain: oldName, support: new)
         #expect(FileManager.default.fileExists(atPath: new.appendingPathComponent("m.gguf").path))
+        #expect(FileManager.default.fileExists(atPath: new.appendingPathComponent("adapters/k/a.gguf").path))
         #expect(!FileManager.default.fileExists(atPath: old.path))
         #expect(defaults.string(forKey: "modelPath") == new.path + "/m.gguf")
         #expect(defaults.stringArray(forKey: "ownModels") == [old.path + "/gone.gguf"])  // nothing arrived, so untouched

@@ -18,14 +18,17 @@ public func runHalftype() {
 func moveFromItda(_ defaults: UserDefaults, oldDomain: String = "app.itda.Itda", support: URL = App.support) {
     let old = support.deletingLastPathComponent().appendingPathComponent("Itda")
     let files = FileManager.default
-    if files.fileExists(atPath: old.path) {
-        // Item by item, so a Halftype folder made first doesn't strand the rest; whatever fails to move stays put.
-        try? files.createDirectory(at: support, withIntermediateDirectories: true)
-        for name in (try? files.contentsOfDirectory(atPath: old.path)) ?? [] where !files.fileExists(atPath: support.appendingPathComponent(name).path) {
-            try? files.moveItem(at: old.appendingPathComponent(name), to: support.appendingPathComponent(name))
+    // Item by item and folder into folder, so a Halftype folder made first strands nothing; a name in both stays put.
+    func merge(_ from: URL, into to: URL) {
+        try? files.createDirectory(at: to, withIntermediateDirectories: true)
+        for name in (try? files.contentsOfDirectory(atPath: from.path)) ?? [] {
+            let a = from.appendingPathComponent(name), b = to.appendingPathComponent(name)
+            if !files.fileExists(atPath: b.path) { try? files.moveItem(at: a, to: b) }
+            else if a.hasDirectoryPath || (try? a.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true { merge(a, into: b) }
         }
-        if (try? files.contentsOfDirectory(atPath: old.path))?.isEmpty == true { try? files.removeItem(at: old) }
+        if (try? files.contentsOfDirectory(atPath: from.path))?.isEmpty == true { try? files.removeItem(at: from) }
     }
+    if files.fileExists(atPath: old.path) { merge(old, into: support) }
     if defaults.object(forKey: "movedFromItda") == nil {
         for (key, value) in defaults.persistentDomain(forName: oldDomain) ?? [:] where defaults.object(forKey: key) == nil { defaults.set(value, forKey: key) }
         defaults.set(true, forKey: "movedFromItda")
