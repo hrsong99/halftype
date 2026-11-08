@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Itda, D with a bit of F</title>
+<style>
+:root{--bg:#f4f4f2;--ink:#1b1b1b;--sub:#6b6b6b;--card:#fff;--line:#0001}
+@media (prefers-color-scheme:dark){:root{--bg:#141414;--ink:#eee;--sub:#999;--card:#1d1d1d;--line:#fff1}}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);font:15px/1.5 -apple-system,"SF Pro Text",Inter,system-ui,sans-serif}
+body.page{background:var(--bg);padding:28px 20px 60px}
+.wrap{max-width:1500px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}.q{color:var(--sub);margin:0 0 18px}
+.rec{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:20px}
+.ctl{position:sticky;top:0;z-index:9;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;background:var(--bg);font-size:13px;color:var(--sub)}
+body:not(.page) .ctl{background:var(--background,transparent)}
+.ctl button{font:inherit;padding:4px 11px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.ctl input{font:inherit;font-size:14px;flex:1;min-width:220px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.card h3{margin:10px 0 2px;font-size:16px}.card h3 span{display:inline-block;width:24px;height:24px;border-radius:6px;background:var(--ink);color:var(--card);text-align:center;line-height:24px;font-size:13px;margin-right:8px}
+.card p{margin:4px 0 0;color:var(--sub);font-size:13.5px}
+.win{position:relative;width:100%;aspect-ratio:720/500;border-radius:11px;overflow:hidden;background:#fbf8f3;color:#1d1b18;box-shadow:0 0 0 .5px #0003,0 12px 30px #0002;container-type:inline-size;font-family:-apple-system,"SF Pro Text",Inter,system-ui,sans-serif}
+.win canvas{position:absolute;inset:0;width:100%;height:100%}.win canvas.over{z-index:3;pointer-events:none}
+.lights{position:absolute;top:2.6cqw;left:2.6cqw;display:flex;gap:1.2cqw;z-index:3}.lights i{width:1.8cqw;height:1.8cqw;border-radius:50%;background:#ff5f57}.lights i+i{background:#febc2e}.lights i+i+i{background:#28c840}
+.stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.6cqw;padding-bottom:5cqw;z-index:2}
+.mark{display:flex;align-items:center;gap:.3cqw}.mark b{width:.45cqw;height:3.6cqw;border-radius:1cqw;background:currentColor}.mark s{width:2.5cqw;height:.45cqw;border-radius:1cqw;background:linear-gradient(90deg,currentColor,transparent)}
+.field{width:69cqw;border-radius:2.8cqw;padding:1.7cqw 1.4cqw 1.2cqw 2.2cqw;font-size:2.1cqw;background:rgba(255,255,255,.62);backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);box-shadow:inset 0 0 0 .12cqw #0000000d,0 1.2cqw 3cqw #5a3c2014}
+.text{height:5cqw;white-space:pre}.gh{color:#1d1b1855;transition:opacity .25s}.caret{display:inline-block;width:.16cqw;height:2.4cqw;background:currentColor;vertical-align:-.4cqw;margin:0 .05cqw}
+.bar{display:flex;justify-content:flex-end;align-items:center;gap:1.1cqw}
+.pill{font-size:1.67cqw;padding:.55cqw 1.4cqw;border-radius:9cqw;background:#ffffffb0;box-shadow:inset 0 0 0 .1cqw #0000000d}
+.power{width:3.3cqw;height:3.3cqw;border-radius:50%;display:grid;place-items:center;background:#1d1b18;color:#fff}.power svg{width:1.6cqw;height:1.6cqw}
+.status{font-size:1.67cqw;opacity:.55}
+/* C: the accepted words are printed in, left to right */
+.vC .acc{background:linear-gradient(90deg,#1d1b18 50%,#1d1b1855 50%) 100% 0/200% 100% no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;animation:print var(--d) cubic-bezier(.3,.6,.3,1) forwards}
+@keyframes print{to{background-position:0 0}}
+.voF .field.pulse{animation:swell var(--d2) ease-out}
+.breath .field.pulse{animation:breathe var(--d2) ease-out}
+@keyframes breathe{35%{transform:scale(1.006);box-shadow:inset 0 0 0 .12cqw #0000000d,0 1.4cqw 3.6cqw #e0905026}}
+@keyframes swell{30%{transform:scale(1.012);box-shadow:inset 0 0 0 .12cqw #0000000d,0 1.6cqw 4.5cqw #e0905040}}
+</style></head><body class="page"><div class="wrap">
+<h1>D, with a bit of F</h1>
+<p class="q">Round 3. John: <i>"Can I see a version of D and a little bit of F? F as in the biggest animation is on tab, that of D, but subtler (and typing has an extremely subtle and quick ripple, one that dies down very quick so typing fast never invades into the tab instructions)."</i> A, B and C are three tunings of that; round 2's D and F sit at the end to compare. Click the box and type fast to test the ripple.</p>
+<div class="rec"><b>Recommendation: A.</b> It keeps what made D feel good (the sky slowly warms as you write), at half the rise, and puts the one real moment on Tab: a gentle warm swell plus F's breath of the field. Each key's ripple lives 0.3 s and reaches at most the field's own height, and fast typing keeps it at one ripple's strength rather than stacking. So it never reaches "Tab takes a word". B is the same with a sky that only moves on Tab, if the slow rise feels like too much. C makes the Tab warmth spread out from the words you took instead of rising from the bottom.</div>
+<div class="ctl"><button id="replay">Replay</button><button id="pause">Pause</button><button id="slow">Slow ×0.25: off</button><input id="live" placeholder="Click and type here to drive every option. Tab takes the grey text." autocomplete="off" spellcheck="false"></div>
+<div class="grid" id="grid"></div>
+</div>
+<script>
+const P='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 1.5v6"/><path d="M4.2 4a6 6 0 1 0 7.6 0"/></svg>';
+const OPTS=[
+ {k:'A',name:'Rise and swell (recommended)',note:'The peach horizon rises half as far as round 2\'s D while you write. Tab: a soft warm swell up the sky and a small breath of the field, about a second. Keys: a tiny ripple at the caret, gone in 0.3 s.'},
+ {k:'B',name:'Still sky, swell on Tab',note:'A without the rise: the sky only moves on Tab. The calmest of the three, and the Tab moment stands out most because nothing else moves.'},
+ {k:'C',name:'Warmth from the words',note:'Same rise and key ripple as A, but Tab\'s warmth spreads outward from the words you just took, a wide soft ring, instead of rising from the bottom.'},
+ {k:'oD',name:'Round 2\'s D, for reference',note:'The sun comes up as it was: the full horizon rise and the strong Tab flash, with no key ripple.'},
+ {k:'oF',name:'Round 2\'s F, for reference',note:'Only on Tab, as it was: the field\'s breath and a warm swell behind it.'},
+];
+const grid=document.getElementById('grid'), cards=[];
+for(const o of OPTS){
+ const c=document.createElement('div');c.className='card';
+ c.innerHTML=`<div class="win v${o.k}${'ABC'.includes(o.k)?' breath':''}"><canvas></canvas>${'ABC'.includes(o.k)?'<canvas class="over"></canvas>':''}<div class="lights"><i></i><i></i><i></i></div><div class="stage"><div class="mark"><b></b><s></s></div><div class="field"><div class="text"><span class="pre"></span><span class="acc"></span><span class="post"></span><span class="caret"></span><span class="gh"></span></div><div class="bar"><span class="pill">Kanana 1.5</span><span class="power">${P}</span></div></div><div class="status">Tab takes a word, ⇧Tab takes it all</div></div></div><h3><span>${o.k[0]==='o'?o.k[1]+'′':o.k}</span>${o.name}</h3><p>${o.note}</p>`;
+ grid.appendChild(c);
+ const w=c.querySelector('.win');
+ cards.push({k:o.k,win:w,cv:w.querySelector('canvas'),over:w.querySelector('canvas.over'),field:w.querySelector('.field'),pre:w.querySelector('.pre'),post:w.querySelector('.post'),gh:w.querySelector('.gh'),get acc(){return w.querySelector('.acc')}});
+}
+// ---- shared text state, mirrored into every card
+let pre='',acc='',post='',ghost='',ev=[];  // ev: {type,t,u,v,u0,u1}
+let speed=1,paused=false,clock=0,lastReal=performance.now();
+const now=()=>clock;
+function render(){for(const c of cards){c.pre.textContent=pre;c.acc.textContent=acc;c.post.textContent=post;c.gh.textContent=ghost}}
+function rel(el){const r=el.getBoundingClientRect(),W=cards[0].win.getBoundingClientRect();return{u:(r.left-W.left)/W.width,u1:(r.right-W.left)/W.width,v:(r.top+r.height/2-W.top)/W.height}}
+function key(ch){if(ch==='\b'){if(post)post=post.slice(0,-1);else if(acc)acc=acc.slice(0,-1);else pre=pre.slice(0,-1)}else post+=ch;ghost='';render();const p=rel(cards[0].win.querySelector('.caret'));ev.push({type:'key',t:now(),u:p.u,v:p.v})}
+function showGhost(g){ghost=g;render()}
+function accept(){if(!ghost)return;const g=rel(cards[0].gh);pre=pre+acc+post;acc=ghost;post='';ghost='';
+ const d=Math.min(.25+acc.length*.035,.8)/speed;
+ for(const c of cards){const old=c.acc,n=old.cloneNode();n.style.setProperty('--d',d+'s');old.replaceWith(n);c.field.style.setProperty('--d2',.7/speed+'s');c.field.classList.remove('pulse');void c.field.offsetWidth;c.field.classList.add('pulse')}
+ render();ev.push({type:'accept',t:now(),u:g.u,u1:g.u1,v:g.v,len:acc.length})}
+function reset(){pre=acc=post=ghost='';ev=[];render()}
+// ---- the script: two sentences, a whole-ghost Tab, then a word Tab
+const SCRIPT=[];{let t=.4;const type=s=>{for(const ch of s){SCRIPT.push([t,()=>key(ch)]);t+=.13+(ch===' '?.08:0)}};
+ type('Thanks for the');t+=.35;SCRIPT.push([t,()=>showGhost(' quick reply!')]);t+=1.1;SCRIPT.push([t,accept]);t+=1.2;
+ type(' See you');t+=.35;SCRIPT.push([t,()=>showGhost(' tomorrow')]);t+=1.0;SCRIPT.push([t,accept]);t+=2.2;SCRIPT.push([t,reset]);var LOOP=t+.3}
+let si=0,live=false;
+// ---- halftone backdrop: two riso inks (blue from the top, peach from the bottom), dot size = ink
+const BG='#fcfaf6',BLUE='#a9cdf0',PEACH='#f6c3a4';
+const clamp=x=>x<0?0:x>1?1:x;
+function h2(x,y){let h=Math.sin(x*127.1+y*311.7)*43758.5453;return h-Math.floor(h)}
+function noise(x,y){const i=Math.floor(x),j=Math.floor(y),f=x-i,g=y-j,a=h2(i,j),b=h2(i+1,j),c=h2(i,j+1),d=h2(i+1,j+1),s=f*f*(3-2*f),t=g*g*(3-2*g);return a+(b-a)*s+(c-a)*t+(a-b-c+d)*s*t}
+const AR=720/500;
+function fields(k,u,v,s,st){
+ let horizon=.56,blue=clamp(.62-v*1.5),peach=clamp((v-horizon)*1.45);
+ const near=(ex,ey)=>Math.hypot((u-ex)*AR,v-ey);
+ const rise=k==='oD'?.16:(k==='A'||k==='C')?.08:0;
+ if(rise){horizon=.56-rise*st.progress;peach=clamp((v-horizon)*1.45);blue=clamp(.62-v*1.5-rise*.6*st.progress)}
+ let ripple=0;
+ for(const e of ev){const a=s-e.t;if(a<0||a>3)continue;
+  // keys: one small ring at the caret, gone in 0.3 s; max, not sum, so fast typing never builds up
+  if('ABC'.includes(k)&&e.type==='key'&&a<.3){const r=near(e.u,e.v);ripple=Math.max(ripple,.3*Math.exp(-((r-.3*a)**2)/.0005)*Math.exp(-a*10))}
+  if(e.type!=='accept')continue;
+  if(k==='oD'){const f=Math.exp(-a*1.8)*Math.min(a*8,1);peach+=.45*f*clamp(v*1.6);blue-=.3*f}
+  if(k==='A'||k==='B'){const f=Math.exp(-a*2.2)*Math.min(a*5,1),front=clamp((v-(1-a*2))*3+1);peach+=.32*f*clamp(v*1.6)*front;blue-=.12*f}
+  if(k==='C'){const r=near((e.u+e.u1)/2,e.v),R=.04+a*.55;const f=Math.exp(-((r-R)**2)/.025)*Math.exp(-a*2.2)*Math.min(a*6,1);peach+=.3*f;blue-=.08*f}
+  if(k==='oF'){const r=near(.5,.48),R=.08+a*.35;const f=Math.exp(-((r-R)**2)/.02)*Math.exp(-a*2)*Math.min(a*6,1);peach+=.6*f;blue+=.2*f}
+ }
+ st.ripple=ripple;
+ return[clamp(blue),clamp(peach)];
+}
+const st={};for(const c of cards)st[c.k]={progress:0,drift:0};
+function draw(c,s,dt){
+ const cv=c.cv,W=cv.clientWidth,H=cv.clientHeight;if(!W)return;const dpr=2;
+ const S=st[c.k],chars=(pre+acc+post).length,goal=Math.min(chars/34,1);
+ const busy=ev.some(e=>s-e.t<3)||Math.abs(goal-S.progress)>.002||cv.width!==W*dpr||S.lastBusy;
+ S.lastBusy=ev.some(e=>s-e.t<3);if(!busy&&S.drawn)return;S.drawn=1;
+ if(cv.width!==W*dpr){cv.width=W*dpr;cv.height=H*dpr}
+ const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle=BG;x.fillRect(0,0,W,H);
+ S.progress+=(goal-S.progress)*Math.min(dt*4,1);
+ const lastKey=ev.filter(e=>e.type==='key').pop();S.drift+=dt*(.04+(lastKey?.35*Math.exp(-(s-lastKey.t)*2.5):0));
+ const cell=Math.max(W/82,4),gw=Math.ceil(W/cell)+1,gh=Math.ceil(H/cell)+1,R=cell*.62;
+ const pb=new Path2D(),pp=new Path2D(),pr=new Path2D();
+ for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
+  const [b,p]=fields(c.k,(i+.25)/gw,(j+.25)/gh,s,S),q=S.ripple;
+  if(q>.04){const rr=R*.8*Math.sqrt(q),cx=i*cell+cell/2,cy=j*cell;pr.moveTo(cx+rr,cy);pr.arc(cx,cy,rr,0,7)}
+  if(b>.04){const r=R*Math.sqrt(b),cx=i*cell,cy=j*cell;pb.moveTo(cx+r,cy);pb.arc(cx,cy,r,0,7)}
+  if(p>.04){const r=R*Math.sqrt(p),cx=i*cell+cell/2,cy=j*cell+cell/2;pp.moveTo(cx+r,cy);pp.arc(cx,cy,r,0,7)}
+ }
+ x.globalCompositeOperation='multiply';x.fillStyle=BLUE;x.fill(pb);x.fillStyle=PEACH;x.fill(pp);x.globalCompositeOperation='source-over';
+ if(c.over){const o=c.over;if(o.width!==W*dpr){o.width=W*dpr;o.height=H*dpr}const y=o.getContext('2d');y.setTransform(dpr,0,0,dpr,0,0);y.clearRect(0,0,W,H);y.globalAlpha=.55;y.fillStyle='#7fb0e0';y.fill(pr)}
+}
+let prevS=0;
+function frame(t){
+ const dt=(t-lastReal)/1000;lastReal=t;
+ if(!paused)clock+=dt*speed;
+ if(!live){const s=clock%LOOP;if(s<prevS){si=0;reset()}prevS=s;while(si<SCRIPT.length&&SCRIPT[si][0]<=s){SCRIPT[si][1]();si++}}
+ for(const c of cards)draw(c,clock,paused?0:dt*speed);
+ ev=ev.filter(e=>clock-e.t<3.5);
+ requestAnimationFrame(frame)}
+document.getElementById('replay').onclick=()=>{live=false;inp.value='';clock=0;prevS=0;si=0;reset()};
+document.getElementById('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'Play':'Pause'};
+document.getElementById('slow').onclick=e=>{speed=speed===1?.25:1;e.target.textContent='Slow ×0.25: '+(speed===1?'off':'on')};
+// ---- type yourself: every change is a key, Tab takes the grey text
+const inp=document.getElementById('live');let ghostTimer;
+const SUG={the:' quick reply!',see:' you tomorrow',let:' me know',thanks:' for the help',i:'\'ll be there soon',you:' too',can:' we meet later?','내일':' 저녁에 볼까요?','감사합니다':' 좋은 하루 보내세요'};
+inp.addEventListener('focus',()=>{if(!live){live=true;reset();inp.value=''}});
+inp.addEventListener('input',()=>{const target=inp.value,cur=pre+acc+post;
+ if(target.startsWith(cur)){for(const ch of target.slice(cur.length))key(ch)}else if(cur.startsWith(target)){for(let n=cur.length-target.length;n>0;n--)key('\b')}else{reset();pre=target;render();key('')}
+ clearTimeout(ghostTimer);ghostTimer=setTimeout(()=>{const w=target.trim().split(/\s+/).pop()||'';if(target.trim())showGhost(SUG[w.toLowerCase()]??(target.endsWith(' ')?'and let me know':' and let me know'))},380)});
+inp.addEventListener('keydown',e=>{if(e.key==='Tab'&&ghost){e.preventDefault();inp.value+=ghost;accept()}});
+render();
+const T=+(location.hash.match(/t=([\d.]+)/)||[])[1];
+if(T){for(let s=0;s<=T;s+=1/60){clock=s;while(si<SCRIPT.length&&SCRIPT[si][0]<=s){SCRIPT[si][1]();si++}}
+ for(const c of cards)st[c.k].progress=Math.min((pre+acc+post).length/34,1);paused=true;document.getElementById('pause').textContent='Play';prevS=clock}
+requestAnimationFrame(frame);
+</script></body></html>

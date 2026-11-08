@@ -20,3 +20,12 @@ John: "I like I, maybe with some animation/movement when I'm typing and esp when
 - `round2.png`: frozen at 4.05 s, just after the first Tab.
 
 Recommendation: C. Pick: (pending)
+
+## Round 3: D with a bit of F
+
+John: "Can I see a version of D and a little bit of F? F as in the biggest animation is on tab, that of D, but subtler (and typing has an extremely subtle and quick ripple, one that dies down very quick so typing fast never invades into the tab instructions)."
+
+- `round3.html`: A rise and swell, B still sky with swell on Tab, C warmth spreading from the words; round 2's D and F as D′ and F′. The key ripple is drawn above the glass (behind it, the blur erased it), lasts 0.3 s, and fast typing takes the strongest ripple rather than adding them up.
+- `round3.png`: frozen at 4.25 s, just after the first Tab.
+
+Recommendation: A. Pick: (pending)
