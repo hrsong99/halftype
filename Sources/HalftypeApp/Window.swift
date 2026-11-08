@@ -47,6 +47,7 @@ struct Root: View {
             ScrollView {
                 VStack(spacing: 0) {
                     FieldPage(app: app, draft: $draft, picking: picking) { go(.models) }
+                        .overlay(alignment: .bottom) { more { go(.stats) } }
                         .padding(.leading, open ? 160 : 0)  // The card's room, inside the arch, which keeps the whole width.
                         .containerRelativeFrame(.vertical)
                         // The arch belongs to the field, so it scrolls with it; it reaches up under the title bar, as the window's ground did.
@@ -56,6 +57,8 @@ struct Root: View {
                 }
             }
             .safeAreaPadding(.top, 28)
+            // The card and the hint below the field show the way, and the bar sat on the arch (John: "I don't want it").
+            .scrollIndicators(.never)
             .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.containerSize.height >= $0.contentSize.height - 4 && $0.contentOffset.y > 0 } action: { end = $1 }
             .overlay(alignment: .topLeading) {
                 if open { card(go).transition(.move(edge: .leading).combined(with: .opacity)) }
@@ -105,6 +108,22 @@ struct Root: View {
                 if above { passed.insert(page) } else { passed.remove(page) }
             }
         }
+    }
+
+    /// Below the field, the one sign that the settings are a scroll away.
+    private func more(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Text("Settings").font(.system(size: 12))
+                Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Scroll to the settings")
+        .padding(.bottom, 14)
     }
 
     private func card(_ go: @escaping (Page) -> Void) -> some View {
