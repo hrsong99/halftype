@@ -1616,6 +1616,8 @@ final class FakeServer: URLProtocol {
         panel.trim("x", drawing: panel.drawing)
         panel.trim("o", drawing: panel.drawing - 1)
         #expect(panel.view.layout?.glyphs == trimmed.glyphs, "a letter not next, or for another drawing, changes nothing")
+        panel.took("otes", drawing: panel.drawing)
+        #expect(panel.view.layout?.glyphs.length == 0, "a Tab's words are trimmed too, in any app, so the ghost never sits on the real text")
     }
 
     // A display link fires only for a view on a display, so a headless run skips this.

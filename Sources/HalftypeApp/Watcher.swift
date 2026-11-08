@@ -26,7 +26,7 @@ final class Watcher: @unchecked Sendable {
     // On the field only: app-wide AXValueChanged storms while a reply streams.
     private static let fieldNotifications = ["AXValueChanged", "AXSelectedTextChanged"]
     private static let oneFrame: TimeInterval = 1.0 / 60
-    /// shortcut: a guess at the slowest host's answer to a key, half a second; measure Chromium's (docs/measuring.md) and set it from that.
+    /// A host that hasn't shown a typed letter by now never will: Chromium answers in 12-29 ms (docs/measuring.md), so this is over 15 times that.
     private static let unanswered: TimeInterval = 0.5
     /// The input whose letter the drawing lost in place, which the frame's hide leaves to the host's update. Main thread.
     private var trimmed = -1
@@ -114,7 +114,7 @@ final class Watcher: @unchecked Sendable {
         tap.onTypedThrough = { [weak self] drawing, text, generation in
             guard let self, !koreanInput.load(ordering: .relaxed) else { return }
             DispatchQueue.main.async {
-                guard self.panel.trim(text, drawing: drawing) else { return }
+                guard self.panel.trim(text, drawing: drawing) != nil else { return }
                 self.trimmed = generation
                 DispatchQueue.main.asyncAfter(deadline: .now() + Self.unanswered) {
                     if self.tap.generation == generation, self.panel.drawing == drawing { self.hidePanel() }
