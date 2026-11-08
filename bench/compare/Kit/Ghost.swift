@@ -6,6 +6,8 @@ import Vision
 /// there is some app's suggestion, whatever its colour.
 public struct Ink: Equatable, Hashable, Sendable {
     public var minX: Int, maxX: Int, minY: Int, maxY: Int, count: Int
+    /// Of the inked pixels' places, so two ghosts with the same box and ink count still differ.
+    public var hash: UInt64 = 14_695_981_039_346_656_037
 }
 
 /// A frame as ScreenCaptureKit hands it over: 32-bit BGRA, rows of `bytesPerRow`.
@@ -31,9 +33,11 @@ public enum Ghost {
     /// The ink from `fromX` on, or nil if there's none.
     public static func ink(in f: Frame, fromX: Int) -> Ink? {
         var ink = Ink(minX: .max, maxX: -1, minY: .max, maxY: -1, count: 0)
+        let x0 = max(0, fromX)
         for y in 0..<f.height {
-            for x in max(0, fromX)..<f.width where f.light(x, y) < inkBelow {
+            for x in x0..<f.width where f.light(x, y) < inkBelow {
                 ink.count += 1
+                ink.hash = (ink.hash ^ UInt64((x - x0) &* 4099 &+ y)) &* 1_099_511_628_211  // Relative to the caret, as a ghost moves with it.
                 ink.minX = min(ink.minX, x); ink.maxX = max(ink.maxX, x)
                 ink.minY = min(ink.minY, y); ink.maxY = max(ink.maxY, y)
             }

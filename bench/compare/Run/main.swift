@@ -5,6 +5,7 @@
 //   halftype-compare --score <out dir>        the summary again from a run's records
 import AppKit
 import CompareKit
+import HalftypeCore
 import ScreenCaptureKit
 
 setvbuf(stdout, nil, _IOLBF, 0)
@@ -125,11 +126,22 @@ func cleanUp() {
     restoreHalftype()
     selectSource(startSource)
 }
+/// Set by Ctrl-C: the runner stops at its next key or wait, then cleans up itself, so cleanup never races a launch.
+let stopLock = NSLock()
+var stopAsked = false
+var stopRequested: Bool { stopLock.withLock { stopAsked } }
 var signalSources: [DispatchSourceSignal] = []
 for sig in [SIGINT, SIGTERM, SIGHUP] {
     signal(sig, SIG_IGN)
     let s = DispatchSource.makeSignalSource(signal: sig, queue: .global())
-    s.setEventHandler { print("\nStopped: putting things back."); cleanUp(); exit(2) }
+    s.setEventHandler {
+        print("\nStopping: putting things back.")
+        stopLock.withLock { stopAsked = true }
+        // The runner checks at every key and every 5 s of waiting; if it hangs anyway, clean up from here.
+        sleepMs(30_000)
+        cleanUp()
+        exit(2)
+    }
     s.resume()
     signalSources.append(s)
 }
@@ -158,12 +170,14 @@ final class Typist {
         sleepMs(600)
         while true {
             steps += 1
+            if stopRequested { throw Stop(why: "stopped") }
             guard steps < plan.keys.count * 4 + 20 else { throw Stop(why: "\(id) never finished: the field kept leaving the text") }
             var (now_, composing) = field.text
             // Off the text (only a wrong Tab should do it): a user would delete back to where it went wrong.
             if plan.done(field: now_, composing: composing) == nil {
                 let common = String(zip(now_, plan.target).prefix(while: { $0 == $1 }).map(\.0))
-                pressed += now_.count - common.count
+                // 2-set deletes a composing syllable a jamo at a time (값: four), a committed one whole.
+                pressed += Hangul.keys(composing).count + max(0, now_.count - composing.count - common.count)
                 field.set(common)
                 (now_, composing) = (common, "")
                 sleepMs(300)
@@ -223,7 +237,7 @@ final class Typist {
 // MARK: One app
 
 func waitForModel(_ r: Rival) -> Bool {
-    for _ in 0..<36 {
+    for _ in 0..<36 where !stopRequested {
         if modelResidentMB(r.pids) != nil { return true }
         sleepMs(5000)
     }
@@ -312,7 +326,7 @@ Thread {
         onMain { field.window.orderFrontRegardless() }
         Ghost.warmUp()
         try capture.start()
-        for r in chosen {
+        for r in chosen where !stopRequested {
             do { try run(r, field: field, capture: capture, out: out) } catch let stop as Stop {
                 print("  !! \(r.name) not measured: \(stop.why)")
                 failed.append(r.name)

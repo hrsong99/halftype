@@ -36,31 +36,49 @@ public struct Plan: Sendable {
         return String(lead + ghost.dropFirst(lead.count).prefix(while: { $0 != " " }))
     }
 
-    /// The field a Tab taking `take` would leave, if it stays on the target. While a syllable composes, a ghost may
-    /// start after it or replace it (Halftype finishes the syllable): it replaces it when it can grow from it.
+    /// What one Tab may take of a ghost: up to the next space, or up to where the word's letters end, as Halftype stops
+    /// before punctuation (`Word.firstEnd`). Both are tried; the field shows afterwards which one the app took.
+    static func words(_ ghost: String) -> [String] {
+        let spaced = firstWord(ghost), letters = String(ghost[..<Word.firstEnd(ghost)])
+        return spaced == letters ? [spaced] : [spaced, letters]
+    }
+
+    /// The field a Tab taking `take` would leave, if it stays on the target. While a syllable composes, a ghost may follow
+    /// it, replace it, or (Halftype's way) show only what comes after the syllable it will finish: 가 + 다면 for 간다면.
+    /// That last reading takes the target's own syllable, which the screen can't tell apart; the field check after Tab can.
     func after(field: String, composing: String, take: String) -> (text: String, done: Int)? {
         guard !take.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
-        let replaces = !composing.isEmpty && Hangul.fits(composing: composing, suggestion: String(take.prefix(composing.count)))
-        let text = (replaces ? String(field.dropLast(composing.count)) : field) + take
+        let committed = String(field.dropLast(composing.count))
+        var candidates = [field + take]
+        if !composing.isEmpty {
+            candidates.append(committed + take)
+            if target.count > committed.count, target.hasPrefix(committed) {
+                let own = String(target[target.index(target.startIndex, offsetBy: committed.count)])
+                if Hangul.fits(composing: composing, suggestion: own) { candidates.append(committed + own + take) }
+            }
+        }
         // The last syllable may still be composing after a Tab that types keys through the input method.
-        guard let d = done(field: text, composing: text.last.map { Hangul.isHangul($0) ? String($0) : "" } ?? "") else { return nil }
-        return (text, d)
+        return candidates.compactMap { text in
+            done(field: text, composing: text.last.map { Hangul.isHangul($0) ? String($0) : "" } ?? "").map { (text, $0) }
+        }.max { $0.1 < $1.1 }
     }
 
     /// The oracle: press Tab only when what it takes is the true text and saves more than the Tab costs.
     /// Returns the text the field should hold after the Tab, to check the app and the OCR against.
     public func tab(field: String, composing: String = "", ghost: String, unit: TabUnit) -> String? {
         guard let now = done(field: field, composing: composing),
-              let a = after(field: field, composing: composing, take: unit == .all ? ghost : Plan.firstWord(ghost)),
+              let a = (unit == .all ? [ghost] : Plan.words(ghost)).compactMap({ after(field: field, composing: composing, take: $0) }).max(by: { $0.done < $1.done }),
               a.done - now >= 2 else { return nil }
         return a.text
     }
 
     /// The first shown word is the true next word, ending where the target's word ends (`lo` is not right for `lot`).
     public func firstWordRight(field: String, composing: String = "", ghost: String) -> Bool {
-        guard let a = after(field: field, composing: composing, take: Plan.firstWord(ghost)),
-              a.done > (done(field: field, composing: composing) ?? Int.max) else { return false }
-        return a.done == keys.count || !Plan.continuesWord(keys[a.done])
+        Plan.words(ghost).contains { take in
+            guard let a = after(field: field, composing: composing, take: take),
+                  a.done > (done(field: field, composing: composing) ?? Int.max) else { return false }
+            return a.done == keys.count || !Plan.continuesWord(keys[a.done])
+        }
     }
 
     /// A key that carries a word on: a letter, a digit or a jamo.

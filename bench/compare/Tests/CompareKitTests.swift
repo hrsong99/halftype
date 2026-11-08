@@ -47,6 +47,15 @@ import Testing
     #expect(p.firstWordRight(field: "오늘", composing: "늘", ghost: " 날씨가 좋네"))
     #expect(!p.firstWordRight(field: "오늘", composing: "늘", ghost: " 날씨 좋네"))  // 날씨 is not 날씨가.
     #expect(p.tab(field: "오느", composing: "느", ghost: "는 아침", unit: .word) == nil)
+    // Halftype draws only what follows the syllable its Tab will finish: 가 on screen, then 다면 in grey, for 간다면.
+    #expect(Plan("간다면 좋지").tab(field: "가", composing: "가", ghost: "다면 좋지", unit: .word) == "간다면")
+}
+
+@Test func aWordStopsBeforeItsPunctuationToo() {
+    let p = Plan("Hello world")
+    #expect(p.tab(field: "Hel", ghost: "lo, everyone", unit: .word) == "Hello")  // Halftype takes `lo`, not `lo,`.
+    #expect(p.firstWordRight(field: "Hel", ghost: "lo, everyone"))
+    #expect(Plan("Hello, world").tab(field: "Hel", ghost: "lo, there", unit: .word) == "Hello,")
 }
 
 @Test func delaysAreSeededAndHuman() {
