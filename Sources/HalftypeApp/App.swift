@@ -123,7 +123,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var why = Watcher.Why.unreadable
     /// A suggestion was taken since the window opened, and nothing has stood in the way since.
     @Published var accepted = false
-    /// Counts every Tab taken anywhere, so the window's field can glint on one.
+    /// Counts every Tab taken anywhere, so the window's field can breathe on one.
     @Published var tabs = 0
     /// Counts each bind and unbind, so a reason from an earlier one is dropped.
     var binding = 0
@@ -222,9 +222,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
         tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
-        tap.onAccept = { [weak self] added, keys, suggestion in
+        tap.onAccept = { [weak self] added, keys, suggestion, text in
             DispatchQueue.main.async {
                 guard let self else { return }
+                self.panel.glint(text)
                 self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
                 self.tabs += 1

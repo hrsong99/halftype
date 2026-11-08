@@ -254,7 +254,7 @@ enum EndToEnd {
         var glass = false
     }
     /// The README demo's surroundings: the counts so far and whether Tab is down.
-    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat, shift: Bool = false, glint: CGFloat? = nil }
+    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat, shift: Bool = false, glint: CGFloat? = nil, taken: Int = 0 }
 
     /// `--shots <dir>`: a real text view with the real ghost view over it, placed by the real layout from what AX would report.
     static func shots(to dir: String) {
@@ -268,6 +268,11 @@ enum EndToEnd {
             Shot(name: "korean-light", typed: "오늘 회의는 세 시에", ghost: " 시작할 예정입니다", font: 15, size: CGSize(width: 420, height: 40), dark: false),
             Shot(name: "korean-dark-wrap", typed: "내일 오전에 다시 한번 확인해 보고 결과를 정리해서", ghost: " 공유드리겠습니다 감사합니다", font: 15, size: CGSize(width: 380, height: 90), dark: true),
             Shot(name: "glass", typed: "See you at four, I'll bring the", ghost: " notes from Monday", font: 15, size: CGSize(width: 480, height: 40), dark: false, glass: true),
+            // The glint on " notes", just taken, a third and two thirds of the way across.
+            Shot(name: "glint-30", typed: "See you at four, I'll bring the notes", ghost: "", font: 15, size: CGSize(width: 520, height: 40), dark: false,
+                 stage: Stage(keys: 31, wrote: 6, letters: 37, press: 0, glint: 0.3, taken: 6)),
+            Shot(name: "glint-60", typed: "See you at four, I'll bring the notes", ghost: "", font: 15, size: CGSize(width: 520, height: 40), dark: false,
+                 stage: Stage(keys: 31, wrote: 6, letters: 37, press: 0, glint: 0.6, taken: 6)),
             Shot(name: "glass-wrap", typed: "See you at four, I'll bring the notes and the", ghost: " slides from Monday's meeting", font: 15, size: CGSize(width: 380, height: 70), dark: false, glass: true),
         ]
         for shot in shots { render(shot, to: dir) }
@@ -334,10 +339,10 @@ enum EndToEnd {
             Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false, stage: stage, glass: true)
         }
         // Delays in hundredths; browsers play anything under 2 as 10, so nothing goes below 3.
-        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, shift: Bool = false, glint: CGFloat? = nil, _ delay: Int) {
+        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, shift: Bool = false, glint: CGFloat? = nil, taken: Int = 0, _ delay: Int) {
             frame += 1
             let name = String(format: "en-%04d", frame)
-            onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, shift: shift, glint: glint)), to: dir) }
+            onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, shift: shift, glint: glint, taken: taken)), to: dir) }
             delays += "\(name).png \(delay)\n"
         }
         func drawable(_ typed: String, _ ghost: String) -> Bool { onMain { render(shot("", typed, ghost, Stage(keys: 0, wrote: 0, letters: 0, press: 0)), to: nil) } }
@@ -361,9 +366,10 @@ enum EndToEnd {
                     draw(text, ghost, keys, wrote, press: 0.6, shift: all, 3)
                     text += take; keys += 1; wrote += take.count; ghost = String(ghost.dropFirst(take.count))
                     if ghost.isEmpty { ghost = suggestion(text) }
-                    draw(text, ghost, keys, wrote, press: 1, shift: all, glint: 0.35, 4)
-                    draw(text, ghost, keys, wrote, press: 0.4, shift: all, glint: 0.75, 3)
-                    draw(text, ghost, keys, wrote, glint: 1, 3)
+                    let taken = (take as NSString).length
+                    draw(text, ghost, keys, wrote, press: 1, shift: all, glint: 0.35, taken: taken, 4)
+                    draw(text, ghost, keys, wrote, press: 0.4, shift: all, glint: 0.75, taken: taken, 3)
+                    draw(text, ghost, keys, wrote, glint: 1, taken: taken, 3)
                     continue
                 }
                 // Type the next letter; a suggestion that no longer fits goes, and the app asks again.
@@ -385,7 +391,7 @@ enum EndToEnd {
     }
 
     /// Option F of docs/design/readme-demo in the home window's glass (docs/design/home-glass): cream, the blurred arch, a frosted panel for the
-    /// field with the counts so far, and the shift and tab keys. A taken suggestion sends the window's glint across the panel.
+    /// field with the counts so far, and the shift and tab keys. A taken suggestion glints across its own words, as in the app.
     final class DemoStage: NSView {
         static let size = CGSize(width: 760, height: 360)
         static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
@@ -428,14 +434,6 @@ enum EndToEnd {
             NSColor(white: 1, alpha: 0.86).setFill(); panel.fill()
             c.restoreGState()
             NSColor(white: 1, alpha: 0.9).setStroke(); panel.lineWidth = 1; panel.stroke()
-            if let glint = stage.glint {
-                // The window's Glint: a 90-point band of light, blue, white, peach, crossing the pane.
-                c.saveGState(); panel.addClip()
-                let x = Self.panel.minX - 90 + glint * (Self.panel.width + 90)
-                NSGradient(colors: [.clear, Self.blue.withAlphaComponent(0.35), NSColor(white: 1, alpha: 0.85), Self.peach.withAlphaComponent(0.35), .clear])!
-                    .draw(in: CGRect(x: x, y: Self.panel.minY, width: 90, height: Self.panel.height), angle: 0)
-                c.restoreGState()
-            }
             let divider = Self.panel.maxY - 42
             NSColor(srgbRed: 0.9, green: 0.88, blue: 0.85, alpha: 1).setFill()
             NSRect(x: Self.panel.minX + 22, y: divider, width: Self.panel.width - 44, height: 1).fill()
@@ -517,6 +515,16 @@ enum EndToEnd {
             ghost.layout = layout
             scene.addSubview(ghost)
             print("      \(shot.name): visible '\(layout.visibleText)'")
+        }
+        // The app's glint on the words just taken, the last `taken` of what's typed, at this frame's progress.
+        if let glint = shot.stage?.glint, let taken = shot.stage?.taken, taken > 0 {
+            let length = (shot.typed as NSString).length
+            let view = GlintView(frame: frame)
+            view.manager = text.layoutManager
+            view.origin = text.textContainerOrigin
+            view.glyphs = text.layoutManager!.glyphRange(forCharacterRange: NSRange(location: length - taken, length: taken), actualCharacterRange: nil)
+            view.progress = glint
+            scene.addSubview(view)
         }
 
         let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(scene.bounds.width * 2), pixelsHigh: Int(scene.bounds.height * 2), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,

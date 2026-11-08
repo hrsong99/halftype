@@ -153,6 +153,32 @@ final class GhostView: NSView {
     }
 }
 
+/// One band of light crossing words just taken, painted only on their letters, which now sit where the ghost drew them. Progress 0 to 1.
+/// The app plays it over our own field after a Tab; the README demo draws it frame by frame.
+final class GlintView: NSView {
+    var manager: NSLayoutManager?
+    var glyphs = NSRange()
+    var origin = CGPoint.zero
+    var progress: CGFloat = 1 { didSet { needsDisplay = true } }
+    override var isFlipped: Bool { true }
+    /// Blue, a pale glass highlight (not white, which vanishes on a white field), peach.
+    static let light = NSGradient(colors: [.clear, NSColor(srgbRed: 0.45, green: 0.65, blue: 0.88, alpha: 1), NSColor(srgbRed: 0.76, green: 0.83, blue: 0.91, alpha: 1),
+                                           NSColor(srgbRed: 0.93, green: 0.6, blue: 0.42, alpha: 1), .clear])!
+    override func draw(_ dirtyRect: NSRect) {
+        guard let manager, glyphs.length > 0, progress > 0, progress < 1, let context = NSGraphicsContext.current?.cgContext else { return }
+        let words = manager.boundingRect(forGlyphRange: glyphs, in: manager.textContainers[0]).offsetBy(dx: origin.x, dy: origin.y)
+        let width = max(40, words.height * 2)
+        let band = CGRect(x: words.minX - width + progress * (words.width + width), y: words.minY - 3, width: width, height: words.height + 6)
+        // Only the letters under the band, then the light painted onto them alone.
+        context.beginTransparencyLayer(auxiliaryInfo: nil)
+        context.clip(to: band)
+        manager.drawGlyphs(forGlyphRange: glyphs, at: origin)
+        context.setBlendMode(.sourceIn)
+        Self.light.draw(in: band, angle: 0)
+        context.endTransparencyLayer()
+    }
+}
+
 /// Click-through, never key, never activates, over everything on every Space including full-screen apps.
 class GhostPanel: NSPanel {
     let view = GhostView()
@@ -194,5 +220,43 @@ class GhostPanel: NSPanel {
     func hideGhost() {
         orderOut(nil)
         view.layout = nil
+    }
+
+    private lazy var shine = GlintPanel()
+    /// Main thread, right after a Tab: in our own window the words just taken glint where this ghost drew them, if it still shows them.
+    func glint(_ taken: String) {
+        guard let layout = view.layout, layout.glass, isVisible, !taken.isEmpty, layout.storage.string.hasPrefix(taken),
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        shine.play(layout, taken: (taken as NSString).length, frame: frame)
+    }
+}
+
+/// Plays a GlintView for a quarter of a second. A ghost panel too, so Try It's observer knows its moves aren't the field's.
+final class GlintPanel: GhostPanel {
+    private let glint = GlintView()
+    private var timer: Timer?
+
+    override init() {
+        super.init()
+        contentView = glint
+    }
+
+    func play(_ layout: GhostLayout, taken: Int, frame: NSRect) {
+        glint.manager = layout.manager
+        glint.origin = layout.drawOrigin
+        glint.glyphs = NSIntersectionRange(layout.manager.glyphRange(forCharacterRange: NSRange(location: 0, length: taken), actualCharacterRange: nil), layout.glyphs)
+        glint.progress = 0
+        setFrame(frame, display: false, animate: false)
+        orderFrontRegardless()
+        timer?.invalidate()
+        let start = Date()
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
+            let t = min(Date().timeIntervalSince(start) / 0.25, 1)
+            self?.glint.progress = t * t * (3 - 2 * t)
+            if t >= 1 {
+                timer.invalidate()
+                self?.orderOut(nil)
+            }
+        }
     }
 }

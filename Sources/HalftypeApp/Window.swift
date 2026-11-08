@@ -11,7 +11,7 @@ struct Root: View {
     @State private var draft = ""
     @State private var sidebar: Bool
     @State private var page: Page
-    /// The last Tab taken in this window, which the field glints with.
+    /// The last Tab taken in this window, which the field breathes with.
     @State private var tab: Date?
     @Environment(\.accessibilityReduceMotion) private var still
     @Environment(\.controlActiveState) private var active
@@ -183,7 +183,6 @@ private struct FieldPage: View {
         }
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
         .pane()
-        .overlay { Glint(tab: tab) }
         .keyframeAnimator(initialValue: 1.0, trigger: tab) { view, scale in view.scaleEffect(scale) } keyframes: { _ in
             CubicKeyframe(1.006, duration: 0.25)
             CubicKeyframe(1, duration: 0.45)
@@ -230,11 +229,6 @@ extension View {
     }
 }
 
-extension Color {
-    /// The icon's glass, at either end of its arch.
-    static let glassBlue = Color(red: 0.561, green: 0.733, blue: 0.91), glassPeach = Color(red: 0.957, green: 0.706, blue: 0.549)
-}
-
 /// The window's ground, from the icon: its cream tile, and on the field page its arch drawn large and out of focus, blue to peach.
 private struct Backdrop: View {
     var ribbon: Bool
@@ -252,33 +246,13 @@ private struct Backdrop: View {
                         arch.addCurve(to: p(700, 320), control1: p(570, 410), control2: p(640, 380))
                         context.addFilter(.blur(radius: 26))
                         context.opacity = 0.75
-                        context.stroke(arch, with: .linearGradient(Gradient(colors: [.glassBlue, Color(red: 0.875, green: 0.906, blue: 0.937), .glassPeach]),
+                        context.stroke(arch, with: .linearGradient(Gradient(colors: [Color(red: 0.561, green: 0.733, blue: 0.91), Color(red: 0.875, green: 0.906, blue: 0.937), Color(red: 0.957, green: 0.706, blue: 0.549)]),
                                                                    startPoint: p(60, 0), endPoint: p(680, 0)),
                                        style: StrokeStyle(lineWidth: 90 * s.width, lineCap: .round))
                     }
                 }
             }
             .accessibilityHidden(true)
-    }
-}
-
-/// On a Tab taken here, one quick band of light crosses the field, as on the icon's glass. Still otherwise: suggestions change with every key, so they get no motion of their own.
-private struct Glint: View {
-    var tab: Date?
-    var body: some View {
-        GeometryReader { geometry in
-            LinearGradient(colors: [.clear, .glassBlue.opacity(0.35), .white.opacity(0.85), .glassPeach.opacity(0.35), .clear],
-                           startPoint: .leading, endPoint: .trailing)
-                .frame(width: 90)
-                // Progress, not points, so the band rests off the edge of the pane at its current width, after a resize too.
-                .keyframeAnimator(initialValue: 1.0, trigger: tab) { band, p in band.offset(x: -90 + p * (geometry.size.width + 90)) } keyframes: { _ in
-                    MoveKeyframe(0)
-                    CubicKeyframe(1, duration: 0.25)
-                }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 

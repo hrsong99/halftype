@@ -313,15 +313,16 @@ import Testing
         #expect(decide(53, [.maskCommand, .maskAlternate]) == .dismiss(swallow: false))
     }
     @Test func anAcceptIsReportedAndNothingElseIs() {
-        let accepts = Atomic<Int>(0)
+        let accepts = Atomic<Int>(0), taken = Mutex("")
         let tap = KeyTap()
-        tap.onAccept = { _, _, _ in accepts.add(1, ordering: .relaxed) }
+        tap.onAccept = { _, _, _, text in accepts.add(1, ordering: .relaxed); taken.withLock { $0 = text } }
         #expect(!press(tap, key(48)).swallowed && accepts.load(ordering: .relaxed) == 0)  // No ghost: the app's Tab.
         armed(tap, Ghost(remainder: " there"))
         _ = press(tap, key(53))
         #expect(accepts.load(ordering: .relaxed) == 0)
         armed(tap, Ghost(remainder: " there"))
         #expect(press(tap, key(48)).swallowed && accepts.load(ordering: .relaxed) == 1)
+        #expect(taken.withLock { $0 } == " there", "what was typed, for the glint over it")
     }
     @Test func escHidesTheGhostOnceThenIsTheApps() {
         let dismissed = Atomic<Int>(0)
