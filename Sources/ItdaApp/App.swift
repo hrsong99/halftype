@@ -59,9 +59,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         var next = tally
         next.typed(keys, on: since)
         event?(&next)
-        let day = event == nil ? since : Date()  // Keys alone mark their own day, so a flush after midnight can't mix the new one.
-        if let activePath, activePath != store.path(ModelStore.models[0]).path { next.mark(personal: nil, on: day) }
-        else if let applied = engine?.applied.withLock({ $0 }) { next.mark(personal: applied, on: day) }  // Unloaded while idle: nothing to say.
+        // Keys begun on an earlier day mark no day: the model's state now may not have been theirs, and today's may differ.
+        if event != nil || Calendar.current.isDateInToday(since) {
+            if let activePath, activePath != store.path(ModelStore.models[0]).path { next.mark(personal: nil) }
+            else if let applied = engine?.applied.withLock({ $0 }) { next.mark(personal: applied) }  // Unloaded while idle: nothing to say.
+        }
         tally = next
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
