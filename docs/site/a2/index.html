@@ -54,8 +54,9 @@
   .ht-field { position: relative; z-index: 1; background: rgba(243, 242, 240, .96); border-radius: 28px; padding: 22px 24px 16px; min-height: 168px; display: grid; grid-template-rows: 1fr auto; gap: 16px; }
   .ht-text { font: 400 clamp(19px, 1.6vw, 24px)/1.45 var(--font-text); color: var(--ink); min-height: 2.9em; overflow-wrap: anywhere; }
   .ht-text .ghost { color: #a3a19c; }
-  .ht-text .caret { display: inline-block; width: 2px; height: 1.1em; margin: 0 1px -0.18em; background: var(--ink); animation: ht-blink 1.05s steps(1) infinite; }
-  @keyframes ht-blink { 50% { opacity: 0; } }
+  .ht-text .caret { border-left: 2px solid var(--ink); margin: 0 -1px 0 -1px; animation: ht-blink 1.05s steps(1) infinite; }
+  .ht-text .ghost, .ht-text .caret { white-space: nowrap; }
+  @keyframes ht-blink { 50% { border-left-color: transparent; } }
   .ht-bar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
   .ht-pill { background: #fff; border-radius: 999px; padding: 6px 14px; font: 400 15px/1.2 var(--font-text); color: var(--ink); }
   .ht-power { width: 36px; height: 36px; border-radius: 50%; background: #262624; display: grid; place-items: center; }
@@ -127,7 +128,7 @@
     .hero .brew { display: none; }
     #keys .panel { --p-h: 120px; } #keys .card > p, #keys .section-head > p { display: none; }
     #keys .mini { padding: 12px; gap: 8px; }
-    #ko .rows > li:nth-child(n+5), #ko .ko-lines .ht-field:nth-child(n+4) { display: none; }
+    #ko .rows > li:nth-child(n+5), #ko .ko-lines .ht-field:nth-child(n+3) { display: none; }
   }
 </style>
 </head>
