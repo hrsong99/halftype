@@ -225,7 +225,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tap.onAccept = { [weak self] added, keys, suggestion, text in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.panel.glint(text)
+                if let text { self.panel.glint(text) }
                 self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
                 self.tabs += 1

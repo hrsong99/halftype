@@ -209,6 +209,7 @@ class GhostPanel: NSPanel {
               NSScreen.screens.contains(where: { $0.frame.contains(GhostLayout.appKitRect(spec.caret, primaryHeight: primary.frame.height).origin) })
         else { hideGhost(); return nil }
         view.layout = layout
+        taken = 0
         setFrame(GhostLayout.appKitRect(layout.window, primaryHeight: primary.frame.height), display: false, animate: false)
         view.displayIfNeeded()
         if !isVisible { orderFrontRegardless() }
@@ -223,11 +224,20 @@ class GhostPanel: NSPanel {
     }
 
     private lazy var shine = GlintPanel()
+    /// How much of this layout's text Tabs have taken since it was drawn, so quick Tabs before a redraw light the next words, not the first again.
+    private var taken = 0
     /// Main thread, right after a Tab: in our own window the words just taken glint where this ghost drew them, if it still shows them.
-    func glint(_ taken: String) {
-        guard let layout = view.layout, layout.glass, isVisible, !taken.isEmpty, layout.storage.string.hasPrefix(taken),
-              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
-        shine.play(layout, taken: (taken as NSString).length, frame: frame)
+    func glint(_ text: String) {
+        guard let layout = view.layout, layout.glass, isVisible, let range = Self.next(text, in: layout.storage.string, after: taken) else { return }
+        taken = NSMaxRange(range)
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { shine.play(layout, taken: range, frame: frame) }
+    }
+
+    /// Where `text`, just taken, sits in the drawn ghost: right after what earlier Tabs took from it, or nowhere.
+    static func next(_ text: String, in ghost: String, after taken: Int) -> NSRange? {
+        let range = NSRange(location: taken, length: (text as NSString).length)
+        guard range.length > 0, NSMaxRange(range) <= (ghost as NSString).length, (ghost as NSString).substring(with: range) == text else { return nil }
+        return range
     }
 }
 
@@ -235,16 +245,19 @@ class GhostPanel: NSPanel {
 final class GlintPanel: GhostPanel {
     private let glint = GlintView()
     private var timer: Timer?
+    /// Held while it plays: a layout manager doesn't keep its text, and the ghost may drop this layout at once.
+    private var playing: GhostLayout?
 
     override init() {
         super.init()
         contentView = glint
     }
 
-    func play(_ layout: GhostLayout, taken: Int, frame: NSRect) {
+    func play(_ layout: GhostLayout, taken: NSRange, frame: NSRect) {
+        playing = layout
         glint.manager = layout.manager
         glint.origin = layout.drawOrigin
-        glint.glyphs = NSIntersectionRange(layout.manager.glyphRange(forCharacterRange: NSRange(location: 0, length: taken), actualCharacterRange: nil), layout.glyphs)
+        glint.glyphs = NSIntersectionRange(layout.manager.glyphRange(forCharacterRange: taken, actualCharacterRange: nil), layout.glyphs)
         glint.progress = 0
         setFrame(frame, display: false, animate: false)
         orderFrontRegardless()
@@ -256,6 +269,7 @@ final class GlintPanel: GhostPanel {
             if t >= 1 {
                 timer.invalidate()
                 self?.orderOut(nil)
+                self?.playing = nil
             }
         }
     }

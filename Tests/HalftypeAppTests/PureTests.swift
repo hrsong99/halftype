@@ -315,7 +315,7 @@ import Testing
     @Test func anAcceptIsReportedAndNothingElseIs() {
         let accepts = Atomic<Int>(0), taken = Mutex("")
         let tap = KeyTap()
-        tap.onAccept = { _, _, _, text in accepts.add(1, ordering: .relaxed); taken.withLock { $0 = text } }
+        tap.onAccept = { _, _, _, text in accepts.add(1, ordering: .relaxed); taken.withLock { $0 = text ?? "" } }
         #expect(!press(tap, key(48)).swallowed && accepts.load(ordering: .relaxed) == 0)  // No ghost: the app's Tab.
         armed(tap, Ghost(remainder: " there"))
         _ = press(tap, key(53))
@@ -1521,6 +1521,17 @@ final class FakeServer: URLProtocol {
             let rep = NSBitmapImageRep(data: image.tiffRepresentation(using: .none, factor: 2)!)!  // Two pixels a point, as on a Retina bar.
             try rep.representation(using: .png, properties: [:])!.write(to: dir.appendingPathComponent(dark ? "12-icons-dark.png" : "12-icons.png"))
         }
+    }
+}
+
+@Suite struct GlintTests {
+    @Test func quickTabsLightTheNextWordsNotTheFirstAgain() {
+        #expect(GhostPanel.next(" very", in: " very very good", after: 0) == NSRange(location: 0, length: 5))
+        #expect(GhostPanel.next(" very", in: " very very good", after: 5) == NSRange(location: 5, length: 5))
+        #expect(GhostPanel.next(" good", in: " very very good", after: 10) == NSRange(location: 10, length: 5))
+        #expect(GhostPanel.next(" good", in: " very very good", after: 0) == nil, "not what comes next: no glint, rather than the wrong place")
+        #expect(GhostPanel.next(" good!", in: " very very good", after: 10) == nil)
+        #expect(GhostPanel.next("", in: " very", after: 0) == nil)
     }
 }
 

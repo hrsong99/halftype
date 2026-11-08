@@ -66,8 +66,9 @@ class KeyTap: @unchecked Sendable {
     /// Off this thread at once. Given the generation this input moved to.
     var onInput: (@Sendable (Int) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
-    /// Given the characters a Tab added, and which suggestion it took from. Off this thread at once.
-    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int, _ text: String) -> Void)?
+    /// Given the characters a Tab added, which suggestion it took from, and the text, nil when typed as strokes (an input method
+    /// may recompose the letter before it, moving the text from where the ghost was). Off this thread at once.
+    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int, _ text: String?) -> Void)?
     /// When the tap comes up or the system refuses it, on `keeper`. Not for a tap back up within the retry.
     var onUp: (@Sendable (Bool) -> Void)?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
@@ -169,7 +170,7 @@ class KeyTap: @unchecked Sendable {
         }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
-            onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion, plan.text)
+            onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion, plan.strokes == nil ? plan.text : nil)
         }
         if decision == .reenable { reenable() }
         if case .dismiss = decision { onDismiss?() }
