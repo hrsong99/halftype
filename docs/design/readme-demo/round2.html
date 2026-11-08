@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>README Demo Timing</title>
+<style>
+  :root { --ink:#16181d; --sub:#6b6f78; --line:#e6e2da; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f1ec; color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
+  main { max-width: 1600px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .q { color: var(--sub); margin: 0 0 12px; }
+  .rec { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; }
+  .bar { position: sticky; top: 0; z-index: 2; padding: 8px 0; background: #f4f1ec; }
+  .bar button { font: inherit; padding: 6px 14px; border-radius: 8px; border: 1px solid #cfcac0; background: #fff; cursor: pointer; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .card header { padding: 10px 14px 2px; display: flex; gap: 10px; align-items: baseline; }
+  .letter { font-weight: 700; font-size: 19px; } .name { font-weight: 600; }
+  .card img { display: block; width: 100%; aspect-ratio: 760 / 360; }
+  .card p { margin: 0; padding: 8px 14px 14px; color: var(--sub); font-size: 13.5px; }
+  code { font-size: 12px; color: #8a7f72; }
+</style>
+</head>
+<body>
+<main>
+  <h1>README demo: timing</h1>
+  <p class="q">How fast the demo types, waits and Tabs, and how the glint plays. John on the shipped one (A): "Yikes that looks messy. Give me some variants of different timings and stuff".</p>
+  <div class="rec"><b>Recommendation: D.</b> A short beat when a suggestion appears, quick Tabs through it, and <i>one</i> glint over everything that run took. It reads as "see, take, done" instead of a flicker per word, and stays at 12 s. All of B–G also keep a suggestion steady while you type into it, as the app does; A asked the model again on every letter, which made suggestions jump. Every option is a real render from <code>scripts/demo.sh</code> (same model, sentences and counts), so what you see is what the README would show.</div>
+  <div class="bar"><button id="replay">Replay all together</button></div>
+  <div class="grid">
+    <div class="card"><header><span class="letter">A</span><span class="name">Today: rapid Tabs, glint per word</span></header><img src="round2/A.webp" alt="A"><p>Eight Tabs a second, each word glinting, and a new suggestion after every letter. 9 s. <code>shipped</code></p></div>
+    <div class="card"><header><span class="letter">B</span><span class="name">Steady Tabs</span></header><img src="round2/B.webp" alt="B"><p>A's idea at five Tabs a second, glint per word, suggestions steady while typing. 12 s. <code>tab=20 glint=word</code></p></div>
+    <div class="card"><header><span class="letter">C</span><span class="name">Read, then take</span></header><img src="round2/C.webp" alt="C"><p>A clear pause to read each suggestion, Tabs through it, one glint over the run, a rest after. Easiest to follow; the slowest besides F. 16 s. <code>beat=35 tab=18 after=15 glint=burst</code></p></div>
+    <div class="card"><header><span class="letter">D</span><span class="name">One sweep per run</span></header><img src="round2/D.webp" alt="D"><p>A short beat, quick Tabs, then one glint across all the words that run took. Calm without being slow. 12 s. <code>beat=12 tab=14 after=8 glint=burst</code></p></div>
+    <div class="card"><header><span class="letter">E</span><span class="name">No glint</span></header><img src="round2/E.webp" alt="E"><p>Just the key going down and the grey turning black. The quietest; loses the app's glass touch. 12 s. <code>beat=12 tab=18 glint=none</code></p></div>
+    <div class="card"><header><span class="letter">F</span><span class="name">Slow and clear</span></header><img src="round2/F.webp" alt="F"><p>Slower typing, long beats, a glint per word. Every step is legible, but at 20 s many readers won't wait for the second sentence. <code>type=7 tab=28 beat=40 after=25</code></p></div>
+    <div class="card"><header><span class="letter">G</span><span class="name">D without the keycap</span></header><img src="round2/G.webp" alt="G"><p>D's timing with no key drawn: the text and counts alone. Cleaner, but nothing says the key is Tab. 12 s. <code>key=0</code></p></div>
+  </div>
+</main>
+<script>
+document.getElementById("replay").onclick = () => {
+  const t = Date.now();
+  document.querySelectorAll(".card img").forEach((img) => { img.src = img.src.split("?")[0] + "?" + t; });
+};
+</script>
+</body>
+</html>

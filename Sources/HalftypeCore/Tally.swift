@@ -64,6 +64,33 @@ public struct Tally: Codable, Equatable, Sendable {
     }
 
     public var total: Day { days.values.reduce(Day(), +) }
+    /// The `count` days up to and including `date`, in sum.
+    public func sum(_ count: Int, to date: Date, _ calendar: Calendar = .current) -> Day { last(count, to: date, calendar).map(\.day).reduce(Day(), +) }
+
+    /// A week or month of the calendar, for the Stats page to page back through, and the stretch of the one before it to compare with.
+    public struct Period: Equatable, Sendable {
+        /// The first day, and how many days it has.
+        public let start: Date, length: Int
+        /// The days so far: all of them in a past period, up to today in this one.
+        public let elapsed: Int
+        /// The period before: the same days so far while this one runs, so a Monday is set against a Monday, and the whole of it once this one is over.
+        public let previousStart: Date, previousLength: Int
+    }
+
+    /// The `unit` (`.weekOfYear` or `.month`) holding `now`, `back` of them ago. Weeks start where the user's calendar starts them.
+    public static func period(_ unit: Calendar.Component, back: Int, now: Date = Date(), _ calendar: Calendar = .current) -> Period? {
+        guard let shifted = calendar.date(byAdding: unit, value: -back, to: now), let this = calendar.dateInterval(of: unit, for: shifted),
+              let last = calendar.date(byAdding: .day, value: -1, to: this.start), let before = calendar.dateInterval(of: unit, for: last) else { return nil }
+        // Days apart by their dates, read in UTC: a day that starts at 01:00, after a midnight clock change, still counts whole.
+        var utc = calendar
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let date = { (moment: Date) in utc.date(from: calendar.dateComponents([.era, .year, .month, .day], from: moment)) ?? moment }
+        let days = { (from: Date, to: Date) in utc.dateComponents([.day], from: date(from), to: date(to)).day ?? 0 }
+        let length = days(this.start, this.end), previous = days(before.start, before.end)
+        let elapsed = back == 0 ? min(length, days(this.start, now) + 1) : length
+        return Period(start: this.start, length: length, elapsed: elapsed, previousStart: before.start, previousLength: back == 0 ? min(elapsed, previous) : previous)
+    }
+
     /// Days with counted keys wholly with or wholly without the personal model, suggestions or none: how many, and their sum.
     public func sum(personal: Bool) -> (count: Int, sum: Day) {
         let picked = days.values.filter { $0.typed > 0 && $0.withModel == personal && $0.withoutModel != personal }

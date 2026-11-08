@@ -19,7 +19,7 @@ This is the unknown: does Chromium's composition take our key presses the way a 
 2. Keep typing until a ghost continues past a half-typed syllable (`다음` from `다`), then Tab.
    **The syllable finishes and the word follows, in order, no stray `ㄴ` or `ㅁ`. A next vowel may pull the last final across: that's normal.**
 3. On a ghost of two or more words, press Tab twice fast. Then on a one-word ghost, press Tab twice fast.
-   **Two words, each once. On the one-word ghost, say what the second Tab did: it goes to T3 if no new ghost is up yet.**
+   **Two words, each once. On the one-word ghost, the second Tab types nothing if it comes within 0.3 s and no new ghost is up yet; never a tab.**
 4. Type a syllable, press Left then Right, wait, and Tab on whatever ghost shows.
    **A ghost only if it fits what's there; never `하ㄴ`.**
 5. Backspace then Tab as fast as your fingers go, ten times over.
@@ -77,7 +77,7 @@ T5. With a ghost up, lock with Ctrl-Cmd-Q and unlock; then close the lid and ope
 ## The window: about 2 minutes
 W1. Type in its field, and Tab on the grey text. Paste with Cmd-V.
     **The same as in any app.**
-W2. Press the power button, type, press it again. Then the sidebar icon: Apps, add an app, remove it; General, Start at Login on, then off.
+W2. Press the power button, type, press it again. Then scroll down: the card slides in with the settings. Click Apps in it, add an app, remove it; General, Start at Login on, then off. The sidebar icon hides the card, and again shows it, at any scroll.
     **No ghost while off. The login switch keeps what you set, and System Settings shows Halftype under Login Items only while it's on.**
 W3. Models: Get Kanana 1.5, stop it with ✕, Get it again, wait, Use it, type, then Use Qwen 3.5 0.8B.
     **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.** Click the pill: **the list opens at once, marks the model in use, and closes on a click outside or Esc.**

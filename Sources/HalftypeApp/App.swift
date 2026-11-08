@@ -123,8 +123,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var why = Watcher.Why.unreadable
     /// A suggestion was taken since the window opened, and nothing has stood in the way since.
     @Published var accepted = false
-    /// Counts every Tab taken anywhere, so the window's sky can swell on one.
-    @Published var tabs = 0
     /// Counts each bind and unbind, so a reason from an earlier one is dropped.
     var binding = 0
     /// This launch began without a model or the permission, so the field gets a sentence once, and the first ghost needs no typing.
@@ -140,8 +138,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The model that loaded last, which is the one answering. Nil again if it can't load after an idle unload.
     @Published var activePath: String? { didSet { updateIcon() } }
     var window: NSWindow?
-    /// Started only in a released build, whose Info.plist names the feed.
-    let updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+    /// Started only in a released build, whose Info.plist names the feed. Lazy, to be its own delegate.
+    lazy var updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
+    /// An update Sparkle has downloaded, which would wait for a quit that a menu-bar app rarely sees: the dot and a menu item offer it now.
+    var readyUpdate: (version: String, install: () -> Void)? { didSet { updateIcon() } }
+    /// A newer version the daily check found while Update Automatically is off: the dot and a menu item, instead of Sparkle's window.
+    var availableUpdate: String? { didSet { updateIcon() } }
     /// The model's line, for the menu and under the field.
     var modelLine: String {
         if ready { return activeName }
@@ -172,8 +174,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
+    /// Try It is where people judge Halftype first, so there it shows a suggestion whenever it can, as long as it can, whatever the settings say.
     func tune() {
-        Tuning.current.withLock { $0 = Tuning(floor: length.floor, threshold: often.threshold) }
+        let tryIt = NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid()
+        let tuning = tryIt ? Tuning(floor: -.infinity, threshold: Often.always.threshold) :Tuning(floor: length.floor, threshold: often.threshold)
+        guard Tuning.current.withLock({ $0 }) != tuning else { return }
+        Tuning.current.withLock { $0 = tuning }
         watcher.retune()
     }
     @Published var pausedApps = Set(UserDefaults.standard.stringArray(forKey: "pausedApps") ?? []) {
@@ -218,12 +224,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
         tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
-        tap.onAccept = { [weak self] added, keys, suggestion in
+        tap.onAccept = { [weak self] added, keys, suggestion, text, drawing in
             DispatchQueue.main.async {
                 guard let self else { return }
+                if let text { self.panel.took(text, drawing: drawing) }
                 self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
-                self.tabs += 1
                 if !self.accepted { self.accepted = true }
             }
         }
@@ -248,7 +254,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         }
         watcher.hideOnSessionChange()
 
-        if isRelease { updates.startUpdater() }
+        if isRelease {
+            // The check runs daily whatever General says; Update Automatically only decides whether it downloads.
+            updates.updater.automaticallyChecksForUpdates = true
+            updates.startUpdater()
+        }
         store.removeLeftovers()
         store.onChange = { [weak self] state in self?.modelChanged(state) }
         loadModel()
@@ -317,6 +327,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private var activeHere: Bool { on && !pausedApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
 
     @objc private func rebind() {
+        tune()  // Try It and every other app are tuned apart.
         watcher.hideNow()
         tap.reenable()
         updateIcon()
@@ -514,7 +525,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// From each place the state it shows changes: rebind (on, pause, front app, permission), the model's state, and the watcher.
     func updateIcon() {
         guard let glyphs, let button = status.button else { return }
-        let icon = App.icon(active: activeHere, problem: !trusted || tap.obstacle != nil || (!ready && notice != nil),
+        let icon = App.icon(active: activeHere, problem: !trusted || tap.obstacle != nil || (!ready && notice != nil) || readyUpdate != nil || availableUpdate != nil,
                             downloading: downloading.map { _ in downloadFraction })
         guard icon != shownIcon else { return }
         shownIcon = icon
@@ -524,17 +535,22 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
     /// The glyph with a dot at its top right, cut clear around it so it reads at menu-bar size.
+    /// Not a template, as macOS paints a template in one colour and the dot should be red, macOS's badge colour for something new; the glyph is coloured for the menu bar's
+    /// appearance at each draw instead, so it still follows light and dark.
     static func marked(_ glyph: NSImage) -> NSImage {
         let image = NSImage(size: glyph.size, flipped: false) { rect in
             glyph.draw(in: rect)
+            // Solid black or white, as macOS draws a template (labelColor is a shade lighter).
+            (NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor.white : NSColor.black).set()
+            rect.fill(using: .sourceAtop)
             let dot = CGRect(x: rect.maxX - 6, y: rect.maxY - 6, width: 6, height: 6)
             NSGraphicsContext.current?.compositingOperation = .clear
             NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
             NSGraphicsContext.current?.compositingOperation = .sourceOver
+            NSColor.systemRed.setFill()
             NSBezierPath(ovalIn: dot).fill()
             return true
         }
-        image.isTemplate = true
         image.accessibilityDescription = "Halftype, needs attention"
         return image
     }
@@ -559,7 +575,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if retryable { menu.addItem(withTitle: "Retry Download", action: #selector(retry), keyEquivalent: "") }
         if predictions { menu.addItem(withTitle: "Turn Off macOS Predictions…", action: #selector(openKeyboardSettings), keyEquivalent: "") }
         menu.addItem(.separator())
-        if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
+        if let readyUpdate { menu.addItem(withTitle: "Halftype \(readyUpdate.version) is ready: Restart to Update", action: #selector(installUpdate), keyEquivalent: "") }
+        else if let availableUpdate { menu.addItem(withTitle: "Halftype \(availableUpdate) is available: Update…", action: #selector(checkForUpdates), keyEquivalent: "") }
+        else if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         for item in menu.items where item.action != #selector(NSApplication.terminate(_:)) && item.action != nil { item.target = self }
     }
@@ -575,6 +593,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     @objc private func openWindow() { showWindow() }
     @objc func checkForUpdates() { updates.checkForUpdates(nil) }
+    @objc private func installUpdate() { readyUpdate?.install() }
 
     func chooseModel() {
         let open = NSOpenPanel()
@@ -598,7 +617,31 @@ enum Length: String, CaseIterable {
 enum Personal: String, CaseIterable { case off, compare, on }
 
 enum Often: String, CaseIterable {
-    case less, normal, more
-    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2 } }
+    case less, normal, more, always
+    /// Always has no check at all, unmeasured: what Try It shows.
+    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2; case .always: -.infinity } }
 }
 
+extension App: SPUUpdaterDelegate {
+    /// Downloaded and set to install on quit. Taking it here keeps Sparkle's own alert away; the menu's item runs the install and relaunch.
+    func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        readyUpdate = (item.displayVersionString, immediateInstallHandler)
+        return true
+    }
+    /// The cycle holds while an update waits, so its end means the install ran or failed: either way there's nothing left to offer.
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
+        readyUpdate = nil
+    }
+}
+
+/// With Update Automatically off, a scheduled check that finds a new version shows the dot rather than Sparkle's window, which in a
+/// menu-bar app would open over whatever you're typing. The menu's item asks Sparkle to show it then.
+extension App: SPUStandardUserDriverDelegate {
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+    func standardUserDriverShouldHandleShowingScheduledUpdate(_ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool) -> Bool { false }
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        if !handleShowingUpdate { availableUpdate = update.displayVersionString }
+    }
+    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) { availableUpdate = nil }
+    func standardUserDriverWillFinishUpdateSession() { availableUpdate = nil }
+}

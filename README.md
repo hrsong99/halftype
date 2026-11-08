@@ -1,12 +1,10 @@
 # Halftype
 
-**Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. What you type never leaves your Mac and is never saved: Halftype keeps only counts, for its Stats page. You type half; it writes the rest. (It was called Itda until 2026-11.)
+**Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. What you type never leaves your Mac and is never saved: Halftype keeps only counts, for its Stats. You type half; it writes the rest. (It was called Itda until 2026-11.)
 
-![Typing in English, with Tab taking each suggested word](docs/media/en.gif)
+![Three messages typed with Halftype: Tab takes "ppy birthday", Shift-Tab takes "hope you have a great day" and "ake a look and get back to you.", and a wrong suggestion, "ee you soon!", is typed over](docs/media/demo.webp)
 
-![Typing in Korean, with Tab taking each suggested word](docs/media/ko.gif)
-
-These sentences are ones it does well on, and suggestions aren't always this good. They're drawn from the real model and the real ghost text by [`scripts/demo.sh`](scripts/demo.sh), not screen-recorded.
+An illustration of the two keys, with the suggestions scripted: Tab takes the next word, Shift-Tab the whole suggestion, and a wrong one goes as you keep typing. Real suggestions depend on the model and on what's around the field, and aren't always this good: across whole messages, at the defaults, Halftype saves about a fifth of keystrokes in English ([below](#why-its-different)). It's drawn by [`scripts/demo.sh`](scripts/demo.sh) with the app's own suggestion layout, not screen-recorded.
 
 ## Install
 
@@ -19,7 +17,7 @@ brew install --cask halftype
 
 You need macOS 26 on Apple Silicon. Open Halftype: its window asks for Accessibility, fetches a 0.5 GB model once, and gives you a field to try it in, with a sentence already typed so the first suggestion needs no typing.
 
-It keeps itself up to date, with signed and notarized releases. Turn that off under General. To build it yourself, with Swift 6.2 (Xcode 26), run `scripts/build-app.sh` and open `build/Halftype.app`.
+It keeps itself up to date, with signed and notarized releases. Turn off Update Automatically under General and it only tells you, with a dot on its menu-bar icon, when there's a new version. To build it yourself, with Swift 6.2 (Xcode 26), run `scripts/build-app.sh` and open `build/Halftype.app`.
 
 | The window | Your models |
 |---|---|
@@ -27,7 +25,7 @@ It keeps itself up to date, with signed and notarized releases. Turn that off un
 
 | How much it typed for you (Stats; these counts are made up) |
 |---|
-| ![The Stats page: Tabs today, letters typed for you, share of suggestions taken, and the last 14 days as bars](docs/media/window-stats.png) |
+| ![The Stats page: this week's Tabs, letters typed for you and share of typing by Tab, each against last week, with the week as bars and a Week / Month / All switch](docs/media/window-stats.png) |
 
 ## Use
 
@@ -39,7 +37,7 @@ It keeps itself up to date, with signed and notarized releases. Turn that off un
 
 Or keep typing: the suggestion follows along while you match it. With no suggestion showing, these keys do what they always do.
 
-The window opens on that field alone, with the model and an on/off button inside it. The sidebar icon reveals the rest: models to download, switch between or delete, paused apps, and Start at Login. Close the window and Halftype stays in the menu bar, whose icon also pauses it for the current app. Open Halftype again to get the window back.
+The window opens on that field alone, with the model and an on/off button inside it. Scroll down for the rest, in one page: stats, models to download, switch between or delete, paused apps, and Start at Login. A card at the side jumps between them; it comes with the settings, and the sidebar icon pins it open or shut. Close the window and Halftype stays in the menu bar, whose icon also pauses it for the current app. Open Halftype again to get the window back.
 
 The menu-bar icon dims when Halftype is off or paused for the app in front, shows a dot when something needs you, and a percentage while the model downloads. Its menu says in one line why there's no suggestion where you are. Most often that's "Working. Not sure enough to suggest yet.": Halftype stays quiet until it's sure. The same line shows under the window's field. If macOS's own grey predictions are on, the window says so and links to the setting; Halftype never changes it.
 
@@ -49,7 +47,7 @@ Most tools in this category go quiet while you compose Hangul, or suggest from a
 
 **It won't guess at the half-typed word.** The prompt stops at the last whole word and the model has to reproduce what you've typed so far. Across 130 paired mid-word English positions on a Gemma model, a useful suggestion went from 7.7% to 50.8%. The shipped mask on the default model wasn't compared this way.
 
-**It stays quiet when the model isn't sure.** Halftype shows a suggestion only if the first word's probability, among words that fit what you've typed, clears one threshold. On 2,400 held-out English requests with the default model, the first word shown was right 81.5% of the time (922 of 1,131), at 47.1% coverage. With no gate, 50-53% were right. It also ends a suggestion before the first word it's unsure of, and doesn't show one that would save under three keystrokes. In the same replay on Kanana 1.5, that took the grey characters that were right from 19% to 75%. Both are settings under General, Length and How Often, and these numbers are for the defaults.
+**It stays quiet when the model isn't sure.** Halftype shows a suggestion only if the first word's probability, among words that fit what you've typed, clears one threshold. On 2,400 held-out English requests with the default model, the first word shown was right 81.5% of the time (922 of 1,131), at 47.1% coverage. With no gate, 50-53% were right. It also ends a suggestion before the first word it's unsure of, and doesn't show one that would save under three keystrokes. In the same replay on Kanana 1.5, that took the grey characters that were right from 19% to 75%. Both are settings under General, Length and How Often (whose Always turns the gate off), and these numbers are for the defaults. The window's Try It field always runs with no gate and no floor, to show what the model would say.
 
 **It finishes Korean with real key presses.** The syllable you're composing stays out of the prompt, the model's output must fit its 2-set keys (so `하` allows `한` or `함`), and Tab presses the remaining keys so the input method finishes the syllable itself. On 1,099 requests mid-syllable in public Korean text, keystrokes saved per request went from 0 when sending the syllable to the model to 0.69. It costs more wrong suggestions: 18.2% of those requests, against 8.4%.
 
@@ -77,13 +75,13 @@ Wired memory is what counts: nothing else can use it, and Activity Monitor's per
 
 - **One permission: Accessibility.** The app asks for nothing else, and it never uses Screen Recording.
 - **What it reads:** the focused field and text near it in the window, to give the model context. A key tap watches for Tab, Shift-Tab and Esc, and it sees your other keys so it can track Korean composition. All of it stays in memory.
-- **What it writes:** the on/off switch, your paused apps and the paths of models you chose as settings, and model files in Application Support, with where a stopped download got to. Nothing with typed text, and no logs. What you type in its own window is held in memory until the window closes.
-- **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. And GitHub, about once a day in a release build, to check for an update and fetch it, which sends your macOS version and Halftype's. Turn that off under General. Nothing else. A build you make yourself never checks.
+- **What it writes:** the on/off switch, your paused apps and the paths of models you chose as settings, and model files in Application Support, with where a stopped download got to. Also there, for Stats, four counts a day: suggestions shown and taken, Tabs, and letters typed for you. Nothing with typed text, and no logs. What you type in its own window is held in memory until the window closes.
+- **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. And GitHub, about once a day in a release build, to check for an update, which sends your macOS version and Halftype's, and to fetch it unless Update Automatically is off under General. Nothing else. A build you make yourself never checks.
 - **Secure fields** are skipped: Halftype checks the field before every read, and reads no text from a secure one or suggests in it. While any app holds Secure Input, it starts no new read or suggestion, and checks again just before drawing; a suggestion already on screen goes at the next change it sees. The menu says so.
 
 ## Uninstall
 
-Quit Halftype from its menu, drag it from Applications to the Trash, and remove `~/Library/Application Support/Halftype`, which holds the models. Its settings are in `~/Library/Preferences/app.halftype.Halftype.plist`. With Homebrew, `brew uninstall --zap --cask halftype` does all of it. To remove only a model, use Delete on the Models page.
+Quit Halftype from its menu, drag it from Applications to the Trash, and remove `~/Library/Application Support/Halftype`, which holds the models. Its settings are in `~/Library/Preferences/app.halftype.Halftype.plist`. With Homebrew, `brew uninstall --zap --cask halftype` does all of it. To remove only a model, use Delete under Models in its window.
 
 ## Limits
 

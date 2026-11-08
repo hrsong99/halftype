@@ -62,6 +62,8 @@ No code was copied into HalftypeApp either. These are the ideas it uses.
 
 The window's look, one field and a lot of white, takes its idea from [Ollama's desktop app](https://ollama.com/blog/new-app). No code or assets from it.
 
+The model makers' marks in the Models list (`Sources/HalftypeApp/Logos`): Qwen's and Gemma's from [lobehub/lobe-icons](https://github.com/lobehub/lobe-icons) (`@lobehub/icons-static-svg` 1.70.0, MIT), turned into PDF; Kakao's from its [Hugging Face avatar](https://huggingface.co/kakaocorp). The marks are Alibaba's, Google's and Kakao's, shown only beside their own models.
+
 The icon was made with Codex's built-in image tool: prompts and outputs in [docs/icon](docs/icon/README.md).
 
 Every GitHub link and licence here was checked with `gh repo view` and the repo's licence file, and every model licence on its Hugging Face card, on 2026-11-07. [docs/audit.md](docs/audit.md) credits all 66 projects we read.

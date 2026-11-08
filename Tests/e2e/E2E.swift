@@ -250,7 +250,11 @@ enum EndToEnd {
 
     struct Shot {
         var name: String, typed: String, ghost: String, font: CGFloat, size: CGSize, dark: Bool
+        var stage: Stage? = nil
+        var glass = false
     }
+    /// The README demo's surroundings: the counts so far and whether Tab is down.
+    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat, glint: CGFloat? = nil, taken: Int = 0, shift: Bool = false, seen: CGFloat = 0 }
 
     /// `--shots <dir>`: a real text view with the real ghost view over it, placed by the real layout from what AX would report.
     static func shots(to dir: String) {
@@ -263,14 +267,25 @@ enum EndToEnd {
             Shot(name: "multi-line-wrap", typed: "This line is already quite close to the edge of", ghost: " the field, so the rest of the suggestion wraps", font: 14, size: CGSize(width: 400, height: 90), dark: true),
             Shot(name: "korean-light", typed: "오늘 회의는 세 시에", ghost: " 시작할 예정입니다", font: 15, size: CGSize(width: 420, height: 40), dark: false),
             Shot(name: "korean-dark-wrap", typed: "내일 오전에 다시 한번 확인해 보고 결과를 정리해서", ghost: " 공유드리겠습니다 감사합니다", font: 15, size: CGSize(width: 380, height: 90), dark: true),
+            Shot(name: "glass", typed: "See you at four, I'll bring the", ghost: " notes from Monday", font: 15, size: CGSize(width: 480, height: 40), dark: false, glass: true),
+            // The glint on " notes", just taken, a third and two thirds of the way across.
+            Shot(name: "glint-30", typed: "See you at four, I'll bring the notes", ghost: "", font: 15, size: CGSize(width: 520, height: 40), dark: false,
+                 stage: Stage(keys: 31, wrote: 6, letters: 37, press: 0, glint: 0.3, taken: 6)),
+            Shot(name: "glint-60", typed: "See you at four, I'll bring the notes", ghost: "", font: 15, size: CGSize(width: 520, height: 40), dark: false,
+                 stage: Stage(keys: 31, wrote: 6, letters: 37, press: 0, glint: 0.6, taken: 6)),
+            Shot(name: "glass-wrap", typed: "See you at four, I'll bring the notes and the", ghost: " slides from Monday's meeting", font: 15, size: CGSize(width: 380, height: 70), dark: false, glass: true),
         ]
         for shot in shots { render(shot, to: dir) }
     }
 
-    /// `--window-shots <dir>`: the real window's pages, rendered without opening anything on screen.
+    /// `--window-shots <dir>`: the real window's pages. Each is on screen only behind the desktop, as Metal draws the sky only in a
+    /// window on screen, and is taken by the window server (`screencapture -l`); nothing shows and nothing takes focus.
     static func windowShots(to dir: String) {
         App.tallyFile = nil
-        let app = App()
+        // No real tap here, which the line under the field would report; the pictures show the app at work.
+        final class ShownTap: KeyTap, @unchecked Sendable { override var obstacle: Obstacle? { nil } }
+        let app = App(tap: ShownTap())
+        app.why = .idle
         // Made up: busy weekdays, quiet weekends.
         for (back, busy) in [84, 101, 122, 109, 131, 117, 88, 96, 120, 104, 113, 126, 98, 92].enumerated() {
             let date = Calendar.current.date(byAdding: .day, value: -back, to: Date())!
@@ -285,65 +300,251 @@ enum EndToEnd {
             host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
             let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
             window.contentView = host
+            window.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) - 1)
+            window.orderFrontRegardless()
+            defer { window.orderOut(nil) }
             host.layoutSubtreeIfNeeded()
-            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+            RunLoop.main.run(until: Date().addingTimeInterval(0.6))
             func scrollers(_ view: NSView) -> [NSScrollView] { ((view as? NSScrollView).map { [$0] } ?? []) + view.subviews.flatMap(scrollers) }
             if page == .field { for scroll in scrollers(host) where scroll.documentView is NSTextView { check(!scroll.hasVerticalScroller || scroll.verticalScroller?.isHidden == true, "the field shows no scroller") } }
-            let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
-            host.cacheDisplay(in: host.bounds, to: rep)
-            try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir).appendingPathComponent("window-\(name).png"))
+            let shot = Process()
+            shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            shot.arguments = ["-x", "-o", "-l\(window.windowNumber)", URL(fileURLWithPath: dir).appendingPathComponent("window-\(name).png").path]
+            try! shot.run()
+            shot.waitUntilExit()
+            check(shot.terminationStatus == 0, "window-\(name) captured")
         }
     }
 
-    /// `--demo <gguf> <dir>`: the frames of the README's GIF. The sentence is invented, and each ghost is what the real model and
-    /// the real gate said at that point, drawn by the real layout. Tab takes the next word, as in the app. A delay per frame goes in delays.txt.
-    static func demo(model: String, to dir: String) {
+    /// `--demo <gguf> <dir> [sentence…]`: the frames of the README's GIF. Each sentence is invented and typed one key at a time; wherever the
+    /// real model and the real gate suggest what comes next, Tab takes it a word at a time, as in the app, and the counts are kept. A wrong
+    /// suggestion shows and is typed over. Each ghost is drawn by the real layout. A delay per frame (hundredths) goes in en-delays.txt.
+    static func demo(model: String, to dir: String, sentences: [String]) {
         guard let engine = try? Engine(modelPath: model) else { return check(false, "engine loads") }
         defer { engine.unload() }
-        func ask(_ before: String) -> String? {
+        // General's Length Long and How Often More, which anyone can choose: longer suggestions, shown more often. On these sentences it beat
+        // Try It's own (no cap, always) by a few keys (2026-11-09).
+        let tuning = Tuning(floor: Length.long.floor, threshold: Often.more.threshold)
+        Tuning.current.withLock { $0 = tuning }
+        if ProcessInfo.processInfo.environment["HALFTYPE_DEMO_PROBE"] != nil {
+            let context = ProcessInfo.processInfo.environment["HALFTYPE_DEMO_CONTEXT"] ?? ""
+            for prefix in sentences {
+                let prompt = Prompt.make(context: context, before: prefix)
+                let latest = Mutex<Suggestion?>(nil)
+                engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in latest.withLock { $0 = suggestion } }
+                engine.finish()
+                let s = latest.withLock { $0 }
+                print("PROBE '\(prefix)' -> '\(s?.text ?? "nil")' gate \(s?.gate.map { String(format: "%.2f", $0) } ?? "nil")")
+            }
+            return
+        }
+        // HALFTYPE_DEMO_SCRIPT="Ha=ppy birthday|…": a scripted demo, with these suggestions after these texts and none elsewhere.
+        let script = ProcessInfo.processInfo.environment["HALFTYPE_DEMO_SCRIPT"].map { line in
+            Dictionary(uniqueKeysWithValues: line.split(separator: "|").map { pair in
+                let parts = pair.split(separator: "=", maxSplits: 1); return (String(parts[0]), String(parts[1]))
+            })
+        }
+        func ask(_ before: String) -> String {
+            if let script { return script[before] ?? "" }
             let prompt = Prompt.make(context: "", before: before)
             let latest = Mutex<Suggestion?>(nil)
             engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in latest.withLock { $0 = suggestion } }
             engine.finish()
-            guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= Gate.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return nil }
+            guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= tuning.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return "" }
             return s.text
         }
         var frame = 0, delays = ""
-        func draw(_ name: String, _ typed: String, _ ghost: String, _ delay: Int) {
-            frame += 1
-            onMain { render(Shot(name: String(format: "\(name)-%04d", frame), typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 17, size: CGSize(width: 560, height: 46), dark: false), to: dir) }
-            delays += "\(String(format: "\(name)-%04d", frame)).png \(delay)\n"
+        func shot(_ name: String, _ typed: String, _ ghost: String, _ stage: Stage) -> Shot {
+            Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false, stage: stage)
         }
-        // Chosen as ones where the model does well, which the README says.
-        for (name, sentences) in [("en", ["Let me know if you have any quest", "See you tomor", "As soon as possi"]), ("ko", ["안녕하세요. 만나서 반갑", "감사합니다. 좋은 하루 보내", "이번 주 금요일까지 보내주시면 감사하겠"])] {
-            frame = 0; delays = ""
-            for sentence in sentences {
-                var text = ""
-                for c in sentence {
-                    text.append(c)
-                    draw(name, text, "", 7)
+        // Delays in hundredths; browsers play anything under 2 as 10, so nothing goes below 3.
+        // A pressed key stays on screen, up, for `linger` hundredths after it's let go, while typing goes on, so it can be read.
+        var lingerLeft = 0, lingerShift = false, linger = 0
+        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, glint: CGFloat? = nil, taken: Int = 0, shift: Bool = false, seen: CGFloat = 0, _ delay: Int) {
+            var shift = shift, seen = seen
+            // A new suggestion ends it, so a lingering Tab doesn't seem to be taking the next one.
+            if press > 0 { lingerLeft = linger; lingerShift = shift } else if !ghost.isEmpty { lingerLeft = 0 }
+            else if seen == 0, lingerLeft > 0 { seen = 1; shift = lingerShift; lingerLeft -= delay }
+            frame += 1
+            let name = String(format: "en-%04d", frame)
+            onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, glint: glint, taken: taken, shift: shift, seen: seen)), to: dir) }
+            delays += "\(name).png \(delay)\n"
+        }
+        func drawable(_ typed: String, _ ghost: String) -> Bool { onMain { render(shot("", typed, ghost, Stage(keys: 0, wrote: 0, letters: 0, press: 0)), to: nil) } }
+        // What the app would show after `text`: the suggestion, if it can be drawn there (no room at the line's end means none).
+        func suggestion(_ text: String) -> String {
+            let ghost = ask(text)
+            return ghost.isEmpty || drawable(text, ghost) ? ghost : ""
+        }
+        // No pauses of its own: each frame shows the letter and, at once, what the app suggests after it; Tab comes at the typing rhythm.
+        // The pace (docs/design/readme-demo rounds 2 and 3): HALFTYPE_DEMO_PACE="type=4,tab=14,…" (hundredths;
+        // grey suggestions, taken at once). beat waits once a suggestion shows before the first Tab; after waits once a run of Tabs ends.
+        // long=N takes a fresh suggestion of N words or more that is right to the end with Shift-Tab, after hold.
+        var pace = ["type": "4", "tab": "14", "beat": "12", "after": "8", "rest": "110", "ignore": "35", "long": "3", "hold": "40", "down": "18", "linger": "50"]  // Round 3's H, round 4's B.
+        for pair in (ProcessInfo.processInfo.environment["HALFTYPE_DEMO_PACE"] ?? "").split(separator: ",") {
+            let kv = pair.split(separator: "="); if kv.count == 2 { pace[String(kv[0])] = String(kv[1]) }
+        }
+        let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!, restDelay = Int(pace["rest"]!)!, ignore = Int(pace["ignore"]!)!, down = Int(pace["down"]!)!
+        let long = Int(pace["long"]!)!, hold = Int(pace["hold"]!)!
+        linger = Int(pace["linger"]!)!
+        for target in sentences {
+            var text = "", keys = 0, wrote = 0
+            var ghost = "", burst = 0
+            draw("", "", 0, 0, 30)
+            while text.count < target.count {
+                let rest = target.dropFirst(text.count)
+                let word = ghost.isEmpty ? "" : Accept.nextWord(Ghost(remainder: ghost)).text
+                if long > 0, burst == 0, !ghost.isEmpty, rest.hasPrefix(ghost), ghost.split(separator: " ").count >= long {
+                    // A long suggestion, all of it right: a moment to read it, then Shift-Tab takes the lot at once.
+                    draw(text, ghost, keys, wrote, hold)
+                    let all = ghost
+                    text += all; keys += 1; wrote += all.count
+                    ghost = suggestion(text)
+                    draw(text, ghost, keys, wrote, press: 1, shift: true, seen: 1, down + 6)
+                    if after > 0 { draw(text, ghost, keys, wrote, after) }
+                    continue
                 }
-                guard let ghost = ask(text) else { check(false, "\(sentence): the model no longer suggests here"); continue }
-                draw(name, text, ghost, 120)
-                draw(name, text + ghost, "", 140)
+                if !word.isEmpty, rest.hasPrefix(word) {
+                    if burst == 0, beat > 0 { draw(text, ghost, keys, wrote, beat) }
+                    text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count))
+                    if ghost.isEmpty { ghost = suggestion(text) }
+                    burst += word.count
+                    draw(text, ghost, keys, wrote, press: 1, seen: 1, down)
+                    draw(text, ghost, keys, wrote, seen: 1, max(3, tabDelay - 6))
+                    continue
+                }
+                if burst > 0 {
+                    // A run of Tabs just ended: the pause.
+                    if after > 0 { draw(text, ghost, keys, wrote, after) }
+                    burst = 0
+                }
+                // A suggestion that isn't what comes next stays a moment, so it can be seen being typed over.
+                if !ghost.isEmpty, ignore > 0 { draw(text, ghost, keys, wrote, ignore) }
+                // Type the next letter. As in the app, a suggestion the letter matches stays and follows; otherwise the app asks again.
+                let letter = rest.first!
+                text.append(letter); keys += 1
+                ghost = ghost.first == letter && ghost.count > 1 ? String(ghost.dropFirst()) : suggestion(text)
+                draw(text, ghost, keys, wrote, typeDelay + Int(hash(keys, text.count) * 3))  // Unevenly, like hands.
             }
-            try! delays.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name)-delays.txt"), atomically: true, encoding: .utf8)
+            let saved = 100 * (target.count - keys) / max(target.count, 1)
+            print("      \(target.count) letters, \(keys) keys, \(wrote) by Tab: \(saved)% saved | \(target)")
+            draw(text, "", keys, wrote, restDelay)  // Each finished message rests, then the field clears for the next.
+        }
+        try! delays.write(to: URL(fileURLWithPath: dir).appendingPathComponent("en-delays.txt"), atomically: true, encoding: .utf8)
+    }
+
+    /// A fixed pseudo-random 0..<1, so the demo's rhythm is the same each run.
+    static func hash(_ a: Int, _ b: Int) -> Double {
+        let h = sin(Double(a) * 127.1 + Double(b) * 311.7) * 43758.5453
+        return h - h.rounded(.down)
+    }
+
+    /// Option F of docs/design/readme-demo in the home window's glass (docs/design/home-glass): cream, the blurred arch, a frosted panel for the
+    /// field with the counts so far, and tab (or shift and tab) while pressed. The demo draws grey suggestions, taken at once: in-between frames of a glint or fade looked choppy.
+    final class DemoStage: NSView {
+        static let size = CGSize(width: 760, height: 360)
+        static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
+        static let blue = NSColor(srgbRed: 0.561, green: 0.733, blue: 0.91, alpha: 1), peach = NSColor(srgbRed: 0.957, green: 0.706, blue: 0.549, alpha: 1)
+        /// The window's `Arch`, on its 720 x 460 grid scaled to this stage, blurred once.
+        static let arch: CGImage = {
+            let scale: CGFloat = 2, w = size.width * scale, h = size.height * scale
+            let context = CGContext(data: nil, width: Int(w), height: Int(h), bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.translateBy(x: 0, y: h); context.scaleBy(x: scale, y: -scale)
+            let sx = size.width / 720, sy = size.height / 460, p = { (x: CGFloat, y: CGFloat) in CGPoint(x: x * sx, y: y * sy) }
+            let path = CGMutablePath()
+            path.move(to: p(40, 400)); path.addCurve(to: p(400, 150), control1: p(160, 200), control2: p(300, 120))
+            path.addCurve(to: p(520, 370), control1: p(500, 180), control2: p(470, 330))
+            path.addCurve(to: p(700, 320), control1: p(570, 410), control2: p(640, 380))
+            context.addPath(path.copy(strokingWithWidth: 90 * sx, lineCap: .round, lineJoin: .round, miterLimit: 10))
+            context.clip()
+            let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: [blue.cgColor, NSColor(srgbRed: 0.875, green: 0.906, blue: 0.937, alpha: 1).cgColor, peach.cgColor] as CFArray, locations: nil)!
+            context.drawLinearGradient(gradient, start: p(60, 0), end: p(680, 0), options: [])
+            let blurred = CIImage(cgImage: context.makeImage()!).clampedToExtent().applyingGaussianBlur(sigma: 26 * scale).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
+            return CIContext().createCGImage(blurred, from: blurred.extent)!
+        }()
+        let stage: Stage
+        init(frame: CGRect, stage: Stage) { self.stage = stage; super.init(frame: frame) }
+        required init?(coder: NSCoder) { nil }
+        override var isFlipped: Bool { true }
+
+        override func draw(_ dirty: NSRect) {
+            let c = NSGraphicsContext.current!.cgContext
+            NSColor(srgbRed: 0.965, green: 0.945, blue: 0.914, alpha: 1).setFill()
+            bounds.fill()
+            c.saveGState(); c.setAlpha(0.75)
+            c.translateBy(x: 0, y: bounds.height); c.scaleBy(x: 1, y: -1)  // CGImage draws bottom-up.
+            c.draw(Self.arch, in: bounds)
+            c.restoreGState()
+
+            let panel = NSBezierPath(roundedRect: Self.panel, xRadius: 20, yRadius: 20)
+            c.saveGState()
+            c.setShadow(offset: CGSize(width: 0, height: 10), blur: 30, color: NSColor(srgbRed: 0.45, green: 0.38, blue: 0.3, alpha: 0.14).cgColor)
+            NSColor(white: 1, alpha: 0.86).setFill(); panel.fill()
+            c.restoreGState()
+            NSColor(white: 1, alpha: 0.9).setStroke(); panel.lineWidth = 1; panel.stroke()
+            let divider = Self.panel.maxY - 42
+            NSColor(srgbRed: 0.9, green: 0.88, blue: 0.85, alpha: 1).setFill()
+            NSRect(x: Self.panel.minX + 22, y: divider, width: Self.panel.width - 44, height: 1).fill()
+
+            let label: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor(srgbRed: 0.45, green: 0.42, blue: 0.39, alpha: 1)]
+            func number(_ n: Int, _ color: NSColor) -> NSAttributedString {
+                NSAttributedString(string: "\(n)", attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .semibold), .foregroundColor: color])
+            }
+            func pair(_ title: String, _ value: NSAttributedString) -> NSAttributedString {
+                let out = NSMutableAttributedString(string: title + "  ", attributes: label); out.append(value); return out
+            }
+            let y = divider + 13
+            pair("Keys you pressed", number(stage.keys, NSColor(srgbRed: 0.29, green: 0.52, blue: 0.78, alpha: 1))).draw(at: CGPoint(x: Self.panel.minX + 22, y: y))
+            pair("Letters Halftype wrote", number(stage.wrote, NSColor(white: 0.1, alpha: 1))).draw(at: CGPoint(x: Self.panel.minX + 200, y: y))
+            if stage.letters > 0, stage.wrote > 0 {
+                let saved = NSAttributedString(string: "\(100 * (stage.letters - stage.keys) / stage.letters)% fewer keys",
+                                               attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: NSColor(srgbRed: 0.8, green: 0.47, blue: 0.3, alpha: 1)])
+                saved.draw(at: CGPoint(x: Self.panel.maxX - 22 - saved.size().width, y: y))
+            }
+
+            // The keys show only while pressed, then fade: tab alone, or shift and tab together. Each sinks into its darker edge while down.
+            guard stage.seen > 0 else { return }
+            c.setAlpha(stage.seen)
+            func key(_ title: String, _ rect: CGRect, _ press: CGFloat) {
+                let sink = 3 * press
+                NSColor(srgbRed: 0.82, green: 0.79, blue: 0.75, alpha: 1).setFill()
+                NSBezierPath(roundedRect: rect.offsetBy(dx: 0, dy: 3), xRadius: 9, yRadius: 9).fill()
+                let top = NSBezierPath(roundedRect: rect.offsetBy(dx: 0, dy: sink), xRadius: 9, yRadius: 9)
+                NSColor(white: 1, alpha: 1).blended(withFraction: press, of: NSColor(srgbRed: 0.87, green: 0.91, blue: 0.97, alpha: 1))!.setFill(); top.fill()
+                NSColor(srgbRed: 0.86, green: 0.83, blue: 0.79, alpha: 1).setStroke(); top.lineWidth = 1; top.stroke()
+                let text = NSAttributedString(string: title, attributes: [.font: NSFont.systemFont(ofSize: 15, weight: .semibold), .foregroundColor: NSColor(white: 0.26, alpha: 1)])
+                text.draw(at: CGPoint(x: rect.midX - text.size().width / 2, y: rect.midY - text.size().height / 2 + sink - 1))
+            }
+            let top = Self.panel.maxY + 26
+            if stage.shift {
+                key("⇧ shift", CGRect(x: bounds.midX - 112, y: top, width: 112, height: 40), stage.press)
+                key("tab ⇥", CGRect(x: bounds.midX + 8, y: top, width: 96, height: 40), stage.press)
+            } else { key("tab ⇥", CGRect(x: bounds.midX - 48, y: top, width: 96, height: 40), stage.press) }
         }
     }
 
-    static func render(_ shot: Shot, to dir: String) {
+    /// With no `dir`, only says whether the ghost can be drawn there, as the app would.
+    @discardableResult static func render(_ shot: Shot, to dir: String?) -> Bool {
         let appearance = NSAppearance(named: shot.dark ? .darkAqua : .aqua)!
         final class Flipped: NSView { override var isFlipped: Bool { true } }
-        let scene = Flipped(frame: CGRect(x: 0, y: 0, width: shot.size.width + 40, height: shot.size.height + 40))
+        let scene: NSView, frame: CGRect
+        if let stage = shot.stage {
+            scene = DemoStage(frame: CGRect(origin: .zero, size: DemoStage.size), stage: stage)
+            frame = CGRect(x: DemoStage.panel.minX + 20, y: DemoStage.panel.minY + 18, width: shot.size.width, height: shot.size.height)
+        } else {
+            scene = Flipped(frame: CGRect(x: 0, y: 0, width: shot.size.width + 40, height: shot.size.height + 40))
+            scene.wantsLayer = true
+            scene.layer?.backgroundColor = appearance.performAsCurrentDrawingAppearance2 { NSColor.windowBackgroundColor.cgColor }
+            frame = CGRect(x: 20, y: 20, width: shot.size.width, height: shot.size.height)
+        }
         scene.appearance = appearance
-        scene.wantsLayer = true
-        scene.layer?.backgroundColor = appearance.performAsCurrentDrawingAppearance2 { NSColor.windowBackgroundColor.cgColor }
-        let frame = CGRect(x: 20, y: 20, width: shot.size.width, height: shot.size.height)
         let text = NSTextView(frame: frame)
         text.appearance = appearance
         text.font = .systemFont(ofSize: shot.font)
         text.textColor = .textColor
         text.backgroundColor = .textBackgroundColor
+        text.drawsBackground = shot.stage == nil
         text.textContainerInset = CGSize(width: 8, height: 6)
         text.string = shot.typed
         text.setSelectedRange(NSRange(location: (shot.typed as NSString).length, length: 0))
@@ -359,13 +560,24 @@ enum EndToEnd {
         let caret = CGRect(x: frame.minX + origin.x + glyphRect.maxX, y: frame.minY + origin.y + line.minY, width: 0, height: line.height)
         let spec = GhostSpec(text: shot.ghost, caret: caret, frame: frame, fontSize: shot.font, fontName: nil,
                              color: appearance.performAsCurrentDrawingAppearance2 { NSColor.textColor.usingColorSpace(.sRGB)!.cgColor },
-                             lineLeft: frame.minX + origin.x + container.lineFragmentPadding, previousCharacter: String(shot.typed.last!), mayWrap: true)
+                             lineLeft: frame.minX + origin.x + container.lineFragmentPadding, previousCharacter: String(shot.typed.last!), mayWrap: true, glass: shot.glass)
         if !shot.ghost.isEmpty {
-            guard let layout = GhostLayout.make(spec) else { return check(false, "\(shot.name): no ghost") }
+            guard let layout = GhostLayout.make(spec) else { if dir != nil { check(false, "\(shot.name): no ghost") }; return false }
+            if dir == nil { return true }
             let ghost = GhostView(frame: layout.window)
             ghost.layout = layout
             scene.addSubview(ghost)
             print("      \(shot.name): visible '\(layout.visibleText)'")
+        }
+        // The app's glint on the words just taken, the last `taken` of what's typed, at this frame's progress.
+        if let glint = shot.stage?.glint, let taken = shot.stage?.taken, taken > 0 {
+            let length = (shot.typed as NSString).length
+            let view = GlintView(frame: frame)
+            view.manager = text.layoutManager
+            view.origin = text.textContainerOrigin
+            view.glyphs = text.layoutManager!.glyphRange(forCharacterRange: NSRange(location: length - taken, length: taken), actualCharacterRange: nil)
+            view.progress = glint
+            scene.addSubview(view)
         }
 
         let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(scene.bounds.width * 2), pixelsHigh: Int(scene.bounds.height * 2), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
@@ -379,7 +591,9 @@ enum EndToEnd {
             NSGraphicsContext.restoreGraphicsState()
         }
         scene.cacheDisplay(in: scene.bounds, to: rep)
+        guard let dir else { return true }
         try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir).appendingPathComponent(shot.name + ".png"))
+        return true
     }
 
     static func run() {
@@ -388,7 +602,7 @@ enum EndToEnd {
         if let i = CommandLine.arguments.firstIndex(of: "--measure") { return measure(path: CommandLine.arguments[i + 1]) }
         if CommandLine.arguments.contains("--own-window") { return ownWindow() }
         if let i = CommandLine.arguments.firstIndex(of: "--demo") {
-            return demo(model: CommandLine.arguments[i + 1], to: CommandLine.arguments[i + 2])
+            return demo(model: CommandLine.arguments[i + 1], to: CommandLine.arguments[i + 2], sentences: Array(CommandLine.arguments.dropFirst(i + 3)))
         }
         if let i = CommandLine.arguments.firstIndex(of: "--window-shots") {
             return onMain { windowShots(to: CommandLine.arguments[i + 1]) }
@@ -554,9 +768,18 @@ enum EndToEnd {
     }
 
     /// A ghost up in a fresh harness, its model holding the rest back. A blocked queue stands for an unresponsive AX read.
-    static func raceHarness() -> (h: Harness, model: HeldCompleter) {
+    /// `rememberLook` for a test that blocks main: reading our own window's look hops to main (AX.own), so the first display's look stands.
+    static func raceHarness(rememberLook: Bool = false) -> (h: Harness, model: HeldCompleter) {
         let model = HeldCompleter()
         let h = Harness(completer: model)
+        if rememberLook {
+            let read = h.watcher.traits
+            var look: FieldTraits?
+            h.watcher.traits = { field, reading in
+                if look == nil { look = read(field, reading) }
+                return look
+            }
+        }
         h.watcher.bind(pid: getpid())
         usleep(100_000)
         typeToSelf("hello")
@@ -594,7 +817,7 @@ enum EndToEnd {
             check(h.text == "hello there\n\t", "nothing inserted when the reader comes back: \(h.text.debugDescription)")
         }
         do {
-            let (h, model) = raceHarness()
+            let (h, model) = raceHarness(rememberLook: true)
             defer { h.close() }
             let hold = DispatchSemaphore(value: 0), holding = DispatchSemaphore(value: 0)
             DispatchQueue.main.async { holding.signal(); hold.wait() }

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings Scroll</title>
+<style>
+:root{--bg:#f3f1ec;--ink:#1b1b1d;--mut:#6b6b70;--line:#d9d6cf;--card:#fff}
+:root[data-theme=dark]{--bg:#0d0e10;--ink:#ececee;--mut:#9a9aa2;--line:#2a2b30;--card:#17181b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+header{max-width:1240px;margin:0 auto;padding:28px 16px 8px}
+h1{font-size:22px;margin:0 0 6px}
+.q{color:var(--mut);margin:0 0 14px}
+.rec{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:0 0 10px}
+.why{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.bar{display:flex;gap:8px;align-items:center;margin:14px 0 0}
+.bar button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:4px 10px;cursor:pointer}
+main{max-width:1240px;margin:0 auto;padding:8px 16px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(560px,1fr));gap:22px}
+h2.row{grid-column:1/-1;font-size:15px;margin:18px 0 -6px;color:var(--mut);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h3{margin:0 0 4px;font-size:16px}.card h3 b{display:inline-block;width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--bg);text-align:center;line-height:26px;margin-right:8px;font-size:14px}
+.card p{margin:4px 0 0;color:var(--mut);font-size:13px}
+.stage{width:100%;aspect-ratio:720/500;position:relative;margin:10px 0 8px;container-type:inline-size}
+.stage>.win{position:absolute;top:0;left:0;transform-origin:0 0;transform:scale(calc(100cqw / 720px))}
+.card img{width:100%;border-radius:10px;margin:10px 0 8px;display:block}
+@media (max-width:640px){main{grid-template-columns:1fr}}
+
+/* The mock window, in the app's own colours (Sky.swift) */
+.win{--paper:#fcfaf6;--wt:#1d1d1f;--ws:#86868b;--hair:rgba(0,0,0,.1);--pane:rgba(252,250,246,.6);--side:#f4f2ed;
+  width:720px;height:500px;border-radius:12px;overflow:hidden;position:relative;background:var(--paper);color:var(--wt);
+  box-shadow:0 0 0 .5px rgba(0,0,0,.25),0 12px 30px rgba(0,0,0,.18);font-size:13px}
+.win.dark{--paper:#121317;--wt:#e8e8ea;--ws:#8d8d93;--hair:rgba(255,255,255,.1);--pane:rgba(18,19,23,.6);--side:#1a1b1f}
+.win canvas.sky{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.lights{position:absolute;top:10px;left:13px;display:flex;gap:8px;z-index:9}.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.sbtn{position:absolute;top:8px;left:84px;z-index:9;width:18px;height:14px;border:1.4px solid var(--ws);border-radius:3px}.sbtn:before{content:"";position:absolute;left:4px;top:0;bottom:0;border-left:1.4px solid var(--ws)}
+.side{position:absolute;top:0;bottom:0;left:0;width:150px;padding:38px 8px 12px;display:flex;flex-direction:column;gap:2px;z-index:5}
+.side a{padding:5px 10px;border-radius:7px;cursor:pointer;color:var(--wt);text-decoration:none}
+.side a.on{background:color-mix(in srgb,var(--wt) 8%,transparent)}
+.side a.sub{padding-left:22px;color:var(--ws);font-size:12.5px}.side a.sub.on{color:var(--wt)}
+.side .sp{flex:1}.side .tog{padding:0 10px;display:flex;align-items:center;gap:8px}
+.sw{width:26px;height:15px;border-radius:8px;background:var(--wt);position:relative;display:inline-block}.sw:after{content:"";position:absolute;right:2px;top:2px;width:11px;height:11px;border-radius:50%;background:var(--paper)}
+.content{position:absolute;top:0;bottom:0;right:0;left:150px;z-index:4}
+.scroll{position:absolute;inset:0;overflow:auto;padding:28px 0 0;scrollbar-width:thin}
+.pane{background:var(--pane);backdrop-filter:blur(2px);border-radius:16px;padding:16px 20px 18px;max-width:520px;margin:16px auto;width:calc(100% - 56px)}
+.pane h4{font-size:20px;font-weight:600;margin:0 0 12px}
+.sec{scroll-margin-top:30px}
+.sec+ .sec{margin-top:26px}
+.figs{display:flex;gap:30px;align-items:baseline;padding:8px 0 14px}
+.fig b{display:block;font-size:26px;font-weight:400;font-variant-numeric:tabular-nums}.fig.big b{font-size:40px;font-weight:600}.fig span{font-size:11.5px;color:var(--ws)}
+.chart{display:flex;gap:6px;align-items:flex-end;height:80px;border-top:1px solid var(--hair);padding-top:8px}.chart i{flex:1;background:color-mix(in srgb,var(--wt) 18%,transparent);border-radius:3px}.chart i:last-child{background:color-mix(in srgb,var(--wt) 85%,transparent)}
+.cap{font-size:11.5px;color:var(--ws);margin:10px 0 6px}
+.r{border-top:1px solid var(--hair);display:flex;align-items:center;gap:8px;padding:9px 0}.r .t{flex:1}.r .n{display:block;font-size:11px;color:var(--ws)}
+.btn{border:1px solid var(--hair);background:color-mix(in srgb,var(--wt) 6%,var(--paper));border-radius:6px;padding:2px 10px;font-size:12px;min-width:64px;text-align:center}
+.mut{color:var(--ws);font-size:12px}
+.seg{display:flex;border:1px solid var(--hair);border-radius:6px;overflow:hidden;font-size:11.5px}.seg span{padding:2px 12px}.seg span.s{background:color-mix(in srgb,var(--wt) 12%,transparent)}
+.key{font-size:11px;border:1px solid var(--hair);border-radius:4px;padding:0 6px}
+.foot{font-size:11.5px;color:var(--ws);border-top:1px solid var(--hair);padding-top:10px}
+.field{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:420px;text-align:center}
+.mark{font:italic 600 34px/1 Georgia,serif;margin-bottom:14px;background:linear-gradient(90deg,var(--wt) 40%,#a9cdf0,#f6c3a4);-webkit-background-clip:text;color:transparent}
+.box{background:var(--pane);backdrop-filter:blur(4px);border-radius:16px;padding:14px 16px 10px;text-align:left;color:var(--ws);height:94px;position:relative;border:1px solid var(--hair)}
+.box .pill{position:absolute;right:46px;bottom:10px;color:var(--wt);font-size:12px;padding:3px 8px;border-radius:9px;background:color-mix(in srgb,var(--wt) 6%,transparent)}
+.box .pw{position:absolute;right:12px;bottom:8px;width:24px;height:24px;border-radius:50%;background:var(--wt)}
+.status{margin-top:12px;color:var(--ws);font-size:12px}
+.gear{position:absolute;top:7px;right:14px;z-index:9;font-size:15px;color:var(--ws);cursor:pointer}
+.back{position:absolute;top:6px;left:84px;z-index:9;font-size:12.5px;color:var(--ws);cursor:pointer}
+.sticky{position:sticky;top:0;z-index:3;background:var(--paper);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ws);padding:6px 0;margin:0 -2px}
+.chips{position:absolute;top:6px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:9;transition:opacity .2s}
+.chips a{font-size:11.5px;padding:2px 9px;border-radius:9px;color:var(--ws);cursor:pointer}.chips a.on{background:color-mix(in srgb,var(--wt) 10%,transparent);color:var(--wt)}
+.hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:11.5px;color:var(--ws);z-index:3}
+</style>
+</head>
+<body>
+<header>
+  <h1>One scrolling settings page, and a sidebar the dots stay out of</h1>
+  <p class="q">John: “How come the pixel art is covering the sidebar? … instead of being in different tabs/pages, I want all the settings to be scrollable.” Every window below is live: scroll it, click its sidebar.</p>
+  <div class="rec"><b>Recommendation: B.</b> The sidebar gets the window's own paper, opaque, and the sky moves behind the content only. The four settings pages become one scroll, and the sidebar turns into its table of contents (click jumps, the highlight follows your scroll). It's the smallest change in <code>Window.swift</code> and keeps everything people already know where to find. If you'd rather simplify further, <b>C</b> (two items: Try It, Settings) is the same build with less sidebar.</div>
+  <div class="why"><b>What you saw:</b> the halftone sky is drawn behind the <i>whole</i> window (<code>Root</code>'s <code>.backgroundPreferenceValue</code> wraps the sidebar and the page), and the sidebar's only background is <code>Color.primary.opacity(0.03)</code>, a 3% tint. So the dots run straight through it; you only notice the sidebar in the middle, where the sky is clear. It was a side effect of round&nbsp;3's “every page sits on the sky”, never a choice for the sidebar. A on this page is that, as it ships.</div>
+  <div class="bar">Window: <button id="dk">Dark</button><button id="lt">Light</button></div>
+</header>
+<main id="m"></main>
+<main id="imgs"><h2 class="row">Image ideas (Codex image tool: ideas, not builds)</h2><div class="card"><h3><b>K</b>Opaque sidebar, sky in the content <span style="font-weight:400;color:var(--mut);font-size:12px">· image</span></h3><img src="images/K.jpg" alt="Opaque sidebar, sky in the content"><p>Codex’s take on B, light. Worth taking: section titles inside one long pane read fine without boxes; its rows are invented.</p></div><div class="card"><h3><b>L</b>Short sky header, settings as summary rows <span style="font-weight:400;color:var(--mut);font-size:12px">· image</span></h3><img src="images/L.jpg" alt="Short sky header, settings as summary rows"><p>Worth taking into E: the sky shrinks to a band around the field, and each section is one summary row (84 Tabs today, the models as chips) that expands, so the whole app fits one screen. Its model names are invented.</p></div><div class="card"><h3><b>M</b>Floating card, Settings sections nested <span style="font-weight:400;color:var(--mut);font-size:12px">· image</span></h3><img src="images/M.jpg" alt="Floating card, Settings sections nested"><p>Worth taking into F: Try It, then a Settings heading with its sections indented and a peach dot on the current one.</p></div></main>
+<script>
+const SETTINGS = `
+<section class="sec" data-s="Stats"><h4>Stats</h4>
+ <div class="figs"><div class="fig big"><b>84</b><span>Tabs today</span></div><div class="fig"><b>378</b><span>letters typed for you</span></div><div class="fig"><b>34%</b><span>of suggestions taken</span></div></div>
+ <div class="cap">Last 14 days: 1,236 Tabs</div>
+ <div class="chart">${[92,98,125,112,103,20,16,88,117,130,108,121,15,84].map(v=>`<i style="height:${v/1.6}%"></i>`).join('')}</div>
+ <div class="cap">1,236 Tabs and 5,560 letters in all. Only counts are kept, never what you type.</div></section>
+<section class="sec" data-s="Models"><h4>Models</h4>
+ <div class="r"><span class="t">Qwen 3.5 0.8B<span class="n">The default. The smallest and quickest.</span></span><span class="mut">533 MB</span><span class="mut" style="width:64px;text-align:center">In use</span></div>
+ <div class="r"><span class="t">Qwen 3.5 2B<span class="n">Better in Korean, and 2.4 times the size.</span></span><span class="mut">1.3 GB</span><span class="btn">Get</span></div>
+ <div class="r"><span class="t">Kanana 1.5<span class="n">From Kakao, and strongest in Korean.</span></span><span class="mut">1.3 GB</span><span class="btn">Get</span></div>
+ <div class="r"><span class="t">Gemma 4 E2B<span class="n">Slightly better in English, and much larger.</span></span><span class="mut">3.1 GB</span><span class="btn">Get</span></div>
+ <div class="r"><span class="t">Add Your Own GGUF</span><span class="btn">Choose…</span></div></section>
+<section class="sec" data-s="Apps"><h4>Paused Apps</h4>
+ <div class="mut" style="margin-bottom:10px">Halftype stays quiet in these apps, and Tab is theirs.</div>
+ <div class="r"><span class="t">Terminal</span><span class="btn">Remove</span></div>
+ <div class="r"><span class="t">Xcode</span><span class="btn">Remove</span></div>
+ <div class="r"><span class="btn">Add App…</span></div></section>
+<section class="sec" data-s="General"><h4>General</h4>
+ <div class="r"><span class="t">Start at Login</span><span class="sw"></span></div>
+ <div class="r"><span class="t">Update Automatically<span class="n">Version 0.9</span></span><span class="btn">Check Now</span><span class="sw"></span></div>
+ <div class="r"><span class="t">Length<span class="n">Longer suggestions are wrong more often.</span></span><span class="seg"><span>Short</span><span class="s">Medium</span><span>Long</span></span></div>
+ <div class="r"><span class="t">How Often<span class="n">More often means more wrong ones.</span></span><span class="seg"><span>Less</span><span class="s">Normal</span><span>More</span></span></div>
+ <div class="r"><span class="t">Next word</span><span class="key">Tab</span></div>
+ <div class="r"><span class="t">Whole suggestion</span><span class="key">⇧ Tab</span></div>
+ <div class="r"><span class="t">Hide the suggestion</span><span class="key">Esc</span></div>
+ <div class="foot">Everything runs on this Mac. Nothing you type is sent, and only counts are saved, never text.</div></section>`;
+const FIELD = `<div class="field"><div class="mark">h</div><div class="box">Type here, then press Tab on the grey text<span class="pill">Qwen 3.5 0.8B</span><span class="pw"></span></div><div class="status">Working.</div></div>`;
+const SECS = ['Stats','Models','Apps','General'];
+
+// Sky.metal, ported: blue fades out before the clear band's top, peach rises after its bottom; half-cell offset grids.
+function sky(cv, band, dark, x0 = 0) {
+  const W = cv.clientWidth || 720, H = cv.clientHeight || 500, r = 2;
+  cv.width = W * r; cv.height = H * r; const c = cv.getContext('2d'); c.scale(r, r);
+  const paper = dark ? '#121317' : '#fcfaf6', blue = dark ? '#213850' : '#a9cdf0', peach = dark ? '#4d3024' : '#f6c3a4';
+  c.fillStyle = paper; c.fillRect(0, 0, W, H);
+  const cell = 6, sat = v => Math.max(0, Math.min(1, v)), [t, b] = band;
+  const draw = (col, off, f) => { c.fillStyle = col; for (let y = off; y < H + cell; y += cell) for (let x = off + x0; x < W + cell; x += cell) { const d = f(y); if (d > .04) { c.beginPath(); c.arc(x, y, cell * .62 * Math.sqrt(d), 0, 7); c.fill(); } } };
+  if (!dark) c.globalCompositeOperation = 'multiply'; else c.globalCompositeOperation = 'lighter';
+  draw(blue, 0, y => sat(.62 - (y / H * .413 * H / Math.max(t, 1)) * 1.5));
+  draw(peach, cell / 2, y => sat(((.56 + .44 * (y - b) / Math.max(H - b, 1)) - .56) * 1.45));
+}
+
+const OPTIONS = [
+ {L:'A', name:'Today: sky behind everything, five pages', note:'What ships. The sidebar is a 3% tint over the sky, so the dots run through it top and bottom. Each settings page is its own page.', kind:'today'},
+ {L:'B', name:'Solid sidebar as a table of contents, one scroll', note:'Sidebar on opaque paper with a hairline; sky only behind the content. Stats, Models, Apps, General are one scroll; clicking jumps, the highlight follows. Cost: small (side background, Sky moves into the content ZStack, ScrollViewReader + scrollPosition). Mac only, as the app is.', kind:'toc', side:'solid'},
+ {L:'C', name:'Two items: Try It and Settings', note:'Same build as B but the sidebar only says where you are, not where in the page; section names stick to the top as you scroll. Cost: small, slightly less than B (no scroll tracking).', kind:'two', side:'solid'},
+ {L:'D', name:'No sidebar: a gear opens Settings', note:'Try It is the whole window; the gear top-right swaps in the scrolling settings on plain paper, with “‹ Try It” to go back. Sky stays a Try It thing. Cost: small; removes the sidebar and its toggle.', kind:'gear'},
+ {L:'E', name:'One scroll for everything', note:'No sidebar. The first screen is Try It under the sky; scroll down past the peach horizon into the settings. Section chips appear at the top once you’re below. Cost: medium (the sky scrolls with the field; the field\'s keys and Tab swell must keep working while it’s off screen).', kind:'all'},
+ {L:'F', name:'Floating sidebar card on the sky', note:'Keeps round 3’s “everything on the sky”: the sidebar becomes a milky pane like the content’s, inset, so dots frame it but never pass through. One scroll with the TOC. Cost: small.', kind:'toc', side:'card'},
+];
+
+let dark = true;
+function render() {
+  const m = document.getElementById('m'); m.innerHTML = '';
+  for (const o of OPTIONS) {
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `<h3><b>${o.L}</b>${o.name}</h3><div class="stage"><div class="win${dark ? ' dark' : ''}"></div></div><p>${o.note}</p>`;
+    m.appendChild(card); build(card.querySelector('.win'), o);
+  }
+}
+
+function settingsScroll(win, o, {pane = true, sticky = false, onSec} = {}) {
+  const body = sticky ? SETTINGS.replace(/<section class="sec" data-s="(\w+)"><h4>[^<]+<\/h4>/g, (s, n) => `<section class="sec" data-s="${n}"><div class="sticky">${n === 'Apps' ? 'Paused Apps' : n}</div>`) : SETTINGS;
+  const sc = document.createElement('div'); sc.className = 'scroll';
+  sc.innerHTML = `<div class="${pane ? 'pane' : 'pane'}" style="${pane ? '' : 'background:none;backdrop-filter:none'}">${body}</div><div style="height:30px"></div>`;
+  if (onSec) sc.addEventListener('scroll', () => {
+    let cur = SECS[0]; for (const s of sc.querySelectorAll('.sec')) if (s.offsetTop - sc.scrollTop < 140) cur = s.dataset.s;
+    if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4) cur = 'General';
+    onSec(cur);
+  });
+  return sc;
+}
+
+function build(win, o) {
+  win.innerHTML = `<div class="lights"><i></i><i></i><i></i></div>`;
+  const cv = document.createElement('canvas'); cv.className = 'sky';
+  const W = 720, H = 500;
+  if (o.kind === 'today') {
+    win.prepend(cv); sky(cv, [H * .413, H * .56], dark);
+    win.insertAdjacentHTML('beforeend', `<div class="sbtn"></div><div class="side" style="background:color-mix(in srgb,var(--wt) 3%,transparent)">${['Try It','Stats','Models','Apps','General'].map(n => `<a data-p="${n}">${n}</a>`).join('')}<div class="sp"></div><div class="tog">On <span class="sw"></span></div></div><div class="content"></div>`);
+    const content = win.querySelector('.content'), links = win.querySelectorAll('.side a');
+    const show = p => { links.forEach(a => a.classList.toggle('on', a.dataset.p === p));
+      if (p === 'Try It') { content.innerHTML = FIELD; sky(cv, [150, 360], dark); return; }
+      sky(cv, [H * .413, H * .56], dark);
+      const sec = SETTINGS.split('<section').find(s => s.includes(`data-s="${p}"`));
+      content.innerHTML = `<div class="scroll"><div class="pane"><section${sec}</div></div>`; };
+    links.forEach(a => a.onclick = () => show(a.dataset.p)); show('Stats'); return;
+  }
+  if (o.kind === 'toc' || o.kind === 'two') {
+    const card = o.side === 'card';
+    const skyBox = document.createElement('div'); skyBox.style.cssText = `position:absolute;top:0;bottom:0;right:0;left:${card ? 0 : 150}px`; skyBox.appendChild(cv); win.prepend(skyBox);
+    const items = o.kind === 'two' ? ['Try It', 'Settings'] : ['Try It', ...SECS];
+    const sideStyle = card ? 'top:34px;bottom:10px;left:10px;width:140px;padding:10px 8px;border-radius:14px;background:var(--pane);backdrop-filter:blur(6px);background:color-mix(in srgb,var(--paper) 88%,transparent)' : 'background:var(--side);border-right:1px solid var(--hair)';
+    win.insertAdjacentHTML('beforeend', `<div class="sbtn"></div><div class="side" style="${sideStyle}">${items.map((n, i) => `<a data-p="${n}" class="${o.kind === 'toc' && i ? '' : ''}">${n}</a>`).join('')}<div class="sp"></div><div class="tog">On <span class="sw"></span></div></div><div class="content" style="left:${card ? 160 : 150}px"></div>`);
+    const content = win.querySelector('.content'), links = win.querySelectorAll('.side a');
+    const mark = p => links.forEach(a => a.classList.toggle('on', a.dataset.p === p));
+    let sc;
+    const field = () => { mark('Try It'); sc = null; content.innerHTML = FIELD; sky(cv, [150, 360], dark); };
+    const settings = (sec) => {
+      if (!sc) { content.innerHTML = ''; sc = settingsScroll(win, o, { sticky: o.kind === 'two', onSec: o.kind === 'toc' ? mark : null }); content.appendChild(sc); sky(cv, [36, H - 36], dark); }
+      if (o.kind === 'two') { mark('Settings'); return; }
+      mark(sec); const t = sc.querySelector(`[data-s="${sec}"]`); sc.scrollTo({ top: t.offsetTop - 8, behavior: 'smooth' });
+    };
+    links.forEach(a => a.onclick = () => a.dataset.p === 'Try It' ? field() : settings(a.dataset.p));
+    o.kind === 'two' ? settings() : settings('Stats'); return;
+  }
+  if (o.kind === 'gear') {
+    win.prepend(cv);
+    const content = document.createElement('div'); content.className = 'content'; content.style.left = 0; win.appendChild(content);
+    const nav = document.createElement('div'); win.appendChild(nav);
+    const field = () => { nav.innerHTML = `<div class="gear" title="Settings">⚙︎</div>`; nav.firstChild.onclick = settings; content.innerHTML = FIELD; sky(cv, [150, 360], dark); };
+    const settings = () => { nav.innerHTML = `<div class="back">‹ Try It</div>`; nav.firstChild.onclick = field; content.innerHTML = ''; content.appendChild(settingsScroll(win, o, { sticky: true })); const c = cv.getContext('2d'); sky(cv, [-1, H + 1], dark); };
+    settings(); return;
+  }
+  if (o.kind === 'all') {
+    const sc = document.createElement('div'); sc.className = 'scroll'; sc.style.paddingTop = 0; win.appendChild(sc);
+    const hero = document.createElement('div'); hero.style.cssText = `position:relative;height:${H}px`; cv.style.height = H + 'px'; hero.appendChild(cv); hero.insertAdjacentHTML('beforeend', FIELD + `<div class="hint">Settings ↓</div>`); sc.appendChild(hero);
+    const rest = settingsScroll(win, o, { pane: false }); rest.style.cssText = 'position:static;overflow:visible;padding:0'; sc.appendChild(rest);
+    const chips = document.createElement('div'); chips.className = 'chips'; chips.innerHTML = ['Try It', ...SECS].map(n => `<a data-p="${n}">${n}</a>`).join(''); win.appendChild(chips);
+    const upd = () => { let cur = 'Try It'; for (const s of sc.querySelectorAll('.sec')) if (s.offsetTop - sc.scrollTop < 140) cur = s.dataset.s; if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4) cur = 'General';
+      chips.style.opacity = sc.scrollTop > 200 ? 1 : 0; chips.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.p === cur)); };
+    sc.addEventListener('scroll', upd); upd();
+    chips.querySelectorAll('a').forEach(a => a.onclick = () => sc.scrollTo({ top: a.dataset.p === 'Try It' ? 0 : sc.querySelector(`[data-s="${a.dataset.p}"]`).offsetTop - 30, behavior: 'smooth' }));
+    hero.querySelector('.hint').onclick = () => sc.scrollTo({ top: H - 20, behavior: 'smooth' });
+    requestAnimationFrame(() => sky(cv, [150, 360], dark)); return;
+  }
+}
+document.getElementById('dk').onclick = () => { dark = true; render(); };
+document.getElementById('lt').onclick = () => { dark = false; render(); };
+if (location.hash === '#light') dark = false;
+render();
+</script>
+</body>
+</html>
