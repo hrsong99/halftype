@@ -535,7 +535,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
     /// The glyph with a dot at its top right, cut clear around it so it reads at menu-bar size.
-    /// Not a template, as macOS paints a template in one colour and the dot should be orange; the glyph is coloured for the menu bar's
+    /// Not a template, as macOS paints a template in one colour and the dot should be red, macOS's badge colour for something new; the glyph is coloured for the menu bar's
     /// appearance at each draw instead, so it still follows light and dark.
     static func marked(_ glyph: NSImage) -> NSImage {
         let image = NSImage(size: glyph.size, flipped: false) { rect in
@@ -547,7 +547,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             NSGraphicsContext.current?.compositingOperation = .clear
             NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
             NSGraphicsContext.current?.compositingOperation = .sourceOver
-            NSColor.systemOrange.setFill()
+            NSColor.systemRed.setFill()
             NSBezierPath(ovalIn: dot).fill()
             return true
         }
