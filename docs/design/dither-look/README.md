@@ -28,4 +28,14 @@ John: "Can I see a version of D and a little bit of F? F as in the biggest anima
 - `round3.html`: A rise and swell, B still sky with swell on Tab, C warmth spreading from the words; round 2's D and F as D′ and F′. The key ripple is drawn above the glass (behind it, the blur erased it), lasts 0.3 s, and fast typing takes the strongest ripple rather than adding them up.
 - `round3.png`: frozen at 4.25 s, just after the first Tab.
 
-Recommendation: A. Pick: (pending)
+Recommendation: A. Pick: A, without the key ripple.
+
+## Built (Sources/ItdaApp/Sky.swift)
+
+John: "Yes A but no ripple around text when they get typed, I want the main animation for typing to be a swell of the bottom stuff (kinda like music visualizer)." Then: "adapt the rest of the tabs to kind of match."
+
+- Every page sits on the halftone sky. The field and the settings pages are milky panes (60% window colour, no `.glassEffect`: in off-screen shots it turned the field's text dark on a dark window).
+- Typing: each key lifts 18 bars of the peach horizon by its own random height, in fast and gone in about half a second; the sum is capped, so fast typing dances instead of climbing.
+- Tab: round 3 A's warm swell up the sky plus a 1.006 breath of the field. Tabs in other apps don't move it, and Reduce Motion turns keys and Tabs off.
+- The frame clock stops 3 s after the last key, Tab or rise.
+- `built/`: window shots from `ITDA_SHOTS=<dir> swift test --disable-keychain --filter WindowShots`, including `13-sky-typing.png` and `14-sky-tab.png`.

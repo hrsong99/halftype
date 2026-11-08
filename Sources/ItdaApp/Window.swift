@@ -9,6 +9,10 @@ struct Root: View {
     @State private var draft = ""
     @State private var sidebar: Bool
     @State private var page: Page
+    @State private var keys: [Date] = []
+    @State private var tabs: [Date] = []
+    @Environment(\.accessibilityReduceMotion) private var still
+    @Environment(\.controlActiveState) private var active
 
     private let picking: Bool
 
@@ -26,7 +30,7 @@ struct Root: View {
             if sidebar { side.transition(.move(edge: .leading)) }
             ZStack {
                 switch page {
-                case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking)
+                case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking, tab: tabs.last)
                 case .models: ModelsPage(app: app)
                 case .apps: AppsPage(app: app)
                 case .general: GeneralPage(app: app)
@@ -44,9 +48,15 @@ struct Root: View {
                 .padding(.top, 9)
         }
         .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
-        .background(Color(nsColor: .textBackgroundColor))
+        .background { Sky(rise: page == .field ? min(Double(draft.count) / 34, 1) : 0, keys: keys, tabs: tabs) }
+        .onChange(of: draft) { if !still { keys = Root.recent(keys) } }
+        // A Tab in another app, with this window behind it, isn't this window's.
+        .onChange(of: app.tabs) { if !still, active == .key { tabs = Root.recent(tabs) } }
         .ignoresSafeArea()
     }
+
+    /// The moments still moving the sky, and now.
+    static func recent(_ moments: [Date]) -> [Date] { moments.filter { -$0.timeIntervalSinceNow < Sky.life } + [.now] }
 
     private var side: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -82,13 +92,16 @@ private struct FieldPage: View {
     @ObservedObject var app: App
     @Binding var draft: String
     @Binding var page: Root.Page
+    /// The last Tab taken here, which the field breathes with.
+    var tab: Date?
     @FocusState private var focused: Bool
     @State private var picking: Bool
     /// The watcher's reason once it has held for a moment, so typing doesn't flicker the line.
     @State private var settled: Watcher.Why
 
-    init(app: App, draft: Binding<String>, page: Binding<Root.Page>, picking: Bool = false) {
+    init(app: App, draft: Binding<String>, page: Binding<Root.Page>, picking: Bool = false, tab: Date? = nil) {
         self.app = app
+        self.tab = tab
         _draft = draft
         _page = page
         _picking = State(initialValue: picking)
@@ -152,7 +165,11 @@ private struct FieldPage: View {
             }
         }
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 20))
+        .pane()
+        .keyframeAnimator(initialValue: 1.0, trigger: tab) { view, scale in view.scaleEffect(scale) } keyframes: { _ in
+            CubicKeyframe(1.006, duration: 0.25)
+            CubicKeyframe(1, duration: 0.45)
+        }
         .frame(maxWidth: 500)
         .onAppear { focused = true }
         .onChange(of: draft) { picking = false }
@@ -185,6 +202,13 @@ private struct FieldPage: View {
                 }
             }
         }
+    }
+}
+
+extension View {
+    /// A milky pane over the sky, as in the design. Not `.glassEffect`: it decides its text colour from what's behind, which went dark on a dark window in our off-screen shots.
+    func pane() -> some View {
+        background(Color(nsColor: .textBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 20))
     }
 }
 
@@ -273,7 +297,9 @@ private struct Plain<Content: View>: View {
                 Text(title).font(.system(size: 20, weight: .semibold)).padding(.bottom, 12)
                 content
             }
-            .frame(maxWidth: 480, alignment: .leading)
+            .padding(EdgeInsets(top: 16, leading: 20, bottom: 18, trailing: 20))
+            .pane()
+            .frame(maxWidth: 520, alignment: .leading)
             .padding(.horizontal, 28)
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity)

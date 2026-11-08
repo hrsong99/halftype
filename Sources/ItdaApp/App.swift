@@ -36,6 +36,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var why = Watcher.Why.unreadable
     /// A suggestion was taken since the window opened, and nothing has stood in the way since.
     @Published var accepted = false
+    /// Counts every Tab taken anywhere, so the window's sky can swell on one.
+    @Published var tabs = 0
     /// Counts each bind and unbind, so a reason from an earlier one is dropped.
     var binding = 0
     /// This launch began without a model or the permission, so the field gets a sentence once, and the first ghost needs no typing.
@@ -138,7 +140,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         loadModel()
         // Accessibility is the one permission, and the window asks for it. Nothing runs until the grant.
         watcher.onWhy = { [weak self] why, binding in DispatchQueue.main.async { self?.whyChanged(why, binding: binding) } }
-        tap.onAccept = { [weak self] in DispatchQueue.main.async { if self?.accepted == false { self?.accepted = true } } }
+        tap.onAccept = { [weak self] in DispatchQueue.main.async { self?.tabs += 1; if self?.accepted == false { self?.accepted = true } } }
         tap.onUp = { [weak self] up in DispatchQueue.main.async { self?.tapChanged(up: up) } }
         trusted = tap.hold()
         if !trusted { fresh = true }

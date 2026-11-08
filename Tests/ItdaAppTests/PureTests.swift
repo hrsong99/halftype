@@ -1479,6 +1479,16 @@ final class FakeServer: URLProtocol {
         shoot("8-no-font", app { ready($0); $0.why = .noFont })
         shoot("9-failed-download", app { $0.trusted = true; $0.modelChanged(.failed("Hugging Face answered 503. Try again later.")) })
         shoot("10-models-delete", app { $0.trusted = true; $0.activePath = $0.store.directory.appendingPathComponent("Qwen3.5-0.8B-Q4_K_M.gguf").path }, page: .models)
+        // The sky mid-typing (fast keys lifting the bars) and 0.35 s into a Tab's swell.
+        let now = Date()
+        for (name, keys, tabs) in [("13-sky-typing", [0.3, 0.2, 0.12, 0.05], [Double]()), ("14-sky-tab", [0.5], [0.35])] {
+            let sky = NSHostingView(rootView: Sky(rise: 0.6, keys: keys.map { now - $0 }, tabs: tabs.map { now - $0 }))
+            sky.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
+            sky.layoutSubtreeIfNeeded()
+            let rep = sky.bitmapImageRepForCachingDisplay(in: sky.bounds)!
+            sky.cacheDisplay(in: sky.bounds, to: rep)
+            try rep.representation(using: .png, properties: [:])!.write(to: dir.appendingPathComponent("\(name).png"))
+        }
         shoot("11-accepted-dark", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } }, dark: true)
     }
 
