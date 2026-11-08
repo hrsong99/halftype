@@ -28,6 +28,8 @@ public final class Engine: @unchecked Sendable {
     static let checkpointTail = 4
 
     private let path: String
+    /// Read at each load: a LoRA adapter to apply, or nil. One that doesn't fit the model is left out, not an error.
+    private let adapter: @Sendable () -> String?
     private let queue = DispatchQueue(label: "itda.engine", qos: .userInteractive)
     private let latest = Atomic<Int>(0)
     private var model: OpaquePointer?
@@ -42,13 +44,14 @@ public final class Engine: @unchecked Sendable {
     /// The recurrent state a few tokens before the last prompt's end, and how many tokens that is.
     private var checkpoint: (count: Int, state: [UInt8])?
 
-    public convenience init(modelPath: String) throws {
-        self.init(unloaded: modelPath)
+    public convenience init(modelPath: String, adapter: @escaping @Sendable () -> String? = { nil }) throws {
+        self.init(unloaded: modelPath, adapter: adapter)
         try queue.sync { try load() }
     }
 
-    init(unloaded modelPath: String) {
+    init(unloaded modelPath: String, adapter: @escaping @Sendable () -> String? = { nil }) {
         path = modelPath
+        self.adapter = adapter
         // Metal wires the whole model (1.5 GB here) for as long as this lasts, 3 minutes by default, which no one sees in Activity Monitor.
         // 15 s covers typing at full speed; after that the weights are ordinary evictable pages, at about 30 ms on the next request.
         setenv("GGML_METAL_RESIDENCY_KEEP_ALIVE_S", "15", 0)
@@ -105,6 +108,11 @@ public final class Engine: @unchecked Sendable {
         guard let ctx = llama_init_from_model(model, params) else {
             llama_model_free(model)
             throw EngineError.load(path)
+        }
+        // Freed with the model.
+        if let file = adapter(), let lora = llama_adapter_lora_init(model, file) {
+            var adapters: [OpaquePointer?] = [lora], scales: [Float] = [1]
+            _ = llama_set_adapters_lora(ctx, &adapters, 1, &scales)
         }
         (self.model, self.ctx) = (model, ctx)
         vocab = Vocab(llama_model_get_vocab(model))

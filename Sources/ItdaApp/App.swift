@@ -31,6 +31,13 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Main thread only: the suggestion the last Tab took from.
     private var lastTaken = -1
     nonisolated(unsafe) static var tallyFile: URL? = support.appendingPathComponent("stats.json")
+
+    /// Hidden, for trying a personal LoRA (lab/dogfood on the `learn` branch): `defaults write app.itda.Itda adapterPath <gguf>`.
+    /// Applied on odd dates only, so stats.json's days compare with and without it. Read at each model load.
+    @Sendable static func adapterToday() -> String? {
+        guard Calendar.current.component(.day, from: Date()) % 2 == 1 else { return nil }
+        return UserDefaults.standard.string(forKey: "adapterPath")
+    }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     @Published var ready = false
     /// What just went wrong with a download or a switch.
@@ -271,7 +278,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         latestOpen += 1
         let id = latestOpen
         loading.async { [self] in
-            let engine = try? Engine(modelPath: path)
+            let engine = try? Engine(modelPath: path, adapter: App.adapterToday)
             DispatchQueue.main.async { [self] in
                 guard id == latestOpen else { return }
                 loadingPath = nil

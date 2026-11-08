@@ -166,3 +166,12 @@ private let long = String(repeating: "The river runs past the old mill and on to
     for _ in 0..<100 where weakEngine != nil { usleep(10_000) }
     #expect(weakEngine == nil)
 }
+
+@Test(needsModel) func anAdapterThatWontLoadIsLeftOut() throws {
+    let plain = try Engine(modelPath: modelPath!)
+    let text = run(plain, "Hello my", " fr")?.text
+    plain.unload()
+    let engine = try Engine(modelPath: modelPath!, adapter: { "/nonexistent.gguf" })
+    defer { engine.unload() }
+    #expect(run(engine, "Hello my", " fr")?.text == text)
+}
