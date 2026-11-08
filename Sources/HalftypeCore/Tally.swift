@@ -81,7 +81,11 @@ public struct Tally: Codable, Equatable, Sendable {
     public static func period(_ unit: Calendar.Component, back: Int, now: Date = Date(), _ calendar: Calendar = .current) -> Period? {
         guard let shifted = calendar.date(byAdding: unit, value: -back, to: now), let this = calendar.dateInterval(of: unit, for: shifted),
               let last = calendar.date(byAdding: .day, value: -1, to: this.start), let before = calendar.dateInterval(of: unit, for: last) else { return nil }
-        let days = { (from: Date, to: Date) in calendar.dateComponents([.day], from: calendar.startOfDay(for: from), to: calendar.startOfDay(for: to)).day ?? 0 }
+        // Days apart by their dates, read in UTC: a day that starts at 01:00, after a midnight clock change, still counts whole.
+        var utc = calendar
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let date = { (moment: Date) in utc.date(from: calendar.dateComponents([.era, .year, .month, .day], from: moment)) ?? moment }
+        let days = { (from: Date, to: Date) in utc.dateComponents([.day], from: date(from), to: date(to)).day ?? 0 }
         let length = days(this.start, this.end), previous = days(before.start, before.end)
         let elapsed = back == 0 ? min(length, days(this.start, now) + 1) : length
         return Period(start: this.start, length: length, elapsed: elapsed, previousStart: before.start, previousLength: back == 0 ? min(elapsed, previous) : previous)

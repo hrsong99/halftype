@@ -53,6 +53,12 @@ import Testing
     #expect(Tally.period(.month, back: 0, now: march, calendar) == .init(start: calendar.date(from: DateComponents(year: 2027, month: 3, day: 1))!, length: 31, elapsed: 31,
                                                                        previousStart: calendar.date(from: DateComponents(year: 2027, month: 2, day: 1))!, previousLength: 28))
     #expect(Tally.period(.month, back: 1, now: march, calendar)?.previousLength == 31)
+    // Santiago's clocks skip midnight on 2026-09-06, so that day starts at 01:00 and is 23 hours long, but still a day.
+    var santiago = Calendar(identifier: .gregorian)
+    santiago.timeZone = TimeZone(identifier: "America/Santiago")!
+    let tuesday = try #require(santiago.date(from: DateComponents(year: 2026, month: 9, day: 8, hour: 12)))
+    let week = try #require(Tally.period(.weekOfYear, back: 0, now: tuesday, santiago))
+    #expect(week.length == 7 && week.elapsed == 3 && Tally.key(week.start, santiago) == "2026-09-06")
     var tally = Tally()
     tally.took(3, first: true, on: monday, calendar); tally.took(4, first: true, on: date(11, 2), calendar)
     #expect(tally.sum(7, to: monday, calendar).tabs == 1 && tally.sum(8, to: monday, calendar).characters == 7)

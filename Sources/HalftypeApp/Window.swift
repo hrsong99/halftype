@@ -479,7 +479,12 @@ struct StatsPage: View {
     var body: some View {
         let period = span == .all ? nil : Tally.period(span == .week ? .weekOfYear : .month, back: back, now: Date(), calendar)
         let shown = period.map { app.tally.sum($0.elapsed, to: day($0.elapsed - 1, of: $0.start), calendar) } ?? app.tally.total
-        let before = period.flatMap { $0.previousLength == 0 ? nil : app.tally.sum($0.previousLength, to: day($0.previousLength - 1, of: $0.previousStart), calendar) }
+        // Nothing to compare with until counting had begun by the end of the stretch before; after that a quiet stretch counts as 0.
+        let before = period.flatMap { period -> Tally.Day? in
+            let last = day(period.previousLength - 1, of: period.previousStart)
+            guard period.previousLength > 0, let since = app.tally.since, since <= Tally.key(last, calendar) else { return nil }
+            return app.tally.sum(period.previousLength, to: last, calendar)
+        }
         Plain(title: "Stats", note: "What Tab has typed for you.") {
             HStack {
                 if let period {
@@ -522,7 +527,7 @@ struct StatsPage: View {
     private static let keyFormat: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX"); return f }()
 
     /// Up or down on the stretch before, once there was one.
-    private func change(_ now: Int, _ before: Int?) -> Int? { before.flatMap { $0 > 0 ? now - $0 : nil } }
+    private func change(_ now: Int, _ before: Int?) -> Int? { before.map { now - $0 } }
 
     private func caption(_ period: Tally.Period?, _ before: Tally.Day?) -> String {
         if let hovered {
@@ -530,7 +535,7 @@ struct StatsPage: View {
             return "\(hovered.formatted(.dateTime.weekday(.wide).month().day())): \(day.tabs) Tabs, \(day.characters) letters"
         }
         guard let period else { return "Each dot is a day, bigger for more Tabs." }
-        guard let before, before.tabs > 0 else { return "" }
+        guard let before else { return "" }
         let stretch = back > 0 ? (span == .week ? "The week before" : "The month before")
             : period.elapsed == 1 ? "The same day last \(span == .week ? "week" : "month")" : "The same \(period.previousLength) days last \(span == .week ? "week" : "month")"
         return "\(stretch): \(before.tabs.formatted()) Tabs"
