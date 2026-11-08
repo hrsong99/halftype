@@ -26,6 +26,8 @@ class KeyTap: @unchecked Sendable {
         var before: String
         /// Which of the model's suggestions this is, for the counts: redraws and the rest after a Tab keep it.
         var suggestion = 0
+        /// Which of the panel's drawings it was armed on, so a Tab's glint goes only where its words were drawn. The rest after a Tab keeps it.
+        var drawing = 0
     }
 
     struct State {
@@ -51,7 +53,7 @@ class KeyTap: @unchecked Sendable {
             let rest = String(armed.ghost.remainder.dropFirst(next.text.count))
             pending = (pending?.from ?? armed.before, to)
             self.armed = rest.isEmpty ? nil : Armed(pid: armed.pid, ghost: Ghost(remainder: rest), typesKeys: armed.typesKeys, committed: to, before: to,
-                                                         suggestion: armed.suggestion)
+                                                         suggestion: armed.suggestion, drawing: armed.drawing)
             composing = strokes?.last.map { TwoSetLayout.letterCodes.contains(Int64($0.code)) } ?? false  // As if the user typed it.
             // Finishing a syllable can add more than the text typed: `그 달` to `그 다라가` is two characters, from `가` alone.
             return (strokes, next.text, max(0, to.count - armed.before.count))
@@ -66,9 +68,9 @@ class KeyTap: @unchecked Sendable {
     /// Off this thread at once. Given the generation this input moved to.
     var onInput: (@Sendable (Int) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
-    /// Given the characters a Tab added, which suggestion it took from, and the text, nil when typed as strokes (an input method
-    /// may recompose the letter before it, moving the text from where the ghost was). Off this thread at once.
-    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int, _ text: String?) -> Void)?
+    /// Given the characters a Tab added, which suggestion it took from, the text (nil when typed as strokes: an input method may recompose
+    /// the letter before it, moving the text from where the ghost was), and the drawing it was taken from. Off this thread at once.
+    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int, _ text: String?, _ drawing: Int) -> Void)?
     /// When the tap comes up or the system refuses it, on `keeper`. Not for a tap back up within the retry.
     var onUp: (@Sendable (Bool) -> Void)?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
@@ -152,7 +154,7 @@ class KeyTap: @unchecked Sendable {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode), flags = event.flags
         let target = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
         var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)?
-        var suggestion = 0
+        var suggestion = 0, drawing = 0
         var generation = 0
         let decision = state.withLock { s -> Decision in
             let armed = s.armed.flatMap { $0.pid == target ? $0 : nil }  // A key for another app is that app's.
@@ -164,13 +166,14 @@ class KeyTap: @unchecked Sendable {
             if case .accept(let all) = decision, let armed {
                 plan = s.accept(armed, all: all)
                 suggestion = armed.suggestion
+                drawing = armed.drawing
             }
             if plan == nil { s.pending = nil }
             return decision
         }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
-            onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion, plan.strokes == nil ? plan.text : nil)
+            onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion, plan.strokes == nil ? plan.text : nil, drawing)
         }
         if decision == .reenable { reenable() }
         if case .dismiss = decision { onDismiss?() }

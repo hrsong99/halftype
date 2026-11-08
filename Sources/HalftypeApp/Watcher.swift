@@ -447,6 +447,7 @@ final class Watcher: @unchecked Sendable {
             }
             var offer = armed
             offer.ghost.remainder = drawn  // `suggestion` keeps the rest, to draw as the field reaches it.
+            offer.drawing = panel.drawing
             guard typedThrough || Gate.worthShowing(offer.ghost) else {  // What fits must still be worth a Tab.
                 report(.noRoom)
                 return hidePanel()

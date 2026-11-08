@@ -222,10 +222,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
         tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
-        tap.onAccept = { [weak self] added, keys, suggestion, text in
+        tap.onAccept = { [weak self] added, keys, suggestion, text, drawing in
             DispatchQueue.main.async {
                 guard let self else { return }
-                if let text { self.panel.glint(text) }
+                if let text { self.panel.glint(text, drawing: drawing) }
                 self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
                 self.tabs += 1

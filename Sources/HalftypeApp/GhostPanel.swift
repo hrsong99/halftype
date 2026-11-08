@@ -209,6 +209,7 @@ class GhostPanel: NSPanel {
               NSScreen.screens.contains(where: { $0.frame.contains(GhostLayout.appKitRect(spec.caret, primaryHeight: primary.frame.height).origin) })
         else { hideGhost(); return nil }
         view.layout = layout
+        drawing += 1
         taken = 0
         setFrame(GhostLayout.appKitRect(layout.window, primaryHeight: primary.frame.height), display: false, animate: false)
         view.displayIfNeeded()
@@ -224,11 +225,13 @@ class GhostPanel: NSPanel {
     }
 
     private lazy var shine = GlintPanel()
+    /// Counts what `show` draws, so a Tab armed on an earlier drawing doesn't glint over this one. Main thread.
+    private(set) var drawing = 0
     /// How much of this layout's text Tabs have taken since it was drawn, so quick Tabs before a redraw light the next words, not the first again.
     private var taken = 0
     /// Main thread, right after a Tab: in our own window the words just taken glint where this ghost drew them, if it still shows them.
-    func glint(_ text: String) {
-        guard let layout = view.layout, layout.glass, isVisible, let range = Self.next(text, in: layout.storage.string, after: taken) else { return }
+    func glint(_ text: String, drawing: Int) {
+        guard drawing == self.drawing, let layout = view.layout, layout.glass, isVisible, let range = Self.next(text, in: layout.storage.string, after: taken) else { return }
         taken = NSMaxRange(range)
         if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { shine.play(layout, taken: range, frame: frame) }
     }

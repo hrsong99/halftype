@@ -312,10 +312,19 @@ import Testing
         #expect(decide(53, .maskShift) == .dismiss(swallow: true))
         #expect(decide(53, [.maskCommand, .maskAlternate]) == .dismiss(swallow: false))
     }
+    @Test func aTabReportsTheDrawingItWasTakenFromAndTheRestKeepsIt() {
+        let drawings = Mutex<[Int]>([])
+        let tap = KeyTap()
+        tap.onAccept = { _, _, _, _, drawing in drawings.withLock { $0.append(drawing) } }
+        #expect(tap.arm(.init(pid: pid, ghost: Ghost(remainder: " very very good"), typesKeys: false, committed: "hello", before: "hello", drawing: 7), generation: tap.generation))
+        _ = press(tap, key(48))
+        _ = press(tap, key(48))  // Before any redraw: the rest after a Tab, still on drawing 7.
+        #expect(drawings.withLock { $0 } == [7, 7], "a glint is matched to the drawing its words were on, and skipped after a redraw")
+    }
     @Test func anAcceptIsReportedAndNothingElseIs() {
         let accepts = Atomic<Int>(0), taken = Mutex("")
         let tap = KeyTap()
-        tap.onAccept = { _, _, _, text in accepts.add(1, ordering: .relaxed); taken.withLock { $0 = text ?? "" } }
+        tap.onAccept = { _, _, _, text, _ in accepts.add(1, ordering: .relaxed); taken.withLock { $0 = text ?? "" } }
         #expect(!press(tap, key(48)).swallowed && accepts.load(ordering: .relaxed) == 0)  // No ghost: the app's Tab.
         armed(tap, Ghost(remainder: " there"))
         _ = press(tap, key(53))
