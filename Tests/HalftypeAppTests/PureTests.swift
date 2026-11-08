@@ -662,11 +662,16 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     var answers = true
     /// True answers, then stops short with nil, as a decode failure after streaming does.
     var stopsShort = false
+    /// True answers word by word, as the engine streams once the first word has passed the gate.
+    var streams = false
     init(_ text: String) { self.text = text }
     func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
         asks.add(1, ordering: .relaxed)
         onAsk?()
-        onResult(answers ? Suggestion(text: text, gate: gate) : nil)
+        if answers, streams {
+            var so = ""
+            for word in text.split(separator: " ") { so += " " + word; onResult(Suggestion(text: so, gate: gate)) }
+        } else { onResult(answers ? Suggestion(text: text, gate: gate) : nil) }
         if stopsShort { onResult(nil) }
     }
     func cancel() {}
@@ -984,6 +989,32 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         #expect(await soon { seen.withLock { $0 } == .shown })
         #expect(!keys.press(tap, keys.key(8, pid: 0, flags: .maskCommand)).swallowed)  // Cmd-C: the field doesn't change.
         #expect(await soon { seen.withLock { $0 } == .idle && !panel.isVisibleGhost })
+    }
+    @Test func aDayIsMarkedPersonalOnlyOnceTheEngineMatchesToday() {
+        func marked(_ hasAdapter: Bool, _ applied: Bool?, _ wanted: Bool) -> (with: Bool, without: Bool) {
+            var tally = Tally()
+            App.markPersonal(&tally, hasAdapter: hasAdapter, applied: applied, wanted: wanted)
+            let day = tally.days.values.first ?? Tally.Day()
+            return (day.withModel, day.withoutModel)
+        }
+        #expect(marked(false, true, true) == (true, true), "no adapter: mixed, so out of the comparison")
+        #expect(marked(true, true, true) == (true, false))
+        #expect(marked(true, false, false) == (false, true))
+        #expect(marked(true, false, true) == (false, false), "the engine hasn't caught up with today")
+        #expect(marked(true, nil, true) == (false, false), "unloaded")
+    }
+    @Test func aStreamedSuggestionIsShownOnce() async {
+        let model = CountingCompleter(" there my friend")
+        model.streams = true
+        let watcher = watcher(Field(before: "hello"), completer: model)
+        host.now.withLock { $0.caretX = 130 }  // Room for all three words.
+        let shown = Atomic<Int>(0)
+        watcher.onShown = { shown.add(1, ordering: .relaxed) }
+        watcher.scheduleUpdate()
+        #expect(await soon { armed()?.ghost.remainder == " there my friend" })
+        await watcher.settle()
+        #expect(shown.load(ordering: .relaxed) == 1)
+        watcher.hideNow()
     }
     @Test func aModelThatStopsShortTakesBackWhatItStreamed() async {
         let model = CountingCompleter(" there friend")

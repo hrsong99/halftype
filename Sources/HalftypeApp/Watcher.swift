@@ -48,7 +48,7 @@ final class Watcher: @unchecked Sendable {
     private var lastGeneration = 0
     private var request = 0
     private var unloadWork: DispatchWorkItem?
-    /// Numbers the model's suggestions, for the counts: following one as you type keeps its number.
+    /// Numbers the model's suggestions by their request, for the counts: streaming or following one as you type keeps its number.
     private var suggestionNumber = 0
     /// Main thread only: the last suggestion counted as shown.
     private var counted = 0
@@ -414,7 +414,7 @@ final class Watcher: @unchecked Sendable {
         guard let last else { return }
         let text = result.text
         suggestion = (anchor, text)
-        suggestionNumber += 1
+        suggestionNumber = id  // One request is one suggestion, however many times it streams.
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
         if let ghost = Follow.check(anchor: anchor, suggestion: text, field: field) { display(ghost, field, last, lastGeneration) }
