@@ -236,7 +236,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tune()
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
-        tap.onTaught = { [weak self] key in DispatchQueue.main.async { self?.taught = key } }
+        // Only a key in our own window teaches: a Tab in another app while onboarding is open isn't the lesson.
+        tap.onTaught = { [weak self] key in
+            DispatchQueue.main.async { if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid() { self?.taught = key } }
+        }
         tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
         tap.onAccept = { [weak self] added, keys, suggestion, text, drawing in
             DispatchQueue.main.async {
