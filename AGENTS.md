@@ -16,7 +16,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - Always pass `--disable-keychain`: without it the first SwiftPM download of llama.cpp can hang on keychain credentials.
 - **`scripts/e2e.sh` takes the user's keyboard and cursor focus while it runs. Ask them first, every time.** A 60 s pause in typing doesn't mean they have stopped using the Mac. Unit tests and reviews don't take focus.
 - The Mac has limited memory: run one heavy build or model at a time, and don't steal focus.
-- `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh d` rebuilds `Resources/`.
+- `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh d` rebuilds `Resources/`. The window's `Mark` (Window.swift) draws `docs/icon/menubar.svg`'s paths by hand: change the logo, change it too.
 
 ## Where things are
 - `HalftypeCore`: pure logic, with no model or GUI. Test it here first.
