@@ -16,4 +16,6 @@ John: "What about C + D (and can we make the suggestions gleam like that)"
 - `round2.html`: five C + D windows on one 6 s clock (suggestion at 0.5 s, Tab at 3.8 s turns the glass to ink), with pause, replay, ½× and ¼×, and a scrubber; `round2.html#t=0.95` freezes it. A sweep (one glint on arrival, one on Tab), B flowing glass, C written in, D a sharper glass ribbon, E a faint ribbon. F and G are Codex images (`images/K.png`, `L.png`).
 - `round2.png`: frozen at 0.95 s, A mid-glint and C mid-write.
 
-Recommendation: A (sweep); ribbon D or E. Pick: (pending)
+Recommendation: A (sweep); ribbon D or E.
+
+John (after round 2): "because suggestions change so often we don't want there to be an animation when the suggestions appear right? They should just appear instantaneously with the glassy look, but when accepted they should sweep or something very quickly". So: C + D, suggestions in glass with no entrance, one quick glint on Tab only.

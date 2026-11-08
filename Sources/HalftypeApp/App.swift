@@ -172,8 +172,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
+    /// Try It is where people judge Halftype first, so there it shows a suggestion whenever it can, as long as it can, whatever the settings say.
     func tune() {
-        Tuning.current.withLock { $0 = Tuning(floor: length.floor, threshold: often.threshold) }
+        let tryIt = NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid()
+        let tuning = tryIt ? Tuning(floor: -.infinity, threshold: Often.always.threshold) :Tuning(floor: length.floor, threshold: often.threshold)
+        guard Tuning.current.withLock({ $0 }) != tuning else { return }
+        Tuning.current.withLock { $0 = tuning }
         watcher.retune()
     }
     @Published var pausedApps = Set(UserDefaults.standard.stringArray(forKey: "pausedApps") ?? []) {
@@ -317,6 +321,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private var activeHere: Bool { on && !pausedApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
 
     @objc private func rebind() {
+        tune()  // Try It and every other app are tuned apart.
         watcher.hideNow()
         tap.reenable()
         updateIcon()
@@ -598,7 +603,8 @@ enum Length: String, CaseIterable {
 enum Personal: String, CaseIterable { case off, compare, on }
 
 enum Often: String, CaseIterable {
-    case less, normal, more
-    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2 } }
+    case less, normal, more, always
+    /// Always has no check at all, unmeasured: what Try It shows.
+    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2; case .always: -.infinity } }
 }
 

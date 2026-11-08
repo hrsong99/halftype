@@ -543,8 +543,8 @@ private struct GeneralPage: View {
                     .pickerStyle(.segmented).labelsHidden().frame(width: 220)
             }
             Row(title: "How Often", note: "More often means more wrong ones.") {
-                Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more) }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+                Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more); Text("Always").tag(Often.always) }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 280)
             }
             if let path = app.activePath, App.adapterFile(for: path) != nil {
                 Row(title: "Personal Model", note: "Trained on your writing. Compare leaves it off every other day, for Stats.") {
