@@ -43,6 +43,10 @@ John: "We should probably cut down on so much of the korean stuff, our first aud
 - Matched to main after the merge: network (the daily update check stays on; Update Automatically only stops the download), on-disk (four counts a day for Stats), and main's General screenshot.
 - Domains on Spaceship, 2026-11-09: halftype.app $8.28 the first year, then $14.49 a year; halftype.dev $8.28, then $12.42. halftype.com is taken.
 
+## Live (2026-11-09)
+
+A2, restyled to the app's current look (cream, the icon's blurred arch, glass suggestions with the Tab glint; John: "this is no longer the app design language"), is live at https://halftype.app. `deploy.sh` copies `a2/` and `nginx.conf` to js, where the Dokploy compose `halftype-site` (composeId `IftjGPskKJyG74nM4i5Vv`, Side Projects) serves them with nginx; `www` redirects to the apex. DNS: A `@` and `www` → 152.69.228.186 at Spaceship. The share link above still holds the older drafts.
+
 ## Pick
 
 A over B (round 1). A2 over A (round 3).
