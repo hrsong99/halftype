@@ -27,7 +27,7 @@ final class Practice: Completer {
 /// A card docked beside System Settings while it's open on our account, saying which switch to flip (docs/design/onboarding, H).
 /// Its icon drags into the list, for a build the system didn't list. It goes when the grant comes or Settings quits.
 final class SettingsGuide {
-    private var panel: NSPanel?
+    private(set) var panel: NSPanel?
     private var timer: Timer?
     private var quit: NSObjectProtocol?
     private var asked = Date.distantPast
@@ -131,7 +131,8 @@ struct GuideCard: View {
             if left { arrow }
         }
         .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        // The window's cream, so it reads as Halftype's beside Settings in light or dark mode (docs/design/onboarding, H).
+        .background(Color(red: 0.965, green: 0.945, blue: 0.914), in: RoundedRectangle(cornerRadius: 16))
         .overlay(alignment: .topTrailing) {
             Button(action: dismiss) { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).padding(8) }
                 .buttonStyle(.plain).help("Hide")

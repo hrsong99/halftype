@@ -55,19 +55,19 @@ Across whole messages, replayed with real typing delays before the latest change
 
 ## What it costs
 
-Measured on an M5 with 16 GB, running the real app path on a test window with `scripts/e2e.sh --measure`, with Qwen 3.5 0.8B, the default until 2026-11-09. Gemma 4 E2B, the default now, wasn't measured this way. [Details](docs/measuring.md).
+Measured on an M5 with 16 GB, running the real app path on a test window with `scripts/e2e.sh --measure`, with Gemma 4 E2B, the default, on 2026-11-09. [Details](docs/measuring.md).
 
 | State | Memory |
 |---|---|
-| Typing, and for 15 s after | about **0.56 GB wired**, plus about 270 MB of footprint |
-| Stopped, model still loaded, up to 5 minutes | 250 MB footprint, nothing wired |
+| Typing, and for 15 s after | about **1.5 GB wired**, plus about 240 MB of footprint |
+| Stopped, model still loaded, up to 5 minutes | 180 MB footprint, nothing wired |
 | Unloaded, after 5 idle minutes | **79 MB** |
 
 Wired memory is what counts: nothing else can use it, and Activity Monitor's per-app number leaves it out. Look at its Wired line.
 
-- A larger model wires about its file size: Kanana 1.5, 1.5 GB. Gemma 4 E2B, the default, would then wire about 3.4 GB while you type (estimated from that, not measured).
+- Only part of Gemma's 3.4 GB file is wired; the rest is mapped and can be evicted. Other models wire about their file size: Qwen 3.5 0.8B 0.56 GB, Kanana 1.5 1.5 GB.
 - **Disk:** a 3.4 GB model and an app of about 27 MB.
-- **CPU:** 0.13-0.27% of a core idle over 60 s. 7-8% while typing about 5 keys a second.
+- **CPU:** 0.16-0.93% of a core idle with the model loaded. 14% while typing about 5 keys a second (Qwen 3.5 0.8B: 7-8%).
 - **Speed:** a suggestion's first displayable word arrives in 71 ms in English with Gemma 4 E2B, and 53 ms in English and 97 ms in Korean with Qwen 3.5 0.8B (p50, requests that got that far, timed replay). With Qwen, no model call at all on 47% of English keys and 20% of Korean, because the suggestion still fits.
 - **Power:** not measured.
 
@@ -112,7 +112,7 @@ Halftype은 한국어와 영어를 쓰는 사람을 위한 macOS 인라인 자�
 
 - **사용법:** 회색 글자가 제안입니다. Tab은 다음 단어, Shift-Tab은 전체, Esc는 닫기입니다.
 - **다른 점:** 조합 중인 글자를 모델에 보내지 않고, 두벌식 키 입력에 맞는 결과만 받습니다. Tab을 누르면 남은 키를 실제로 눌러 입력기가 글자를 마저 조합합니다.
-- **비용:** 기본 모델 Gemma 4 E2B는 입력 중과 그 후 15초 동안 파일 크기만큼, 약 3.4 GB를 점유할 것으로 봅니다(wired, 추정). Qwen 3.5 0.8B는 0.56 GB(측정)입니다. 5분 쉬면 모델을 내려 79 MB로 줄어듭니다. 모델은 처음 한 번 3.4 GB를 받습니다.
+- **비용:** 기본 모델 Gemma 4 E2B는 입력 중과 그 후 15초 동안 약 1.5 GB를 점유하고(wired), 5분 쉬면 모델을 내려 79 MB로 줄어듭니다. 모델은 처음 한 번 3.4 GB를 받습니다.
 - **개인정보:** 손쉬운 사용 권한만 씁니다. 네트워크는 모델 다운로드와 업데이트 확인(일반 설정에서 끌 수 있음)에만 쓰고, 입력한 글은 저장하지 않고 횟수만 셉니다(통계 페이지용). 비밀번호 칸은 건너뜁니다.
 - **설치:** [Halftype.dmg](https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg)를 내려받거나 `brew tap hrsong99/halftype && brew trust hrsong99/halftype` 후 `brew install --cask halftype`를 실행하세요. 자동으로 업데이트됩니다.
 - **제거:** Halftype을 종료하고 휴지통으로 옮긴 뒤 `~/Library/Application Support/Halftype`를 지우세요. Homebrew라면 `brew uninstall --zap --cask halftype`.

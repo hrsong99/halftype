@@ -226,7 +226,7 @@ struct FieldPage: View {
     private var allow: some View {
         VStack(spacing: 12) {
             Text("Halftype needs to see what you type. It stays on this Mac.").foregroundStyle(.secondary)
-            Button("Allow Accessibility", action: app.askForAccessibility).buttonStyle(.borderedProminent).tint(.primary).buttonBorderShape(.capsule)
+            Button("Allow Accessibility", action: app.askForAccessibility).buttonStyle(Ink())
         }
     }
 
@@ -274,7 +274,8 @@ struct FieldPage: View {
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
         .pane()
         .frame(maxWidth: 500)
-        .onAppear { focused = true }
+        // A turn later: a field swapped in (an onboarding step, the home after it) isn't in the window yet when it appears.
+        .onAppear { DispatchQueue.main.async { focused = true } }
         .onChange(of: draft) { picking = false }
         .onChange(of: app.ready, initial: true) { if let sentence = app.takePrefill(draft: draft) { draft = sentence } }
         .task(id: app.why) {

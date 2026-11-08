@@ -1535,6 +1535,27 @@ final class FakeServer: URLProtocol {
     }
 }
 
+/// The Settings card for real: opens System Settings at Accessibility and docks the card beside it, then a screenshot. It takes focus,
+/// so ask first. Reaches the one onboarding step a Mac that already has the grant can't: `HALFTYPE_GUIDE=<png> swift test --filter GuideLive`.
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["HALFTYPE_GUIDE"] != nil)) @MainActor struct GuideLive {
+    @Test func theCardDocksBesideSettings() throws {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+        let guide = SettingsGuide()
+        guide.show()
+        RunLoop.main.run(until: Date().addingTimeInterval(4))
+        let settings = try #require(SettingsGuide.settingsFrame(), "System Settings has no window")
+        let card = try #require(guide.panel, "no card")
+        #expect(card.isVisible && (abs(card.frame.maxX + 14 - settings.minX) < 1 || abs(card.frame.minX - 14 - settings.maxX) < 1 || settings.contains(card.frame.origin)))
+        let shot = Process()
+        shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        shot.arguments = ["-x", ProcessInfo.processInfo.environment["HALFTYPE_GUIDE"]!]
+        try shot.run()
+        shot.waitUntilExit()
+        guide.close()
+        #expect(guide.panel == nil)
+    }
+}
+
 /// The window's states as PNGs, drawn off screen, so nothing takes focus. `HALFTYPE_SHOTS=<dir> swift test --filter WindowShots`. cacheDisplay leaves out SwiftUI's Canvas, so the ribbon shows only in 15.
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] != nil)) @MainActor struct WindowShots {
     let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] ?? "")

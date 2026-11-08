@@ -24,7 +24,9 @@ struct Onboarding: View {
                 case .done: done
                 }
             }
-            .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)).combined(with: .opacity))
+            // A fade, not a slide: the ghost is placed where the field's caret is when it's read, and a field still sliding in
+            // sends no move, so the suggestion stayed where the slide began (seen live, 2026-11-09).
+            .transition(.opacity)
         }
         .overlay(alignment: .top) { top.padding(.top, 14) }
         .animation(.easeInOut(duration: 0.35), value: step)
@@ -61,7 +63,7 @@ struct Onboarding: View {
             Text("To offer the rest of a sentence, it reads the field you're typing in.\nNothing you type leaves this Mac.")
                 .font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button("Open System Settings", action: app.askForAccessibility)
-                .buttonStyle(.borderedProminent).tint(.primary).buttonBorderShape(.capsule).controlSize(.large).padding(.top, 8)
+                .buttonStyle(Ink()).padding(.top, 8)
             if app.askedForAccessibility {
                 Text("Turn on Halftype in the list. You'll come straight back here.").font(.system(size: 12)).foregroundStyle(.secondary)
             }
@@ -76,7 +78,7 @@ struct Onboarding: View {
             FieldPage(app: app, draft: $draft, chrome: false) {}.fixedSize(horizontal: false, vertical: true)
             Spacer()
             Button(app.accepted ? "Continue" : "Skip") { next() }
-                .buttonStyle(.borderedProminent).tint(app.accepted ? .primary : .secondary).buttonBorderShape(.capsule).padding(.bottom, 40)
+                .buttonStyle(Ink(quiet: !app.accepted)).padding(.bottom, 40)
         }
     }
 
@@ -86,10 +88,10 @@ struct Onboarding: View {
             Text("You're set").font(.system(size: 28, weight: .semibold))
             Text("Halftype lives in the menu bar, up at the top right.\nOpen any app and start typing.")
                 .font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            Toggle("Start at login", isOn: $app.startAtLogin).toggleStyle(.switch).tint(.primary)
+            Toggle("Start at login", isOn: $app.startAtLogin).toggleStyle(.switch).tint(.black)
                 .padding(.horizontal, 14).padding(.vertical, 8).pane().padding(.top, 8)
             Button("Start Writing") { app.finishOnboarding() }
-                .buttonStyle(.borderedProminent).tint(.primary).buttonBorderShape(.capsule).controlSize(.large).padding(.top, 8)
+                .buttonStyle(Ink()).padding(.top, 8)
         }
     }
 }
@@ -133,7 +135,7 @@ private struct Welcome: View {
             .padding(.leading, 56)  // The key's room, so the sentence stays centred.
             Text("Suggestions from a model on this Mac, in almost any app.").font(.system(size: 13)).foregroundStyle(.secondary).padding(.top, 14).opacity(rest)
             Button("Get Started", action: onContinue)
-                .buttonStyle(.borderedProminent).tint(.primary).buttonBorderShape(.capsule).controlSize(.large).padding(.top, 10)
+                .buttonStyle(Ink()).padding(.top, 10)
                 .opacity(rest).allowsHitTesting(rest > 0.5)
         }
     }
@@ -165,5 +167,19 @@ private struct GlintBand: View {
                 .offset(x: -width + progress * (size.size.width + width))
                 .opacity(progress > 0 && progress < 1 ? 1 : 0)
         }
+    }
+}
+
+/// The window's main buttons: white on ink, or, quiet, ink on a pale capsule. Not `.borderedProminent` with `.tint(.primary)`: that drew
+/// black on black in a key window, and `.tint(.secondary)` crashed SwiftUI in an endless loop resolving the tint (2026-11-09).
+struct Ink: ButtonStyle {
+    var quiet = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(quiet ? Color.black.opacity(0.7) : .white)
+            .padding(.horizontal, 20).padding(.vertical, 9)
+            .background(quiet ? Color.black.opacity(0.07) : Color.black.opacity(configuration.isPressed ? 0.75 : 0.88), in: Capsule())
+            .contentShape(Capsule())
     }
 }
