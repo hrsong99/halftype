@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Halftype landing pages</title>
+<style>
+  :root { --bg:#f6f5f2; --ink:#1d1c1a; --mute:#6b6862; --line:#dedbd4; --card:#fff; --accent:#1f4f8f; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141413; --ink:#ecebe8; --mute:#9a978f; --line:#2c2b28; --card:#1d1c1a; --accent:#8db4ef; } }
+  :root[data-theme="dark"] { --bg:#141413; --ink:#ecebe8; --mute:#9a978f; --line:#2c2b28; --card:#1d1c1a; --accent:#8db4ef; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system, "Apple SD Gothic Neo", system-ui, sans-serif; }
+  main { max-width:1500px; margin:0 auto; padding:28px 16px 64px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .q { color:var(--mute); margin:0 0 18px; }
+  .rec { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:24px; }
+  .rec b { color:var(--accent); }
+  h2 { font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin:28px 0 10px; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
+  .head { padding:12px 14px; border-bottom:1px solid var(--line); display:flex; gap:10px; align-items:baseline; }
+  .letter { font-weight:700; font-size:20px; }
+  .name { font-weight:600; }
+  .head a { margin-left:auto; color:var(--accent); font-size:13px; white-space:nowrap; }
+  .frame { position:relative; width:100%; aspect-ratio:1440/900; overflow:hidden; background:#000; }
+  .frame iframe { position:absolute; top:0; left:0; width:1440px; height:900px; border:0; transform-origin:0 0; }
+  .tall { height:560px; overflow:auto; }
+  .tall img { width:100%; display:block; }
+  .note { padding:12px 14px; color:var(--mute); font-size:14px; }
+  .note p { margin:0 0 6px; }
+  .bad { color:#b5523a; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Halftype: two landing-page directions</h1>
+  <p class="q">Which direction for Halftype's first landing page? John: "why don't you try making a landing page or two for our app (it's called halftype now)". Both live pages replay the six real suggestions from the README GIFs, Korean typed key by key the way 2-set builds it. Each was built with TasteSkill's <code>design-taste-frontend</code> and its checker.</p>
+  <div class="rec"><b>Recommendation: A, with B's self-completing headline.</b> A shows the real thing on the first screen: the Halftype field over the app's own halftone sky, typing and taking Tab, next to a plain "Autocomplete for your whole Mac". B's "You type half. It writes the rest." headline explains the idea in two seconds, but B's demo only starts on the second screen. C (image idea) is worth one more round if you want a Korean-first page.</div>
+
+  <h2>Live pages (they play; scroll inside, or open full page)</h2>
+  <div class="row">
+    <div class="card">
+      <div class="head"><span class="letter">A</span><span class="name">Sky: the app's own world</span><a href="a/index.html" target="_blank">Open full page</a></div>
+      <div class="frame"><iframe src="a/index.html" title="Direction A" loading="lazy"></iframe></div>
+      <div class="note">
+        <p>Light, calm. The hero is a large copy of the Halftype window with the live replay. Behind it is a canvas copy of <code>Sky.metal</code>: blue dots from the top, a peach horizon, a warm swell on each Tab. The same sky comes back at night in the close. Sections: keys, Korean mid-syllable (the real <code>ㅅㅡㅂㄴㅣㄷㅏ.</code> keys Tab presses), privacy, cost, limits, a Korean summary.</p>
+        <p>Checker: 3 small open issues (key-card heading wording, one row flush at 390 px, sub-line contrast over the night sky at 390 px).</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head"><span class="letter">B</span><span class="name">Ink: the demo is the typography</span><a href="b/index.html" target="_blank">Open full page</a></div>
+      <div class="frame"><iframe src="b/index.html" title="Direction B" loading="lazy"></iframe></div>
+      <div class="note">
+        <p>Dark, type-led. "You type half." sits in ink and "It writes the rest." waits as grey ghost text, then a Tab keycap presses and it turns to ink. The Korean line "반만 치면, 나머지는 Halftype이 씁니다." follows the same way. The replay, keys and a 하 → 한 / 함 diagram come next, then privacy as a stark type statement and the numbers with how each was measured.</p>
+        <p>Checker: 2 small open issues (the kit's button colour fades in on scroll; the closing Questions section is text only). On phones the brew box is hidden.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2>Image ideas (Codex image tool, not built; prompts in <code>ideas/</code>)</h2>
+  <div class="row">
+    <div class="card">
+      <div class="head"><span class="letter">C</span><span class="name">Korean risograph poster</span><a href="ideas/c.jpg" target="_blank">Full size</a></div>
+      <div class="tall"><img src="ideas/c.jpg" alt="Image idea C: a cobalt and peach halftone print poster with 반만 치세요 set huge"></div>
+      <div class="note"><p>Worth taking: Korean leads ("반만 치세요" set huge), with two spot inks in halftone dots, which are the app's own blue and peach. The copy is the image model's, and some of it is wrong: <span class="bad">Shift-Tab doesn't pick the previous suggestion</span>.</p></div>
+    </div>
+    <div class="card">
+      <div class="head"><span class="letter">D</span><span class="name">The whole Mac as the hero</span><a href="ideas/d.jpg" target="_blank">Full size</a></div>
+      <div class="tall"><img src="ideas/d.jpg" alt="Image idea D: a MacBook desktop with mail, chat and notes windows each showing a grey suggestion"></div>
+      <div class="note"><p>Worth taking: "in every app" shown literally, with several windows each holding a ghost. It needs a real screen recording to be honest, which takes your keyboard. <span class="bad">"macOS 13, Intel" is wrong</span> (it needs macOS 26 on Apple Silicon).</p></div>
+    </div>
+  </div>
+</main>
+<script>
+  // Scale each 1440x900 iframe to its card.
+  const fit = () => document.querySelectorAll('.frame').forEach(f => { f.firstElementChild.style.transform = `scale(${f.clientWidth / 1440})`; });
+  addEventListener('resize', fit); fit();
+</script>
+</body>
+</html>

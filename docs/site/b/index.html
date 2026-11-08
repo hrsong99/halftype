@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="soft" data-buttons="arrow" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Halftype: inline typing suggestions for your Mac, in Korean and English</title>
+<meta name="description" content="Grey text appears as you type in almost any Mac app. Press Tab to take it. The model runs on your Mac, and what you type never leaves it.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Halftype: inline typing suggestions for your Mac">
+<meta property="og:description" content="Korean and English suggestions in almost any Mac app, from a model that runs on your machine.">
+<meta property="og:image" content="share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#111111">
+<!-- <link rel="canonical" href="https://[the domain, once John picks one]/"> -->
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@400..700&family=Funnel+Sans:wght@400..600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>
+:root {
+  /* lunar-grey-bronze as dealt; the accent is Halftype's own peach (Sky.swift), the client's colour */
+  --p-bg: #111111; --p-surface: #1c1c1c; --p-ink: #f2f2f2; --p-muted: #8f8f8f;
+  --p-accent: #f6c3a4; --p-accent-ink: #111111; --p-action: #f6c3a4; --p-action-ink: #111111;
+  --p-inv-bg: #f2f2f2; --p-inv-surface: #e0e0e0; --p-inv-ink: #111111; --p-inv-muted: #5c5c5c;
+  --p-inv-accent: #a08672; --p-inv-accent-ink: #111111; --p-inv-action: #a08672; --p-inv-action-ink: #111111;
+  /* Hangul: none of the dealt faces has it, so the Mac's own Korean face (or Noto on other systems) sets it */
+  --font-display: "Funnel Display", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --font-text: "Funnel Sans", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 400;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+  --ly-scale: 0.98;
+  --ghost: #6e6e6e;
+}
+</style>
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/letters-assemble/moment.js">
+<style>
+  /* the logo: Halftype's own cursive h (docs/icon/menubar.svg), stroked in the ink */
+  .ht-mark { width: 22px; height: 22px; margin-right: 8px; flex: none; }
+  /* ghost text: what Halftype draws in grey after the caret; .is-taken is the Tab that turns it to ink */
+  .ghost { color: var(--ghost); transition: color .5s cubic-bezier(.22,1,.36,1); }
+  .is-taken .ghost, .ghost.is-taken { color: inherit; }
+  .caret { display: inline-block; width: .06em; height: .9em; margin: 0 .04em -.08em; background: var(--accent); vertical-align: baseline; }
+  .has-caret .caret { animation: caret 1.05s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 0; } }
+  .kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 2.4em; padding: .28em .6em; border: 1px solid var(--line-strong); border-bottom-width: 3px; border-radius: 8px; font: 500 var(--t-label)/1 var(--font-mono); color: var(--ink); transition: transform .12s, border-color .12s, background-color .12s; }
+  .kbd.is-down { transform: translateY(2px); border-bottom-width: 1px; border-color: var(--accent); background: color-mix(in oklab, var(--accent) 18%, transparent); }
+
+  /* hero: the headline is ghost-completed once on load */
+  .hero--word h1 { font-size: clamp(54px, 7.6vw + 8px, 124px); line-height: .96; }
+  .hero__ko { margin-top: var(--s-5); font: var(--display-weight) clamp(30px, 3.1vw + 4px, 52px)/1.15 var(--font-display); letter-spacing: -0.02em; word-break: keep-all; }
+  .ghost--tab { position: relative; }
+  @media (min-width: 640px) { .ghost--tab { display: inline-block; } }
+  @media (max-width: 639px) { .hero__tab { display: none; } }
+  .hero__tab { position: absolute; left: 100%; top: .1em; margin-left: .3em; font-size: clamp(14px, .9vw + 8px, 22px); letter-spacing: 0; white-space: nowrap; }
+  .brew { display: grid; gap: var(--s-3); }
+  .brew pre { margin: 0; padding: var(--s-4) var(--s-5); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); font: 400 14px/1.7 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); }
+  .brew pre span { color: var(--muted); user-select: none; }
+  .brew__row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); }
+  .brew__copy { min-height: 44px; padding: 0 var(--s-4); border: 1px solid var(--line-strong); border-radius: var(--r-btn, 8px); background: none; color: var(--ink); font: 500 var(--t-small)/1 var(--font-text); cursor: pointer; }
+  .brew__copy:hover { border-color: var(--ink); }
+
+  /* the replay: Halftype's own field, dark, at reading size */
+  .field { position: relative; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); padding: var(--s-8) var(--s-8) var(--s-6); display: grid; gap: var(--s-8); min-height: 300px; align-content: space-between; }
+  .field__line { min-height: 1.3em; font: 400 clamp(26px, 2.6vw + 6px, 46px)/1.3 var(--font-text); letter-spacing: -0.01em; word-break: keep-all; }
+  .field__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-5); flex-wrap: wrap; }
+  .field__lang { font: 500 var(--t-label)/1 var(--font-mono); color: var(--muted); }
+  .field__pause { min-height: 44px; min-width: 44px; padding: 0 var(--s-4); border: 1px solid var(--line-strong); border-radius: 999px; background: none; color: var(--ink); font: 500 var(--t-small)/1 var(--font-text); cursor: pointer; }
+  .keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-5); margin-top: var(--s-7); }
+  .keys > div { display: grid; gap: var(--s-3); align-content: start; }
+  .keys .kbd { justify-self: start; font-size: 18px; padding: .4em .8em; }
+  .keys p { margin: 0; }
+  .demo-note { margin-top: var(--s-5); color: var(--muted); font-size: var(--t-small); }
+  @media (max-width: 639px) { .field { padding: var(--s-5); gap: var(--s-5); min-height: 200px; } .keys { grid-template-columns: minmax(0, 1fr); gap: var(--s-4); margin-top: var(--s-5); } .keys > div { gap: var(--s-2); } }
+
+  /* Korean: one composing syllable and the two syllables its keys can still become */
+  .jamo { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: var(--s-6) var(--s-6); padding: var(--s-7); border: 1px solid var(--line); border-radius: 20px; background: var(--surface); min-height: 560px; align-content: center; }
+  @media (max-width: 639px) { .jamo { min-height: 0; padding: var(--s-5); gap: var(--s-4); } .jamo__from { font-size: 64px; } .jamo__to { font-size: 44px; } .jamo__key .kbd { font-size: 16px; } .jamo .ghost { display: none; } .jamo { gap: var(--s-3) var(--s-4); } }
+  @media (max-width: 639px) { .brew { display: none; } #privacy .mo-la__type { font-size: 80px; } }
+  @media (max-width: 400px) { .nav__actions { display: none; } }
+  @media (max-width: 639px) { .mem { padding: var(--s-5); gap: var(--s-3); } .mem__row b { font-size: 22px; } #numbers .section-head p { font-size: 16px; } #numbers .rows small { display: none; } #numbers .rows > li { padding-block: var(--s-3); } #questions .faq > .faq__item { padding: var(--s-2) 0; } #numbers .rows > li:nth-child(4) { display: none; } #numbers .mem { padding: var(--s-3) var(--s-5); gap: var(--s-2); } #numbers .mem__bar { height: 10px; } #questions .faq h3 { font-size: 17px; } #questions .faq p { font-size: 15px; line-height: 1.5; } }
+  .jamo__from { grid-row: 1 / span 2; font: 400 clamp(96px, 9vw, 168px)/1 var(--font-display); }
+  .jamo__key { display: flex; align-items: center; gap: var(--s-3); color: var(--muted); }
+  .jamo__key .kbd { font-size: 22px; font-family: var(--font-text); }
+  .jamo__to { font: 400 clamp(64px, 5.6vw, 104px)/1 var(--font-display); }
+  .jamo__to .ghost { color: var(--ghost); }
+
+  /* memory, the three states as bars to scale (README, What it costs) */
+  .mem { display: grid; gap: var(--s-5); padding: var(--s-7); border: 1px solid var(--line); border-radius: 20px; background: var(--bg); height: 100%; align-content: center; }
+  .mem__row { display: grid; gap: var(--s-2); }
+  .mem__row span { font-size: var(--t-small); color: var(--muted); }
+  .mem__bar { height: 14px; border-radius: 7px; background: var(--accent); width: var(--w); }
+  .mem__row b { font: 400 var(--t-h3)/1.1 var(--font-display); letter-spacing: -0.02em; }
+  .rows small { display: block; color: var(--muted); font-size: var(--t-small); font-weight: 400; }
+  .rows .rows__value { font-variant-numeric: tabular-nums; }
+
+  #privacy .mo-la__sub { color: var(--ink); }
+  @media (min-width: 640px) and (max-width: 1023px) { .field { min-height: 400px; } .jamo { min-height: 360px; } #privacy .mo-la__type { font-size: 128px; } }
+  @media (prefers-reduced-motion: reduce) { .has-caret .caret { animation: none; } }
+</style>
+</head>
+<body>
+<!-- type: software
+     deal: hero word (brief: the headline is the demo; the dealt triptych needs a photo collage Halftype has no use for),
+           palette lunar-grey-bronze (accent swapped to Halftype's peach), type funnel (--axis deal, for the word hero),
+           nav nav-centre (nav-cards dealt; no photographs for its cards), close close-type, footer footer-columns,
+           rhythm surface-pairs (numbers and limits), buttons arrow, mark: Halftype's own logo
+     moments: letters-assemble in #privacy -->
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top"><svg class="ht-mark" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke-opacity=".38"/></svg>Halftype</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#demo">Demo</a></div>
+      <div class="nav__item"><a class="nav__link" href="#korean">Korean</a></div>
+      <div class="nav__item"><a class="nav__link" href="#privacy">Privacy</a></div>
+      <div class="nav__item"><a class="nav__link" href="#numbers">Numbers</a></div>
+      <div class="nav__item"><a class="nav__link" href="#questions">Questions</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download Halftype</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--word" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text hero__in">
+      <h1 id="hero-h" data-gag>You type half. <span class="ghost ghost--tab">It writes the rest.<span class="kbd hero__tab" aria-hidden="true">Tab</span></span></h1>
+      <p class="hero__ko" lang="ko" data-gag>반만 치면, <span class="ghost">나머지는 Halftype이 씁니다.</span></p>
+      <div class="grid hero__foot">
+        <div class="span-6">
+          <p class="hero__lead">Inline typing suggestions for your whole Mac, in Korean and English. Grey text appears as you type in almost any app; Tab takes it. The 0.5 GB model runs on your Mac.</p>
+          <div class="btn-row"><a class="btn btn--primary" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download Halftype<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a></div>
+        </div>
+        <div class="brew span-6 start-7">
+          <div class="brew__row"><p class="t-label muted">Or with Homebrew</p><button class="brew__copy" type="button" data-copy="brew-cmd">Copy commands</button></div>
+<pre id="brew-cmd" data-visual><span>$ </span>brew tap hrsong99/halftype &amp;&amp; brew trust hrsong99/halftype
+<span>$ </span>brew install --cask halftype</pre>
+          <p class="t-small muted">macOS 26 on Apple Silicon. Free, MIT licence.</p>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="demo" aria-labelledby="demo-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="demo-h">Six suggestions from the real model.</h2>
+      </div>
+      <div class="field ui ui-field" data-ui role="img" aria-label="A text field replaying six sentences. Typed: Let me know if you have any quest, suggested: ions. Typed: 안녕하세요. 만나서 반갑, suggested: 습니다. Typed: See you tomor, suggested: row. Typed: 감사합니다. 좋은 하루 보내, suggested: 세요! Typed: As soon as possi, suggested: ble, Typed: 이번 주 금요일까지 보내주시면 감사하겠, suggested: 습니다.">
+        <p class="field__line" data-replay aria-hidden="true">Let me know if you have any quest<span class="ghost">ions</span></p>
+        <div class="field__foot"><span class="field__lang" data-replay-lang aria-hidden="true">English</span><button class="field__pause" type="button" data-replay-pause>Pause the replay</button></div>
+      </div>
+      <p class="demo-note">The sentences are ones it does well on. Suggestions aren't always this good.</p>
+      <div class="keys">
+        <div><span class="kbd" data-key="tab">Tab</span><p>Takes the next word.</p></div>
+        <div><span class="kbd">⇧ Tab</span><p>Takes the whole suggestion.</p></div>
+        <div><span class="kbd">Esc</span><p>Hides it. The next Esc goes to the app.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="korean" aria-labelledby="korean-h">
+    <div class="wrap grid">
+      <div class="span-6">
+        <div class="section-head">
+          <h2 id="korean-h">Korean, finished mid-syllable.</h2>
+          <p>The syllable you are composing stays out of the prompt, and suggestions must fit what your 2-set keys can still make. Tab presses the remaining keys, so the input method finishes the syllable.</p>
+          <p class="t-small muted">On 1,099 mid-syllable requests from public Korean text, keystrokes saved per request rose from 0 to 0.69. Wrong suggestions rose too: 18.2%, against 8.4%.</p>
+        </div>
+      </div>
+      <div class="span-6" role="img" aria-label="하 can still become 한 with the ㄴ key or 함 with the ㅁ key" lang="ko">
+        <div class="jamo" data-ui aria-hidden="true">
+          <span class="jamo__from">하</span>
+          <span class="jamo__key"><span class="kbd">ㄴ</span>→</span><span class="jamo__to">한<span class="ghost">…</span></span>
+          <span class="jamo__key"><span class="kbd">ㅁ</span>→</span><span class="jamo__to">함<span class="ghost">…</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="privacy" data-moment="letters-assemble" aria-labelledby="privacy-h">
+    <div class="wrap">
+      <h2 class="mo-la__type" id="privacy-h">Your typing stays local.</h2>
+      <p class="mo-la__sub">The model runs on your Mac. Halftype goes online only to fetch models from Hugging Face and, about once a day, to check GitHub for an update, which you can turn off. Typed text is never saved or logged. It asks for one permission, Accessibility, and skips password fields.</p>
+    </div>
+  </section>
+
+  <section class="section ground-surface" id="numbers" aria-labelledby="numbers-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="numbers-h">Halftype's keystroke savings and memory.</h2>
+        <p>Replayed with real typing delays, measured on an M5 with 16 GB and the default model. <a class="link" href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">Read the method</a></p>
+      </div>
+      <div class="grid">
+        <ul class="rows span-6">
+          <li><span class="rows__name">Keystrokes saved in English<small>800 keys of the author's messages</small></span><span class="rows__value">21.6%</span></li>
+          <li><span class="rows__name">Keystrokes saved in Korean<small>1,200 keys of public text; 8.8% with Kanana 1.5</small></span><span class="rows__value">4.8%</span></li>
+          <li><span class="rows__name">First word shown that was right<small>922 of 1,131 held-out English requests</small></span><span class="rows__value">81.5%</span></li>
+          <li class="rows--desk"><span class="rows__name">First word on screen<small>Median; 97 ms in Korean</small></span><span class="rows__value">53 ms</span></li>
+        </ul>
+        <div class="span-6" role="img" aria-label="Memory: about 0.56 GB wired while typing, 250 MB with the model loaded but idle, 79 MB after five idle minutes">
+          <div class="mem" data-ui aria-hidden="true">
+            <div class="mem__row"><span>While typing, and 15 s after</span><b>0.56 GB</b><i class="mem__bar" style="--w: 100%"></i></div>
+            <div class="mem__row"><span>Stopped, model loaded</span><b>250 MB</b><i class="mem__bar" style="--w: 44%"></i></div>
+            <div class="mem__row"><span>After 5 idle minutes</span><b>79 MB</b><i class="mem__bar" style="--w: 14%"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section ground-surface" id="questions" aria-labelledby="questions-h">
+    <div class="wrap">
+      <div class="grid"><div class="section-head span-6"><h2 id="questions-h">Questions before you download.</h2></div>
+      <div class="faq span-6">
+        <div class="faq__item"><h3>What do I need?</h3><p>macOS 26 or later. It is tested only on Apple Silicon, on one M5.</p></div>
+        <div class="faq__item"><h3>Which Korean layout?</h3><p>Apple's 2-Set Korean. With another layout, Halftype shows nothing after a Hangul character.</p></div>
+        <div class="faq__item"><h3>How good is Korean?</h3><p>Weaker than English. About a fifth of the default model's Korean suggestions match exactly, a third with Kanana 1.5.</p></div>
+        <div class="faq__item"><h3>Where does it stay silent?</h3><p>With text after the caret on the same line, during Secure Input, and in password fields.</p></div>
+        <div class="faq__item"><h3>How finished is it?</h3><p>An early release, used so far by its author. <a class="link" href="https://github.com/hrsong99/halftype/issues">Open an issue</a> with what you find.</p></div>
+      </div></div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--type">
+      <div class="section-head">
+        <h2 id="close-h">Download Halftype</h2>
+        <p>It keeps itself up to date with signed, notarized releases.</p>
+      </div>
+      <a class="btn btn--primary btn--xl btn--wide" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download Halftype<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><svg class="ht-mark" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke-opacity=".38"/></svg>Halftype</a>
+          <p class="footer__lede">Inline suggestions for macOS, from a model on your Mac.</p>
+        </div>
+        <div class="span-2 start-7 footer__col"><h3>App</h3><ul><li><a href="#demo">Demo</a></li><li><a href="#korean">Korean</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Trust</h3><ul><li><a href="#privacy">Privacy</a></li><li><a href="#questions">Questions</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Source</h3><ul><li><a href="https://github.com/hrsong99/halftype">GitHub</a></li><li><a href="https://github.com/hrsong99/halftype/blob/main/docs/how-it-works.md">How it works</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 Halftype &nbsp; <a href="https://github.com/hrsong99/halftype/blob/main/LICENSE">MIT licence</a></span>
+        <div class="socials"></div>
+      </div>
+    </div>
+  </div>
+</footer>
+<nav class="actionbar" aria-label="Quick actions">
+  <a class="btn btn--primary" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download Halftype</a>
+</nav>
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script type="module" src="halftype.js"></script>
+</body>
+</html>

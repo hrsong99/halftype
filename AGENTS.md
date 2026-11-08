@@ -6,6 +6,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - **No private text, ever.** Nothing from anyone's messages goes in this repo: not tests, docs, commit messages or screenshots. Test strings are invented, and benchmark results are aggregates only. Replay traces hold typed text and stay out.
 - **Privacy claims in the README are promises.** No network except `ModelStore`'s model URLs and Sparkle's update feed, no typed text written to disk or logs, no Screen Recording, secure fields skipped. A change that touches one changes the README in the same commit.
 - **Licences.** AGPL, GPL and unlicensed projects in `CREDITS.md` gave ideas only. No code from them. A new borrowed idea gets a row there, with its licence checked.
+- **The landing drafts in `docs/site/` repeat the README's claims and numbers.** Change them together.
 - **Every number carries how it was measured**, here or in `docs/measuring.md`. Remeasure rather than edit one by hand.
 
 ## Commands

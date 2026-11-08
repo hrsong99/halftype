@@ -64,3 +64,7 @@ The window's look, one field and a lot of white, takes its idea from [Ollama's d
 The icon was made with Codex's built-in image tool: prompts and outputs in [docs/icon](docs/icon/README.md).
 
 Every GitHub link and licence here was checked with `gh repo view` and the repo's licence file, and every model licence on its Hugging Face card, on 2026-11-07. [docs/audit.md](docs/audit.md) credits all 66 projects we read.
+
+## The landing-page drafts
+
+`docs/site/a` and `docs/site/b` load files copied unchanged from [leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill) (MIT, its licence in each `assets/LICENSE-taste-skill`): its `system.css`/`system.js`, motion layer and one moment each. The pages, their copy and the typing replay are our own.
