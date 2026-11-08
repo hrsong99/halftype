@@ -18,6 +18,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - The Mac has limited memory: run one heavy build or model at a time, and don't steal focus.
 - Motion in the window: suggestions appear at once and never animate (they change on every key), and nothing resizes or moves on a Tab; the one motion is a quick glint over the words just taken (`GlintView`). John found a whole-field glint and a 0.6% breathe both bad.
 - `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh d` rebuilds `Resources/`. The window's `Mark` (Window.swift) draws `docs/icon/menubar.svg`'s paths by hand: change the logo, change it too.
+- Several sessions work in this checkout at once. Commit only your own files (`git commit -- <paths>`, never `-a`); if another session has uncommitted changes in a file you need, work in a separate worktree of `main` and leave theirs alone.
 
 ## Where things are
 - `HalftypeCore`: pure logic, with no model or GUI. Test it here first.
