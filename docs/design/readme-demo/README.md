@@ -21,3 +21,12 @@ John, on the glass demo with rapid Tabs (A): "Yikes that looks messy. Give me so
 - B–G also keep a suggestion while the typing matches it, as the app does; A asked the model again after every letter, so suggestions jumped.
 
 Recommendation: D (`beat=12,tab=14,after=8,glint=burst`).
+
+## Round 3: Tab and Shift-Tab
+
+John: "What if we mix tabs and shift tabs? So show using tab for some small suggestions, and then shift tab (after a pause) to show accepting a long suggestion?"
+
+- `round3.html`: D from round 2 for comparison, and H, I, J (`round3/*.webp`): on D's timing, a fresh suggestion of `long` words or more that is right to the end gets a `hold`, then Shift-Tab and one glint across it (`HALFTYPE_DEMO_PACE` gains `long` and `hold`; the shift key shows when `long` is set).
+- `round3.png`: one frame of each.
+
+Recommendation: H (`beat=12,tab=14,after=8,glint=burst,long=3,hold=40`).
