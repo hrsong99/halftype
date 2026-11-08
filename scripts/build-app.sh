@@ -14,6 +14,8 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks" "$app/Contents/Resources"
 cp "$bin/Halftype" "$app/Contents/MacOS/Halftype"
 for framework in "$bin"/*.framework(N); do cp -R "$framework" "$app/Contents/Frameworks/"; done
+# The model makers' logos. Bundle.module looks in Contents/Resources first, and stops the app if it isn't there.
+cp -R "$bin/Halftype_HalftypeApp.bundle" "$app/Contents/Resources/"
 cp LICENSE scripts/llama.cpp-LICENSE Resources/AppIcon.icns Resources/MenuBarTemplate*.png "$app/Contents/Resources/"
 cp .build/artifacts/sparkle/Sparkle/LICENSE "$app/Contents/Resources/Sparkle-LICENSE"
 install_name_tool -add_rpath @executable_path/../Frameworks "$app/Contents/MacOS/Halftype" 2>/dev/null || true

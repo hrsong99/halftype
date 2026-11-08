@@ -30,4 +30,4 @@ Round 2 had dropped the toggle (an always-there card seemed not to need one); th
 
 - `round3.html`: A round 2's A with today's toggle (hidden, the content re-centres) · B round 2's C with the toggle as an override (automatic until clicked, then pinned while the window is open) · C like B, but hidden leaves a rail of section dots.
 
-Recommendation: B. Pick: (pending)
+Recommendation: B. Pick: B ("I like B, let's build it out"), built on the branch `settings-scroll`, then rebuilt on home-glass's cream window (John: "Take the current state of the home glass session and rebuild our design based on that"): no sky, so the blurred arch sits behind the field and scrolls away with it, and the settings pane and card are milky white on cream. `built/` holds the window shots from WindowShots.

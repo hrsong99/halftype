@@ -1474,6 +1474,23 @@ final class FakeServer: URLProtocol {
         return host
     }
 
+    /// A window ordered in at the back, never key, captured by its ID: the only picture with both the ribbon and a ScrollView.
+    func onScreen(_ name: String, _ root: Root, _ size: CGSize) throws {
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = NSHostingView(rootView: root)
+        window.orderBack(nil)
+        defer { window.orderOut(nil) }
+        RunLoop.main.run(until: Date().addingTimeInterval(1.2))
+        let file = dir.appendingPathComponent("\(name).png"), shot = Process()
+        try? FileManager.default.removeItem(at: file)  // An old PNG must not pass for this run's.
+        shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        shot.arguments = ["-x", "-o", "-l\(window.windowNumber)", file.path]
+        try shot.run()
+        shot.waitUntilExit()
+        #expect(shot.terminationStatus == 0, "screencapture needs Screen Recording for the terminal running the tests")
+        #expect(NSImage(contentsOf: file) != nil, "no picture of \(name)")
+    }
+
     @Test func states() throws {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let ready: (App) -> Void = { $0.trusted = true; $0.activePath = $0.store.path(ModelStore.models[0]).path }
@@ -1490,12 +1507,13 @@ final class FakeServer: URLProtocol {
         shoot("8-no-font", app { ready($0); $0.why = .noFont })
         shoot("9-failed-download", app { $0.trusted = true; $0.modelChanged(.failed("Hugging Face answered 503. Try again later.")) })
         shoot("10-models-delete", app { $0.trusted = true; $0.activePath = $0.store.directory.appendingPathComponent("Qwen3.5-0.8B-Q4_K_M.gguf").path }, page: .models)
-        // The whole window through ImageRenderer, which draws the ribbon too, at the smallest size and a tall one.
+        // The whole window with its ribbon, at the smallest size, the usual one and a tall one, at the field and scrolled into the settings.
+        // ImageRenderer draws no ScrollView, so these are a real window, shown behind everything without taking focus.
         for (width, height) in [(640.0, 440.0), (720.0, 500.0), (900.0, 820.0)] {
-            let renderer = ImageRenderer(content: Root(app: app { ready($0); $0.why = .idle }).frame(width: width, height: height))
-            renderer.scale = 2
-            let image = try #require(renderer.cgImage)
-            try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])).write(to: dir.appendingPathComponent("15-window-\(Int(width))x\(Int(height)).png"))
+            for page in [Root.Page.field, .stats, .models] {
+                try onScreen("15-window-\(Int(width))x\(Int(height))-\(page.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))",
+                             Root(app: app { ready($0); $0.why = .idle }, page: page), CGSize(width: width, height: height))
+            }
         }
         shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } })
     }

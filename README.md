@@ -1,6 +1,6 @@
 # Halftype
 
-**Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. What you type never leaves your Mac and is never saved: Halftype keeps only counts, for its Stats page. You type half; it writes the rest. (It was called Itda until 2026-11.)
+**Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. What you type never leaves your Mac and is never saved: Halftype keeps only counts, for its Stats. You type half; it writes the rest. (It was called Itda until 2026-11.)
 
 ![Typing two sentences: suggestions in glass, quick Tabs taking them a word at a time, and the counts showing more than half the keys saved](docs/media/demo.webp)
 
@@ -37,7 +37,7 @@ It keeps itself up to date, with signed and notarized releases. Turn that off un
 
 Or keep typing: the suggestion follows along while you match it. With no suggestion showing, these keys do what they always do.
 
-The window opens on that field alone, with the model and an on/off button inside it. The sidebar icon reveals the rest: models to download, switch between or delete, paused apps, and Start at Login. Close the window and Halftype stays in the menu bar, whose icon also pauses it for the current app. Open Halftype again to get the window back.
+The window opens on that field alone, with the model and an on/off button inside it. Scroll down for the rest, in one page: stats, models to download, switch between or delete, paused apps, and Start at Login. A card at the side jumps between them; it comes with the settings, and the sidebar icon pins it open or shut. Close the window and Halftype stays in the menu bar, whose icon also pauses it for the current app. Open Halftype again to get the window back.
 
 The menu-bar icon dims when Halftype is off or paused for the app in front, shows a dot when something needs you, and a percentage while the model downloads. Its menu says in one line why there's no suggestion where you are. Most often that's "Working. Not sure enough to suggest yet.": Halftype stays quiet until it's sure. The same line shows under the window's field. If macOS's own grey predictions are on, the window says so and links to the setting; Halftype never changes it.
 
@@ -75,13 +75,13 @@ Wired memory is what counts: nothing else can use it, and Activity Monitor's per
 
 - **One permission: Accessibility.** The app asks for nothing else, and it never uses Screen Recording.
 - **What it reads:** the focused field and text near it in the window, to give the model context. A key tap watches for Tab, Shift-Tab and Esc, and it sees your other keys so it can track Korean composition. All of it stays in memory.
-- **What it writes:** the on/off switch, your paused apps and the paths of models you chose as settings, and model files in Application Support, with where a stopped download got to. Also there, for the Stats page, four counts a day: suggestions shown and taken, Tabs, and letters typed for you. Nothing with typed text, and no logs. What you type in its own window is held in memory until the window closes.
+- **What it writes:** the on/off switch, your paused apps and the paths of models you chose as settings, and model files in Application Support, with where a stopped download got to. Also there, for Stats, four counts a day: suggestions shown and taken, Tabs, and letters typed for you. Nothing with typed text, and no logs. What you type in its own window is held in memory until the window closes.
 - **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. And GitHub, about once a day in a release build, to check for an update and fetch it, which sends your macOS version and Halftype's. Turn that off under General. Nothing else. A build you make yourself never checks.
 - **Secure fields** are skipped: Halftype checks the field before every read, and reads no text from a secure one or suggests in it. While any app holds Secure Input, it starts no new read or suggestion, and checks again just before drawing; a suggestion already on screen goes at the next change it sees. The menu says so.
 
 ## Uninstall
 
-Quit Halftype from its menu, drag it from Applications to the Trash, and remove `~/Library/Application Support/Halftype`, which holds the models. Its settings are in `~/Library/Preferences/app.halftype.Halftype.plist`. With Homebrew, `brew uninstall --zap --cask halftype` does all of it. To remove only a model, use Delete on the Models page.
+Quit Halftype from its menu, drag it from Applications to the Trash, and remove `~/Library/Application Support/Halftype`, which holds the models. Its settings are in `~/Library/Preferences/app.halftype.Halftype.plist`. With Homebrew, `brew uninstall --zap --cask halftype` does all of it. To remove only a model, use Delete under Models in its window.
 
 ## Limits
 
