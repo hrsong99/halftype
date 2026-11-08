@@ -65,3 +65,10 @@ Next: once the name and the window's look are settled, redraw the finalist centr
 
 Lessons from four rounds: an icon for a typing tool has to show the job (a key, handwriting), or it reads as a generic AI brand (round 2's knots, like ChatGPT's); flat vector drawing didn't get the depth and hand-drawn feel John liked, so the image tool explores and a vector redraw ships.
 
+
+## Round 5: names (2026-11-08)
+
+John: "Can we use the name typeless, or would there be a legal problem with that? If not, can I see some versions with that name in mind". Typeless is taken: a Mac AI dictation app, USPTO application 99669312 in classes 9 and 42. So round 5 is 4E's ribbon, subtly coloured, for names that passed a first check. That check was rdap.org for domains, the iTunes Search API for the App Store, and a web search; it is not a trademark search.
+
+- [round5.html](round5.html): the name check table and options 5A–5F. Built by `round5/page.py`, with images from `gen-round5.sh` and `prompts-round5.txt` (`images/r5a–f.png`).
+- Recommendation: **Halftype**, with **5A** (a cursive h, half ink, half glass) as the icon and **5F** (the whole word) as the wordmark. A whole word in a ribbon is unreadable at Dock size, so the icon carries only the initial.
