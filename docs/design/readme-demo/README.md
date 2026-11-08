@@ -21,3 +21,31 @@ John, on the glass demo with rapid Tabs (A): "Yikes that looks messy. Give me so
 - B–G also keep a suggestion while the typing matches it, as the app does; A asked the model again after every letter, so suggestions jumped.
 
 Recommendation: D (`beat=12,tab=14,after=8,glint=burst`).
+
+## Round 3: Tab and Shift-Tab
+
+John: "What if we mix tabs and shift tabs? So show using tab for some small suggestions, and then shift tab (after a pause) to show accepting a long suggestion?"
+
+- `round3.html`: D from round 2 for comparison, and H, I, J (`round3/*.webp`): on D's timing, a fresh suggestion of `long` words or more that is right to the end gets a `hold`, then Shift-Tab and one glint across it (`HALFTYPE_DEMO_PACE` gains `long` and `hold`; the shift key shows when `long` is set).
+- `round3.png`: one frame of each.
+
+Recommendation: H (`beat=12,tab=14,after=8,glint=burst,long=3,hold=40`).
+
+## Built
+
+John (after round 3): "Let's go with 'Happy birthday! I hope you have a great day!', but 'Ha' shows 'ppy birthday' and two tabs accept that. And 'I ' shows 'hope you have a great day' and shift tab accepts that. but the keys don't exist on the bottom and only show up when clicked. No need to show another set of texts".
+
+No model suggests that from those prefixes (probed 2026-11-09 with `HALFTYPE_DEMO_PROBE=1`: Qwen 3.5 0.8B says "ar's" after "Ha"), so the demo is scripted (`HALFTYPE_DEMO_SCRIPT` in `scripts/demo.sh`) and the README calls it an illustration. H's timing is the default; the keys show only while pressed, then fade.
+
+John then: "is there a low frame rate? It doesn't look very smooth. If so, we should probably just show grey text and instant suggestion acceptance". The glint and key fade each had three or four frames, so they stepped. Now: grey suggestions, taken in one frame, keys simply down then up, no glint or fade.
+
+## Round 4: more text
+
+John: "Okay now it feels too short. Any ideas for text we can add there? Or a new text we can cycle through", then "show me".
+
+- `round4.html`: A (today), B (three messages cycling), C (the birthday message, longer). Scripts in `round4/B-script.txt` and `C-script.txt` (`HALFTYPE_DEMO_SCRIPT`); B with `HALFTYPE_DEMO_PACE=rest=110`. A wrong suggestion now stays 0.35 s (`ignore`) so its being typed over can be seen.
+- `round4.png`: one frame of each.
+
+Recommendation: B.
+
+Pick (John, round 4): B. Then: "Let's make the key press stay a bit longer so that users can see what happened tho?" Built: a key stays down 0.18 s (`down`) and, once up, on screen 0.5 s more while typing goes on (`linger`), until the next suggestion appears. `scripts/demo.sh` renders B as `docs/media/demo.webp`.

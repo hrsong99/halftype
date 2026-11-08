@@ -423,7 +423,31 @@ import Testing
         let second = press(tap, key(48))
         #expect(second.swallowed && unicode(second.posted) == " friend")
         #expect(tap.state.withLock { $0.armed == nil && $0.pending?.to == "hello there friend" && $0.pending?.from == "hello" })
-        #expect(!press(tap, key(48)).swallowed)  // Nothing left: Tab is the app's.
+        #expect(press(tap, key(48)).posted.isEmpty)  // Nothing left: held a moment for the next ghost, typing nothing.
+    }
+    @Test func aFastTabAfterTheLastWordIsHeldForTheNextGhost() {
+        let tap = KeyTap()
+        armed(tap, Ghost(remainder: " there"))
+        #expect(unicode(press(tap, key(48)).posted) == " there")
+        let generation = tap.generation
+        let held = press(tap, key(48))  // Before the next ghost: ours, typing nothing, and no input.
+        #expect(held.swallowed && held.posted.isEmpty && tap.generation == generation)
+        #expect(!press(tap, key(48, pid: 99)).swallowed)  // Another app's Tab is its own.
+        #expect(!press(tap, key(48, flags: .maskShift)).swallowed)  // Shift-Tab back a field is the app's, and ends the hold.
+        #expect(!press(tap, key(48)).swallowed)
+        armed(tap, Ghost(remainder: " there"))
+        _ = press(tap, key(48))
+        armed(tap, Ghost(remainder: " friend"))
+        #expect(unicode(press(tap, key(48)).posted) == " friend")
+        _ = press(tap, key(0))  // Any other key ends the hold.
+        #expect(!press(tap, key(48)).swallowed)
+    }
+    @Test func theHoldEndsByItself() {
+        let tap = KeyTap()
+        tap.state.withLock { $0.holdFor = 0 }  // A host that refused the insert: no next ghost comes.
+        armed(tap, Ghost(remainder: " there"))
+        _ = press(tap, key(48))
+        #expect(!press(tap, key(48)).swallowed)
     }
     @Test func tabThenReturnKeepsItsOrderAndDisarms() {
         let tap = KeyTap()
@@ -1016,7 +1040,7 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         #expect(offer.count < text.count && text.hasPrefix(offer))
         let all = keys.press(tap, keys.key(48, pid: 0, flags: .maskShift))
         #expect(all.swallowed && keys.unicode(all.posted) == offer)
-        #expect(!keys.press(tap, keys.key(48, pid: 0)).swallowed)  // The unseen tail is out of reach, and Tab the app's.
+        #expect(keys.press(tap, keys.key(48, pid: 0)).posted.isEmpty)  // The unseen tail is out of reach: Tab waits for the redraw.
     }
     @Test func nextWordTabsStopAtTheDrawnEdge() async throws {
         let text = " one two three four five six seven"
@@ -1027,7 +1051,7 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         var taken = ""
         while true {
             let tab = keys.press(tap, keys.key(48, pid: 0))
-            guard tab.swallowed else { break }
+            guard tab.swallowed, !tab.posted.isEmpty else { break }  // Held for the redraw, which this test never makes.
             taken += keys.unicode(tab.posted)
         }
         #expect(taken == offer)
@@ -1046,7 +1070,7 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         let expected = try #require(TwoSetLayout.strokes("ㄴ" + Hangul.keys(ghost.remainder)))
         #expect(posted.map { $0.getIntegerValueField(.keyboardEventKeycode) } == expected.map { Int64($0.code) })
         #expect(tap.state.withLock { $0.pending?.to == "그 한" + ghost.remainder })
-        #expect(!keys.press(tap, keys.key(48, pid: 0)).swallowed)
+        #expect(keys.press(tap, keys.key(48, pid: 0)).posted.isEmpty)
     }
     @Test func theSuggestionKeepsItsTailForTheNextDraw() async throws {
         let text = " one two three four five six seven", model = CountingCompleter(text)
@@ -1605,6 +1629,8 @@ final class FakeServer: URLProtocol {
         panel.trim("x", drawing: panel.drawing)
         panel.trim("o", drawing: panel.drawing - 1)
         #expect(panel.view.layout?.glyphs == trimmed.glyphs, "a letter not next, or for another drawing, changes nothing")
+        panel.took("otes", drawing: panel.drawing)
+        #expect(panel.view.layout?.glyphs.length == 0, "a Tab's words are trimmed too, in any app, so the ghost never sits on the real text")
     }
 
     // A display link fires only for a view on a display, so a headless run skips this.

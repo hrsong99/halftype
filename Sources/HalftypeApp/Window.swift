@@ -16,9 +16,6 @@ struct Root: View {
     @State private var passed: Set<Page>
     /// Scrolled to the end, where the last section may never reach the middle.
     @State private var end = false
-    @State private var height: CGFloat = 500
-    /// How far the field has scrolled up, which the ribbon behind it follows.
-    @State private var scrolled: CGFloat = 0
 
     private let picking: Bool
     private let start: Page
@@ -50,14 +47,15 @@ struct Root: View {
             ScrollView {
                 VStack(spacing: 0) {
                     FieldPage(app: app, draft: $draft, picking: picking) { go(.models) }
+                        .padding(.leading, open ? 160 : 0)  // The card's room, inside the arch, which keeps the whole width.
                         .containerRelativeFrame(.vertical)
+                        // The arch belongs to the field, so it scrolls with it; it reaches up under the title bar, as the window's ground did.
+                        .background { Arch().padding(.top, -28).visualEffect { arch, place in arch.opacity(1 + place.frame(in: .scrollView).minY / place.size.height) } }
                         .id(Page.field)
-                    settings
+                    settings.padding(.leading, open ? 160 : 0)
                 }
-                .padding(.leading, open ? 160 : 0)
             }
             .safeAreaPadding(.top, 28)
-            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { scrolled = $1 }
             .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.containerSize.height >= $0.contentSize.height - 4 && $0.contentOffset.y > 0 } action: { end = $1 }
             .overlay(alignment: .topLeading) {
                 if open { card(go).transition(.move(edge: .leading).combined(with: .opacity)) }
@@ -74,9 +72,9 @@ struct Root: View {
                 .padding(.top, 9)
         }
         .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
-        .background { Backdrop(scrolled: scrolled) }
-        // The icon's cream tile, in dark mode too (docs/design/home-glass).
+        // The icon's cream tile.
+        .background(Color(red: 0.965, green: 0.945, blue: 0.914))
+        // Cream in dark mode too (docs/design/home-glass).
         .preferredColorScheme(.light)
         .ignoresSafeArea()
     }
@@ -84,10 +82,10 @@ struct Root: View {
     /// Every setting in one pane, each section marking when it reaches the middle of the window.
     private var settings: some View {
         VStack(alignment: .leading, spacing: 20) {
-            StatsPage(app: app).modifier(Place(page: .stats, half: height / 2, passed: $passed))
-            ModelsPage(app: app).modifier(Place(page: .models, half: height / 2, passed: $passed))
-            AppsPage(app: app).modifier(Place(page: .apps, half: height / 2, passed: $passed))
-            GeneralPage(app: app).modifier(Place(page: .general, half: height / 2, passed: $passed))
+            StatsPage(app: app).modifier(Place(page: .stats, passed: $passed))
+            ModelsPage(app: app).modifier(Place(page: .models, passed: $passed))
+            AppsPage(app: app).modifier(Place(page: .apps, passed: $passed))
+            GeneralPage(app: app).modifier(Place(page: .general, passed: $passed))
         }
         .padding(EdgeInsets(top: 2, leading: 20, bottom: 20, trailing: 20))
         .pane()
@@ -100,11 +98,10 @@ struct Root: View {
     /// A section's place in the scroll, for the card.
     private struct Place: ViewModifier {
         let page: Page
-        let half: CGFloat
         @Binding var passed: Set<Page>
         func body(content: Content) -> some View {
             // The padding goes inside the id, so a jump leaves the title room below the title bar.
-            content.padding(.top, 16).id(page).onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).minY < half } action: { above in
+            content.padding(.top, 16).id(page).onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).minY < ($0.bounds(of: .scrollView)?.height ?? 0) / 2 } action: { above in
                 if above { passed.insert(page) } else { passed.remove(page) }
             }
         }
@@ -288,25 +285,7 @@ extension View {
     }
 }
 
-/// The window's ground, from the icon: its cream tile, and behind the field its arch drawn large and out of focus, blue to peach.
-/// The arch scrolls up with the field and fades by the time the settings fill the window, so it never sits behind their text.
-private struct Backdrop: View {
-    var scrolled: CGFloat = 0
-    var ribbon: Bool { scrolled < 460 }
-    var body: some View {
-        Color(red: 0.965, green: 0.945, blue: 0.914)
-            .overlay {
-                if ribbon {
-                    Arch()
-                        .offset(y: -scrolled)
-                        .opacity(max(0, 1 - scrolled / 460))
-                }
-            }
-            .accessibilityHidden(true)
-    }
-}
-
-/// The arch alone, with nothing that changes, so scrolling moves it without drawing its blur again.
+/// The icon's arch drawn large and out of focus, blue to peach, behind the field (docs/design/home-glass).
 private struct Arch: View {
     var body: some View {
         Canvas { context, size in
