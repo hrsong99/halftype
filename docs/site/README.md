@@ -36,6 +36,13 @@ Round 3 fix: KeyType's at-rest bars were removed. It had been measured switched 
 A2 went through TasteSkill's gate: OPEN 3 after 3 rounds. Still open: the model pill counts as a second button style (it copies the app's own UI), the comparison charts' row lines at 1440, and one Korean line flush at 390. Waivers are in `a2/.taste-skill/waivers.json` (not committed): key-card titles, the kit nav at 320, charts as the section's visual, the FAQ without a picture, and the airy statement section.
 Codex reviewed A2 and `compare/idle.sh` over four rounds until clean. It found a Korean replay that showed impossible states (하ㄹ where 2-Set shows 할), savings figures without their limits, the Korean memory line missing its 270 MB footprint, rival qualifications, canvas resizing, a pause button inside `role=img`, tooltips that clipped, and `idle.sh` leaving an app running when interrupted. All fixed.
 
+## Round 4 (2026-11-09)
+
+John: "We should probably cut down on so much of the korean stuff, our first audience will be english. But overall doesn't look bad as a start, obviously need to update it to match the newer app."
+- A2 is English-first: the Korean summary section is gone; the replay is three English lines and one Korean; the keys use English examples; the statement shows English figures (21.6% saved, 81.5% first word right, 53 ms); the one Korean section and one Korean FAQ answer stay.
+- Matched to main after the merge: network (the daily update check stays on; Update Automatically only stops the download), on-disk (four counts a day for Stats), and main's General screenshot.
+- Domains on Spaceship, 2026-11-09: halftype.app $8.28 the first year, then $14.49 a year; halftype.dev $8.28, then $12.42. halftype.com is taken.
+
 ## Pick
 
 A over B (round 1). A2 over A (round 3).

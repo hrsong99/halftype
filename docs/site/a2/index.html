@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Halftype: autocomplete for your whole Mac, in Korean and English</title>
+<title>Halftype: autocomplete for your whole Mac</title>
 <meta name="description" content="Grey text suggests the rest of your sentence in almost any Mac app. Press Tab to take it. The model runs on your Mac.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Halftype: autocomplete for your whole Mac">
-<meta property="og:description" content="Inline suggestions in Korean and English from a model that runs on your Mac.">
+<meta property="og:description" content="Inline suggestions in any app, from a model that runs on your Mac.">
 <meta property="og:image" content="share.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -78,10 +78,8 @@
   .mini .kc { justify-self: start; }
   #keys .panel { --p-h: 260px; }
   .saved-facts { margin-top: var(--s-7); }
-  #ko .rows p { overflow-wrap: anywhere; }
-  @media (min-width: 640px) and (max-width: 1023px) { #keys, #korean, #privacy, #ko { --h: 2 } #limits .faq__item:nth-child(n+5) { display: none; } }
+  @media (min-width: 640px) and (max-width: 1023px) { #keys, #korean, #privacy { --h: 2 } #limits .faq__item:nth-child(n+5) { display: none; } }
   .saved-facts dd { margin: var(--s-2) 0 0; color: var(--muted); font-size: var(--t-small); }
-  .ko-lines { display: grid; gap: 12px; padding: 24px; } .ko-lines .ht-field { min-height: 0; border-radius: 16px; padding: 12px 16px; } .ko-lines .ht-text { font-size: 17px; min-height: 0; }
   @media (min-width: 640px) and (max-width: 1023px) { #saved .saved-facts > div { grid-column: 1 / -1; } #saved .t-display { font-size: 88px; } #saved .saved-facts dd { font-size: var(--t-body); } }
   /* the Cotypist comparison: one scale per chart, bars from zero */
   .vs { row-gap: var(--s-6); margin-top: var(--s-5); }
@@ -104,7 +102,6 @@
   .vs__facts b { font: 500 20px/1 var(--font-mono); color: var(--ink); margin-right: 6px; }
   .vs__how { margin-top: var(--s-5); font: 400 13px/1.5 var(--font-mono); color: #4d4c49; }
   #keys .panel { --p-h: 340px; }
-  .ko-lines { padding: 40px; gap: 16px; } .ko-lines .ht-text { font-size: 20px; }
   .vs__tip { position: fixed; z-index: 50; pointer-events: none; background: var(--ink); color: var(--bg); font: 400 13px/1.4 var(--font-text); padding: 8px 10px; border-radius: 6px; max-width: 260px; }
   @media (max-width: 639px) { .vs__ko td:last-child { display: none; } .vs__bar { grid-template-columns: 72px 1fr 64px; gap: 8px; } .vs__x { margin-left: 80px; } .vs__val, .vs__name { font-size: 13px; } }
   /* the Korean keys diagram */
@@ -116,7 +113,7 @@
   .night { position: relative; overflow: hidden; padding-block: clamp(24px, 4vw, 48px) clamp(48px, 8vw, 96px); }
   .night > canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
   .night > :not(canvas) { position: relative; z-index: 1; }
-  @media (max-width: 359px) { #privacy, #cost, #korean, #ko { --hm: 2; } }
+  @media (max-width: 359px) { #privacy, #cost, #korean { --hm: 2; } }
   @media (prefers-reduced-motion: reduce) { .ht-text .caret { animation: none; } }
   @media (max-width: 639px) {
     .hero__media.sky { padding: 24px 16px 64px; }
@@ -128,7 +125,6 @@
     .hero .brew { display: none; }
     #keys .panel { --p-h: 120px; } #keys .card > p, #keys .section-head > p { display: none; }
     #keys .mini { padding: 12px; gap: 8px; }
-    #ko .rows > li:nth-child(n+5), #ko .ko-lines .ht-field:nth-child(n+3) { display: none; }
   }
 </style>
 </head>
@@ -145,9 +141,8 @@
     <a class="nav__logo" href="#top"><svg class="ht-mark" viewBox="0 0 18 18" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke-opacity=".38"/></svg>Halftype</a>
     <nav class="nav__links" aria-label="Main">
       <div class="nav__item"><a class="nav__link" href="#keys">Keys</a></div>
-      <div class="nav__item"><a class="nav__link" href="#korean">Korean</a></div>
       <div class="nav__item"><a class="nav__link" href="#privacy">Privacy</a></div>
-      <div class="nav__item"><a class="nav__link" href="#cost">Cost</a></div>
+      <div class="nav__item"><a class="nav__link" href="#cost">Compare</a></div>
       <div class="nav__item"><a class="nav__link" href="#limits">Limits</a></div>
     </nav>
     <div class="nav__actions">
@@ -165,7 +160,7 @@
       <div class="hero__text span-5">
         <p class="hero__kicker"><span class="dot" aria-hidden="true"></span>For macOS 26 on Apple Silicon</p>
         <h1 id="hero-h">Autocomplete for your whole Mac</h1>
-        <p class="hero__lead">Grey text finishes your sentence in almost any app. Tab takes it. Korean and English, on your Mac.</p>
+        <p class="hero__lead">Grey text finishes your sentence in almost any app. Tab takes it. The model runs on your Mac.</p>
         <div class="btn-row"><a class="btn btn--primary" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download Halftype<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a></div>
         <div class="brew" id="brew">
           <code>brew tap hrsong99/halftype &amp;&amp; brew trust hrsong99/halftype
@@ -175,7 +170,7 @@ brew install --cask halftype</code>
       </div>
       <div class="hero__media sky span-6 start-7">
         <canvas data-sky aria-hidden="true"></canvas>
-        <div class="ht-field" role="img" aria-label="The Halftype window: a sentence is typed, grey text suggests its ending, and Tab turns it to ink. English and Korean sentences take turns.">
+        <div class="ht-field" role="img" aria-label="The Halftype window: a sentence is typed, grey text suggests its ending, and Tab turns it to ink.">
           <div class="ht-text" data-replay aria-hidden="true"></div>
           <div class="ht-bar"><span class="kc" data-tabkey>tab</span><span class="ht-pill">Qwen 3.5 0.8B</span><span class="ht-power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
         </div>
@@ -197,7 +192,7 @@ brew install --cask halftype</code>
         </article>
         <article class="card card--row card--open span-4">
           <h3>Shift-Tab takes it all</h3>
-          <div class="panel"><div class="mini" role="img" aria-label="“좋은 하루 보내” with “세요!” in grey; Shift-Tab takes it"><div class="ht-field"><div class="ht-text">좋은 하루 보내<span class="ghost">세요!</span></div></div><span class="kc">⇧ tab</span></div></div>
+          <div class="panel"><div class="mini" role="img" aria-label="“Let me know if you have any quest” with “ions” in grey; Shift-Tab takes it"><div class="ht-field"><div class="ht-text">Let me know if you have any quest<span class="ghost">ions</span></div></div><span class="kc">⇧ tab</span></div></div>
         </article>
         <article class="card card--row card--open span-4">
           <h3>Esc hides it</h3>
@@ -230,11 +225,11 @@ brew install --cask halftype</code>
     <div class="wrap">
       <div class="statement stack-6">
         <h2 id="saved-h" class="mo-lt__type t-display">Type half. It writes the rest.</h2>
-        <p class="t-lead measure">Keystrokes saved across whole messages, replayed with real typing delays. Exact matches only.</p>
+        <p class="t-lead measure">English, replayed with real typing delays, default settings.</p>
         <dl class="grid saved-facts">
-          <div class="span-4"><dt class="t-stat">21.6%</dt><dd>English</dd></div>
-          <div class="span-4"><dt class="t-stat">4.8%</dt><dd>Korean, public dialogue</dd></div>
-          <div class="span-4"><dt class="t-stat">8.8%</dt><dd>Korean, public dialogue, Kanana 1.5 model</dd></div>
+          <div class="span-4"><dt class="t-stat">21.6%</dt><dd>of keystrokes saved across whole messages</dd></div>
+          <div class="span-4"><dt class="t-stat">81.5%</dt><dd>of suggestions right on the first word</dd></div>
+          <div class="span-4"><dt class="t-stat">53 ms</dt><dd>to the first word</dd></div>
         </dl>
         <p class="vs__how">Measured before the latest change to suggestion length. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it’s measured</a>.</p>
       </div>
@@ -247,18 +242,18 @@ brew install --cask halftype</code>
       <div class="grid grid--top fill">
         <ul class="rows span-5">
           <li><span class="rows__name">One permission</span><p>Accessibility. No Screen Recording.</p></li>
-          <li><span class="rows__name">Network</span><p>Only model downloads and a daily update check you can turn off.</p></li>
-          <li><span class="rows__name">On disk</span><p>Settings and models. No text, no logs.</p></li>
+          <li><span class="rows__name">Network</span><p>Only model downloads and a daily update check.</p></li>
+          <li><span class="rows__name">On disk</span><p>Settings, models and four counts a day. No text, no logs.</p></li>
           <li><span class="rows__name">Password fields</span><p>Skipped.</p></li>
         </ul>
-        <div class="span-6 start-7"><img class="shot" src="img/window-general.png" alt="Halftype’s General page: Start at Login, suggestion length and frequency, the three keys, and the line “Everything runs on this Mac”" width="1440" height="560"></div>
+        <div class="span-6 start-7"><img class="shot" src="img/window-general.png" alt="Halftype’s General settings: Start at Login, Length, How Often, the three keys, and “Everything runs on this Mac. Nothing you type is sent, and only counts are saved, never text.”" width="1440" height="1000"></div>
       </div>
     </div>
   </section>
 
   <section class="section ground-surface" id="cost" aria-labelledby="cost-h">
     <div class="wrap">
-      <div class="section-head"><h2 id="cost-h">The smallest download. <span class="muted">And Korean that keeps up.</span></h2></div>
+      <div class="section-head"><h2 id="cost-h">The smallest download. <span class="muted">Light when you’re not typing.</span></h2></div>
       <div class="grid grid--top vs" data-visual>
         <figure class="vs__chart span-4" data-vs>
           <figcaption class="vs__title">Model to download</figcaption>
@@ -288,8 +283,8 @@ brew install --cask halftype</code>
         <div class="span-5 section-head"><h2 id="limits-h">Limits</h2><p>An early release. Found something? Open an issue.</p></div>
         <div class="faq span-6 start-7">
           <div class="faq__item"><h3>Which Macs?</h3><p>macOS 26 on Apple Silicon.</p></div>
-          <div class="faq__item"><h3>Which Korean layout?</h3><p>Apple’s 2-Set Korean only.</p></div>
-          <div class="faq__item"><h3>How good is Korean?</h3><p>Weaker than English. Kanana 1.5 helps.</p></div>
+          
+          <div class="faq__item"><h3>And Korean?</h3><p>Weaker than English, with Apple’s 2-Set layout.</p></div>
           <div class="faq__item"><h3>Where won’t it suggest?</h3><p>Mid-line, and during Secure Input.</p></div>
           <div class="faq__item"><h3>Does it work in Chromium apps?</h3><p>Mostly. Only some are tested.</p></div>
           <div class="faq__item"><h3>Building it yourself</h3><p>Yes, with Swift 6.2.</p></div>
@@ -298,29 +293,6 @@ brew install --cask halftype</code>
     </div>
   </section>
 
-  <section class="section" id="ko" lang="ko" aria-labelledby="ko-h">
-    <div class="wrap">
-      <div class="grid grid--top fill">
-        <div class="span-5 stack-5">
-          <h2 id="ko-h">한국어 요약</h2>
-          <p>회색 글자로 다음 말을 제안합니다. 모델은 내 Mac에서 돌아갑니다.</p>
-          <div class="frame sky ko-lines" role="img" aria-label="Halftype의 회색 제안 세 개: 반갑습니다, 보내세요, 감사하겠습니다">
-            <canvas data-sky data-still aria-hidden="true"></canvas>
-            <div class="ht-field"><div class="ht-text">안녕하세요. 만나서 반갑<span class="ghost">습니다.</span></div></div>
-            <div class="ht-field"><div class="ht-text">좋은 하루 보내<span class="ghost">세요!</span></div></div>
-            <div class="ht-field"><div class="ht-text">금요일까지 보내주시면 감사하겠<span class="ghost">습니다.</span></div></div>
-          </div>
-        </div>
-        <ul class="rows span-6 start-7">
-          <li><span class="rows__name">사용법</span><p>Tab은 다음 단어, Shift-Tab은 전체, Esc는 닫기입니다.</p></li>
-          <li><span class="rows__name">다른 점</span><p>조합 중인 글자에서도 제안합니다.</p></li>
-          <li><span class="rows__name">비용</span><p>입력 중 0.56 GB와 약 270 MB, 5분 쉬면 79 MB.</p></li>
-          <li><span class="rows__name">개인정보</span><p>글은 저장하지 않습니다. 비밀번호 칸은 건너뜁니다.</p></li>
-          <li><span class="rows__name">한계</span><p>macOS 26, Apple Silicon, 두벌식.</p></li>
-                  </ul>
-      </div>
-    </div>
-  </section>
 </main>
 
 <footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
@@ -337,10 +309,10 @@ brew install --cask halftype</code>
       <div class="grid">
         <div class="span-4 stack-4">
           <a class="nav__logo" href="#top"><svg class="ht-mark" viewBox="0 0 18 18" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke-opacity=".38"/></svg>Halftype</a>
-          <p class="footer__lede">Inline suggestions in Korean and English, from a model on your Mac.</p>
+          <p class="footer__lede">Inline suggestions in any app, from a model on your Mac.</p>
         </div>
-        <div class="span-2 footer__col"><h3>Product</h3><ul><li><a href="#keys">Keys</a></li><li><a href="#korean">Korean</a></li><li><a href="#limits">Limits</a></li></ul></div>
-        <div class="span-2 footer__col"><h3>Trust</h3><ul><li><a href="#privacy">Privacy</a></li><li><a href="#cost">Cost</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Product</h3><ul><li><a href="#keys">Keys</a></li><li><a href="#limits">Limits</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Trust</h3><ul><li><a href="#privacy">Privacy</a></li><li><a href="#cost">Compare</a></li></ul></div>
         <div class="span-2 footer__col"><h3>Source</h3><ul><li><a href="https://github.com/hrsong99/halftype">GitHub</a></li><li><a href="https://github.com/hrsong99/halftype/blob/main/docs/how-it-works.md">How it works</a></li></ul></div>
         <div class="span-2 footer__col"><h3>Install</h3><ul><li><a href="#brew">Homebrew</a></li><li><a href="https://github.com/hrsong99/halftype/releases">Releases</a></li></ul></div>
       </div>
@@ -414,11 +386,9 @@ brew install --cask halftype</code>
 (() => {
   const lines = [
     ['Let me know if you have any quest', 'ions'],
-    ['안녕하세요. 만나서 반갑', '습니다.'],
     ['See you tomor', 'row.'],
     ['감사합니다. 좋은 하루 보내', '세요!'],
     ['As soon as possi', 'ble,'],
-    ['이번 주 금요일까지 보내주시면 감사하겠', '습니다.'],
   ];
   const L = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ', V = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
   const T = ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
