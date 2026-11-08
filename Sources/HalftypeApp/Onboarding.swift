@@ -9,6 +9,9 @@ struct Onboarding: View {
     @State private var draft: String
     /// This lesson's key was pressed on a suggestion.
     @State private var did = false
+    /// The last page's switch, on by default: a menu-bar helper gone after a restart looks broken (John: "turn it on by default").
+    /// Applied by Start Writing, so closing the window there registers nothing.
+    @State private var atLogin = true
 
     init(app: App, step: Step = .welcome) {
         self.app = app
@@ -126,9 +129,12 @@ struct Onboarding: View {
                 .font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
             // One action, then the setting under it, quiet and with room: side by side or stacked in a pane read as two equal
             // choices (docs/design/onboarding/done-page.html; John picked the switch below).
-            Button("Start Writing") { app.finishOnboarding() }
+            Button("Start Writing") {
+                if app.startAtLogin != atLogin { app.startAtLogin = atLogin }
+                app.finishOnboarding()
+            }
                 .buttonStyle(Ink()).padding(.top, 14)
-            Toggle("Start at login", isOn: $app.startAtLogin).toggleStyle(.switch).tint(.black).controlSize(.small)
+            Toggle("Start at login", isOn: $atLogin).toggleStyle(.switch).tint(.black).controlSize(.small)
                 .font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 6)
         }
     }

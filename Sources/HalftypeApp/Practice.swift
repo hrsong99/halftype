@@ -132,7 +132,7 @@ struct GuideCard: View {
                     .onDrag { NSItemProvider(object: Bundle.main.bundleURL as NSURL) }
                     .help("Drag into the list if Halftype isn't there")
                 Text("Turn on Halftype").font(.system(size: 13, weight: .semibold))
-                Text("Flip the switch next to it in the list. Not there? Drag this icon in.")
+                Text("Scroll down to Halftype and flip its switch. Not there? Drag this icon in.")
                     .font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
             .frame(width: 150)
