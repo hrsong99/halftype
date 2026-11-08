@@ -23,14 +23,21 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     static let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda")
     // Still "Itda", the app's old name: renaming it would strand the models people already downloaded.
     let store = ModelStore(directory: App.support)
-    /// Counts only, for the Stats page. Written on each change, which is a few hundred small writes on a busy day.
+    /// Counts only, for the Stats page. Each typed key counts, so it's written at most every 10 s, and at quit.
     @Published var tally = App.tallyFile.flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONDecoder().decode(Tally.self, from: $0) } ?? Tally() {
         didSet {
-            guard let file = App.tallyFile, let data = try? JSONEncoder().encode(tally) else { return }
-            // A model chosen from elsewhere means no download has made the folder yet.
-            try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? data.write(to: file, options: .atomic)
+            guard !saving else { return }
+            saving = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in self?.save() }
         }
+    }
+    private var saving = false
+    private func save() {
+        saving = false
+        guard let file = App.tallyFile, let data = try? JSONEncoder().encode(tally) else { return }
+        // A model chosen from elsewhere means no download has made the folder yet.
+        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: file, options: .atomic)
     }
     /// Nil in the window pictures, whose made-up counts must not reach the real file. Set before any App exists.
     /// Main thread only: the suggestion the last Tab took from.
@@ -59,19 +66,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         }
     }
     private var engine: Engine?
-    /// Adds the keys typed since the last count, on the day the first was typed, the event, and which kind of day it is, in one write.
-    /// shortcut: keys typed in the minute across midnight count on the day before, which is noise next to a day's thousands.
-    private func count(_ event: ((inout Tally) -> Void)? = nil) {
-        let (keys, since) = tap.takeTyped()
-        guard keys > 0 || event != nil else { return }
+    /// Counts the event, and marks today with the model's state as it is now, in one change.
+    private func count(_ event: (inout Tally) -> Void) {
         var next = tally
-        next.typed(keys, on: since)
-        event?(&next)
-        // Keys begun on an earlier day mark no day: the model's state now may not have been theirs, and today's may differ.
-        if event != nil || Calendar.current.isDateInToday(since) {
-            if let activePath, App.adapterFile(for: activePath) == nil { next.mark(personal: nil) }  // A model with no adapter compares nothing.
-            else if let applied = engine?.applied.withLock({ $0 }) { next.mark(personal: applied) }  // Unloaded while idle: nothing to say.
-        }
+        event(&next)
+        if let activePath, App.adapterFile(for: activePath) == nil { next.mark(personal: nil) }  // A model with no adapter compares nothing.
+        else if let applied = engine?.applied.withLock({ $0 }) { next.mark(personal: applied) }  // Unloaded while idle: nothing to say.
         tally = next
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
@@ -129,7 +129,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var on = UserDefaults.standard.object(forKey: "on") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(on, forKey: "on")
-            if on { _ = tap.takeTyped() } else { count() }  // Keys typed while off had no chance at a suggestion.
             rebind()
         }
     }
@@ -183,8 +182,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func applicationDidFinishLaunching(_ note: Notification) {
         tune()
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
-        // Keys land on the day, within a minute, they were typed: a whole evening's could otherwise count after midnight.
-        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in if self?.on == true { self?.count() } }
+        // Keys typed while off had no chance at a suggestion.
+        tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
         tap.onAccept = { [weak self] added, keys, suggestion in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -251,7 +250,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// ggml's Metal device asserts at exit if a model is still loaded. A load under way finishes first, as it can't be stopped, and none
     /// starts after; then every model opened closes, installed or not.
     func applicationWillTerminate(_ note: Notification) {
-        if on { count() }
+        save()
         quitting.store(true, ordering: .sequentiallyConsistent)  // Before the drain, so opens queued behind it skip their load.
         watcher.quit(closing: loading.sync { engines.allObjects.compactMap { $0 as? Completer } })
     }

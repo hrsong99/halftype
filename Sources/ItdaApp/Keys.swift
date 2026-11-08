@@ -39,8 +39,6 @@ class KeyTap: @unchecked Sendable {
         /// What the field will hold once our last accept lands; Tab-Tab can beat the host's update. Any other input ends it, as the
         /// field then holds something else: Tab, Backspace, and `hello ther` would otherwise read as on its way to `hello there`.
         var pending: (from: String, to: String)?
-        /// Keys that typed a character since `takeTyped`, and when the first of them was, for the Stats page's share typed by Tab.
-        var typed = 0, typedSince = Date()
         /// The live tap, and the run loop of its thread once that has started.
         var port: CFMachPort?
         var loop: CFRunLoop?
@@ -87,7 +85,8 @@ class KeyTap: @unchecked Sendable {
     }
 
     var generation: Int { state.withLock { $0.generation } }
-    func takeTyped() -> (keys: Int, since: Date) { state.withLock { s in defer { s.typed = 0 }; return (s.typed, s.typedSince) } }
+    /// A key typed a character by hand, for the Stats page's share typed by Tab.
+    var onTyped: (@Sendable () -> Void)?
 
     func invalidate() {
         state.withLock {
@@ -166,10 +165,6 @@ class KeyTap: @unchecked Sendable {
                 suggestion = armed.suggestion
             }
             if plan == nil { s.pending = nil }
-            if plan == nil, Self.types(type, event, flags) {
-                if s.typed == 0 { s.typedSince = Date() }
-                s.typed += 1
-            }
             return decision
         }
         if let plan {
@@ -178,6 +173,7 @@ class KeyTap: @unchecked Sendable {
         }
         if decision == .reenable { reenable() }
         if case .dismiss = decision { onDismiss?() }
+        if plan == nil, Self.types(type, event, flags) { onTyped?() }
         onInput?(generation)
         return plan != nil || decision == .dismiss(swallow: true)
     }
