@@ -135,16 +135,21 @@ final class Watcher: @unchecked Sendable {
             let callback: AXObserverCallback = { _, element, name, refcon in
                 Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String, element)
             }
-            guard AXObserverCreate(pid, callback, &created) == .success, let observer = created else { return }
+            // Just after the grant the tap is up but AX still refuses for a moment (apiDisabled): an observer made then hears nothing,
+            // ever, and the first lesson's field sat without its suggestion until a click rebound (seen live, 2026-11-09). Again shortly.
+            let again = { [self] in queue.asyncAfter(deadline: .now() + 0.5) { [self] in if self.binding == binding { bind(pid: pid, binding: binding) } } }
+            let made = AXObserverCreate(pid, callback, &created)
+            guard made == .success, let observer = created else { return made == .apiDisabled ? again() : () }
             self.app = app
             self.observer = observer
             self.pid = pid
             process = Priming.Process(pid: pid, launched: launchDate(pid))
             priming.bound(process)
-            AX.own(app) { for name in Self.appNotifications { AXObserverAddNotification(observer, app, name as CFString, refcon) } }
+            let added = AX.own(app) { Self.appNotifications.map { AXObserverAddNotification(observer, app, $0 as CFString, refcon) } }
             CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
             refocus()
             update()
+            if added.contains(.apiDisabled) { again() }
         }
     }
 
