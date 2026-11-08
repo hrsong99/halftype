@@ -2,6 +2,8 @@ import AppKit
 import ItdaCore
 import ItdaEngine
 import class SwiftUI.NSHostingView
+import class SwiftUI.ImageRenderer
+import struct SwiftUI.ProposedViewSize
 import Synchronization
 import Testing
 @testable import ItdaApp
@@ -1437,7 +1439,7 @@ final class FakeServer: URLProtocol {
     }
 }
 
-/// The window's states as PNGs, drawn off screen, so nothing takes focus. `ITDA_SHOTS=<dir> swift test --filter WindowShots`.
+/// The window's states as PNGs, drawn off screen, so nothing takes focus. `ITDA_SHOTS=<dir> swift test --filter WindowShots`. The sky's shader is blank in these; 13 and 14 draw it alone.
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["ITDA_SHOTS"] != nil)) @MainActor struct WindowShots {
     let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ITDA_SHOTS"] ?? "")
 
@@ -1482,12 +1484,12 @@ final class FakeServer: URLProtocol {
         // The sky mid-typing (fast keys lifting the bars) and 0.35 s into a Tab's swell.
         let now = Date()
         for (name, keys, tabs) in [("13-sky-typing", [0.3, 0.2, 0.12, 0.05], [Double]()), ("14-sky-tab", [0.5], [0.35])] {
-            let sky = NSHostingView(rootView: Sky(rise: 0.6, keys: keys.map { now - $0 }, tabs: tabs.map { now - $0 }))
-            sky.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
-            sky.layoutSubtreeIfNeeded()
-            let rep = sky.bitmapImageRepForCachingDisplay(in: sky.bounds)!
-            sky.cacheDisplay(in: sky.bounds, to: rep)
-            try rep.representation(using: .png, properties: [:])!.write(to: dir.appendingPathComponent("\(name).png"))
+            // The sky is a Metal shader, which cacheDisplay leaves blank.
+            let renderer = ImageRenderer(content: Sky(rise: 0.6, keys: keys.map { now - $0 }, tabs: tabs.map { now - $0 }))
+            renderer.proposedSize = ProposedViewSize(width: 720, height: 500)
+            renderer.scale = 2
+            let image = try #require(renderer.cgImage)
+            try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])).write(to: dir.appendingPathComponent("\(name).png"))
         }
         shoot("11-accepted-dark", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } }, dark: true)
     }

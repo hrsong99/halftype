@@ -37,5 +37,5 @@ John: "Yes A but no ripple around text when they get typed, I want the main anim
 - Every page sits on the halftone sky. The field and the settings pages are milky panes (60% window colour, no `.glassEffect`: in off-screen shots it turned the field's text dark on a dark window).
 - Typing: each key lifts 18 bars of the peach horizon by its own random height, in fast and gone in about half a second; the sum is capped, so fast typing dances instead of climbing.
 - Tab: round 3 A's warm swell up the sky plus a 1.006 breath of the field. Tabs in other apps don't move it, and Reduce Motion turns keys and Tabs off.
-- The frame clock stops 3 s after the last key, Tab or rise.
-- `built/`: window shots from `ITDA_SHOTS=<dir> swift test --disable-keychain --filter WindowShots`, including `13-sky-typing.png` and `14-sky-tab.png`.
+- The dots are a Metal shader (`Sky.metal`, through `.colorEffect`): drawn as ten thousand paths on the CPU they took 139 ms a frame. `scripts/build-app.sh` copies its bundle into the app. The frame clock stops 3 s after the last key, Tab or rise.
+- `built/`: window shots from `ITDA_SHOTS=<dir> swift test --disable-keychain --filter WindowShots`, plus `13-sky-typing.png` and `14-sky-tab.png` (the sky alone, through `ImageRenderer`). Off-screen window shots leave the shader blank, so 3, 6, 10 and 11 here come from the CPU version, which drew the same sky.
