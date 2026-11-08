@@ -19,10 +19,12 @@ struct Root: View {
 
     private let picking: Bool
     private let start: Page
+    private let onboardingStep: Onboarding.Step
 
     /// `page` is where the window opens scrolled to, and `sidebar` pins the card, for the window shots.
-    init(app: App, page: Page = .field, sidebar: Bool? = nil, picking: Bool = false) {
+    init(app: App, page: Page = .field, sidebar: Bool? = nil, picking: Bool = false, onboardingStep: Onboarding.Step = .welcome) {
         self.app = app
+        self.onboardingStep = onboardingStep
         self.picking = picking
         start = page
         _pinned = State(initialValue: sidebar)
@@ -42,6 +44,18 @@ struct Root: View {
     private var open: Bool { pinned ?? (current != .field) }
 
     var body: some View {
+        Group {
+            if app.onboarding { Onboarding(app: app, step: onboardingStep) } else { home }
+        }
+        .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
+        // The icon's cream tile.
+        .background(Color(red: 0.965, green: 0.945, blue: 0.914))
+        // Cream in dark mode too (docs/design/home-glass).
+        .preferredColorScheme(.light)
+        .ignoresSafeArea()
+    }
+
+    private var home: some View {
         ScrollViewReader { proxy in
             let go = { (page: Page) in withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(page, anchor: .top) } }
             ScrollView {
@@ -75,12 +89,6 @@ struct Root: View {
                 .padding(.leading, 84)
                 .padding(.top, 9)
         }
-        .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
-        // The icon's cream tile.
-        .background(Color(red: 0.965, green: 0.945, blue: 0.914))
-        // Cream in dark mode too (docs/design/home-glass).
-        .preferredColorScheme(.light)
-        .ignoresSafeArea()
     }
 
     /// Every setting, a card a section, each marking when it reaches the middle of the window.
@@ -161,7 +169,7 @@ struct Root: View {
 }
 
 /// The app icon's cursive h (docs/icon/menubar.svg, on an 18-point grid): an inked stem, then an arch that thins into the icon's blue and peach.
-private struct Mark: View {
+struct Mark: View {
     var body: some View {
         Canvas { context, size in
             let s = size.width / 18
@@ -182,17 +190,20 @@ private struct Mark: View {
     }
 }
 
-private struct FieldPage: View {
+struct FieldPage: View {
     @ObservedObject var app: App
     @Binding var draft: String
     let showAll: () -> Void
+    /// The mark above and the room below, which onboarding's Try It step draws its own way.
+    var chrome = true
     @FocusState private var focused: Bool
     @State private var picking: Bool
     /// The watcher's reason once it has held for a moment, so typing doesn't flicker the line.
     @State private var settled: Watcher.Why
 
-    init(app: App, draft: Binding<String>, picking: Bool = false, showAll: @escaping () -> Void) {
+    init(app: App, draft: Binding<String>, picking: Bool = false, chrome: Bool = true, showAll: @escaping () -> Void) {
         self.app = app
+        self.chrome = chrome
         self.showAll = showAll
         _draft = draft
         _picking = State(initialValue: picking)
@@ -201,12 +212,12 @@ private struct FieldPage: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Mark()
+            if chrome { Mark() }
             if app.trusted { field.zIndex(1) } else { allow }  // The list hangs over what's below the field.
             status
         }
         .padding(24)
-        .padding(.bottom, 40)
+        .padding(.bottom, chrome ? 40 : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // A click anywhere else only closes the list.
         .background { if picking { Color.black.opacity(0.001).onTapGesture { picking = false } } }
@@ -223,7 +234,7 @@ private struct FieldPage: View {
         VStack(alignment: .trailing, spacing: 4) {
             ZStack(alignment: .topLeading) {
                 if draft.isEmpty {
-                    Text(!app.on ? "Halftype is off" : app.ready ? "Type here, then press Tab on the grey text" : "Type here once the model is ready")
+                    Text(!app.on ? "Halftype is off" : app.ready || app.practicing ? "Type here, then press Tab on the grey text" : "Type here once the model is ready")
                         .foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
                 }
                 TextEditor(text: $draft).focused($focused).scrollContentBackground(.hidden).scrollIndicators(.never).frame(height: 44)
@@ -237,8 +248,9 @@ private struct FieldPage: View {
             HStack(spacing: 8) {
                 Button { picking.toggle() } label: {
                     HStack(spacing: 6) {
-                        if app.loadingName != nil { ProgressView().controlSize(.mini) }
-                        Text(app.loadingName ?? app.activeName)
+                        // While practice answers, the model on its way, not "No Model".
+                        if app.loadingName != nil || app.practicing { ProgressView().controlSize(.mini) }
+                        Text(app.loadingName ?? (app.practicing ? app.store.current.name : app.activeName))
                     }
                     .font(.system(size: 12)).padding(.horizontal, 10).padding(.vertical, 4).background(Color(nsColor: .textBackgroundColor), in: Capsule())
                 }
@@ -274,7 +286,7 @@ private struct FieldPage: View {
     /// The model until it's ready, then what the menu says about this field: how to take a ghost, that it worked, or why there's none.
     @ViewBuilder private var status: some View {
         VStack(spacing: 6) {
-            if !app.ready || app.notice != nil {
+            if (!app.ready && !app.practicing) || app.notice != nil {
                 NoticeLine(app: app, text: app.notice ?? app.modelLine)
                 if !app.ready, app.downloading != nil {
                     ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary)
@@ -304,7 +316,7 @@ extension View {
 }
 
 /// The icon's arch drawn large and out of focus, blue to peach, behind the field (docs/design/home-glass).
-private struct Arch: View {
+struct Arch: View {
     var body: some View {
         Canvas { context, size in
             // The arch on a 720 x 460 window, scaled to this one.
@@ -323,7 +335,7 @@ private struct Arch: View {
     }
 }
 
-private struct Line: View {
+struct Line: View {
     let text: String
     var body: some View { Text(text).font(.system(size: 12)).foregroundStyle(.secondary) }
 }
@@ -823,6 +835,7 @@ extension App {
 
     /// The system's prompt comes once a launch, and a second click goes where it would have sent you.
     func askForAccessibility() {
+        guide.show()
         if askedForAccessibility {
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
         } else {

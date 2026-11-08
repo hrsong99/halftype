@@ -1446,6 +1446,29 @@ final class FakeServer: URLProtocol {
         app.menuNeedsUpdate(menu)
         #expect(menu.items.contains { $0.title == "Halftype 0.1.9 is available: Update…" && $0.action == #selector(App.checkForUpdates) })
     }
+    @Test func practiceFinishesOnlyItsOwnSentence() {
+        #expect(Practice.rest(after: "Please let me know if you have any") == " questions or concerns.")
+        #expect(Practice.rest(after: "Context.\nPlease let me know if you have any qu") == "estions or concerns.")
+        #expect(Practice.rest(after: "Please let me know if you have any questions or concerns.") == nil, "nothing past the end")
+        #expect(Practice.rest(after: "Running a little late") == nil)
+        #expect(Practice.rest(after: "Please") == nil, "too little to be sure it's the practice")
+        // Before a model, the prefill comes for practice, in English.
+        let app = App()
+        app.practicing = true
+        app.fresh = true
+        #expect(app.takePrefill(draft: "") == "Please let me know if you have any")
+    }
+
+    @Test func theGuideSitsBesideSettingsAndStaysOnScreen() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 900), card = CGSize(width: 200, height: 180)
+        let (left, onLeft) = SettingsGuide.place(beside: CGRect(x: 600, y: 200, width: 700, height: 600), size: card, in: screen)
+        #expect(onLeft && left.x == 600 - 14 - 200 && left.y == 800 - 120 - 180)
+        let (right, onRight) = SettingsGuide.place(beside: CGRect(x: 50, y: 200, width: 700, height: 600), size: card, in: screen)
+        #expect(!onRight && right.x == 750 + 14)
+        let (inside, _) = SettingsGuide.place(beside: CGRect(x: 50, y: 0, width: 1340, height: 900), size: card, in: screen)
+        #expect(inside.x == 64 && inside.y >= 0 && inside.y + card.height <= 900)
+    }
+
     @Test func theFieldIsPrefilledOnlyOnAFreshLaunchOnceReady() {
         #expect(App.prefill(fresh: true, ready: true, draft: "", korean: false) == "Please let me know if you have any")
         #expect(App.prefill(fresh: true, ready: true, draft: "", korean: true) == "안녕하세요. 만나서 반갑")
@@ -1536,12 +1559,12 @@ final class FakeServer: URLProtocol {
     }
 
     /// A window ordered in at the back, never key, captured by its ID: the only picture with both the ribbon and a ScrollView.
-    func onScreen(_ name: String, _ root: Root, _ size: CGSize) throws {
+    func onScreen(_ name: String, _ root: Root, _ size: CGSize, wait: TimeInterval = 1.2) throws {
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = NSHostingView(rootView: root)
         window.orderBack(nil)
         defer { window.orderOut(nil) }
-        RunLoop.main.run(until: Date().addingTimeInterval(1.2))
+        RunLoop.main.run(until: Date().addingTimeInterval(wait))
         let file = dir.appendingPathComponent("\(name).png"), shot = Process()
         try? FileManager.default.removeItem(at: file)  // An old PNG must not pass for this run's.
         shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
@@ -1557,6 +1580,11 @@ final class FakeServer: URLProtocol {
         let ready: (App) -> Void = { $0.trusted = true; $0.activePath = $0.store.path(ModelStore.models[0]).path }
         shoot("1-allow-downloading", app { $0.modelChanged(.downloading(0.37)) })
         shoot("2-field-downloading", app { $0.trusted = true; $0.modelChanged(.downloading(0.37)) })
+        // The welcome at its offer (glass), then played out; the others as they open.
+        for (step, wait, name) in [(Onboarding.Step.welcome, 2.3, "0-welcome-offer"), (.welcome, 4.5, "0-welcome"), (.allow, 1.2, "1-allow"), (.tryIt, 1.2, "2-try-it"), (.done, 1.2, "3-done")] {
+            try onScreen("17-onboarding-\(name)", Root(app: app { $0.onboarding = true; $0.trusted = step.rawValue > 1; $0.practicing = true; $0.fresh = true
+                $0.modelChanged(.downloading(0.41)) }, onboardingStep: step), CGSize(width: 720, height: 500), wait: wait)
+        }
         let host = shoot("3-prefilled-teach", app { ready($0); $0.fresh = true; $0.why = .shown })
         let field = try #require(textView(in: host))
         #expect(field.string == "Please let me know if you have any")
