@@ -22,6 +22,13 @@ John: "A looks best but it has some overly long ux writing and i want to see a v
 - `a2/`: A with every section's copy cut, and the Cost section rebuilt as two bar charts against Cotypist. The method is in `docs/measuring.md`, "Against Cotypist".
 - Copy rule for these pages, from that feedback: a hero lead of 20 words or fewer, a card title with no sentence under it, an FAQ answer in one short line. Detail goes to the README.
 
+## Round 3 (2026-11-09)
+
+John: "no need to only mention cotypist, i think there are a few incumbents no? And are there other metrics that measure speed and accuracy and resource use? I do like A2 more though". He agreed to: macOS predictions, Cotypist, Cotabby, KeyType, with Grammarly as a privacy row; and to showing every result, losses included.
+
+- `round3.html`: A2's comparison, full width.
+- `compare/`: the measurements, their method and `idle.sh`.
+
 ## Pick
 
-A over B (round 1). A2 pending.
+A over B (round 1). A2 over A (round 3).

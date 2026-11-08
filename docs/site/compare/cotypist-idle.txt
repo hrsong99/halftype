@@ -1,0 +1,10 @@
+0.75min footprint=225MB rss=1583MB cpu=0.2 % gguf_regions=1
+1.75min footprint=225MB rss=1583MB cpu=0.1 % gguf_regions=1
+2.75min footprint=186MB rss=1547MB cpu=0.2 % gguf_regions=1
+3.75min footprint=186MB rss=501MB cpu=0.1 % gguf_regions=1
+4.75min footprint=469MB rss=530MB cpu=13.1% gguf_regions=1
+5.75min footprint=386MB rss=375MB cpu=0.3 % gguf_regions=1
+6.75min footprint=385MB rss=438MB cpu=0.2 % gguf_regions=1
+7.75min footprint=381MB rss=374MB cpu=0.2 % gguf_regions=1
+8.75min footprint=383MB rss=415MB cpu=0.3 % gguf_regions=1
+Cotypist stopped

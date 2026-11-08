@@ -86,19 +86,24 @@
   .vs { row-gap: var(--s-7); margin-top: var(--s-6); }
   .vs__chart { margin: 0; display: grid; gap: 14px; position: relative; }
   .vs__title { font: 500 var(--t-small)/1.3 var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .vs__bar { display: grid; grid-template-columns: 84px 1fr 76px; align-items: center; gap: 12px; padding: 4px 0; cursor: default; }
+  .vs__bar { display: grid; grid-template-columns: 72px 1fr 64px; align-items: center; gap: 12px; padding: 4px 0; cursor: default; }
   .vs__name { font: 500 15px/1 var(--font-text); color: var(--ink); }
   .vs__track { height: 28px; display: block; }
   .vs__fill { display: block; height: 100%; width: var(--w); border-radius: 0 4px 4px 0; transform-origin: left; transition: opacity .15s; }
   .vs__fill--us { background: #24558f; } .vs__fill--them { background: #b8683a; }
   .vs__chart:hover .vs__fill { opacity: .55; } .vs__chart .vs__bar:hover .vs__fill { opacity: 1; }
   .vs__val { font: 500 15px/1 var(--font-mono); color: var(--ink); text-align: right; }
+  .vs__ko { margin-top: var(--s-7); border-collapse: collapse; width: 100%; max-width: 860px; font-size: 15px; }
+  .vs__ko caption { text-align: left; padding-bottom: 10px; }
+  .vs__ko th, .vs__ko td { text-align: left; padding: 10px 16px 10px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  .vs__ko th { font-weight: 500; white-space: nowrap; } .vs__ko td:nth-child(2) { font-family: var(--font-mono); white-space: nowrap; } .vs__ko td:last-child { color: var(--muted); }
+  .vs__ko .is-yes { color: #24558f; font-weight: 600; }
   .vs__x { margin: 4px 0 0 96px; font: 400 clamp(28px, 3vw, 40px)/1.1 var(--font-display); letter-spacing: -.02em; color: var(--ink); }
   .vs__facts { list-style: none; padding: 0; margin: var(--s-7) 0 0; display: flex; flex-wrap: wrap; gap: 12px 40px; color: var(--muted); }
   .vs__facts b { font: 500 20px/1 var(--font-mono); color: var(--ink); margin-right: 6px; }
   .vs__how { margin-top: var(--s-5); font: 400 13px/1.5 var(--font-mono); color: var(--muted); max-width: 72ch; }
   .vs__tip { position: fixed; z-index: 50; pointer-events: none; background: var(--ink); color: var(--bg); font: 400 13px/1.4 var(--font-text); padding: 8px 10px; border-radius: 6px; max-width: 260px; }
-  @media (max-width: 639px) { .vs__bar { grid-template-columns: 72px 1fr 64px; gap: 8px; } .vs__x { margin-left: 80px; } .vs__val, .vs__name { font-size: 13px; } }
+  @media (max-width: 639px) { .vs__ko td:last-child { display: none; } .vs__bar { grid-template-columns: 72px 1fr 64px; gap: 8px; } .vs__x { margin-left: 80px; } .vs__val, .vs__name { font-size: 13px; } }
   /* the Korean keys diagram */
   .jamo { display: flex; flex-wrap: wrap; gap: 8px; }
   .jamo .kc { min-width: 44px; height: 44px; font: 500 18px/1 var(--font-text); }
@@ -249,27 +254,26 @@ brew install --cask halftype</code>
 
   <section class="section ground-surface" id="cost" aria-labelledby="cost-h">
     <div class="wrap">
-      <div class="section-head"><h2 id="cost-h">A fraction of Cotypist. <span class="muted">Same Mac, measured.</span></h2></div>
+      <div class="section-head"><h2 id="cost-h">The smallest download. <span class="muted">And Korean that keeps up.</span></h2></div>
       <div class="grid grid--top vs">
-        <figure class="vs__chart span-6" data-vs>
+        <figure class="vs__chart span-4" data-vs>
           <figcaption class="vs__title">Model to download</figcaption>
-          <div class="vs__bar" data-tip="Qwen 3.5 0.8B, Halftype’s default: 0.53 GB"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:17.8%"></span></span><span class="vs__val">0.53 GB</span></div>
-          <div class="vs__bar" data-tip="Gemma 4 E2B, the model Cotypist 2026.5.2 downloaded: 2.98 GB"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:100%"></span></span><span class="vs__val">2.98 GB</span></div>
-          <p class="vs__x">5.6× smaller</p>
+          <div class="vs__bar" data-tip="Qwen 3.5 0.8B, Halftype’s default: 0.53 GB"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:13.8%"></span></span><span class="vs__val">0.53 GB</span></div><div class="vs__bar" data-tip="Qwen 3.5 2B, KeyType 1.8’s default: 1.27 GB"><span class="vs__name">KeyType</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:33.0%"></span></span><span class="vs__val">1.27 GB</span></div><div class="vs__bar" data-tip="Gemma 4 E2B, as Cotypist 2026.5.2 downloaded it: 2.98 GB"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:77.4%"></span></span><span class="vs__val">2.98 GB</span></div><div class="vs__bar" data-tip="Gemma 4 E2B Q6, Cotabby 0.6.2’s default: 3.85 GB"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:100.0%"></span></span><span class="vs__val">3.85 GB</span></div>
         </figure>
-        <figure class="vs__chart span-6" data-vs>
-          <figcaption class="vs__title">Memory when you stop typing</figcaption>
-          <div class="vs__bar" data-tip="Halftype after 5 idle minutes, model unloaded: 79 MB"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:16.5%"></span></span><span class="vs__val">79 MB</span></div>
-          <div class="vs__bar" data-tip="Cotypist after 8 idle minutes: 478 MB"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:100%"></span></span><span class="vs__val">478 MB</span></div>
-          <p class="vs__x">6× less</p>
+        <figure class="vs__chart span-4" data-vs>
+          <figcaption class="vs__title">Memory, 9 minutes after launch, no typing</figcaption>
+          <div class="vs__bar" data-tip="KeyType hadn’t loaded its model: 37 MB"><span class="vs__name">KeyType</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:9.7%"></span></span><span class="vs__val">37 MB</span></div><div class="vs__bar" data-tip="Halftype unloads its model after 5 idle minutes: 79 MB"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:20.6%"></span></span><span class="vs__val">79 MB</span></div><div class="vs__bar" data-tip="Cotabby keeps its model mapped: 185 MB"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:48.3%"></span></span><span class="vs__val">185 MB</span></div><div class="vs__bar" data-tip="Cotypist keeps its model mapped; 478 MB in a second run: 383 MB"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:100.0%"></span></span><span class="vs__val">383 MB</span></div>
+        </figure>
+        <figure class="vs__chart span-4" data-vs>
+          <figcaption class="vs__title">CPU at rest, % of one core</figcaption>
+          <div class="vs__bar" data-tip="KeyType, median of 9 samples: 0.1%"><span class="vs__name">KeyType</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:4.5%"></span></span><span class="vs__val">0.1%</span></div><div class="vs__bar" data-tip="Halftype, 0.13-0.27% over 60 s: 0.2%"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:9.1%"></span></span><span class="vs__val">0.2%</span></div><div class="vs__bar" data-tip="Cotypist, median; it rose to 13% about every 5 minutes: 0.2%"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:9.1%"></span></span><span class="vs__val">0.2%</span></div><div class="vs__bar" data-tip="Cotabby, median of 9 samples: 2.2%"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:100.0%"></span></span><span class="vs__val">2.2%</span></div>
         </figure>
       </div>
-      <ul class="vs__facts">
-        <li><b>53 ms</b> to the first English word</li>
-        <li><b>0.56 GB</b> while you type</li>
-        <li><b>7%</b> of a core while typing</li>
-      </ul>
-      <p class="vs__how">M5, 16 GB. Memory is macOS’s footprint for each app. Cotypist 2026.5.2, 2026-11-09. Halftype’s numbers are its default model, from <code>scripts/e2e.sh --measure</code>.</p>
+      <table class="vs__ko">
+        <caption class="vs__title">Suggests mid-syllable in Korean</caption>
+        <tbody><tr><th scope="row">Halftype</th><td class="is-yes">Yes</td><td>Measured: 0.69 keys saved per mid-syllable request</td></tr><tr><th scope="row">macOS predictions</th><td class="">No Korean</td><td>Apple offers inline predictions in English, French and Spanish</td></tr><tr><th scope="row">Cotabby, KeyType</th><td class="">Not found</td><td>No completion through a composing syllable in their source</td></tr><tr><th scope="row">Cotypist</th><td class="">Not tested</td><td>Closed source</td></tr></tbody>
+      </table>
+      <p class="vs__how">Each app’s default model, on one M5 with 16 GB, 2026-11-09. Memory is macOS’s footprint. Halftype’s figures are from <code>scripts/e2e.sh --measure</code>, the others from <code>docs/site/compare/idle.sh</code>.</p>
       <div class="vs__tip" role="tooltip" hidden></div>
     </div>
   </section>

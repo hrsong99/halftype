@@ -1,0 +1,10 @@
+0.75min footprint=37MB rss=100MB cpu=0.1 % gguf_regions=0
+1.75min footprint=36MB rss=99MB cpu=0.1 % gguf_regions=0
+2.75min footprint=36MB rss=98MB cpu=0.1 % gguf_regions=0
+3.75min footprint=36MB rss=51MB cpu=0.1 % gguf_regions=0
+4.75min footprint=36MB rss=47MB cpu=0.1 % gguf_regions=0
+5.75min footprint=37MB rss=43MB cpu=0.1 % gguf_regions=0
+6.75min footprint=37MB rss=40MB cpu=0.1 % gguf_regions=0
+7.75min footprint=36MB rss=37MB cpu=0.0 % gguf_regions=0
+8.75min footprint=37MB rss=37MB cpu=0.1 % gguf_regions=0
+KeyType stopped
