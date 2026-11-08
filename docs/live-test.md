@@ -3,7 +3,7 @@
 What the automatic checks can't reach: the real Tab in real apps, and Korean in Chromium. Most important first; each step is what to do, then **what should happen**. Stop when your 10 minutes are up: what's left matters least.
 Any wrong character: tell me what you typed and what came out. Use a new, empty T3 thread, as step 11 sends a message.
 
-## Before you start (the first time, wait for a 0.5 GB download; it isn't part of the 10 minutes)
+## Before you start (the first time, wait for a 3.4 GB download; it isn't part of the 10 minutes)
 A. Quit Cotypist, which also takes Tab, and any other app that reads your screen through Accessibility, such as Raycast or Wispr Flow. Then quit and reopen T3 and ego lite, so the accessibility switches they turned on are off.
    **Cotypist's icon is gone from the menu bar, and both apps are back.**
 B. Open `build/Halftype.app`; its window asks for Accessibility. Press the button and grant it.
@@ -79,7 +79,7 @@ W1. Type in its field, and Tab on the grey text. Paste with Cmd-V.
     **The same as in any app.**
 W2. Press the power button, type, press it again. Then scroll down: the card slides in with the settings. Click Apps in it, add an app, remove it; General, Start at Login on, then off. The sidebar icon hides the card, and again shows it, at any scroll.
     **No ghost while off. The login switch keeps what you set, and System Settings shows Halftype under Login Items only while it's on.**
-W3. Models: Get Kanana 1.5, stop it with ✕, Get it again, wait, Use it, type, then Use Qwen 3.5 0.8B.
+W3. Models: Get Kanana 1.5, stop it with ✕, Get it again, wait, Use it, type, then Use Gemma 4 E2B.
     **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.** Click the pill: **the list opens at once, marks the model in use, and closes on a click outside or Esc.**
 W4. Close the window, then open Halftype from Finder or the menu.
     **The Dock icon goes with the window. The same window comes back, and Halftype kept working between.**
