@@ -83,7 +83,7 @@ struct Root: View {
         .ignoresSafeArea()
     }
 
-    /// Every setting, a white card a section with nothing drawn inside, each marking when it reaches the middle of the window (docs/design/settings-clean, C).
+    /// Every setting, a card a section, each marking when it reaches the middle of the window.
     private var settings: some View {
         VStack(alignment: .leading, spacing: 6) {
             StatsPage(app: app).modifier(Place(page: .stats, passed: $passed))
@@ -103,7 +103,7 @@ struct Root: View {
         @Binding var passed: Set<Page>
         func body(content: Content) -> some View {
             // The space above the card goes inside the id, so a jump leaves it room below the title bar.
-            content.padding(EdgeInsets(top: 18, leading: 20, bottom: 14, trailing: 20)).pane().padding(.top, 8).id(page).onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).minY < ($0.bounds(of: .scrollView)?.height ?? 0) / 2 } action: { above in
+            content.padding(.top, 8).id(page).onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).minY < ($0.bounds(of: .scrollView)?.height ?? 0) / 2 } action: { above in
                 if above { passed.insert(page) } else { passed.remove(page) }
             }
         }
@@ -398,7 +398,7 @@ private struct Hover<Content: View>: View {
     var body: some View { content(hovering).onHover { hovering = $0 } }
 }
 
-/// One section of the settings: a title, a line on what it's for, and hairline rows, with no boxes.
+/// One section of the settings: a white card with a title, a line on what it's for, and its rows, parted by space alone (docs/design/settings-clean, C).
 private struct Plain<Content: View>: View {
     let title: String
     let note: String
@@ -410,6 +410,8 @@ private struct Plain<Content: View>: View {
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(EdgeInsets(top: 18, leading: 20, bottom: 14, trailing: 20))
+        .pane()
     }
 }
 
@@ -426,18 +428,16 @@ private struct Row<Trailing: View>: View {
     var icon: Icon? = nil
     @ViewBuilder let trailing: Trailing
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                if let icon { tile(icon) }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                    if let note { Text(note).font(.system(size: 11.5)).foregroundStyle(.secondary) }
-                }
-                Spacer()
-                trailing
+        HStack(spacing: 10) {
+            if let icon { tile(icon) }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                if let note { Text(note).font(.system(size: 11.5)).foregroundStyle(.secondary) }
             }
-            .padding(.vertical, 9)
+            Spacer()
+            trailing
         }
+        .padding(.vertical, 9)
     }
 
     /// The makers' marks come from Logos/: a PNG fills its tile, a PDF sits on white, as both are drawn for a light ground.
