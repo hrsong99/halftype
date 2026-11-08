@@ -290,6 +290,11 @@ enum AcceptMotion: String, CaseIterable {
     var duration: CFTimeInterval { self == .trail ? 0.22 : 0.2 }
     static let blue = NSColor(srgbRed: 0.373, green: 0.608, blue: 0.847, alpha: 1), peach = NSColor(srgbRed: 0.93, green: 0.6, blue: 0.42, alpha: 1)
 
+    /// Into `context` itself, not AppKit's current one, which a SwiftUI Canvas doesn't set.
+    private static func gradient(_ colors: [NSColor], _ locations: [CGFloat]) -> CGGradient {
+        CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colors.map(\.cgColor) as CFArray, locations: locations)!
+    }
+
     /// Drawn from the two caret rects alone, never the letters, which in most hosts don't sit exactly where the ghost was. Y down.
     /// A trail only along one line, moving right; otherwise the flash.
     static func draw(_ motion: AcceptMotion, from: CGRect, to: CGRect, progress t: CGFloat, in context: CGContext) {
@@ -303,8 +308,8 @@ enum AcceptMotion: String, CaseIterable {
             context.addPath(CGPath(roundedRect: CGRect(x: left, y: span.minY, width: span.maxX - left, height: span.height), cornerWidth: 1, cornerHeight: 1, transform: nil))
             context.clip()
             // Fixed to the whole span, so it is the faint tail that goes.
-            NSGradient(colorsAndLocations: (blue.withAlphaComponent(0), 0), (blue.withAlphaComponent(0.7), 0.6), (peach, 1))!
-                .draw(from: CGPoint(x: span.minX, y: 0), to: CGPoint(x: span.maxX, y: 0), options: [])
+            context.drawLinearGradient(gradient([blue.withAlphaComponent(0), blue.withAlphaComponent(0.7), peach], [0, 0.6, 1]),
+                                       start: CGPoint(x: span.minX, y: 0), end: CGPoint(x: span.maxX, y: 0), options: [])
             context.restoreGState()
         } else if motion != .off {
             let grow: CGFloat = t < 0.35 ? 1.15 - 0.15 * t / 0.35 : 1
@@ -314,7 +319,7 @@ enum AcceptMotion: String, CaseIterable {
             context.setAlpha(t < 0.35 ? 1 : 1 - (t - 0.35) / 0.65)
             context.addPath(CGPath(roundedRect: bar, cornerWidth: 1, cornerHeight: 1, transform: nil))
             context.clip()
-            NSGradient(starting: blue, ending: peach)!.draw(from: CGPoint(x: 0, y: bar.minY), to: CGPoint(x: 0, y: bar.maxY), options: [])
+            context.drawLinearGradient(gradient([blue, peach], [0, 1]), start: CGPoint(x: 0, y: bar.minY), end: CGPoint(x: 0, y: bar.maxY), options: [])
             context.restoreGState()
         }
     }

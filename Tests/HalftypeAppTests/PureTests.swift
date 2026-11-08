@@ -1834,8 +1834,7 @@ final class FakeServer: URLProtocol {
             let ctx = try #require(CGContext(data: nil, width: 200, height: 60, bitsPerComponent: 8, bytesPerRow: 800, space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
             ctx.translateBy(x: 0, y: 60); ctx.scaleBy(x: 1, y: -1)  // y down, as the view is
-            NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: true)
-            defer { NSGraphicsContext.current = nil }
+            // No NSGraphicsContext.current, as in the Settings preview's Canvas: the motion must draw into the context it is given.
             AcceptMotion.draw(motion, from: CGRect(x: 20, y: 10, width: 0, height: 16), to: to, progress: 0.1, in: ctx)
             let px = ctx.data!.assumingMemoryBound(to: UInt8.self)
             func alpha(_ x: Int, _ y: Int) -> UInt8 { px[y * 800 + x * 4 + 3] }

@@ -9,4 +9,4 @@ John: "I don't like how it's part of a line and pushes the text on the left (and
 
 Recommendation: C, three picture tiles (macOS's Appearance pattern), laid out as G does it: tiles beside the title.
 
-Pick: (pending)
+Pick: John chose C, "but slightly better looking/polished". Built as `MotionTile` in Window.swift: three tiles under the title at full width, each a white field with a hairline and soft shadow playing its own motion, an accent ring and medium-weight name on the chosen one. Tiles beside the title (G's layout) were tried and dropped: in the 720-wide window they crushed the title to "Tab Motio/n". `built/` has the General page at three window sizes.

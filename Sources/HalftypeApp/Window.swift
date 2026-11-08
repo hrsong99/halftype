@@ -740,6 +740,33 @@ private struct ModelsPage: View {
     }
 }
 
+/// One choice of Tab Motion, as System Settings shows Appearance: a little field playing it, its name under, a ring when chosen.
+private struct MotionTile: View {
+    let motion: AcceptMotion
+    @Binding var chosen: AcceptMotion
+    private var name: String { motion.rawValue.capitalized }
+    var body: some View {
+        let on = chosen == motion
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        Button { chosen = motion } label: {
+            VStack(spacing: 6) {
+                MotionPreview(motion: motion)
+                    .frame(maxWidth: .infinity).frame(height: 44)
+                    .background(Color(nsColor: .textBackgroundColor), in: shape)
+                    .overlay(shape.strokeBorder(.primary.opacity(0.09)))
+                    .shadow(color: .black.opacity(0.06), radius: 1.5, y: 1)
+                    .padding(3)
+                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.accentColor, lineWidth: 2).opacity(on ? 1 : 0))
+                Text(verbatim: name).font(.system(size: 11.5, weight: on ? .medium : .regular)).foregroundStyle(on ? .primary : .secondary).fixedSize()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(name)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
 /// The chosen motion on a loop, drawn by the app's own code: "see you at" takes " noon" with a Tab every 1.8 s.
 private struct MotionPreview: View {
     let motion: AcceptMotion
@@ -749,12 +776,13 @@ private struct MotionPreview: View {
             Canvas { g, size in
                 // Reduce Motion: the words already taken, as the app then plays nothing.
                 let t = reduceMotion ? 1.79 : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8)
-                let typed = g.resolve(Text("see you at").font(.system(size: 13)).foregroundColor(.primary))
-                let taken = g.resolve(Text(" noon").font(.system(size: 13)).foregroundColor(.primary.opacity(t < 0.8 ? 0.38 : 1)))
-                let mid = size.height / 2, w = typed.measure(in: size).width, all = w + taken.measure(in: size).width
-                g.draw(typed, at: CGPoint(x: 0, y: mid), anchor: .leading)
+                let typed = g.resolve(Text("see you at").font(.system(size: 12)).foregroundColor(.primary))
+                let taken = g.resolve(Text(" noon").font(.system(size: 12)).foregroundColor(.primary.opacity(t < 0.8 ? 0.38 : 1)))
+                let tw = typed.measure(in: size).width, nw = taken.measure(in: size).width
+                let mid = size.height / 2, left = ((size.width - tw - nw) / 2).rounded(), w = left + tw, all = w + nw
+                g.draw(typed, at: CGPoint(x: left, y: mid), anchor: .leading)
                 g.draw(taken, at: CGPoint(x: w, y: mid), anchor: .leading)
-                let from = CGRect(x: w, y: mid - 8, width: 1.5, height: 16), to = CGRect(x: all, y: mid - 8, width: 1.5, height: 16)
+                let from = CGRect(x: w, y: mid - 7.5, width: 1.5, height: 15), to = CGRect(x: all, y: mid - 7.5, width: 1.5, height: 15)
                 g.fill(Path(t < 0.8 ? from : to), with: .color(Color(nsColor: .controlAccentColor)))
                 if t >= 0.8, motion != .off {
                     g.withCGContext { AcceptMotion.draw(motion, from: from, to: to, progress: min((t - 0.8) / motion.duration, 1), in: $0) }
@@ -796,11 +824,12 @@ private struct GeneralPage: View {
                 Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more); Text("Always").tag(Often.always) }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 280)
             }
-            Row(title: "Taking Words", note: "What plays at the caret as Tab takes words.") {
-                MotionPreview(motion: app.motion).frame(width: 130, height: 24)
-                Picker("", selection: $app.motion) { Text("Trail").tag(AcceptMotion.trail); Text("Flash").tag(AcceptMotion.flash); Text("Off").tag(AcceptMotion.off) }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 180)
+            // Under its title at full width, as System Settings' Appearance: beside it, three tiles crush the title in a small window.
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Tab Motion")
+                HStack(spacing: 12) { ForEach(AcceptMotion.allCases, id: \.self) { MotionTile(motion: $0, chosen: $app.motion) } }
             }
+            .padding(.vertical, 9)
             if let path = app.activePath, App.adapterFile(for: path) != nil {
                 Row(title: "Personal Model", note: "Trained on your writing. Compare leaves it off every other day, for Stats.") {
                     Picker("", selection: $app.personal) { Text("Off").tag(Personal.off); Text("Compare").tag(Personal.compare); Text("On").tag(Personal.on) }
