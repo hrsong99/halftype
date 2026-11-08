@@ -124,7 +124,7 @@ final class Watcher: @unchecked Sendable {
             self.pid = pid
             process = Priming.Process(pid: pid, launched: launchDate(pid))
             priming.bound(process)
-            for name in Self.appNotifications { AXObserverAddNotification(observer, app, name as CFString, refcon) }
+            AX.own(app) { for name in Self.appNotifications { AXObserverAddNotification(observer, app, name as CFString, refcon) } }
             CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
             refocus()
             update()
@@ -202,13 +202,13 @@ final class Watcher: @unchecked Sendable {
         if let now, let focused, CFEqual(now, focused) {
             last = nil  // Hidden for this notification, with nothing else to bring it back.
         } else {
-            if let focused { for name in Self.fieldNotifications { AXObserverRemoveNotification(observer, focused, name as CFString) } }
+            if let focused { AX.own(focused) { for name in Self.fieldNotifications { AXObserverRemoveNotification(observer, focused, name as CFString) } } }
             forget()
             focused = now
         }
         // Asked again of the same element, as a field can become editable in place. Adding twice is refused, harmlessly.
         guard let now, Reader.isEditableText(now) else { return false }
-        for name in Self.fieldNotifications { AXObserverAddNotification(observer, now, name as CFString, refcon) }
+        AX.own(now) { for name in Self.fieldNotifications { AXObserverAddNotification(observer, now, name as CFString, refcon) } }
         return true
     }
 
@@ -224,7 +224,7 @@ final class Watcher: @unchecked Sendable {
                                            voiceOver: { NSWorkspace.shared.isVoiceOverEnabled }, isOn: { AX.get(app, Priming.enhanced) as? Bool })
         else { return }
         // Its result says nothing: Chromium answers "not implemented" while it works.
-        AXUIElementSetAttributeValue(app, attribute as CFString, kCFBooleanTrue)
+        _ = AX.own(app) { AXUIElementSetAttributeValue(app, attribute as CFString, kCFBooleanTrue) }
     }
 
     /// Quit, main thread. The models close first, without waiting on this queue, which a hung host can hold: ggml asserts at exit with
@@ -545,7 +545,7 @@ struct Priming {
     /// slows their windows.
     static func kind(of app: AXUIElement, pid: pid_t) -> String? {
         var settable = DarwinBoolean(false)
-        if AXUIElementIsAttributeSettable(app, manual as CFString, &settable) == .success, settable.boolValue { return manual }
+        if AX.own(app, { AXUIElementIsAttributeSettable(app, manual as CFString, &settable) == .success }), settable.boolValue { return manual }
         guard let bundle = NSRunningApplication(processIdentifier: pid)?.bundleURL, shipsChromium(bundle) else { return nil }
         return enhanced
     }

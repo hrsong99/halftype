@@ -18,7 +18,7 @@ enum AX {
             return AXUIElementCopyParameterizedAttributeValue(e, key as CFString, arg, &v) == .success ? v : nil
         }
     }
-    /// Our own window (Try It) answers in-process, on the asking thread, and SwiftUI must be read on the main thread: Tab there crashed
+    /// Every AX call on an element goes through here. Our own window (Try It) answers in-process, on the asking thread, and SwiftUI must be read on the main thread: Tab there crashed
     /// twice in its accessibility frame (2026-11-08). Main only ever waits on the watcher with a deadline (`unprime`), so this can't deadlock.
     static func own<T>(_ e: AXUIElement, _ read: () -> T) -> T {
         var pid: pid_t = 0
