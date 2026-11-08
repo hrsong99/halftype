@@ -19,6 +19,8 @@ You need macOS 26 on Apple Silicon. Open Halftype: its window asks for Accessibi
 
 It keeps itself up to date, with signed and notarized releases. Turn off Update Automatically under General and it only tells you, with a dot on its menu-bar icon, when there's a new version. To build it yourself, with Swift 6.2 (Xcode 26), run `scripts/build-app.sh` and open `build/Halftype.app`.
 
+**[Get early-bird news](https://docs.google.com/forms/d/e/1FAIpQLSeIekyjCphdrP9pZ9zaj5P90plPghgLAJ3zYof6PEji1uo9UQ/viewform)**: an email or two a month at most. Personal Model, a model that learns how you write, trained on your Mac, will be paid when it ships, and free for good for anyone who installed Halftype before then.
+
 | The window | Your models |
 |---|---|
 | ![The window: one field, with the model and an on/off button inside it](docs/media/window-field.png) | ![The Models page: models to download or switch between](docs/media/window-models.png) |
@@ -76,7 +78,7 @@ Wired memory is what counts: nothing else can use it, and Activity Monitor's per
 - **One permission: Accessibility.** The app asks for nothing else, and it never uses Screen Recording.
 - **What it reads:** the focused field and text near it in the window, to give the model context. A key tap watches for Tab, Shift-Tab and Esc, and it sees your other keys so it can track Korean composition. All of it stays in memory.
 - **What it writes:** the on/off switch, your paused apps and the paths of models you chose as settings, and model files in Application Support, with where a stopped download got to. Also there, for Stats, four counts a day: suggestions shown and taken, Tabs, and letters typed for you. Nothing with typed text, and no logs. What you type in its own window is held in memory until the window closes.
-- **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. And GitHub, about once a day in a release build, to check for an update, which sends your macOS version and Halftype's, and to fetch it unless Update Automatically is off under General. Nothing else. A build you make yourself never checks.
+- **Network:** only the models you fetch, from Hugging Face, each checked by SHA-256: the default on first run, and the others when you press Get. And GitHub, about once a day in a release build, to check for an update, which sends your macOS version and Halftype's, and to fetch it unless Update Automatically is off under General. Nothing else. A build you make yourself never checks. GitHub's download counts, for the app and for these checks, are the only usage numbers the author sees.
 - **Secure fields** are skipped: Halftype checks the field before every read, and reads no text from a secure one or suggests in it. While any app holds Secure Input, it starts no new read or suggestion, and checks again just before drawing; a suggestion already on screen goes at the next change it sees. The menu says so.
 
 ## Uninstall
@@ -113,7 +115,7 @@ Halftype은 한국어와 영어를 쓰는 사람을 위한 macOS 인라인 자�
 - **사용법:** 회색 글자가 제안입니다. Tab은 다음 단어, Shift-Tab은 전체, Esc는 닫기입니다.
 - **다른 점:** 조합 중인 글자를 모델에 보내지 않고, 두벌식 키 입력에 맞는 결과만 받습니다. Tab을 누르면 남은 키를 실제로 눌러 입력기가 글자를 마저 조합합니다.
 - **비용:** 기본 모델 Gemma 4 E2B는 입력 중과 그 후 15초 동안 약 1.5 GB를 점유하고(wired), 5분 쉬면 모델을 내려 79 MB로 줄어듭니다. 모델은 처음 한 번 3.4 GB를 받습니다.
-- **개인정보:** 손쉬운 사용 권한만 씁니다. 네트워크는 모델 다운로드와 업데이트 확인(일반 설정에서 끌 수 있음)에만 쓰고, 입력한 글은 저장하지 않고 횟수만 셉니다(통계 페이지용). 비밀번호 칸은 건너뜁니다.
+- **개인정보:** 손쉬운 사용 권한만 씁니다. 네트워크는 모델 다운로드와 업데이트 확인(일반 설정에서 끌 수 있음)에만 쓰고, 입력한 글은 저장하지 않고 횟수만 셉니다(통계 페이지용). 비밀번호 칸은 건너뜁니다. 개발자가 보는 사용 통계는 GitHub의 다운로드 횟수(앱과 업데이트 확인)뿐입니다.
 - **설치:** [Halftype.dmg](https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg)를 내려받거나 `brew tap hrsong99/halftype && brew trust hrsong99/halftype` 후 `brew install --cask halftype`를 실행하세요. 자동으로 업데이트됩니다.
 - **제거:** Halftype을 종료하고 휴지통으로 옮긴 뒤 `~/Library/Application Support/Halftype`를 지우세요. Homebrew라면 `brew uninstall --zap --cask halftype`.
 - **한계:** macOS 26 이상, Apple Silicon, 두벌식이 필요합니다. 한국어 정확도는 영어보다 낮습니다. Qwen 3.5 0.8B는 공개 대화 데이터에서 보여 준 제안의 21%가 정확히 일치했고, 전체 메시지 기준으로 키 입력을 4.8% 줄였습니다. 기본 모델 Gemma 4 E2B는 한국어에서 이보다 약간 약합니다. 한국어를 많이 쓴다면 창에서 Kanana 1.5를 고르세요(31-34%, 8.8%).
