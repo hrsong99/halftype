@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>README Demo Options</title>
+<style>
+  :root { --paper:#fcfaf6; --ink:#16181d; --ghost:#a3a6ad; --blue:#a9cdf0; --peach:#f6c3a4; --line:#e6e2da; --sub:#6b6f78; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f2efe9; color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
+  main { max-width: 1400px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  .q { color: var(--sub); margin: 0 0 14px; }
+  .rec { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; align-items: center; padding: 10px 0; background: #f2efe9; }
+  .bar button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid #cfcac0; background: #fff; cursor: pointer; }
+  .bar button.on { background: var(--ink); color: #fff; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 620px), 1fr)); gap: 18px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .card header { padding: 12px 14px 4px; display: flex; gap: 10px; align-items: baseline; }
+  .card .letter { font-weight: 700; font-size: 20px; }
+  .card .name { font-weight: 600; }
+  .card p { margin: 0; padding: 0 14px 14px; color: var(--sub); font-size: 13.5px; }
+  .stage { position: relative; aspect-ratio: 2 / 1; overflow: hidden; }
+  h2 { margin: 34px 0 10px; font-size: 18px; }
+  img.idea { width: 100%; display: block; aspect-ratio: 2/1; object-fit: cover; }
+
+  /* shared bits */
+  .caret { display: inline-block; width: 2px; height: 1.15em; background: var(--ink); vertical-align: -0.2em; margin: 0 1px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .g { color: var(--ghost); transition: color .12s; }
+  .key { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px 9px; border-radius: 9px; background: linear-gradient(#fff, #f3f1ec); border: 1px solid #d8d4cb; box-shadow: 0 3px 0 #cdc8be, 0 6px 14px rgba(0,0,0,.08); font: 600 14px -apple-system, sans-serif; color: #3a3d44; transition: transform .07s, box-shadow .07s, background .07s; }
+  .key.down { transform: translateY(3px); box-shadow: 0 0 0 #cdc8be, 0 2px 6px rgba(0,0,0,.08); background: linear-gradient(#eef4fc, #e3edf9); }
+  .sky { position: absolute; inset: 0; background: var(--paper); }
+  .sky::before, .sky::after { content: ""; position: absolute; left: 0; right: 0; height: 42%; background-image: radial-gradient(circle, var(--c) 0 2.2px, transparent 2.6px); background-size: 7px 7px; }
+  .sky::before { --c: #8fbbe8; top: 0; -webkit-mask: linear-gradient(#000, transparent); mask: linear-gradient(#000, transparent); }
+  .sky::after { --c: #f1ae88; bottom: 0; -webkit-mask: linear-gradient(transparent, #000); mask: linear-gradient(transparent, #000); }
+  .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+
+  /* A: today */
+  .a { background: #0d1117; display: flex; align-items: center; justify-content: center; }
+  .a .box { width: 86%; background: #fff; padding: 22px 26px; font-size: 19px; }
+
+  /* B: window */
+  .win { width: 78%; background: #fff; border-radius: 12px; box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 18px 40px rgba(60,40,20,.16); overflow: hidden; }
+  .win .chrome { height: 34px; background: #f6f5f2; border-bottom: 1px solid #ebe8e2; display: flex; align-items: center; gap: 7px; padding: 0 12px; font-size: 12.5px; color: #8b8e95; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .win .meta { padding: 8px 18px 0; font-size: 12.5px; color: #9a9da4; border-bottom: 1px solid #f0ede7; }
+  .win .meta div { padding: 4px 0; }
+  .win .body { padding: 16px 18px 26px; font-size: 19px; min-height: 76px; }
+
+  /* C: chip */
+  .c { background: #fff; display: flex; align-items: center; padding: 0 9%; }
+  .c .line { font-size: 24px; }
+  .chip { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 6px; border: 1px solid #d7d9de; font: 600 12px -apple-system, sans-serif; color: #8a8e96; vertical-align: 3px; transition: opacity .15s, background .08s, color .08s; }
+  .chip.down { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  /* D: big type */
+  .d .line { font-size: 30px; font-weight: 600; letter-spacing: -0.01em; padding: 0 6%; text-align: center; }
+
+  /* E: two fields */
+  .e .stack { width: 82%; display: flex; flex-direction: column; gap: 12px; }
+  .bubble { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 14px; padding: 12px 16px; box-shadow: 0 10px 26px rgba(60,40,20,.12); font-size: 17px; opacity: .45; transition: opacity .25s; }
+  .bubble.live { opacity: 1; }
+  .bubble .app { width: 26px; height: 26px; border-radius: 7px; flex: none; }
+  .e .key { position: absolute; right: 7%; bottom: 14%; }
+
+  /* F: counter */
+  .f .panel { width: 80%; background: #fff; border-radius: 14px; box-shadow: 0 16px 36px rgba(60,40,20,.14); padding: 20px 22px 14px; }
+  .f .line { font-size: 20px; min-height: 34px; }
+  .f .count { display: flex; gap: 18px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #f0ede7; font-size: 13px; color: var(--sub); align-items: center; }
+  .f .count b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .f .count .you b { color: #4a8bd6; }
+  .f .count .pct { margin-left: auto; font-weight: 600; color: #d07a4a; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<main>
+  <h1>README demo: options</h1>
+  <p class="q">Deciding how the README shows Halftype at work. John: "this part doesn't look good; look at competitors and get some ideas for how to make this nice looking and polished, even if we have to add 'Tab' icons or animations".</p>
+  <div class="rec"><b>Recommendation: B, with C's chip as a hint on the first sentence.</b> A real-looking window on the app's own blue-and-peach dot sky looks like the product and holds up on GitHub's dark and light themes. The keycap shows <i>when</i> Tab was pressed, which the current GIF can't. It's built from the same frames as today (the real model and the real ghost layout), with only the frame and the keycap added. Cotabby, the closest open-source competitor, records real apps and adds a small "Tab" pill after the grey text (that's C). Cotypist's site shows no demo at all, just "Press ⇥ Tab to accept".</div>
+  <div class="bar"><button id="replay">Replay</button><button id="slow">Slow ×0.5</button><span id="clock" style="color:var(--sub);font-variant-numeric:tabular-nums"></span></div>
+
+  <div class="grid">
+    <div class="card"><header><span class="letter">A</span><span class="name">Today</span></header>
+      <div class="stage a"><div class="box"><span data-v="line"></span></div></div>
+      <p>The white box from the README now: no frame and no sign of a key press, and it glares in GitHub's dark theme.</p></div>
+
+    <div class="card"><header><span class="letter">B</span><span class="name">A window on the dot sky, with a keycap</span></header>
+      <div class="stage"><div class="sky"></div><div class="center">
+        <div class="win"><div class="chrome"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span style="margin-left:10px">New Message</span></div>
+          <div class="meta"><div>To:</div></div><div class="body"><span data-v="line"></span></div></div>
+        <span class="key" data-v="key">tab ⇥</span></div></div>
+      <p>The app's own sky behind a plain compose window; the keycap dips on each Tab. Costs: a frame and a keycap drawn around today's frames. It reads on dark and light themes alike.</p></div>
+
+    <div class="card"><header><span class="letter">C</span><span class="name">Inline "tab" chip</span></header>
+      <div class="stage c"><div class="line"><span data-v="line"></span><span class="chip" data-v="chip">tab</span></div></div>
+      <p>Cotabby's trick: a small pill after the grey text that fills in as Tab takes it. Small and honest; it teaches the key without any chrome. Plain on its own, strong as a hint inside B.</p></div>
+
+    <div class="card"><header><span class="letter">D</span><span class="name">Big type on the sky</span></header>
+      <div class="stage d"><div class="sky"></div><div class="center"><div class="line"><span data-v="line"></span></div><span class="key" data-v="key">tab ⇥</span></div></div>
+      <p>Poster-like: one large line and the key. The best-looking at small sizes, but it shows no app, so it says less about "in almost any app".</p></div>
+
+    <div class="card"><header><span class="letter">E</span><span class="name">Two apps, two languages</span></header>
+      <div class="stage e"><div class="sky"></div><div class="center"><div class="stack">
+        <div class="bubble" data-v="en"><span class="app" style="background:#34c759"></span><span data-v="lineEn"></span></div>
+        <div class="bubble" data-v="ko"><span class="app" style="background:#7b5cd6"></span><span data-v="lineKo"></span></div></div></div>
+        <span class="key" data-v="key">tab ⇥</span></div>
+      <p>English and Korean in one picture instead of two GIFs, in two generic message fields. One image to keep up to date; no real app logos, which we may not use.</p></div>
+
+    <div class="card"><header><span class="letter">F</span><span class="name">With the keystroke count</span></header>
+      <div class="stage f"><div class="sky"></div><div class="center"><div class="panel"><div class="line"><span data-v="line"></span></div>
+        <div class="count"><span class="you">You typed <b data-v="typedN">0</b></span><span>Halftype typed <b data-v="tabbedN">0</b></span><span class="pct" data-v="pct"></span></div></div>
+        <span class="key" data-v="key">tab ⇥</span></div></div>
+      <p>B's idea, plus the count the README's numbers are about: keys you pressed against letters Tab filled in. Makes "saves 21.6% of keystrokes" visible. More to explain; the count per sentence is real, from the same run.</p></div>
+  </div>
+
+  <h2>Image ideas (from Codex's image tool, not builds)</h2>
+  <div class="grid">
+    <div class="card"><header><span class="letter">G</span><span class="name">Mail window, keycap under the caret</span></header><img class="idea" src="images/G.jpg" alt="Mail compose window with ghost text and a tab keycap, on blue-to-peach halftone dots"><p>Close to B. Worth taking: the keycap tucked right under the caret, so the eye goes from the grey text straight to the key.</p></div>
+    <div class="card"><header><span class="letter">H</span><span class="name">Half-printed type</span></header><img class="idea" src="images/H.jpg" alt="Korean sentence with the suggested ending printed in halftone dots, a tab keycap below"><p>Worth taking: the suggestion drawn <i>in halftone dots</i>, as if half-printed: the name, made visible. It could be the grey text's look in D.</p></div>
+    <div class="card"><header><span class="letter">I</span><span class="name">Dark banner, finger on the key</span></header><img class="idea" src="images/I.jpg" alt="Dark banner with an English and a Korean message field and a finger pressing a glowing tab key"><p>Worth taking: E's two-language stack on the app's dark sky, for GitHub's dark theme. The finger and the app logos are too much, and the logos aren't ours to use.</p></div>
+  </div>
+</main>
+<script>
+// One clock for every card. The sentences and suggestions are the README demo's; the timeline types, waits, shows the grey text, then Tab takes it word by word.
+const scenes = [
+  { lang: "en", typed: "Let me know if you have any quest", words: ["ions."] },
+  { lang: "en", typed: "See you tomor", words: ["row", " at", " 10."] },
+  { lang: "ko", typed: "이번 주 금요일까지 보내주시면 감사하겠", words: ["습니다."] },
+];
+const T = []; let t = 0;
+for (const s of scenes) {
+  const start = t;
+  for (let i = 1; i <= [...s.typed].length; i++) { T.push({ t, s, n: i, k: 0, ghost: false, down: false }); t += s.lang === "ko" ? 110 : 65; }
+  t += 380; T.push({ t, s, n: [...s.typed].length, k: 0, ghost: true, down: false });
+  t += 700;
+  for (let k = 1; k <= s.words.length; k++) {
+    T.push({ t, s, n: [...s.typed].length, k: k - 1, ghost: true, down: true }); t += 110;
+    T.push({ t, s, n: [...s.typed].length, k, ghost: true, down: false }); t += 420;
+  }
+  t += 1100;
+}
+const total = t;
+let speed = 1, t0 = performance.now(), last = -1;
+const esc = (x) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+function state(ms) { let cur = T[0]; for (const e of T) { if (e.t <= ms) cur = e; else break; } return cur; }
+function lineHTML(e, caret = true) {
+  const typed = [...e.s.typed].slice(0, e.n).join(""), taken = e.s.words.slice(0, e.k).join(""), rest = e.ghost ? e.s.words.slice(e.k).join("") : "";
+  return esc(typed + taken) + (caret ? '<span class="caret"></span>' : "") + (rest ? `<span class="g">${esc(rest)}</span>` : "");
+}
+function draw(now) {
+  const ms = ((now - t0) * speed) % total, e = state(ms);
+  document.getElementById("clock").textContent = (ms / 1000).toFixed(1) + " s / " + (total / 1000).toFixed(1) + " s";
+  if (e !== last) {
+    last = e;
+    const done = e.k === e.s.words.length;
+    document.querySelectorAll('[data-v="line"]').forEach((n) => (n.innerHTML = lineHTML(e)));
+    document.querySelectorAll('[data-v="key"]').forEach((n) => n.classList.toggle("down", e.down));
+    document.querySelectorAll('[data-v="chip"]').forEach((n) => { n.style.opacity = e.ghost && !done ? 1 : 0; n.classList.toggle("down", e.down); });
+    const ko = e.s.lang === "ko";
+    document.querySelector('[data-v="lineEn"]').innerHTML = ko ? esc("See you tomorrow at 10.") : lineHTML(e);
+    document.querySelector('[data-v="lineKo"]').innerHTML = ko ? lineHTML(e) : esc("감사합니다. 좋은 하루 보내세요.");
+    document.querySelector('[data-v="en"]').classList.toggle("live", !ko);
+    document.querySelector('[data-v="ko"]').classList.toggle("live", ko);
+    const typedN = e.n, tabbed = [...e.s.words.slice(0, e.k).join("")].length;
+    document.querySelector('[data-v="typedN"]').textContent = typedN;
+    document.querySelector('[data-v="tabbedN"]').textContent = tabbed;
+    document.querySelector('[data-v="pct"]').textContent = tabbed ? Math.round(100 * tabbed / (typedN + tabbed)) + "% for you" : "";
+  }
+  requestAnimationFrame(draw);
+}
+document.getElementById("replay").onclick = () => { t0 = performance.now(); last = -1; };
+document.getElementById("slow").onclick = (ev) => { const now = performance.now(), ms = (now - t0) * speed; speed = speed === 1 ? 0.5 : 1; t0 = now - ms / speed; ev.target.classList.toggle("on", speed !== 1); };
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
