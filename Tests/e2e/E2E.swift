@@ -41,9 +41,8 @@ final class TestTextView: NSTextView {
         guard attribute.rawValue == "AXTextInputMarkedRange" else { return super.accessibilityAttributeValue(attribute) }
         return reportsMarkedText ? reportedMark.map { NSValue(range: $0) } ?? super.accessibilityAttributeValue(attribute) : nil
     }
-    /// Escape's completion list: an Escape that reached the app.
+    /// Escapes that reached the app.
     var escapes = 0
-    override func complete(_ sender: Any?) { escapes += 1 }
 
     /// One font read that comes back empty, as a host's can in passing.
     var failsNextAttributes = false
@@ -59,6 +58,7 @@ final class TestTextView: NSTextView {
     var holdsKeys = false
     private var heldKeys: [NSEvent] = []
     override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { escapes += 1 }
         if holdsKeys { heldKeys.append(event) } else { super.keyDown(with: event) }
     }
     func letKeysThrough() {
@@ -392,6 +392,7 @@ enum EndToEnd {
         if CommandLine.arguments.contains("--ime") { return ime() }
         if CommandLine.arguments.contains("--flicker") { return flicker() }
         if CommandLine.arguments.contains("--stale") { return staleSnapshots() }
+        if CommandLine.arguments.contains("--races") { return races() }
         frontAtStart = frontmost()
         ghostAtCaret()
         ownWindow()
@@ -617,11 +618,16 @@ enum EndToEnd {
             // A tap the system turned off, which no test without a real tap can do.
             let (h, _) = raceHarness()
             defer { h.close() }
-            let port = h.tap.state.withLock { $0.port }!
+            let (port, loop) = h.tap.state.withLock { ($0.port!, $0.loop!) }
+            // Disabling sends the tap its own notice, which re-enables it: held back, as one that never came.
+            let held = DispatchSemaphore(value: 0)
+            CFRunLoopPerformBlock(loop, CFRunLoopMode.commonModes.rawValue) { held.wait() }
+            CFRunLoopWakeUp(loop)
             CGEvent.tapEnable(tap: port, enable: false)
             check(h.tap.obstacle == .tapOff, "a disabled tap can't take")
             h.watcher.redraw()
             check(eventually { !h.visible && !h.armed }, "a disabled tap: no ghost")
+            held.signal()
             h.tap.reenable()
             check(h.tap.canTake, "reenabled")
         }
