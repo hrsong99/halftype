@@ -1796,26 +1796,35 @@ final class FakeServer: URLProtocol {
     }
 
     @MainActor @Test(.enabled(if: !NSScreen.screens.isEmpty && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion))
-    func inAnotherAppTheMotionWaitsForTheHostsCaretToMove() throws {
-        let caret = CGRect(x: 200, y: 200, width: 0, height: 18)
+    func inAnotherAppTheMotionWaitsForTheAcceptToLand() throws {
+        let caret = CGRect(x: 200, y: 200, width: 0, height: 18), there = caret.offsetBy(dx: 40, dy: 0)
         let spec = GhostSpec(text: " notes", caret: caret, frame: CGRect(x: 100, y: 190, width: 400, height: 40),
                              fontSize: 15, fontName: nil, color: nil, lineLeft: nil, previousCharacter: "e", mayWrap: false)
         let panel = GhostPanel()
         defer { panel.hideGhost() }
         try #require(panel.show(spec) != nil)
-        panel.caretRead(caret.offsetBy(dx: 40, dy: 0))
+        panel.landed(at: there)
         #expect(!panel.caretMotion.isVisible, "no Tab, no motion")
+        panel.took(" notes", drawing: panel.drawing - 1)
+        panel.landed(at: there)
+        #expect(!panel.caretMotion.isVisible, "a Tab armed on an earlier drawing")
         panel.took(" notes", drawing: panel.drawing)
-        panel.caretRead(caret)
-        #expect(!panel.caretMotion.isVisible, "the host hasn't moved the caret yet")
-        panel.caretRead(caret.offsetBy(dx: 40, dy: 0))
+        panel.landed(at: caret)
+        #expect(!panel.caretMotion.isVisible, "the caret hasn't moved")
+        panel.took(" notes", drawing: panel.drawing)
+        panel.landed(at: there)
         #expect(panel.caretMotion.isVisible)
         RunLoop.main.run(until: Date().addingTimeInterval(0.5))
         #expect(!panel.caretMotion.isVisible, "played through and gone")
+        try #require(panel.show(spec) != nil)
+        panel.took(nil, drawing: panel.drawing)
+        panel.landed(at: there)
+        #expect(panel.caretMotion.isVisible, "a 2-set Tab, which types keys and so has no text to trim, plays it too")
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
         panel.motion = .off
         try #require(panel.show(spec) != nil)
         panel.took(" notes", drawing: panel.drawing)
-        panel.caretRead(caret.offsetBy(dx: 40, dy: 0))
+        panel.landed(at: there)
         #expect(!panel.caretMotion.isVisible)
     }
 

@@ -295,13 +295,16 @@ final class Watcher: @unchecked Sendable {
             return record(tap.canTake ? .unreadable : .blocked)
         }
         lost = false
-        if let caret = reading.caret { DispatchQueue.main.async { [panel] in panel.caretRead(caret) } }
         reading.field.mayCompose = mayCompose(reading)
         // One key brings several notifications; only the first of them finds anything new.
         if reading == last { return }
         // A key during the read may be in it, and its notification must not then find nothing new.
         last = tap.generation == generation ? reading : nil
         lastGeneration = generation
+        // The read where our last accept has fully landed, which `settled` then lets go: its caret is where a Tab's motion ends.
+        if tap.state.withLock({ $0.pending?.to == reading.field.before }), let caret = reading.caret {
+            DispatchQueue.main.async { [panel] in panel.landed(at: caret) }
+        }
         let field = settled(reading.field)
         if field.before.isEmpty {
             // A message was sent, so what's above has changed. It is read again with the first character typed, not now: the

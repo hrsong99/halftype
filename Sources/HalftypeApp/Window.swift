@@ -49,7 +49,7 @@ struct Root: View {
         }
         .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
         // The icon's cream tile.
-        .background(Color(red: 0.965, green: 0.945, blue: 0.914))
+        .background(Root.cream)
         // Cream in dark mode too (docs/design/home-glass).
         .preferredColorScheme(.light)
         .ignoresSafeArea()
@@ -166,6 +166,8 @@ struct Root: View {
 
     /// The ribbon's peach, deeper, for small marks on cream.
     static let peach = Color(red: 0.9, green: 0.58, blue: 0.42)
+    /// The icon's cream tile, the window's ground and the Settings card's.
+    static let cream = Color(red: 0.965, green: 0.945, blue: 0.914)
 }
 
 /// The app icon's cursive h (docs/icon/menubar.svg, on an 18-point grid): an inked stem, then an arch that thins into the icon's blue and peach.
@@ -255,8 +257,8 @@ struct FieldPage: View {
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
         .pane()
         .frame(maxWidth: 500)
-        // A turn later: a field swapped in (an onboarding step, the home after it) isn't in the window yet when it appears.
-        .onAppear { DispatchQueue.main.async { focused = true } }
+        // SwiftUI's own first focus, which also lands on a field swapped in (an onboarding step, the home after it).
+        .defaultFocus($focused, true)
         .onChange(of: draft) { picking = false }
         .onChange(of: app.ready, initial: true) { if let sentence = app.takePrefill(draft: draft) { draft = sentence } }
         .task(id: app.why) {
@@ -740,10 +742,12 @@ private struct ModelsPage: View {
 /// The chosen motion on a loop, drawn by the app's own code: "see you at" takes " noon" with a Tab every 1.8 s.
 private struct MotionPreview: View {
     let motion: AcceptMotion
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        TimelineView(.animation) { timeline in
+        TimelineView(.animation(paused: reduceMotion)) { timeline in
             Canvas { g, size in
-                let t = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8)
+                // Reduce Motion: the words already taken, as the app then plays nothing.
+                let t = reduceMotion ? 1.79 : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8)
                 let typed = g.resolve(Text("see you at").font(.system(size: 13)).foregroundColor(.primary))
                 let taken = g.resolve(Text(" noon").font(.system(size: 13)).foregroundColor(.primary.opacity(t < 0.8 ? 0.38 : 1)))
                 let mid = size.height / 2, w = typed.measure(in: size).width, all = w + taken.measure(in: size).width

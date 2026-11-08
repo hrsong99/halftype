@@ -125,9 +125,10 @@ struct GhostLayout {
 final class GhostView: NSView {
     var layout: GhostLayout? { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
-    /// The icon's glass, pale blue to peach across the suggestion.
-    static let glass = NSGradient(colors: [NSColor(srgbRed: 0.373, green: 0.608, blue: 0.847, alpha: 1), NSColor(srgbRed: 0.6, green: 0.69, blue: 0.79, alpha: 1),
-                                           NSColor(srgbRed: 0.91, green: 0.561, blue: 0.369, alpha: 1)])!
+    /// The icon's glass, pale blue to peach across the suggestion. Onboarding's welcome draws its headline in the same colours.
+    static let glassColors = [NSColor(srgbRed: 0.373, green: 0.608, blue: 0.847, alpha: 1), NSColor(srgbRed: 0.6, green: 0.69, blue: 0.79, alpha: 1),
+                              NSColor(srgbRed: 0.91, green: 0.561, blue: 0.369, alpha: 1)]
+    static let glass = NSGradient(colors: glassColors)!
     override func draw(_ dirtyRect: NSRect) {
         guard let layout else { return }
         guard layout.glass, let context = NSGraphicsContext.current?.cgContext else { return layout.manager.drawGlyphs(forGlyphRange: layout.glyphs, at: layout.drawOrigin) }
@@ -163,8 +164,9 @@ final class GlintView: NSView {
     var progress: CGFloat = 1 { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
     /// Blue, a pale glass highlight (not white, which vanishes on a white field), peach.
-    static let light = NSGradient(colors: [.clear, NSColor(srgbRed: 0.45, green: 0.65, blue: 0.88, alpha: 1), NSColor(srgbRed: 0.76, green: 0.83, blue: 0.91, alpha: 1),
-                                           NSColor(srgbRed: 0.93, green: 0.6, blue: 0.42, alpha: 1), .clear])!
+    static let lightColors: [NSColor] = [.clear, NSColor(srgbRed: 0.45, green: 0.65, blue: 0.88, alpha: 1), NSColor(srgbRed: 0.76, green: 0.83, blue: 0.91, alpha: 1),
+                                         NSColor(srgbRed: 0.93, green: 0.6, blue: 0.42, alpha: 1), .clear]
+    static let light = NSGradient(colors: lightColors)!
     override func draw(_ dirtyRect: NSRect) {
         guard let manager, glyphs.length > 0, progress > 0, progress < 1, let context = NSGraphicsContext.current?.cgContext else { return }
         let words = manager.boundingRect(forGlyphRange: glyphs, in: manager.textContainers[0]).offsetBy(dx: origin.x, dy: origin.y)
@@ -243,11 +245,13 @@ class GhostPanel: NSPanel {
         return range
     }
 
-    /// Main thread, right after a Tab took `text`: trimmed in any app. In our own window the words glint where this ghost drew them; in
-    /// another app the host's text may not sit where the ghost was, so the motion waits for the caret the host reports next.
-    func took(_ text: String, drawing: Int) {
-        guard let layout = view.layout, let range = trim(text, drawing: drawing), !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
-        if layout.glass { return shine.play(layout, taken: range, frame: frame) }
+    /// Main thread, right after a Tab took `text` (nil when it typed 2-set keys): trimmed in any app. In our own window the words glint
+    /// where this ghost drew them; in another app the host's text may not sit where the ghost was, so the motion waits for `landed`.
+    func took(_ text: String?, drawing: Int) {
+        guard drawing == self.drawing, let layout = view.layout else { return }
+        let range = text.flatMap { trim($0, drawing: drawing) }
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        if layout.glass { return range.map { shine.play(layout, taken: $0, frame: frame) } ?? () }
         if motion != .off, let caret { leaving = (caret, CACurrentMediaTime()) }
     }
 
@@ -257,11 +261,13 @@ class GhostPanel: NSPanel {
     private var leaving: (from: CGRect, at: CFTimeInterval)?
     private(set) lazy var caretMotion = CaretMotionPanel()
 
-    /// Main thread, at each read of the field: once the host's caret has moved after a Tab, the motion plays from where it was to there.
-    func caretRead(_ caret: CGRect) {
+    /// Main thread, from the read where the field holds all that the last accept typed, so a Shift-Tab's first chunk or another
+    /// field's caret can't end it. The motion plays from where the caret was to there.
+    func landed(at caret: CGRect) {
         guard let leaving, caret != leaving.from else { return }
         self.leaving = nil
-        guard CACurrentMediaTime() - leaving.at < 0.5, let primary = NSScreen.screens.first else { return }
+        // Only to drop an accept the host never answered.
+        guard CACurrentMediaTime() - leaving.at < 1, let primary = NSScreen.screens.first else { return }
         caretMotion.play(motion, from: leaving.from, to: caret, primaryHeight: primary.frame.height)
     }
 
