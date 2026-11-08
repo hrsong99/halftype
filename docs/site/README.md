@@ -29,6 +29,8 @@ John: "no need to only mention cotypist, i think there are a few incumbents no? 
 - `round3.html`: A2's comparison, full width.
 - `compare/`: the measurements, their method and `idle.sh`.
 
+Round 3 fix: KeyType's at-rest bars were removed. It had been measured switched off (no Accessibility); see compare/README.md.
+
 ## Pick
 
 A over B (round 1). A2 over A (round 3).
