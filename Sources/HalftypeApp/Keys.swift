@@ -39,11 +39,6 @@ class KeyTap: @unchecked Sendable {
         /// What the field will hold once our last accept lands; Tab-Tab can beat the host's update. Any other input ends it, as the
         /// field then holds something else: Tab, Backspace, and `hello ther` would otherwise read as on its way to `hello there`.
         var pending: (from: String, to: String)?
-        /// Tab just took the last of a ghost, and the next (its clipped rest, or a new suggestion) isn't drawn yet. Until then a Tab
-        /// for that app types nothing, rather than reach the app as a tab: tapping through a long ghost outruns the redraw and the model.
-        /// Any other input, a new ghost or the deadline ends it, so a host that refuses the insert keeps Tab for 0.3 s at most.
-        var held: (pid: pid_t, until: Date)?
-        var holdFor: TimeInterval = 0.3
         /// The live tap, and the run loop of its thread once that has started.
         var port: CFMachPort?
         var loop: CFRunLoop?
@@ -57,7 +52,6 @@ class KeyTap: @unchecked Sendable {
             pending = (pending?.from ?? armed.before, to)
             self.armed = rest.isEmpty ? nil : Armed(pid: armed.pid, ghost: Ghost(remainder: rest), typesKeys: armed.typesKeys, committed: to, before: to,
                                                          suggestion: armed.suggestion)
-            if rest.isEmpty { held = (armed.pid, Date() + holdFor) }
             composing = strokes?.last.map { TwoSetLayout.letterCodes.contains(Int64($0.code)) } ?? false  // As if the user typed it.
             // Finishing a syllable can add more than the text typed: `그 달` to `그 다라가` is two characters, from `가` alone.
             return (strokes, next.text, max(0, to.count - armed.before.count))
@@ -99,7 +93,6 @@ class KeyTap: @unchecked Sendable {
             $0.generation += 1
             $0.armed = nil
             $0.pending = nil
-            $0.held = nil
         }
     }
 
@@ -124,7 +117,6 @@ class KeyTap: @unchecked Sendable {
         state.withLock {
             guard $0.generation == generation else { return false }
             $0.armed = armed
-            $0.held = nil
             return true
         }
     }
@@ -161,18 +153,9 @@ class KeyTap: @unchecked Sendable {
         var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)?
         var suggestion = 0
         var generation = 0
-        var held = false
         let decision = state.withLock { s -> Decision in
             let armed = s.armed.flatMap { $0.pid == target ? $0 : nil }  // A key for another app is that app's.
             let decision = Self.decide(type: type, keyCode: keyCode, flags: flags, armed: armed != nil)
-            // A held Tab changes nothing, so it is no input: the draw already on its way still arms.
-            // Not Shift-Tab, which goes back a field.
-            if armed == nil, type == .keyDown, keyCode == Self.tabKey, flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift]).isEmpty,
-               let h = s.held, h.pid == target, Date() < h.until {
-                held = true
-                return decision
-            }
-            s.held = nil
             s.generation += 1
             generation = s.generation
             s.armed = nil
@@ -190,7 +173,6 @@ class KeyTap: @unchecked Sendable {
         }
         if decision == .reenable { reenable() }
         if case .dismiss = decision { onDismiss?() }
-        if held { return true }
         if plan == nil, Self.types(type, event, flags) { onTyped?() }
         onInput?(generation)
         return plan != nil || decision == .dismiss(swallow: true)
@@ -249,7 +231,7 @@ class KeyTap: @unchecked Sendable {
     func stop() {
         let (port, loop) = state.withLock { s in
             let running = (s.port, s.loop)
-            (s.port, s.loop, s.armed, s.pending, s.held) = (nil, nil, nil, nil, nil)
+            (s.port, s.loop, s.armed, s.pending) = (nil, nil, nil, nil)
             s.generation += 1
             return running
         }

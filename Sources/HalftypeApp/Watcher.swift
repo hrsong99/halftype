@@ -115,8 +115,8 @@ final class Watcher: @unchecked Sendable {
             detach()
             let app = AXUIElementCreateApplication(pid)
             var created: AXObserver?
-            let callback: AXObserverCallback = { _, _, name, refcon in
-                Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String)
+            let callback: AXObserverCallback = { _, element, name, refcon in
+                Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String, element)
             }
             guard AXObserverCreate(pid, callback, &created) == .success, let observer = created else { return }
             self.app = app
@@ -162,9 +162,11 @@ final class Watcher: @unchecked Sendable {
     }
 
     /// Main run loop, no IPC here.
-    private func notified(_ name: String) {
+    private func notified(_ name: String, _ element: AXUIElement) {
         switch name {
         case "AXWindowMoved", "AXWindowResized":
+            // In Try It our own panel's moves come here too, and drawing a ghost moves it: that hide disarmed every ghost there.
+            guard !Self.isGhostPanel(element) else { return }
             hideNow()
         case "AXFocusedUIElementChanged", "AXFocusedWindowChanged", "AXMainWindowChanged":
             hideNow()  // Before the read, which may stall: from here Tab belongs to whatever has focus.
@@ -175,6 +177,13 @@ final class Watcher: @unchecked Sendable {
         default:
             scheduleUpdate()
         }
+    }
+
+    /// Only asks our own process, which answers in-process: the main thread does no IPC here.
+    static func isGhostPanel(_ element: AXUIElement) -> Bool {
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(element, &pid) == .success, pid == getpid() else { return false }
+        return AX.get(element, "AXIdentifier") as? String == GhostPanel.accessibilityID
     }
 
     /// Reads coalesce, so a hung app can't build a backlog.

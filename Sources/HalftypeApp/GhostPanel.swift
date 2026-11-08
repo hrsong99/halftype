@@ -156,6 +156,8 @@ final class GhostView: NSView {
 /// Click-through, never key, never activates, over everything on every Space including full-screen apps.
 class GhostPanel: NSPanel {
     let view = GhostView()
+    /// Marks the panel to our own observer: in Try It it is a window of the watched app, and its moves aren't the field's.
+    static let accessibilityID = "app.halftype.ghost"
 
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
@@ -167,6 +169,7 @@ class GhostPanel: NSPanel {
         level = .statusBar
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         animationBehavior = .none
+        setAccessibilityIdentifier(Self.accessibilityID)
         hidesOnDeactivate = false
         contentView = view
     }

@@ -19,7 +19,7 @@ This is the unknown: does Chromium's composition take our key presses the way a 
 2. Keep typing until a ghost continues past a half-typed syllable (`다음` from `다`), then Tab.
    **The syllable finishes and the word follows, in order, no stray `ㄴ` or `ㅁ`. A next vowel may pull the last final across: that's normal.**
 3. On a ghost of two or more words, press Tab twice fast. Then on a one-word ghost, press Tab twice fast.
-   **Two words, each once. On the one-word ghost, the second Tab types nothing if it comes within 0.3 s and no new ghost is up yet; never a tab.**
+   **Two words, each once. On the one-word ghost, say what the second Tab did: it goes to T3 if no new ghost is up yet.**
 4. Type a syllable, press Left then Right, wait, and Tab on whatever ghost shows.
    **A ghost only if it fits what's there; never `하ㄴ`.**
 5. Backspace then Tab as fast as your fingers go, ten times over.
