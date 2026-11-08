@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="soft" data-buttons="solid">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Halftype: you type half, it writes the rest</title>
+<meta name="description" content="Inline suggestions in almost any Mac app, from a model that runs on your Mac. Tab takes them.">
+<meta name="theme-color" content="#f6f1e9">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap">
+<!-- The TasteSkill kit from docs/site/a2/assets: system.css (grid, spacing, type, nav, buttons, FAQ, footer) and system.js (the phone nav). -->
+<link rel="stylesheet" href="assets/system.css">
+<style>
+/* the app's tokens (Sources/HalftypeApp/Window.swift, GhostPanel.swift) through the kit's palette */
+:root {
+  --p-bg: #f6f1e9; --p-surface: #fffdfa; --p-ink: #1d1c1a; --p-muted: #6a6762;
+  --p-accent: #1d1c1a; --p-accent-ink: #f6f1e9; --p-action: #1d1c1a; --p-action-ink: #f6f1e9;
+  --p-inv-bg: #1d1c1a; --p-inv-surface: #2a2926; --p-inv-ink: #fcfaf6; --p-inv-muted: #9f9d9a;
+  --p-inv-accent: #fcfaf6; --p-inv-accent-ink: #1d1c1a; --p-inv-action: #fcfaf6; --p-inv-action-ink: #1d1c1a;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --font-serif: "Instrument Serif", "New York", Georgia, serif;
+  --display-weight: 600; --display-tracking: -0.025em;
+  --glass: linear-gradient(90deg, #5f9bd8, #99b0c9, #e88f5e);
+  --r-win: 14px;                       /* a Mac window */
+  --shadow-win: 0 32px 64px -32px rgba(29,28,26,.32), 0 0 0 .5px rgba(29,28,26,.12);
+  /* the type scale: display (serif), lead 18, body 16, label 13 mono */
+  --t-display: clamp(40px, 9.6vw, 96px);
+  --t-h2: clamp(36px, 3.2vw + 10px, 56px);
+}
+html[data-radius] { --r-btn: 999px; }   /* ink pills, as the app's buttons */
+body { background: var(--bg); }
+/* display headlines in Instrument Serif; everything else the system font */
+h1, h2, .serif { font-family: var(--font-serif); font-weight: 400; letter-spacing: -0.015em; }
+h2 { font-size: var(--t-h2); line-height: 1.05; }
+h2 .muted { display: block; }
+.section-head p { font-size: var(--t-lead); color: var(--muted); }
+.lead { font-size: var(--t-lead); line-height: 1.5; color: var(--muted); }
+.eyebrow { font: 500 var(--t-label)/1.4 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.glass-text { background: var(--glass); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.nav { background: color-mix(in oklab, var(--bg) 92%, transparent); }
+.nav__logo { font-weight: 600; font-size: 19px; }
+
+/* ---- the app's field, suggestions, glint, keycaps (base.css) */
+.field { position: relative; background: rgba(255,255,255,.6); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: .5px solid rgba(29,28,26,.08); border-radius: 20px; padding: 24px 24px 16px; box-shadow: 0 32px 64px -32px rgba(29,28,26,.2); }
+.ht-text { font: 400 22px/1.45 var(--font-text); min-height: 2.9em; overflow-wrap: anywhere; text-align: left; }
+.ht-bar { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+.ht-bar .kc { margin-right: auto; }
+.pill { background: #fff; border-radius: 999px; padding: 6px 14px; font: 400 13px/1.2 var(--font-text); }
+.power { width: 32px; height: 32px; border-radius: 50%; background: var(--ink); display: grid; place-items: center; }
+.power svg { width: 16px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; }
+.kc { display: inline-grid; place-items: center; min-width: 44px; height: 32px; padding: 0 10px; border-radius: 8px; background: #fff; border: 1px solid rgba(29,28,26,.12); box-shadow: 0 2px 0 rgba(29,28,26,.14); font: 500 13px/1 var(--font-mono); color: var(--ink); transition: transform .09s ease-out, box-shadow .09s ease-out, background .09s ease-out; }
+.kc.down { transform: translateY(2px); box-shadow: none; background: #f4b48c; }
+.ghost { background: var(--glass); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.taken { background: linear-gradient(90deg, var(--ink) 0 38%, #73a6e0 44%, #c2d4e8 50%, #ed9a6b 56%, var(--ink) 62% 100%) 100% 0 / 320% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: glint calc(.25s / var(--speed, 1)) ease-in-out forwards; }
+@keyframes glint { to { background-position: 0 0; } }
+.caret { border-left: 2px solid var(--ink); margin: 0 -1px; animation: blink 1.05s steps(1) infinite; }
+.ht-text .ghost, .caret { white-space: nowrap; }
+@keyframes blink { 50% { border-left-color: transparent; } }
+/* the icon's arch, out of focus (arch.svg) */
+.arch { position: absolute; z-index: 0; background: url(img/arch.svg) center / 100% 100% no-repeat; filter: blur(28px); opacity: .75; pointer-events: none; }
+/* a panel on the app's ground: cream with the arch behind */
+.sky { position: relative; isolation: isolate; overflow: hidden; border-radius: var(--r-lg); background: #efe7da; }
+
+/* ---- buttons and the brew line */
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+.brew { display: inline-flex; align-items: center; height: 44px; padding: 0 4px 0 16px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.5); font: 400 13px/1 var(--font-mono); color: var(--muted); max-width: 100%; }
+.brew code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brew code::before { content: "$ "; opacity: .5; }
+.brew button { flex: none; height: 36px; margin-left: 8px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; font: 500 13px/1 var(--font-text); color: var(--ink); cursor: pointer; transition: background var(--dur) var(--ease); }
+.brew button:hover { background: rgba(29,28,26,.06); }
+.brew button { position: relative; }
+.brew button::before { content: ""; position: absolute; inset: -4px 0; } /* a 44px hit area inside the 44px pill */
+.fine { font: 400 var(--t-label)/1.5 var(--font-mono); color: var(--muted); }
+
+/* ---- 1. hero (option C): serif headline, messages along the arch, the field running the demo */
+.hero { overflow: hidden; }
+.hero > .wrap { grid-template-rows: minmax(0, 1fr); }
+.hero-c { display: flex; flex-direction: column; align-items: center; text-align: center; height: 100%; }
+.hero-c h1 { font-size: var(--t-display); line-height: .98; margin-top: 16px; text-wrap: balance; }
+.hero-c h1 i { display: inline-block; padding-right: .06em; }
+.hero-c .lead { margin-top: 24px; max-width: 34ch; text-wrap: balance; }
+.hero-c .actions { margin-top: 32px; }
+.hero-c .stage { position: relative; flex: 1 0 auto; width: 100%; display: flex; align-items: flex-end; justify-content: center; padding-top: 48px; }
+.hero-c .field { width: min(640px, 100%); min-width: 0; z-index: 1; }
+.ribbon { position: absolute; left: 0; bottom: 0; width: 100%; height: min(520px, 52svh); z-index: 0; pointer-events: none; }
+.ribbon text { font: 400 19px var(--font-text); fill: var(--ink); }
+.hero .loop-pause { right: var(--gut); bottom: 24px; }
+
+/* ---- 2. in a real app (option D) */
+.mailstage { position: relative; flex: 1 1 0; min-height: 420px; display: grid; place-items: center; padding: 48px 32px; }
+.mailstage .arch { inset: -10% -6%; }
+.win { position: relative; z-index: 1; background: rgba(255,255,255,.82); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border-radius: var(--r-win); box-shadow: var(--shadow-win); overflow: hidden; text-align: left; }
+.win__bar { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: .5px solid rgba(29,28,26,.1); font: 600 13px/1 var(--font-text); }
+.win__bar i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; } .win__bar i:nth-child(2) { background: #febc2e; } .win__bar i:nth-child(3) { background: #28c840; }
+.win__bar span { margin: 0 auto; padding-right: 52px; }
+.mail { width: min(840px, 100%); }
+.mail .hdr { padding: 12px 24px; border-bottom: .5px solid rgba(29,28,26,.08); font-size: 14px; color: var(--muted); }
+.mail .hdr b { color: var(--ink); font-weight: 500; }
+.mail .ht-text { padding: 24px 24px 96px; font-size: 18px; line-height: 1.5; }
+.mailstage .bigkey { position: absolute; z-index: 2; right: clamp(24px, 6%, 96px); bottom: 40px; transform: scale(1.5); transform-origin: right bottom; }
+.mailstage .bigkey.down { transform: scale(1.5) translateY(2px); }
+
+/* ---- 3. every app (image idea J): windows at depths, joined by the ribbon as a glass tube */
+.apps { position: relative; flex: 1 1 0; min-height: 480px; }
+.apps .tube { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; overflow: visible; }
+.apps .win { position: absolute; }
+.apps .win .body { display: grid; grid-template-columns: 112px 1fr; min-height: 132px; }
+.apps .side { padding: 16px 12px; border-right: .5px solid rgba(29,28,26,.08); display: grid; gap: 12px; align-content: start; background: rgba(246,241,233,.5); }
+.apps .main { padding: 16px; display: grid; gap: 12px; align-content: end; }
+.sk { display: block; height: 8px; border-radius: 999px; background: rgba(29,28,26,.09); }
+.sk.sel { background: rgba(95,155,216,.25); height: 24px; border-radius: 8px; }
+.bub { height: 28px; border-radius: 14px; background: rgba(29,28,26,.06); width: 52%; }
+.bub.me { justify-self: end; background: rgba(95,155,216,.22); width: 44%; }
+.say { font: 400 15px/1.45 var(--font-text); color: var(--ink); }
+.say .ghost { white-space: normal; }
+.inbox { border-radius: 999px; background: #fff; border: .5px solid rgba(29,28,26,.1); padding: 8px 16px; }
+.w-msg { left: 4%; top: 7%; width: 44%; transform: scale(.96); transform-origin: left top; }
+.w-mail { right: 4%; top: 25%; width: 44%; z-index: 3; }
+.w-chat { left: 18%; bottom: 7%; width: 46%; z-index: 2; transform: scale(.98); }
+.w-mail .hdr { display: grid; gap: 8px; padding-bottom: 4px; }
+
+/* ---- 4. three keys */
+.keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gutter); margin-block: auto; }
+.keycard { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.keycard .sky { display: grid; align-content: center; gap: 16px; padding: 32px 24px; }
+.keycard .sky .arch { inset: 10% -20%; }
+.keycard .field { z-index: 1; padding: 16px 20px; }
+.keycard .ht-text { font-size: 18px; min-height: 0; }
+.keycard .field, .ko .field { min-width: 0; } .keycard .ghost { white-space: normal; }
+.keycard .kc { z-index: 1; justify-self: center; }
+.keycard .after { opacity: 1; }
+.keycard .field + .kc { margin-block: 4px; }
+.keycard h3 { font: 600 18px/1.3 var(--font-text); letter-spacing: -0.01em; }
+
+/* ---- 5. Korean */
+.ko { display: grid; grid-template-columns: 5fr 7fr; gap: var(--gutter); align-items: center; flex: 1 1 0; min-height: 0; }
+.ko .sky { display: grid; align-content: center; gap: 24px; padding: clamp(24px, 5vw, 64px); min-height: 360px; }
+.ko .sky .arch { inset: 8% -8%; }
+.ko .field, .ko .fine, .jamo { position: relative; z-index: 1; }
+.ko .ht-text { font-size: 26px; min-height: 0; }
+.jamo { display: flex; flex-wrap: wrap; gap: 8px; }
+.jamo .kc { min-width: 44px; height: 44px; font: 500 18px/1 var(--font-text); }
+
+/* ---- 6. privacy */
+.privacy { display: grid; grid-template-columns: 5fr 7fr; gap: var(--gutter) 64px; align-items: center; flex: 1 1 0; min-height: 0; }
+.facts { display: grid; }
+.facts li { display: grid; grid-template-columns: 144px 1fr; gap: 16px; padding: 16px 0; border-top: 1px solid var(--line); }
+.facts li:last-child { border-bottom: 1px solid var(--line); }
+.facts b { font-weight: 600; }
+.facts p { color: var(--muted); }
+.shot { width: 100%; height: auto; border-radius: var(--r-win); box-shadow: var(--shadow-win); }
+
+/* ---- 7. compare (numbers and notes from docs/site/a2/index.html #cost and docs/site/compare/README.md) */
+.vs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px var(--gutter); }
+.vs__chart { margin: 0; display: grid; gap: 12px; align-content: start; padding: 24px; border-radius: var(--r-lg); background: var(--p-surface); border: 1px solid var(--line); }
+.vs__title { font: 500 var(--t-label)/1.3 var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.vs__bar { display: grid; grid-template-columns: 72px 1fr 64px; align-items: center; gap: 12px; min-height: 28px; border-radius: 6px; cursor: default; }
+.vs__name { font: 500 14px/1 var(--font-text); }
+.vs__track { height: 12px; border-radius: 999px; background: rgba(29,28,26,.05); }
+.vs__fill { display: block; height: 100%; width: var(--w); min-width: 12px; border-radius: 999px; background: #cbbfae; transition: opacity var(--dur) var(--ease); }
+.vs__fill--us { background: var(--glass); }
+.vs__chart:hover .vs__fill { opacity: .55; } .vs__chart .vs__bar:hover .vs__fill { opacity: 1; }
+.vs__val { font: 500 14px/1 var(--font-mono); text-align: right; }
+.vs__ko { margin-top: 32px; border-collapse: collapse; width: 100%; font-size: 15px; }
+.vs__ko caption { text-align: left; padding-bottom: 12px; }
+.vs__ko th, .vs__ko td { text-align: left; padding: 8px 16px 8px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.vs__ko th { font-weight: 500; white-space: nowrap; } .vs__ko td:nth-child(2) { font-family: var(--font-mono); white-space: nowrap; } .vs__ko td:last-child { color: var(--muted); }
+.vs__ko .is-yes { color: #2f6aa8; font-weight: 600; }
+.vs__how { margin-top: 24px; font: 400 13px/1.6 var(--font-mono); color: #4d4c49; max-width: 110ch; }
+.vs__how a, .faq a, .readme { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(29,28,26,.3); }
+.vs__tip { position: fixed; z-index: 60; pointer-events: none; background: var(--ink); color: var(--bg); font: 400 13px/1.4 var(--font-text); padding: 8px 12px; border-radius: 8px; max-width: 260px; }
+
+/* ---- 8. FAQ */
+.limits { display: grid; grid-template-columns: 5fr 7fr; gap: var(--gutter) 64px; align-items: start; }
+.faq > .faq__item { grid-template-columns: 1fr 1.3fr; gap: 16px; padding: 16px 0; }
+.faq__item h3 { font-size: 16px !important; font-weight: 600 !important; }
+.faq__item p { color: var(--muted) !important; }
+
+/* ---- 9. close and footer */
+.close { position: relative; flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 24px; padding: 48px 0; isolation: isolate; }
+.close .arch { inset: 22% 8% 10%; opacity: .6; }
+.close img { width: 96px; height: 96px; filter: drop-shadow(0 16px 24px rgba(29,28,26,.18)); }
+.close h2 { font-size: var(--t-display); line-height: .98; }
+.foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 32px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.foot nav { display: flex; flex-wrap: wrap; gap: 0 24px; }
+.foot nav a { display: inline-flex; align-items: center; min-height: 44px; }
+.foot a:hover { color: var(--ink); }
+
+/* ---- tablet */
+@media (max-width: 1023px) {
+  .keys { grid-template-columns: 1fr; }
+  .keycard { display: grid; grid-template-columns: 1fr 1fr; align-items: center; }
+  .keycard h3 { order: 2; }
+  .ko, .privacy, .limits { grid-template-columns: 1fr; }
+  .vs { grid-template-columns: 1fr 1fr; }
+  .w-msg, .w-mail { width: 56%; } .w-chat { left: 6%; width: 60%; }
+}
+/* ---- phone and small tablet */
+@media (max-width: 767px) {
+  .apps { display: flex; flex-direction: column; gap: 16px; min-height: 0; padding: 24px 16px; }
+  .apps .tube { display: none; }
+  .apps .win { position: relative; inset: auto; width: 100%; transform: none; }
+  .apps .side { display: none; } .apps .win .body { grid-template-columns: 1fr; min-height: 0; }
+  .apps .bub { display: none; }
+  .vs { grid-template-columns: 1fr; }
+  .keycard { grid-template-columns: 1fr; }
+  .faq > .faq__item { grid-template-columns: 1fr; gap: 4px; }
+}
+@media (max-width: 639px) {
+  .hero-c .lead { font-size: 17px; }
+  .hero-c .stage { padding-bottom: 48px; }
+  .hero .loop-pause { right: 16px; bottom: var(--hpadb); }
+  .hero-c .actions { flex-direction: column; width: 100%; }
+  .hero-c .actions .btn, .hero-c .actions .brew { width: 100%; justify-content: center; }
+  .ht-text { font-size: 18px; }
+  .field { padding: 16px 16px 12px; }
+  .pill { font-size: 12px; }
+  .mailstage { padding: 24px 16px 72px; min-height: 0; }
+  .mail .ht-text { font-size: 16px; padding: 16px 16px 48px; }
+  .mail .hdr { padding: 8px 16px; }
+  .mailstage .bigkey { right: 50%; bottom: 20px; transform: translateX(50%) scale(1.25); transform-origin: center bottom; }
+  .mailstage .bigkey.down { transform: translateX(50%) scale(1.25) translateY(2px); }
+  .facts li { grid-template-columns: 1fr; gap: 4px; }
+  .vs__ko td:last-child { display: none; }
+  .vs__bar { grid-template-columns: 68px 1fr 56px; gap: 8px; }
+  .ko .ht-text { font-size: 22px; }
+  .jamo .kc { min-width: 36px; height: 40px; font-size: 16px; }
+  .foot { flex-direction: column; align-items: flex-start; }
+  .brew code::before { content: ""; }
+}
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } .taken { animation: none; background: none; color: var(--ink); } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="ht-arch" x1="4.9" y1="0" x2="15.2" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1d1c1a"/><stop offset=".45" stop-color="#a9cdf0"/><stop offset="1" stop-color="#f6c3a4"/></linearGradient>
+  <linearGradient id="gl" x1="0" x2="1"><stop offset="0" stop-color="#5f9bd8"/><stop offset=".5" stop-color="#99b0c9"/><stop offset="1" stop-color="#e88f5e"/></linearGradient>
+  <linearGradient id="tube" x1="0" x2="1"><stop offset="0" stop-color="#8fbbe8"/><stop offset=".5" stop-color="#dfe7ef"/><stop offset="1" stop-color="#f4b48c"/></linearGradient>
+  <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="18"/></filter>
+</defs></svg>
+
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top"><svg viewBox="0 0 18 18" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke="url(#ht-arch)"/></svg>Halftype</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#keys">Keys</a></div>
+      <div class="nav__item"><a class="nav__link" href="#privacy">Privacy</a></div>
+      <div class="nav__item"><a class="nav__link" href="#cost">Compare</a></div>
+      <div class="nav__item"><a class="nav__link" href="#limits">FAQ</a></div>
+    </nav>
+    <div class="nav__actions"><a class="btn btn--primary" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download</a></div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  </div>
+</header>
+
+<main id="top">
+  <!-- 1. hero -->
+  <section class="hero" aria-labelledby="hero-h">
+    <svg class="ribbon" viewBox="0 0 1440 520" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <path d="M-80 500 C240 250 520 170 760 230 S1060 440 1240 430 S1440 340 1540 300" fill="none" stroke="url(#tube)" stroke-width="120" stroke-linecap="round" opacity=".55" filter="url(#soft)"/>
+      <path id="flow" d="M-80 500 C240 250 520 170 760 230 S1060 440 1240 430 S1440 340 1540 300" fill="none"/>
+      <text><textPath href="#flow" id="flowtext">Happy birthday! I <tspan fill="url(#gl)">hope you have a great day!</tspan>   ·   Thanks for the update. I'll t<tspan fill="url(#gl)">ake a look and get back to you.</tspan>   ·   Running 10 minutes late, sorry! Sa<tspan fill="url(#gl)">ve me a seat.</tspan>   ·   </textPath></text>
+    </svg>
+    <div class="wrap"><div class="hero-text hero-c">
+      <p class="eyebrow">For macOS 26 on Apple Silicon</p>
+      <h1 id="hero-h">You type half.<br><i class="glass-text">It writes the rest.</i></h1>
+      <p class="lead">Inline suggestions in almost any Mac app, from a model that runs on your Mac. Tab takes them.</p>
+      <div class="actions" id="brew">
+        <a class="btn btn--primary" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download for Mac</a>
+        <span class="brew"><code>brew install --cask halftype</code><button type="button" data-copy="brew tap hrsong99/halftype &amp;&amp; brew trust hrsong99/halftype&#10;brew install --cask halftype" aria-label="Copy the two Homebrew lines">Copy</button></span>
+      </div>
+      <div class="stage">
+        <div class="field" role="img" aria-label="The Halftype window: a message is typed, a suggestion in coloured text finishes it, Tab takes the next word and Shift-Tab the whole suggestion.">
+          <div class="ht-text" id="hero-demo" aria-hidden="true"></div>
+          <div class="ht-bar" aria-hidden="true"><span class="kc" id="hero-key">tab</span><span class="pill">Qwen 3.5 0.8B</span><span class="power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
+        </div>
+      </div>
+    </div></div>
+    <button class="loop-pause" type="button" aria-label="Pause the typing" aria-pressed="false" id="pause"><svg viewBox="0 0 14 14"><rect x="3" y="2" width="3" height="10"/><rect x="8" y="2" width="3" height="10"/></svg></button>
+  </section>
+
+  <!-- 2. in a real app -->
+  <section class="section" id="real" aria-labelledby="real-h">
+    <div class="wrap">
+      <div class="section-head"><h2 id="real-h">Right where you’re typing.</h2><p>Grey text finishes your sentence. Tab takes it.</p></div>
+      <div class="mailstage sky">
+        <div class="arch"></div>
+        <div class="win mail" role="img" aria-label="A Mail message being written, with Halftype’s suggestion after the caret">
+          <div class="win__bar"><i></i><i></i><i></i><span>New Message</span></div>
+          <div class="hdr">To: <b>Mina Park</b></div>
+          <div class="hdr">Subject: <b>Re: Friday</b></div>
+          <div class="ht-text" id="mail-demo" aria-hidden="true"></div>
+        </div>
+        <span class="kc bigkey" id="mail-key" aria-hidden="true">tab</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. every app -->
+  <section class="section" id="apps" aria-labelledby="apps-h">
+    <div class="wrap">
+      <div class="section-head"><h2 id="apps-h">Wherever there’s a caret.</h2><p>Almost any app with a text field.</p></div>
+      <div class="apps sky" role="img" aria-label="Three Mac windows, Messages, Mail and a team chat, each with a sentence and Halftype’s suggestion after the caret, joined by a soft ribbon">
+        <svg class="tube" viewBox="0 0 1280 520" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M-40 120 C180 40 420 120 560 230 C700 340 820 120 1020 160 C1220 200 1140 420 900 440 C660 460 520 330 300 420 C160 476 40 520 -40 500" fill="none" stroke="url(#tube)" stroke-width="140" stroke-linecap="round" opacity=".8" filter="url(#soft)" vector-effect="non-scaling-stroke"/>
+          <path d="M-40 120 C180 40 420 120 560 230 C700 340 820 120 1020 160 C1220 200 1140 420 900 440 C660 460 520 330 300 420 C160 476 40 520 -40 500" fill="none" stroke="url(#tube)" stroke-width="44" stroke-linecap="round" opacity=".7" vector-effect="non-scaling-stroke"/>
+          <path d="M-40 112 C180 32 420 112 560 222 C700 332 820 112 1020 152 C1220 192 1140 412 900 432 C660 452 520 322 300 412 C160 468 40 512 -40 492" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".7" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <div class="win w-msg" aria-hidden="true"><div class="win__bar"><i></i><i></i><i></i><span>Messages</span></div>
+          <div class="body"><div class="side"><span class="sk"></span><span class="sk sel"></span><span class="sk"></span><span class="sk"></span></div>
+          <div class="main"><span class="bub"></span><span class="bub me"></span><div class="inbox say">Running 10 minutes late, sorry! Sa<span class="caret"></span><span class="ghost">ve me a seat.</span></div></div></div></div>
+        <div class="win w-mail" aria-hidden="true"><div class="win__bar"><i></i><i></i><i></i><span>Mail</span></div>
+          <div class="body"><div class="side"><span class="sk sel"></span><span class="sk"></span><span class="sk"></span></div>
+          <div class="main"><div class="hdr"><span class="sk" style="width:60%"></span><span class="sk" style="width:40%"></span></div><p class="say">Thanks for the update. I’ll t<span class="caret"></span><span class="ghost">ake a look and get back to you.</span></p></div></div></div>
+        <div class="win w-chat" aria-hidden="true"><div class="win__bar"><i></i><i></i><i></i><span>Team chat</span></div>
+          <div class="body"><div class="side"><span class="sk sel"></span><span class="sk"></span><span class="sk"></span></div>
+          <div class="main"><span class="bub"></span><div class="inbox say">Happy birthday! I <span class="caret"></span><span class="ghost">hope you have a great day</span></div></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. three keys -->
+  <section class="section" id="keys" aria-labelledby="keys-h">
+    <div class="wrap">
+      <div class="section-head"><h2 id="keys-h">Three keys. <span class="muted">Or just keep typing.</span></h2></div>
+      <div class="keys">
+        <article class="keycard">
+          <div class="sky" role="img" aria-label="“Ha” with “ppy birthday” suggested; Tab takes the next word, “ppy”"><div class="arch"></div><div class="field"><div class="ht-text">Ha<span class="caret"></span><span class="ghost">ppy birthday</span></div></div><span class="kc">tab</span><div class="field"><div class="ht-text">Happy<span class="caret"></span><span class="ghost"> birthday</span></div></div></div>
+          <h3>Tab takes a word</h3>
+        </article>
+        <article class="keycard">
+          <div class="sky" role="img" aria-label="“I’ll t” with “ake a look and get back to you.” suggested; Shift-Tab takes all of it"><div class="arch"></div><div class="field"><div class="ht-text">I’ll t<span class="caret"></span><span class="ghost">ake a look and get back to you.</span></div></div><span class="kc">⇧ tab</span><div class="field"><div class="ht-text">I’ll take a look and get back to you.<span class="caret"></span></div></div></div>
+          <h3>Shift-Tab takes it all</h3>
+        </article>
+        <article class="keycard">
+          <div class="sky" role="img" aria-label="“Running 10 m” with “inutes late” suggested; Esc hides the suggestion"><div class="arch"></div><div class="field"><div class="ht-text">Running 10 m<span class="caret"></span><span class="ghost">inutes late</span></div></div><span class="kc">esc</span><div class="field"><div class="ht-text">Running 10 m<span class="caret"></span></div></div></div>
+          <h3>Esc hides it</h3>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Korean -->
+  <section class="section" id="korean" aria-labelledby="korean-h">
+    <div class="wrap">
+      <div class="ko">
+        <div class="section-head" style="margin:0"><h2 id="korean-h">Korean, even mid&#8209;syllable.</h2><p>Tab presses the keys that are left, so your input method finishes the syllable.</p></div>
+        <div class="sky" role="img" aria-label="“만나서 반갑” with “습니다.” suggested; Tab presses ㅅ ㅡ ㅂ ㄴ ㅣ ㄷ ㅏ and the full stop">
+          <div class="arch"></div>
+          <div class="field" lang="ko"><div class="ht-text">만나서 반갑<span class="caret"></span><span class="ghost">습니다.</span></div><div class="ht-bar"><span class="pill" lang="en">2-Set Korean</span></div></div>
+          <p class="fine">Tab presses</p>
+          <div class="jamo" lang="ko"><span class="kc">ㅅ</span><span class="kc">ㅡ</span><span class="kc">ㅂ</span><span class="kc">ㄴ</span><span class="kc">ㅣ</span><span class="kc">ㄷ</span><span class="kc">ㅏ</span><span class="kc">.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. privacy -->
+  <section class="section" id="privacy" aria-labelledby="privacy-h">
+    <div class="wrap">
+      <div class="privacy">
+        <div>
+          <div class="section-head"><h2 id="privacy-h">Nothing you type leaves your Mac.</h2></div>
+          <ul class="facts">
+            <li><b>Permission</b><p>Accessibility only. No Screen Recording.</p></li>
+            <li><b>Network</b><p>Model downloads from Hugging Face, SHA-256 checked, and a daily update check.</p></li>
+            <li><b>On disk</b><p>Settings, models and four counts a day. No text, no logs.</p></li>
+            <li><b>Passwords</b><p>Secure fields are skipped.</p></li>
+          </ul>
+        </div>
+        <img class="shot" src="img/window-settings.png" alt="Halftype’s settings: models that run on this Mac, paused apps, and General with Length, How Often and the three keys" width="1800" height="1640" loading="lazy">
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. compare -->
+  <section class="section" id="cost" aria-labelledby="cost-h">
+    <div class="wrap">
+      <div class="section-head"><h2 id="cost-h">The smallest download. <span class="muted">Light when you’re not typing.</span></h2></div>
+      <div class="vs">
+        <figure class="vs__chart" data-vs>
+          <figcaption class="vs__title">Model to download</figcaption>
+          <div class="vs__bar" data-tip="Qwen 3.5 0.8B, Halftype’s default: 0.53 GB"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:13.8%"></span></span><span class="vs__val">0.53 GB</span></div>
+          <div class="vs__bar" data-tip="Qwen 3.5 2B, KeyType 1.8’s default: 1.27 GB"><span class="vs__name">KeyType</span><span class="vs__track"><span class="vs__fill" style="--w:33.0%"></span></span><span class="vs__val">1.27 GB</span></div>
+          <div class="vs__bar" data-tip="Gemma 4 E2B, as Cotypist 2026.5.2 downloaded it: 2.98 GB"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill" style="--w:77.4%"></span></span><span class="vs__val">2.98 GB</span></div>
+          <div class="vs__bar" data-tip="Gemma 4 E2B Q6, Cotabby 0.6.2’s default: 3.85 GB"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill" style="--w:100.0%"></span></span><span class="vs__val">3.85 GB</span></div>
+        </figure>
+        <figure class="vs__chart" data-vs>
+          <figcaption class="vs__title">Memory at rest</figcaption>
+          <div class="vs__bar" data-tip="Halftype unloads its model after 5 idle minutes: 79 MB"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:20.6%"></span></span><span class="vs__val">79 MB</span></div>
+          <div class="vs__bar" data-tip="Cotabby keeps its model mapped: 185 MB"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill" style="--w:48.3%"></span></span><span class="vs__val">185 MB</span></div>
+          <div class="vs__bar" data-tip="Cotypist keeps its model mapped; 478 MB in a second run: 383 MB"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill" style="--w:100.0%"></span></span><span class="vs__val">383 MB</span></div>
+        </figure>
+        <figure class="vs__chart" data-vs>
+          <figcaption class="vs__title">CPU at rest</figcaption>
+          <div class="vs__bar" data-tip="Halftype, 0.13-0.27% over 60 s: 0.2%"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:9.1%"></span></span><span class="vs__val">0.2%</span></div>
+          <div class="vs__bar" data-tip="Cotypist, median; one sample of 13% in each 8-minute run: 0.2%"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill" style="--w:9.1%"></span></span><span class="vs__val">0.2%</span></div>
+          <div class="vs__bar" data-tip="Cotabby, median of 9 samples: 2.2%"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill" style="--w:100.0%"></span></span><span class="vs__val">2.2%</span></div>
+        </figure>
+      </div>
+      <table class="vs__ko">
+        <caption class="vs__title">Suggests mid-syllable in Korean</caption>
+        <tbody><tr><th scope="row">Halftype</th><td class="is-yes">Yes</td><td>Measured: 0.69 keys saved per mid-syllable request</td></tr><tr><th scope="row">macOS predictions</th><td>No Korean</td><td>Apple offers inline predictions in English, French and Spanish</td></tr><tr><th scope="row">Cotabby, KeyType</th><td>Not found</td><td>No completion through a composing syllable in their source</td></tr><tr><th scope="row">Cotypist</th><td>Not tested</td><td>Closed source</td></tr></tbody>
+      </table>
+      <p class="vs__how">Each app’s default model, on one M5 with 16 GB, 2026-11-09. At rest is 9 minutes after launch, with no typing; memory is macOS’s footprint. Halftype’s figures are from <code>scripts/e2e.sh --measure</code>, the others from <code>docs/site/compare/idle.sh</code>. KeyType is left out at rest: it starts only once it has Accessibility, then keeps its model until you quit. Cotabby had no Accessibility either, but had loaded its model. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it’s measured</a>.</p>
+      <div class="vs__tip" role="tooltip" hidden></div>
+    </div>
+  </section>
+
+  <!-- 8. FAQ -->
+  <section class="section" id="limits" aria-labelledby="limits-h">
+    <div class="wrap">
+      <div class="limits">
+        <div class="section-head"><h2 id="limits-h">Good to know.</h2><p>An early release. <a class="readme" href="https://github.com/hrsong99/halftype#readme">The README</a> has the rest.</p></div>
+        <div class="faq">
+          <div class="faq__item"><h3>Which Macs?</h3><p>macOS 26 on Apple Silicon.</p></div>
+          <div class="faq__item"><h3>What does it cost?</h3><p>Nothing. It’s open source, MIT.</p></div>
+          <div class="faq__item"><h3>Where won’t it suggest?</h3><p>Mid-line, and during Secure Input.</p></div>
+          <div class="faq__item"><h3>Chromium apps?</h3><p>Mostly. Only some are tested.</p></div>
+          <div class="faq__item"><h3>And Korean?</h3><p lang="ko">네, 두벌식에서요. 영어보다는 약합니다.</p></div>
+          <div class="faq__item"><h3>Can I build it myself?</h3><p>Yes, with Swift 6.2.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 9. close and footer -->
+<footer class="closing" aria-labelledby="close-h">
+  <div class="wrap" style="display:flex;flex-direction:column">
+    <div class="close">
+      <div class="arch" aria-hidden="true"></div>
+      <img src="img/icon.png" alt="" width="96" height="96" loading="lazy">
+      <h2 id="close-h">Type half.</h2>
+      <div class="actions">
+        <a class="btn btn--primary" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download for Mac</a>
+        <span class="brew"><code>brew install --cask halftype</code><button type="button" data-copy="brew tap hrsong99/halftype &amp;&amp; brew trust hrsong99/halftype&#10;brew install --cask halftype" aria-label="Copy the two Homebrew lines">Copy</button></span>
+      </div>
+      <p class="fine">Free · macOS 26 · Apple Silicon</p>
+    </div>
+    <div class="foot">
+      <span>© 2026 Halftype</span>
+      <nav aria-label="Footer"><a href="https://github.com/hrsong99/halftype">GitHub</a><a href="https://github.com/hrsong99/halftype/blob/main/docs/how-it-works.md">How it works</a><a href="https://github.com/hrsong99/halftype/releases">Releases</a><a href="https://github.com/hrsong99/halftype/blob/main/LICENSE">MIT licence</a></nav>
+    </div>
+  </div>
+</footer>
+
+<script src="demo.js"></script>
+<script>
+// Two demos (hero field, Mail window): each runs only while on screen; the hero's pause button stops both and the ribbon.
+const demos = [
+  [document.getElementById('hero-demo'), document.getElementById('hero-key')],
+  [document.getElementById('mail-demo'), document.getElementById('mail-key')],
+].map(([out, key]) => ({ out, run: runDemo(out, key), seen: false }));
+const ribbon = document.querySelector('.ribbon'), pauseBtn = document.getElementById('pause');
+let held = false;
+const sync = () => demos.forEach(d => (d.seen && !held ? d.run.play() : d.run.pause()));
+const io = new IntersectionObserver(es => { es.forEach(e => { demos.find(d => d.out === e.target).seen = e.isIntersecting; }); sync(); });
+demos.forEach(d => io.observe(d.out));
+pauseBtn.addEventListener('click', () => {
+  held = !held; pauseBtn.setAttribute('aria-pressed', held); pauseBtn.setAttribute('aria-label', held ? 'Play the typing' : 'Pause the typing');
+  held ? ribbon.pauseAnimations() : ribbon.unpauseAnimations(); sync();
+});
+
+// The ribbon's messages drift along the arch, one full cycle of the three every ~50 s (the text is the cycle twice, so it never runs out).
+(() => {
+  const tp = document.getElementById('flowtext');
+  tp.innerHTML += tp.innerHTML;
+  if (REDUCED) { pauseBtn.hidden = true; tp.setAttribute('startOffset', '-180'); return; }
+  document.fonts.ready.then(() => {
+    const period = tp.getComputedTextLength() / 2 || 1400;
+    const a = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+    Object.entries({ attributeName: 'startOffset', from: 0, to: -period, dur: period / 28 / SPEED + 's', repeatCount: 'indefinite' }).forEach(([k, v]) => a.setAttribute(k, v));
+    tp.appendChild(a); a.beginElement();
+  });
+})();
+
+// The comparison: hover or focus shows what each bar measured; Esc hides it (from docs/site/a2).
+(() => {
+  const tip = document.querySelector('.vs__tip'); let dismissed = null;
+  addEventListener('keydown', e => { if (e.key === 'Escape') { tip.hidden = true; dismissed = document.querySelector('.vs__bar:hover') || document.activeElement; } });
+  document.querySelectorAll('[data-vs] .vs__bar').forEach(bar => {
+    bar.tabIndex = 0; bar.setAttribute('aria-label', bar.dataset.tip);
+    const show = x => { tip.textContent = bar.dataset.tip; tip.hidden = false; const r = bar.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.max(8, Math.min(x ?? r.left + 96, innerWidth - w - 8)) + 'px'; tip.style.top = (r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6) + 'px'; };
+    bar.addEventListener('mousemove', e => { if (dismissed !== bar) show(e.clientX + 12); });
+    bar.addEventListener('focus', () => { dismissed = null; show(); });
+    const hide = () => { tip.hidden = true; if (dismissed === bar) dismissed = null; };
+    bar.addEventListener('mouseleave', hide); bar.addEventListener('blur', hide);
+  });
+})();
+
+// Copy both brew lines.
+document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied'; } catch { b.textContent = 'Select and copy'; }
+  setTimeout(() => { b.textContent = 'Copy'; }, 1800);
+}));
+</script>
+<script type="module" src="assets/system.js"></script>
+</body>
+</html>

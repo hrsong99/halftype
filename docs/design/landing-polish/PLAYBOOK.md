@@ -1,7 +1,7 @@
 # Building halftype.app's polished page (round 2 of landing-polish)
 
 ## State (keep this current)
-- 2026-11-09: John picked "C + D + J" from `index.html` ("Sure looks good, go ahead and build that"). Round 1: H 7.0, K 6.8 (review-r1.md in each folder); both under the bar. Hand-built wins the method test (K's lowest scores came from the kit: type sizes, Courier, one-screen sections). Round 2: H 7.5 (review-r2.md), nothing under 7. Round 3 (the last): H revises to review-r2; then a fresh review-r3. Below 8 after it: ship what's at the bar and list what's weak.
+- 2026-11-09: John picked "C + D + J" from `index.html` ("Sure looks good, go ahead and build that"). Round 1: H 7.0, K 6.8 (review-r1.md in each folder); both under the bar. Hand-built wins the method test (K's lowest scores came from the kit: type sizes, Courier, one-screen sections). Round 2: H 7.5 (review-r2.md), nothing under 7. Round 3: H 8.5 (review-r3.md), nothing under 8: at the bar. Codex code review found 5 P2s (contrast 2.0-2.6:1, reduced motion at runtime, per-card triggers, off-screen work, clipboard fallback). Fix round running; then Codex re-review, then show John and ask before publishing.
 - Nothing goes on halftype.app until John sees the result. Publishing is his call.
 
 ## Goal, in John's words
@@ -56,9 +56,9 @@ Score each 1–10. **The bar: an average of 8, nothing under 7.** At most 3 revi
 
 ## Steps for a worker
 1. Read this file, `index.html`'s options C and D (`C.html`, `D.html`), `images/J.jpg`, `base.css`, `demo.js`, the references in `references/`, `README.md` and `docs/site/a2/index.html`.
-2. Build in your folder only (`build/<you>/`). Copy what you need from `base.css`, `demo.js`, `arch.svg`, `icon.png` into it; don't edit the shared files. Need a shared change? Say so in your report.
-3. Check: serve the folder over http, then screenshot 1440×900 (first screen and full page), 1024, 768, 390 and 320 wide with the cached headless Chromium (`/Users/johnsong/Library/Caches/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-mac-arm64/chrome-headless-shell`, Playwright module at `/Users/johnsong/.npm/_npx/dd4723f69cd11a73/node_modules/playwright/index.mjs`). Record console errors and sideways overflow. Look at every screenshot against the checklist and fix what you see. Save the final shots in `build/<you>/shots/`.
-4. Write `build/<you>/NOTES.md`: your decisions, what you'd still change, and anything you couldn't check.
+2. Build in your folder only (`builds/<you>/`). Copy what you need from `base.css`, `demo.js`, `arch.svg`, `icon.png` into it; don't edit the shared files. Need a shared change? Say so in your report.
+3. Check: serve the folder over http, then screenshot 1440×900 (first screen and full page), 1024, 768, 390 and 320 wide with the cached headless Chromium (`/Users/johnsong/Library/Caches/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-mac-arm64/chrome-headless-shell`, Playwright module at `/Users/johnsong/.npm/_npx/dd4723f69cd11a73/node_modules/playwright/index.mjs`). Record console errors and sideways overflow. Look at every screenshot against the checklist and fix what you see. Save the final shots in `builds/<you>/shots/`.
+4. Write `builds/<you>/NOTES.md`: your decisions, what you'd still change, and anything you couldn't check.
 5. Don't commit, push, deploy, open windows or apps, or take focus. One headless browser at a time.
 
 ## Methods being compared (round 1)
@@ -67,6 +67,7 @@ Score each 1–10. **The bar: an average of 8, nothing under 7.** At most 3 revi
 
 ## Process (what changed and why)
 - 2026-11-09: playbook written after round 1 of `index.html` (variants) and John's pick.
+- 2026-11-09, after round 3: the supervisor decided the page's suggestion gradient uses darker stops (4.5:1) than the app's, for accessibility; the app is unchanged.
 - 2026-11-09, after round 2: rules 17 (Korean cost) and 18 (no skeleton bars) added; compare/README's Cotypist CPU line corrected to "one 13% sample in each of two 8-minute runs".
 - 2026-11-09, after round 1 reviews: rules 10–16 added; each was found in both K's and H's review, so it was the playbook's gap.
 - 2026-11-09, after round 1 builds: K dropped the 21.6% / 81.5% / 53 ms figures because the section list had no place for them; added to section 7. H found a2 called Cotypist's 478 MB a "second run" (it was the first); fixed in a2 and on halftype.app.

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" preserveAspectRatio="none">
+  <!-- The app's Arch (Sources/HalftypeApp/Window.swift): the icon's arch, blue to peach, drawn on a 720 x 460 window. The page blurs it. -->
+  <defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="60" y1="0" x2="680" y2="0">
+    <stop offset="0" stop-color="#8fbbe8"/><stop offset=".5" stop-color="#dfe7ef"/><stop offset="1" stop-color="#f4b48c"/>
+  </linearGradient></defs>
+  <path d="M40 400 C160 200 300 120 400 150 C500 180 470 330 520 370 C570 410 640 380 700 320" fill="none" stroke="url(#g)" stroke-width="90" stroke-linecap="round"/>
+</svg>
