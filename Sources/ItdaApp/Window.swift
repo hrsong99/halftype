@@ -298,7 +298,21 @@ private struct StatsPage: View {
             }
             .chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { AxisGridLine(); AxisValueLabel() } }
             .frame(height: 140)
+            personal
             Text(footnote).font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 20)
+        }
+    }
+
+    /// Days with the personal model against days without, once there are both.
+    @ViewBuilder private var personal: some View {
+        let with = app.tally.sum(personal: true), without = app.tally.sum(personal: false)
+        if let a = with.sum.byTab, let b = without.sum.byTab {
+            Divider().padding(.top, 20)
+            HStack(alignment: .lastTextBaseline, spacing: 36) {
+                Figure(value: a.formatted(.percent.precision(.fractionLength(1))), label: "typed by Tab with your model, \(with.count) \(with.count == 1 ? "day" : "days")")
+                Figure(value: b.formatted(.percent.precision(.fractionLength(1))), label: "without it, \(without.count) \(without.count == 1 ? "day" : "days")")
+            }
+            .padding(.top, 18)
         }
     }
 
@@ -431,6 +445,12 @@ private struct GeneralPage: View {
             Row(title: "How Often", note: "More often means more wrong ones.") {
                 Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more) }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+            }
+            if App.adapterFile != nil {
+                Row(title: "Personal Model", note: "Trained on your writing. Compare leaves it off every other day, for Stats.") {
+                    Picker("", selection: $app.personal) { Text("Off").tag(Personal.off); Text("Compare").tag(Personal.compare); Text("On").tag(Personal.on) }
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+                }
             }
             Row(title: "Next word") { key("Tab") }
             Row(title: "Whole suggestion") { key("⇧ Tab") }

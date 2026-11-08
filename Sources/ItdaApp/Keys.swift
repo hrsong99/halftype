@@ -31,6 +31,8 @@ final class KeyTap: @unchecked Sendable {
         /// What the field will hold once our last accept lands; Tab-Tab can beat the host's update. Any other input ends it, as the
         /// field then holds something else: Tab, Backspace, and `hello ther` would otherwise read as on its way to `hello there`.
         var pending: (from: String, to: String)?
+        /// Keys that typed a character since `takeTyped`, for the Stats page's share typed by Tab.
+        var typed = 0
 
         mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)? {
             let next = all ? Accept.all(armed.ghost) : Accept.nextWord(armed.ghost)
@@ -63,6 +65,7 @@ final class KeyTap: @unchecked Sendable {
     init(pid: pid_t? = nil) { self.pid = pid }
 
     var generation: Int { state.withLock { $0.generation } }
+    func takeTyped() -> Int { state.withLock { s in defer { s.typed = 0 }; return s.typed } }
 
     func invalidate() {
         state.withLock {
@@ -96,6 +99,15 @@ final class KeyTap: @unchecked Sendable {
         return keyCode == backspaceKey ? was : TwoSetLayout.letterCodes.contains(keyCode)
     }
 
+    /// A key that types a character: not Tab, Return, Backspace, an arrow or a shortcut.
+    /// shortcut: counts in every app, paused or not, so the share typed by Tab is a little low; count per watched field if that matters.
+    static func types(_ type: CGEventType, _ event: CGEvent, _ flags: CGEventFlags) -> Bool {
+        guard type == .keyDown, flags.intersection([.maskCommand, .maskControl]).isEmpty else { return false }
+        var length = 0, units = [UniChar](repeating: 0, count: 4)
+        event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &units)
+        return length > 0 && units[0] >= 0x20 && units[0] != 0x7F && !(0xF700...0xF8FF).contains(units[0])  // F7xx: arrows and function keys.
+    }
+
     /// True swallows the event.
     func handle(_ type: CGEventType, _ event: CGEvent, post: (CGEvent) -> Void) -> Bool {
         guard event.getIntegerValueField(.eventSourceUserData) != Self.ownEvent else { return false }
@@ -116,6 +128,7 @@ final class KeyTap: @unchecked Sendable {
                 suggestion = armed.suggestion
             }
             if plan == nil { s.pending = nil }
+            if plan == nil, Self.types(type, event, flags) { s.typed += 1 }
             return decision
         }
         if let plan {

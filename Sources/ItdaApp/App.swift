@@ -32,12 +32,30 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private var lastTaken = -1
     nonisolated(unsafe) static var tallyFile: URL? = support.appendingPathComponent("stats.json")
 
-    /// Hidden, for trying a personal LoRA (lab/dogfood on the `learn` branch): `defaults write app.itda.Itda adapterPath <gguf>`.
-    /// Applied on odd dates only, so stats.json's days compare with and without it, and only to the default model it was trained on.
+    /// A personal LoRA trained on the user's own text (lab/dogfood on the `learn` branch): the last in `adapters/` by name, which train.sh dates.
+    static var adapterFile: String? {
+        let folder = support.appendingPathComponent("adapters").path
+        return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }.max().map { folder + "/" + $0 }
+    }
+    /// Read on each request, so a new setting or midnight takes effect at once. Only the default model, which adapters are trained on.
+    /// Compare puts it on odd dates only, so the Stats page can set days with it against days without.
     @Sendable static func adapterToday(model: String) -> String? {
-        guard URL(fileURLWithPath: model).lastPathComponent == ModelStore.models[0].file,
-              Calendar.current.component(.day, from: Date()) % 2 == 1 else { return nil }
-        return UserDefaults.standard.string(forKey: "adapterPath")
+        guard URL(fileURLWithPath: model).lastPathComponent == ModelStore.models[0].file else { return nil }
+        switch Personal(rawValue: UserDefaults.standard.string(forKey: "personal") ?? "") ?? .compare {
+        case .off: return nil
+        case .compare where Calendar.current.component(.day, from: Date()) % 2 == 0: return nil
+        default: return adapterFile
+        }
+    }
+    @Published var personal = Personal(rawValue: UserDefaults.standard.string(forKey: "personal") ?? "") ?? .compare {
+        didSet { UserDefaults.standard.set(personal.rawValue, forKey: "personal") }
+    }
+    /// Counts the keys typed since the last count with the event, in one write.
+    private func count(_ event: (inout Tally) -> Void) {
+        var next = tally
+        next.typed(tap.takeTyped())
+        event(&next)
+        tally = next
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     @Published var ready = false
@@ -77,6 +95,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var on = UserDefaults.standard.object(forKey: "on") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(on, forKey: "on")
+            _ = tap.takeTyped()  // Keys typed while off had no chance at a suggestion.
             rebind()
         }
     }
@@ -134,11 +153,15 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     func applicationDidFinishLaunching(_ note: Notification) {
         tune()
-        watcher.onShown = { [weak self] in self?.tally.shown() }
+        watcher.onShown = { [weak self] in
+            guard let self else { return }
+            let personal = activePath.flatMap(App.adapterToday) != nil
+            count { $0.shown(personal: personal) }
+        }
         tap.onAccept = { [weak self] added, suggestion in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.tally.took(added, first: suggestion != self.lastTaken)
+                self.count { $0.took(added, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
             }
         }
@@ -187,6 +210,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     /// ggml's Metal device asserts at exit if a model is still loaded.
     func applicationWillTerminate(_ note: Notification) {
+        if on { count { _ in } }
         watcher.queue.sync { watcher.completer }?.unload()
     }
 
@@ -355,6 +379,8 @@ enum Length: String, CaseIterable {
 }
 
 /// The same replay: suggestions shown on 12%, 20% and 31% of requests, with the first word right 89%, 75% and 58% of the time.
+enum Personal: String, CaseIterable { case off, compare, on }
+
 enum Often: String, CaseIterable {
     case less, normal, more
     var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2 } }
