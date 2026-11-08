@@ -70,8 +70,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private func count(_ event: (inout Tally) -> Void) {
         var next = tally
         event(&next)
-        if let activePath, App.adapterFile(for: activePath) == nil { next.mark(personal: nil) }  // A model with no adapter compares nothing.
-        else if let applied = engine?.applied.withLock({ $0 }) { next.mark(personal: applied) }  // Unloaded while idle: nothing to say.
+        if let activePath {
+            if App.adapterFile(for: activePath) == nil { next.mark(personal: nil) }  // A model with no adapter compares nothing.
+            // Only once the engine has caught up with today: unloaded, just past midnight, or an adapter that won't load says nothing.
+            else if let applied = engine?.applied.withLock({ $0 }), applied == (App.adapterToday(model: activePath) != nil) { next.mark(personal: applied) }
+        }
         tally = next
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
