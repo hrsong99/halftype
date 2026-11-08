@@ -71,7 +71,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Nil in the window pictures, whose made-up counts must not reach the real file. Set before any App exists.
     /// Main thread only: the suggestion the last Tab took from.
     private var lastTaken = -1
-    nonisolated(unsafe) static var tallyFile: URL? = support.appendingPathComponent("stats.json")
+    /// Only in the app itself: unit tests and the e2e runner make an App too, and once wrote their counts into the real file.
+    nonisolated(unsafe) static var tallyFile: URL? = Bundle.main.bundleIdentifier == "app.halftype.Halftype" ? support.appendingPathComponent("stats.json") : nil
 
     /// A personal LoRA trained on the user's own text for this model (lab/dogfood on the `learn` branch): the last by name, which train.sh
     /// dates, in `adapters/<model file>/`. An adapter fits only the model it was trained on, so each model has its own folder.
