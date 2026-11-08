@@ -831,12 +831,11 @@ extension App {
         }
     }
 
-    /// Sparkle holds this. Checking and installing go together: an update that only nags isn't what the switch says.
+    /// Whether Sparkle downloads and installs on its own. The daily check stays on either way (App.swift, where the updater starts), so with this off a new version still shows as the dot.
     var updatesAutomatically: Bool {
-        get { updates.updater.automaticallyChecksForUpdates && updates.updater.automaticallyDownloadsUpdates }
+        get { updates.updater.automaticallyDownloadsUpdates }
         set {
             objectWillChange.send()
-            updates.updater.automaticallyChecksForUpdates = newValue
             updates.updater.automaticallyDownloadsUpdates = newValue
         }
     }

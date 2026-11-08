@@ -1440,6 +1440,11 @@ final class FakeServer: URLProtocol {
         #expect(item != nil)
         if let item, let action = item.action { NSApp.sendAction(action, to: item.target, from: item) }
         #expect(installed)
+        // With Update Automatically off, a found update is offered for Sparkle to show.
+        app.readyUpdate = nil
+        app.availableUpdate = "0.1.9"
+        app.menuNeedsUpdate(menu)
+        #expect(menu.items.contains { $0.title == "Halftype 0.1.9 is available: Update…" && $0.action == #selector(App.checkForUpdates) })
     }
     @Test func theFieldIsPrefilledOnlyOnAFreshLaunchOnceReady() {
         #expect(App.prefill(fresh: true, ready: true, draft: "", korean: false) == "Please let me know if you have any")

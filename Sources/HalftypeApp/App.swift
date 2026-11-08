@@ -139,9 +139,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var activePath: String? { didSet { updateIcon() } }
     var window: NSWindow?
     /// Started only in a released build, whose Info.plist names the feed. Lazy, to be its own delegate.
-    lazy var updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
+    lazy var updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
     /// An update Sparkle has downloaded, which would wait for a quit that a menu-bar app rarely sees: the dot and a menu item offer it now.
     var readyUpdate: (version: String, install: () -> Void)? { didSet { updateIcon() } }
+    /// A newer version the daily check found while Update Automatically is off: the dot and a menu item, instead of Sparkle's window.
+    var availableUpdate: String? { didSet { updateIcon() } }
     /// The model's line, for the menu and under the field.
     var modelLine: String {
         if ready { return activeName }
@@ -252,7 +254,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         }
         watcher.hideOnSessionChange()
 
-        if isRelease { updates.startUpdater() }
+        if isRelease {
+            // The check runs daily whatever General says; Update Automatically only decides whether it downloads.
+            updates.updater.automaticallyChecksForUpdates = true
+            updates.startUpdater()
+        }
         store.removeLeftovers()
         store.onChange = { [weak self] state in self?.modelChanged(state) }
         loadModel()
@@ -519,7 +525,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// From each place the state it shows changes: rebind (on, pause, front app, permission), the model's state, and the watcher.
     func updateIcon() {
         guard let glyphs, let button = status.button else { return }
-        let icon = App.icon(active: activeHere, problem: !trusted || tap.obstacle != nil || (!ready && notice != nil) || readyUpdate != nil,
+        let icon = App.icon(active: activeHere, problem: !trusted || tap.obstacle != nil || (!ready && notice != nil) || readyUpdate != nil || availableUpdate != nil,
                             downloading: downloading.map { _ in downloadFraction })
         guard icon != shownIcon else { return }
         shownIcon = icon
@@ -565,6 +571,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if predictions { menu.addItem(withTitle: "Turn Off macOS Predictions…", action: #selector(openKeyboardSettings), keyEquivalent: "") }
         menu.addItem(.separator())
         if let readyUpdate { menu.addItem(withTitle: "Halftype \(readyUpdate.version) is ready: Restart to Update", action: #selector(installUpdate), keyEquivalent: "") }
+        else if let availableUpdate { menu.addItem(withTitle: "Halftype \(availableUpdate) is available: Update…", action: #selector(checkForUpdates), keyEquivalent: "") }
         else if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         for item in menu.items where item.action != #selector(NSApplication.terminate(_:)) && item.action != nil { item.target = self }
@@ -620,4 +627,16 @@ extension App: SPUUpdaterDelegate {
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
         readyUpdate = nil
     }
+}
+
+/// With Update Automatically off, a scheduled check that finds a new version shows the dot rather than Sparkle's window, which in a
+/// menu-bar app would open over whatever you're typing. The menu's item asks Sparkle to show it then.
+extension App: SPUStandardUserDriverDelegate {
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+    func standardUserDriverShouldHandleShowingScheduledUpdate(_ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool) -> Bool { false }
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        if !handleShowingUpdate { availableUpdate = update.displayVersionString }
+    }
+    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) { availableUpdate = nil }
+    func standardUserDriverWillFinishUpdateSession() { availableUpdate = nil }
 }
