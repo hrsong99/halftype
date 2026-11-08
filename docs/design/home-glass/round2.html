@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glass and gleam</title>
+<style>
+:root { --bg:#0e0f11; --fg:#e8e8ea; --mute:#8a8b90; --card:#18191c; --line:#2a2b2f; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+main { max-width:1500px; margin:0 auto; padding:24px 16px 60px; }
+h1 { font-size:20px; margin:0 0 6px; } h2 { font-size:15px; margin:30px 0 12px; }
+.q { color:var(--mute); margin:0 0 14px; }
+.rec { background:#1d2430; border:1px solid #2f3b4d; border-radius:10px; padding:12px 14px; margin:0 0 16px; }
+.bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 18px; position:sticky; top:0; z-index:9; background:var(--bg); padding:8px 0; }
+button { background:#24262a; color:var(--fg); border:1px solid var(--line); border-radius:7px; padding:5px 12px; font:inherit; cursor:pointer; }
+button.on { background:#3a3d44; }
+input[type=range] { width:min(320px, 50vw); }
+.clock { font-variant-numeric:tabular-nums; color:var(--mute); min-width:9ch; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 560px), 1fr)); gap:18px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.meta { padding:10px 14px 14px; }
+b.l { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:6px; background:#e8e8ea; color:#111; margin-right:8px; }
+.name { font-weight:600; } .meta p { margin:6px 0 0; color:var(--mute); }
+.img img { width:100%; display:block; }
+
+/* The window, 720 x 460 points; 1em = 1 point. */
+.shot { padding:4%; background:#2b2d31; }
+.win { position:relative; aspect-ratio:720/460; container-type:inline-size; border-radius:1.4cqw; overflow:hidden; box-shadow:0 2cqw 5cqw rgba(0,0,0,.45); background:#f6f1e9; }
+.win > * { font-size:calc(100cqw / 720); }
+.layer { position:absolute; inset:0; width:100%; height:100%; }
+.lights { position:absolute; left:14em; top:12em; display:flex; gap:8em; z-index:3; }
+.lights i { width:12em; height:12em; border-radius:50%; background:#ff5f57; } .lights i:nth-child(2){background:#febc2e} .lights i:nth-child(3){background:#28c840}
+.col { position:absolute; left:0; right:0; top:84em; display:flex; flex-direction:column; align-items:center; gap:16em; z-index:2; }
+.field { position:relative; width:500em; height:92em; border-radius:20em; box-sizing:border-box; padding:12em 14em;
+  background:rgba(255,255,255,.55); backdrop-filter:blur(18px) saturate(1.3); -webkit-backdrop-filter:blur(18px) saturate(1.3);
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 12em 34em rgba(60,50,40,.12), 0 0 0 .5px rgba(255,255,255,.7); }
+.field .t { font-size:15em; letter-spacing:-.01em; color:#141416; }
+.sug { position:relative; display:inline-block; }
+.sug .glass, .sug .ink { white-space:pre; }
+.sug .ink { position:absolute; left:0; top:0; color:#141416; }
+.row { position:absolute; right:10em; bottom:9em; display:flex; gap:8em; align-items:center; }
+.chip { font-size:12em; padding:.33em .83em; border-radius:99em; background:rgba(255,255,255,.7); color:#333; }
+.pw { width:24em; height:24em; border-radius:50%; display:grid; place-items:center; background:#141416; }
+.pw svg { width:11em; height:11em; }
+.status { font-size:12em; color:#7d786f; }
+.mark { width:54em; height:54em; } .mark svg { width:100%; height:100%; overflow:visible; }
+</style>
+</head>
+<body>
+<main>
+<h1>Home in glass, round 2: C + D, and suggestions that gleam</h1>
+<p class="q">John: “What about C + D (and can we make the suggestions gleam like that)”. So: cream and ink with the glass ribbon behind (C + D), the suggestion in glass, and ways for it to catch the light. Every window plays the same 6-second loop: the suggestion appears at 0.5 s, you press Tab at 3.8 s and the glass turns to ink.</p>
+<div class="rec"><b>Recommendation: A, a sweep.</b> One glint crosses the suggestion as it arrives and another as Tab sets it in ink, then it holds still while you read. It's the icon's highlight, it marks the two moments that matter, and it never moves while you're deciding. B's endless flow is pretty but asks for attention the whole time a suggestion is up; C (written in) adds a delay before you can read it. Of the ribbons, D (sharper, like a real glass object) is the most like the icon; E (faint) is the calmest.<br><br>Can it gleam? In this window, yes: SwiftUI can mask a moving highlight onto the text. In other apps the suggestion is our panel over their text, and it can gleam too, but it stays grey: a glass gradient won't read on every background.</div>
+<div class="bar">
+  <button id="play">Pause</button><button id="replay">Replay</button>
+  <button class="sp on" data-s="1">1×</button><button class="sp" data-s="0.5">½×</button><button class="sp" data-s="0.25">¼×</button>
+  <input id="scrub" type="range" min="0" max="6" step="0.01" value="0"><span class="clock" id="clock">0.00 s</span>
+</div>
+<div class="grid" id="grid"></div>
+<h2>Image ideas (Codex, still images: what to take from each)</h2>
+<div class="grid" id="imgs"></div>
+</main>
+<script>
+const LOOP = 6, APPEAR = 0.5, TAB = 3.8;
+const STEM = 'M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6', ARCH = 'M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9';
+let gid = 0;
+const mark = () => { const id = 'm' + (gid++); return `<div class="mark"><svg viewBox="0 0 18 18" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <defs><linearGradient id="${id}" x1="7" x2="15.2" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#111"/><stop offset=".22" stop-color="#6fa6de"/><stop offset=".6" stop-color="#c8d6e4"/><stop offset="1" stop-color="#ee9e72"/></linearGradient>
+  <filter id="${id}s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy=".6" stdDeviation=".5" flood-color="#000" flood-opacity=".22"/></filter></defs>
+  <g filter="url(#${id}s)"><path stroke="url(#${id})" stroke-width="2.3" d="${ARCH}"/><path stroke="#111" stroke-width="2.3" d="${STEM}"/></g>
+  <path stroke="#fff" stroke-opacity=".55" stroke-width=".45" d="M8 3.1 C7.3 2 5.5 2.1 5.4 4.4 C5.3 6.4 5.25 8.5 5.2 10"/>
+  <path stroke="#fff" stroke-opacity=".8" stroke-width=".4" d="M10.4 8.1 C11.5 8.5 11.3 10.4 11.4 12"/></svg></div>`; };
+const POWER = `<svg viewBox="0 0 12 12" fill="none" stroke="#f6f1e9" stroke-width="1.6" stroke-linecap="round"><path d="M6 1.2v4.3"/><path d="M3.3 3.1a4 4 0 1 0 5.4 0"/></svg>`;
+const RIBBON = 'M40 400 C160 200 300 120 400 150 C500 180 470 330 520 370 C570 410 640 380 700 320';
+// D's ribbon, at a blur and strength; sharp adds a glassy core and highlight.
+const ribbon = (blur, op, sharp) => { const id = 'r' + (gid++); return `<svg class="layer" viewBox="0 0 720 460" style="filter:blur(${blur}px)"><defs><linearGradient id="${id}" x1="60" x2="680" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8fbbe8"/><stop offset=".55" stop-color="#dfe7ef"/><stop offset="1" stop-color="#f4b48c"/></linearGradient></defs>
+  <path d="${RIBBON}" fill="none" stroke="url(#${id})" stroke-width="${sharp ? 70 : 90}" stroke-linecap="round" opacity="${op}"/>
+  ${sharp ? `<path d="${RIBBON}" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" opacity=".55" transform="translate(0 -18)"/><path d="${RIBBON}" fill="none" stroke="#6d8fb3" stroke-width="6" stroke-linecap="round" opacity=".18" transform="translate(0 30)"/>` : ''}</svg>`; };
+
+const GLASS = 'linear-gradient(90deg,#5f9bd8,#b3c7da 48%,#e98f5e)';
+const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+// A highlight band crossing the text: at p = 0 it's off the left edge, at 1 off the right.
+const band = p => `linear-gradient(100deg, transparent ${p * 140 - 30}%, rgba(255,255,255,.95) ${p * 140 - 18}%, transparent ${p * 140 - 6}%)`;
+const sweep = (t, at, len) => (t - at) / len;
+
+// Each gleam sets the glass span's style at time t; the ink copy fades in on Tab.
+const GLEAMS = {
+  sweep: t => { const a = sweep(t, APPEAR + 0.1, 0.9), b = sweep(t, TAB - 0.05, 0.55);
+    const p = a > 0 && a < 1 ? a : b > 0 && b < 1 ? b : -1;
+    return { bg: (p >= 0 ? band(p) + ',' : '') + GLASS, op: ease((t - APPEAR) / 0.25), mask: null }; },
+  flow: t => { const x = (t * 22) % 200;
+    return { bg: `linear-gradient(90deg,#5f9bd8,#b3c7da,#e98f5e,#b3c7da,#5f9bd8,#b3c7da,#e98f5e)`, size: '300% 100%', pos: `${x}% 0`, op: ease((t - APPEAR) / 0.25), mask: null }; },
+  write: t => { const p = (t - APPEAR) / 0.7, e = p * 120;
+    return { bg: (p > 0 && p < 1.1 ? `linear-gradient(90deg, transparent ${e - 14}%, rgba(255,255,255,.95) ${e - 3}%, transparent ${e}%),` : '') + GLASS, op: p > 0 ? 1 : 0,
+      mask: `linear-gradient(90deg,#000 ${e - 6}%,transparent ${e + 4}%)` }; },
+};
+const V = [
+  { l: 'A', name: 'C + D, a sweep', note: 'One glint crosses the suggestion as it arrives, and one as Tab turns it to ink. Still in between. In SwiftUI, a gradient masked to the text with an animated offset.', bg: () => ribbon(26, .75), gleam: 'sweep' },
+  { l: 'B', name: 'C + D, flowing glass', note: 'The blue-to-peach drifts through the letters the whole time a suggestion is up, like light moving in glass. Lovely, but it never rests. A TimelineView redrawing the gradient.', bg: () => ribbon(26, .75), gleam: 'flow' },
+  { l: 'C', name: 'C + D, written in', note: 'The suggestion is drawn left to right in 0.7 s, its leading edge bright, like the icon’s arch being written. Reads as handwriting, but you wait to read it.', bg: () => ribbon(26, .75), gleam: 'write' },
+  { l: 'D', name: 'Sharper ribbon, a sweep', note: 'A’s sweep, with the ribbon less blurred and given a highlight and a shadow, so it reads as a glass object, as in the icon. Still one shape; could be a drawn asset instead.', bg: () => ribbon(7, .7, true), gleam: 'sweep' },
+  { l: 'E', name: 'Faint ribbon, a sweep', note: 'A’s sweep, with the ribbon at half strength: a warm wash of colour more than a shape. The calmest; the glass words carry the look.', bg: () => ribbon(34, .38), gleam: 'sweep' },
+];
+
+const TYPED = 'See you at four, I’ll bring the', GHOST = ' notes from Monday';
+const grid = document.getElementById('grid'), cards = [];
+for (const v of V) {
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `<div class="shot"><div class="win">${v.bg()}<div class="lights"><i></i><i></i><i></i></div>
+    <div class="col">${mark()}
+      <div class="field"><span class="t">${TYPED}</span><span class="t sug"><span class="glass">${GHOST}</span><span class="ink">${GHOST}</span></span>
+        <div class="row"><span class="chip">Gemma 4 E2B</span><span class="pw">${POWER}</span></div></div>
+      <div class="status">Press Tab to take the glass text.</div></div></div></div>
+    <div class="meta"><b class="l">${v.l}</b><span class="name">${v.name}</span><p>${v.note}</p></div>`;
+  grid.appendChild(el);
+  cards.push({ v, glass: el.querySelector('.glass'), ink: el.querySelector('.ink'), status: el.querySelector('.status') });
+}
+function frame(t) {
+  for (const c of cards) {
+    const g = GLEAMS[c.v.gleam](t), s = c.glass.style;
+    s.backgroundImage = g.bg; s.backgroundSize = g.size || (g.bg.includes(',') && !g.size ? '100% 100%' : '100% 100%'); s.backgroundPosition = g.pos || '0 0';
+    s.webkitBackgroundClip = s.backgroundClip = 'text'; s.color = 'transparent';
+    const inked = ease((t - TAB - 0.25) / 0.35);
+    s.opacity = g.op * (1 - inked);
+    s.webkitMaskImage = s.maskImage = g.mask || 'none';
+    c.ink.style.opacity = inked;
+    c.status.textContent = t < TAB ? 'Press Tab to take the glass text.' : 'Taken. It’s yours now.';
+  }
+  document.getElementById('clock').textContent = t.toFixed(2) + ' s';
+  document.getElementById('scrub').value = t;
+}
+// One shared clock: replay, pause, speed, scrub; #t=1.2 freezes it.
+let t = 0, speed = 1, playing = true, last = performance.now();
+const fixed = location.hash.match(/t=([\d.]+)/);
+if (fixed) { t = +fixed[1]; playing = false; document.getElementById('play').textContent = 'Play'; }
+function tick(now) { if (playing) t = (t + (now - last) / 1000 * speed) % LOOP; last = now; frame(t); requestAnimationFrame(tick); }
+requestAnimationFrame(tick);
+document.getElementById('play').onclick = e => { playing = !playing; e.target.textContent = playing ? 'Pause' : 'Play'; };
+document.getElementById('replay').onclick = () => { t = 0; playing = true; document.getElementById('play').textContent = 'Pause'; };
+document.querySelectorAll('.sp').forEach(b => b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll('.sp').forEach(x => x.classList.toggle('on', x === b)); });
+document.getElementById('scrub').oninput = e => { t = +e.target.value; playing = false; document.getElementById('play').textContent = 'Play'; };
+
+const IMGS = [['F', 'images/K.png', 'Soft ribbon, glinting words', 'C + D as one picture, and the strongest: a wide soft ribbon and an italic glass suggestion with its gleam frozen mid-sweep. Worth taking: the italic, which says “not yours yet” even without colour, and how big and soft the ribbon is.'], ['G', 'images/L.png', 'A solid glass ribbon', 'A new idea: the suggestion sits on a small glass pill instead of being glass letters, so the words stay dark and readable and the glass is the pill. Worth taking if glass letters prove hard to read. The solid ribbon is D’s, done well.']];
+const imgs = document.getElementById('imgs');
+for (const [l, src, name, note] of IMGS) {
+  const el = document.createElement('div'); el.className = 'card img';
+  el.innerHTML = `<img src="${src}" alt="${name}"><div class="meta"><b class="l">${l}</b><span class="name">${name}</span> <span style="color:#8a8b90">· image</span><p>${note}</p></div>`;
+  imgs.appendChild(el);
+}
+</script>
+</body>
+</html>
