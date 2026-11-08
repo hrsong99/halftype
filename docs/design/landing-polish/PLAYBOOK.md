@@ -1,7 +1,7 @@
 # Building halftype.app's polished page (round 2 of landing-polish)
 
 ## State (keep this current)
-- 2026-11-09: John picked "C + D + J" from `index.html` ("Sure looks good, go ahead and build that"). Round 1: H 7.0, K 6.8 (review-r1.md in each folder); both under the bar. Hand-built wins the method test (K's lowest scores came from the kit: type sizes, Courier, one-screen sections). Round 2: H 7.5 (review-r2.md), nothing under 7. Round 3: H 8.5 (review-r3.md), nothing under 8: at the bar. Codex code review found 5 P2s (contrast 2.0-2.6:1, reduced motion at runtime, per-card triggers, off-screen work, clipboard fallback). Fix round running; then Codex re-review, then show John and ask before publishing.
+- 2026-11-09: John picked "C + D + J" from `index.html` ("Sure looks good, go ahead and build that"). Round 1: H 7.0, K 6.8 (review-r1.md in each folder); both under the bar. Hand-built wins the method test (K's lowest scores came from the kit: type sizes, Courier, one-screen sections). Round 2: H 7.5 (review-r2.md), nothing under 7. Round 3: H 8.5 (review-r3.md), nothing under 8: at the bar. Codex code review found 5 P2s (contrast 2.0-2.6:1, reduced motion at runtime, per-card triggers, off-screen work, clipboard fallback). Fix round done; Codex re-review clean (one stale path, fixed). Result in round2.html; waiting on John to publish.
 - Nothing goes on halftype.app until John sees the result. Publishing is his call.
 
 ## Goal, in John's words
@@ -71,3 +71,10 @@ Score each 1–10. **The bar: an average of 8, nothing under 7.** At most 3 revi
 - 2026-11-09, after round 2: rules 17 (Korean cost) and 18 (no skeleton bars) added; compare/README's Cotypist CPU line corrected to "one 13% sample in each of two 8-minute runs".
 - 2026-11-09, after round 1 reviews: rules 10–16 added; each was found in both K's and H's review, so it was the playbook's gap.
 - 2026-11-09, after round 1 builds: K dropped the 21.6% / 81.5% / 53 ms figures because the section list had no place for them; added to section 7. H found a2 called Cotypist's 478 MB a "second run" (it was the first); fixed in a2 and on halftype.app.
+
+## Process (how this was made, to rerun it)
+1. One variants round (`index.html`) of visibly different first screens, built on shared `base.css` / `demo.js`, plus Codex image ideas; John picked C + D + J.
+2. This playbook, then two competing methods on the same brief (K: the TasteSkill kit; H: hand-built). A fresh reviewer per build per round wrote `review-rN.md`; makers never graded themselves.
+3. Results: H 7.0 → 7.5 → 8.5; K 6.8, cut after round 1. The kit cost points it couldn't win back (type sizes, UA Courier, one-screen sections), so hand-built on the app's tokens is the method for this site.
+4. Every problem both reviews found became a rule (10–16), and later ones 17–18, before the next round.
+5. At the bar: a Codex code review (5 P2s: contrast, reduced motion at runtime, per-card triggers, off-screen work, clipboard fallback), one fix round, a Codex re-review (clean).

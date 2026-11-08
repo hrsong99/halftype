@@ -1,5 +1,5 @@
 import { chromium } from '/Users/johnsong/.npm/_npx/dd4723f69cd11a73/node_modules/playwright/index.mjs';
-const OUT = process.argv[2], URL = 'http://127.0.0.1:8765/build/H/index.html';
+const OUT = process.argv[2], URL = 'http://127.0.0.1:8765/builds/H/index.html';
 const b = await chromium.launch({ executablePath: '/Users/johnsong/Library/Caches/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-mac-arm64/chrome-headless-shell' });
 const measure = p => p.evaluate(() => {
   const sizes = new Set(); const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
