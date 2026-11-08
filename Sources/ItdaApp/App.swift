@@ -37,19 +37,19 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private var lastTaken = -1
     nonisolated(unsafe) static var tallyFile: URL? = support.appendingPathComponent("stats.json")
 
-    /// A personal LoRA trained on the user's own text (lab/dogfood on the `learn` branch): the last in `adapters/` by name, which train.sh dates.
-    static var adapterFile: String? {
-        let folder = support.appendingPathComponent("adapters").path
+    /// A personal LoRA trained on the user's own text for this model (lab/dogfood on the `learn` branch): the last by name, which train.sh
+    /// dates, in `adapters/<model file>/`. An adapter fits only the model it was trained on, so each model has its own folder.
+    static func adapterFile(for model: String) -> String? {
+        let folder = support.appendingPathComponent("adapters").appendingPathComponent(URL(fileURLWithPath: model).lastPathComponent).path
         return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }.max().map { folder + "/" + $0 }
     }
-    /// Read on each request, so a new setting or midnight takes effect at once. Only the default model, which adapters are trained on.
+    /// Read on each request, so a new setting or midnight takes effect at once.
     /// Compare puts it on odd dates only, so the Stats page can set days with it against days without.
     @Sendable static func adapterToday(model: String) -> String? {
-        guard URL(fileURLWithPath: model).lastPathComponent == ModelStore.models[0].file else { return nil }
         switch Personal(rawValue: UserDefaults.standard.string(forKey: "personal") ?? "") ?? .compare {
         case .off: return nil
         case .compare where Calendar.current.component(.day, from: Date()) % 2 == 0: return nil
-        default: return adapterFile
+        default: return adapterFile(for: model)
         }
     }
     @Published var personal = Personal(rawValue: UserDefaults.standard.string(forKey: "personal") ?? "") ?? .compare {
@@ -69,7 +69,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         event?(&next)
         // Keys begun on an earlier day mark no day: the model's state now may not have been theirs, and today's may differ.
         if event != nil || Calendar.current.isDateInToday(since) {
-            if let activePath, activePath != store.path(ModelStore.models[0]).path { next.mark(personal: nil) }
+            if let activePath, App.adapterFile(for: activePath) == nil { next.mark(personal: nil) }  // A model with no adapter compares nothing.
             else if let applied = engine?.applied.withLock({ $0 }) { next.mark(personal: applied) }  // Unloaded while idle: nothing to say.
         }
         tally = next

@@ -515,7 +515,7 @@ private struct GeneralPage: View {
                 Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more) }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 220)
             }
-            if App.adapterFile != nil {
+            if let path = app.activePath, App.adapterFile(for: path) != nil {
                 Row(title: "Personal Model", note: "Trained on your writing. Compare leaves it off every other day, for Stats.") {
                     Picker("", selection: $app.personal) { Text("Off").tag(Personal.off); Text("Compare").tag(Personal.compare); Text("On").tag(Personal.on) }
                         .pickerStyle(.segmented).labelsHidden().frame(width: 220)
