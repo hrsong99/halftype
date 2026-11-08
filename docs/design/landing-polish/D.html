@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="base.css"><title>D In a real app</title><style>
+.hero { position: absolute; top: 120px; left: 80px; width: 560px; }
+h1 { font: 600 44px/1.1 var(--sans); letter-spacing: -.025em; }
+.sub { margin: 14px 0 24px; font-size: 17px; color: var(--muted); line-height: 1.5; }
+.row { display: flex; gap: 14px; align-items: center; }
+.stage { position: absolute; left: 80px; right: 80px; top: 360px; bottom: -80px; border-radius: 22px; overflow: hidden; background: #efe7da; }
+.stage .arch { inset: -10% -5%; filter: blur(30px); opacity: .95; }
+.win { position: absolute; left: 50%; transform: translateX(-50%); top: 56px; width: 860px; background: rgba(255,255,255,.82); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border-radius: 14px; box-shadow: 0 40px 80px -30px rgba(29,28,26,.35), 0 0 0 .5px rgba(29,28,26,.12); overflow: hidden; }
+.chrome { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: .5px solid rgba(29,28,26,.1); font-size: 13px; color: var(--muted); }
+.dot { width: 12px; height: 12px; border-radius: 50%; } .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+.chrome .title { margin-left: auto; margin-right: auto; font-weight: 600; color: var(--ink); }
+.hdr { padding: 10px 24px; border-bottom: .5px solid rgba(29,28,26,.08); font-size: 14px; color: var(--muted); }
+.hdr b { color: var(--ink); font-weight: 500; }
+.body { padding: 22px 24px 120px; } .body .text { font: 17px/1.5 var(--sans); }
+.floatkey { position: absolute; right: 120px; top: 330px; transform: scale(1.4); }
+</style></head><body><script src="demo.js"></script><script>document.write(nav())</script>
+<div class="hero"><h1>Autocomplete for your whole Mac.</h1><p class="sub">Grey text finishes your sentence in Mail, Messages, Slack and almost anywhere else. Tab takes it. The model runs on your Mac.</p><div class="row"><a class="btn"> Download for Mac</a><span class="brewline">brew install --cask halftype</span></div></div>
+<div class="stage"><div class="arch"></div><div class="win"><div class="chrome"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">New Message</span></div>
+<div class="hdr">To: <b>Mina Park</b></div><div class="hdr">Subject: <b>Re: Friday</b></div><div class="body"><div class="text" id="t"></div></div></div>
+<span class="kc floatkey" data-key>tab</span></div>
+<script>runDemo(document.getElementById('t'), document.querySelector('[data-key]'))</script></body></html>

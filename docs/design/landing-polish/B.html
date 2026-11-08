@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="base.css"><title>B Glow</title><style>
+.arch.big { left: 120px; right: 120px; top: 40px; height: 620px; filter: blur(40px); opacity: .9; animation: drift calc(14s / var(--speed,1)) ease-in-out infinite alternate; }
+@keyframes drift { from { transform: translate(-30px, 10px) rotate(-2deg) scale(1); } to { transform: translate(30px, -12px) rotate(2deg) scale(1.05); } }
+.hero { position: absolute; top: 150px; left: 0; right: 0; text-align: center; }
+h1 { font: 700 76px/1.02 var(--sans); letter-spacing: -.035em; }
+.sub { margin: 18px auto 30px; max-width: 520px; font-size: 19px; color: var(--muted); line-height: 1.45; }
+.brewline { margin-top: 14px; }
+.field { position: absolute; left: 50%; transform: translateX(-50%); top: 560px; width: 760px; }
+</style></head><body><div class="arch big"></div><script src="demo.js"></script><script>document.write(nav())</script>
+<div class="hero"><h1>Autocomplete for<br>your whole Mac</h1><p class="sub">Grey text finishes your sentence in almost any app. Tab takes it. The model runs on your Mac.</p>
+<a class="btn"> Download for Mac</a><div class="brewline">macOS 26 · Apple Silicon · or brew install --cask halftype</div></div>
+<div class="field"><div class="text" id="t"></div><script>document.write(FIELD_BAR)</script></div>
+<script>runDemo(document.getElementById('t'), document.querySelector('[data-key]'))</script></body></html>

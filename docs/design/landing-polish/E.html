@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="base.css"><link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"><title>E Wordmark</title><style>
+.tag { position: absolute; top: 118px; left: 0; right: 0; text-align: center; font: 400 30px var(--serif); }
+.word { position: absolute; top: 150px; left: 0; right: 0; text-align: center; font: 400 330px/1 var(--serif); letter-spacing: -.04em; }
+.word span { transition: none; }
+.word .t { background: linear-gradient(90deg, #5f9bd8, #99b0c9, #e88f5e); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.word .t.glint { background: linear-gradient(90deg, #1d1c1a 0 38%, #73a6e0 44%, #c2d4e8 50%, #ed9a6b 56%, #1d1c1a 62% 100%) 100% 0 / 320% 100%; -webkit-background-clip: text; background-clip: text; animation: glint calc(.6s / var(--speed,1)) ease-in-out forwards; }
+.field { position: absolute; left: 50%; transform: translateX(-50%); top: 470px; width: 720px; }
+.cta { position: absolute; top: 720px; left: 0; right: 0; text-align: center; }
+.cta .brewline { margin-top: 12px; }
+</style></head><body><script src="demo.js"></script><script>document.write(nav())</script>
+<div class="tag">Autocomplete for your whole Mac.</div><div class="word"><span>half</span><span class="t" id="w">type</span></div>
+<div class="field"><div class="text" id="t"></div><script>document.write(FIELD_BAR)</script></div>
+<div class="cta"><a class="btn"> Download for Mac</a><div class="brewline">Free · macOS 26 on Apple Silicon · brew install --cask halftype</div></div>
+<script>const w = document.getElementById('w'); runDemo(document.getElementById('t'), document.querySelector('[data-key]'), { onTab: shift => { if (!shift) return; w.classList.remove('glint'); void w.offsetWidth; w.classList.add('glint'); setTimeout(() => w.classList.remove('glint'), 1400 / SPEED); } })</script></body></html>
