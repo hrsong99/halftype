@@ -1,4 +1,4 @@
-@testable import ItdaCore
+@testable import HalftypeCore
 
 /// A continuous 2-set composer for tests and replay: the field states a real IME goes through for a string. Typing 다라 passes
 /// through ㄷ, 다, 달, then 다 committed with 라 marked. Keys come from `Hangul.keys`; the composition is written here.

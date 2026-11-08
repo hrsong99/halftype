@@ -1,5 +1,5 @@
 import Testing
-@testable import ItdaCore
+@testable import HalftypeCore
 
 @Test(arguments: [
     // before, prefix, fragment: the outputs of the bench's split_fragment plus its trim path

@@ -1,5 +1,5 @@
 import AppKit
-import ItdaCore
+import HalftypeCore
 
 /// Everything needed to draw one ghost, in AX coordinates (origin top-left of the primary display, y down, points).
 struct GhostSpec {

@@ -1,6 +1,6 @@
 import AppKit
-import ItdaCore
-import ItdaEngine
+import HalftypeCore
+import HalftypeEngine
 import Synchronization
 
 /// The model, as this layer needs it: `Engine`, or a fake in the private-window checks.
@@ -27,7 +27,7 @@ final class Watcher: @unchecked Sendable {
     private static let fieldNotifications = ["AXValueChanged", "AXSelectedTextChanged"]
     private static let oneFrame: TimeInterval = 1.0 / 60
 
-    let queue = DispatchQueue(label: "itda.watcher", qos: .userInteractive)
+    let queue = DispatchQueue(label: "halftype.watcher", qos: .userInteractive)
     let tap: KeyTap
     private let panel: GhostPanel
     private let updatePending = Atomic<Bool>(false)

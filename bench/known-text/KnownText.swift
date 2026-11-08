@@ -1,6 +1,6 @@
 import Foundation
-@testable import ItdaCore
-@testable import ItdaEngine
+@testable import HalftypeCore
+@testable import HalftypeEngine
 
 // Types each line of well-known text into the real engine and policy, synchronously (each key waits for its answer),
 // with no screen context. run.sh builds it as an extra target in a throwaway worktree; it isn't part of the app.
@@ -19,7 +19,7 @@ func write(_ row: [String: Any]) {
 
 struct Answer { var shown: Bool, right: Bool, ghost: String, gate: Double?, tabChars: Int, wordsChars: Int }
 
-/// What Itda would show with the caret after `before`, as the app decides it: gate, then a first word of 3+ keys.
+/// What Halftype would show with the caret after `before`, as the app decides it: gate, then a first word of 3+ keys.
 func ask(_ before: String, rest: String) -> Answer {
     let field = Field(before: before)
     let prompt = Prompt.make(context: "", field: field)

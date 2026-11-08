@@ -1,12 +1,12 @@
 import Foundation
-import ItdaCore
+import HalftypeCore
 import Synchronization
 import Testing
-@testable import ItdaEngine
+@testable import HalftypeEngine
 
-// Set ITDA_MODEL to a GGUF path to run the tests marked `needsModel`.
-private let modelPath = ProcessInfo.processInfo.environment["ITDA_MODEL"]
-private let needsModel = Testing.ConditionTrait.enabled(if: modelPath != nil, "needs ITDA_MODEL")
+// Set HALFTYPE_MODEL to a GGUF path to run the tests marked `needsModel`.
+private let modelPath = ProcessInfo.processInfo.environment["HALFTYPE_MODEL"]
+private let needsModel = Testing.ConditionTrait.enabled(if: modelPath != nil, "needs HALFTYPE_MODEL")
 
 @Test func bytesAgreeAcrossASplitHangulCharacter() {
     let need = Array("한".utf8)[...]  // ED 95 9C

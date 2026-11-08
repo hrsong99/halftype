@@ -11,7 +11,7 @@ source ~/.config/itda-signing/env
 security unlock-keychain -p "$KEYCHAIN_PASSWORD" itda-signing.keychain
 security find-identity -v -p codesigning | grep -q "Developer ID Application" || { echo "No Developer ID certificate."; exit 1; }
 
-ITDA_VERSION=$version scripts/build-app.sh
+HALFTYPE_VERSION=$version scripts/build-app.sh
 out=build/release; rm -rf "$out"; mkdir -p "$out"
 staging=$(mktemp -d); cp -R build/Halftype.app "$staging/"; ln -s /Applications "$staging/Applications"
 dmg="$out/Halftype.dmg"
@@ -24,13 +24,13 @@ spctl -a -t open --context context:primary-signature "$dmg"
 
 bin=.build/artifacts/sparkle/Sparkle/bin
 sha=$(shasum -a 256 "$dmg" | cut -d' ' -f1)
-"$bin/generate_appcast" --ed-key-file "$SPARKLE_KEY" --download-url-prefix "https://github.com/hrsong99/itda/releases/download/v$version/" "$out"
+"$bin/generate_appcast" --ed-key-file "$SPARKLE_KEY" --download-url-prefix "https://github.com/hrsong99/halftype/releases/download/v$version/" "$out"
 
 # Everything that can fail goes first. Running it again after a failure past here replaces the assets and carries on.
 tap=$(mktemp -d)
-gh repo clone hrsong99/homebrew-itda "$tap" -- --quiet
+gh repo clone hrsong99/homebrew-halftype "$tap" -- --quiet
 mkdir -p "$tap/Casks"
-sed -e "s/@VERSION@/$version/" -e "s/@SHA@/$sha/" scripts/itda.cask.rb > "$tap/Casks/itda.rb"
+sed -e "s/@VERSION@/$version/" -e "s/@SHA@/$sha/" scripts/halftype.cask.rb > "$tap/Casks/halftype.rb"
 git -C "$tap" add -A
 git -C "$tap" diff --cached --quiet || git -C "$tap" commit -qm "Halftype $version"
 

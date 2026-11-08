@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ItdaCore
+@testable import HalftypeCore
 
 @Test func tallyCountsPerDayAndKeepsEmptyDays() throws {
     var calendar = Calendar(identifier: .gregorian)

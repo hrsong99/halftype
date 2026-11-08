@@ -1,0 +1,3 @@
+import HalftypeApp
+
+runHalftype()

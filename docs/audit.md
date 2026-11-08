@@ -1,6 +1,6 @@
 # What 66 open-source projects did well and badly
 
-Before writing Itda we read the core of 66 public projects that do local text completion: Mac apps, editor plugins, Linux and Windows tools, an Android keyboard and some research code. This is what we took from them, and what we learned to avoid.
+Before writing Halftype we read the core of 66 public projects that do local text completion: Mac apps, editor plugins, Linux and Windows tools, an Android keyboard and some research code. This is what we took from them, and what we learned to avoid.
 
 **How to read this.** We read source code only, and built and ran nothing. Numbers marked *their number* are the project's own, not checked here. Each code link is pinned to the commit we read, in November 2026. A project named under a mistake often does something else very well, and many are young. These are notes on ideas, not a ranking of anyone's work. Projects can have changed since.
 
@@ -8,7 +8,7 @@ Before writing Itda we read the core of 66 public projects that do local text co
 
 ## Top ideas, ranked by effect on suggestion quality and speed
 
-Each idea is tagged with the part of the design it belongs to: prompt, context, inference, lifecycle, post-processing, CJK/IME, accept or tests. *Used* means it's in Itda. See [CREDITS.md](../CREDITS.md).
+Each idea is tagged with the part of the design it belongs to: prompt, context, inference, lifecycle, post-processing, CJK/IME, accept or tests. *Used* means it's in Halftype. See [CREDITS.md](../CREDITS.md).
 
 1. **Hold the half-typed word out of the prompt, then force it back.** *Inference, used.* The prompt stays byte-identical while you type inside a word, and generation has to reproduce what you've typed. [`TabType: VocabIndex.swift:36`](https://github.com/nilava/TabType/blob/b75ea0e22bc565e57b133b2625a49d7e8a24c789/Sources/TabTypeKit/Inference/VocabIndex.swift#L36) and [`foretype: words.rs:23`](https://github.com/DaraSingh1998/foretype/blob/3ed7161e0851f4bf3260f90d09edee0e5eca6c1a/core/src/words.rs#L23) filter tokens by bytes; [`ABC-Plus: TextLogic.swift:50`](https://github.com/lyx-27/ABC-Plus/blob/a3044b18cdaed96a44126cfd318b8047570a79ca/Sources/TextLogic.swift#L50) does it with a one-line grammar. Souffleuse reports mid-word hit@1 going from 16-50% to 63-86% (*their number*, with a beam).
 2. **Gate on the first word's probability, among the tokens that fit.** *Post-processing, used.* The model already knows how sure it is. [`foretype: engine.rs:1487`](https://github.com/DaraSingh1998/foretype/blob/3ed7161e0851f4bf3260f90d09edee0e5eca6c1a/core/src/engine.rs#L1487), [`Pretype: MLXEngine+Generation.swift:334`](https://github.com/nikiomori/Pretype/blob/ec05295664e2814a88e1b475801ce104a948c2cd/Sources/Pretype/Engines/MLXEngine+Generation.swift#L334), [`halfword: llm.py:169`](https://github.com/kolganovr/halfword/blob/2ce4289ac041c415fa6ead150dd0fb0e835d27ad/halfword/llm.py#L169), and [`tsugi.nvim: trim.lua:168`](https://github.com/MizuchiLabs/tsugi.nvim/blob/d4b3ca5ab64f4d310857e4906c740b5dc78810b2/lua/tsugi/trim.lua#L168), which also cuts and stops while streaming. On TabType's seed, gating and healing took precision from 0.297 to 0.66 (*their number*).
@@ -44,7 +44,7 @@ OpenCotypist's inference is simulated ([`OpenCotypist: ModelLoader.swift:60`](ht
 
 ## All 66, with the licence as we found it
 
-"Idea only" applies to anything AGPL, GPL, source-first or with no licence: Itda copied no code from these, and no code from the others either. Checked with `gh repo view` and each repo's licence file on 2026-11-07.
+"Idea only" applies to anything AGPL, GPL, source-first or with no licence: Halftype copied no code from these, and no code from the others either. Checked with `gh repo view` and each repo's licence file on 2026-11-07.
 
 | Project | Licence |
 |---|---|

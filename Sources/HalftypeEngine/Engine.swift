@@ -1,5 +1,5 @@
 import Foundation
-import ItdaCore
+import HalftypeCore
 import Synchronization
 import llama
 
@@ -36,7 +36,7 @@ public final class Engine: @unchecked Sendable {
     public let applied = Mutex<Bool?>(nil)
     /// Runs on the engine's queue when the model, once unloaded, can't be loaded again. Each request then says nil, as with nothing to suggest.
     private let onLoadFailure: @Sendable () -> Void
-    private let queue = DispatchQueue(label: "itda.engine", qos: .userInteractive)
+    private let queue = DispatchQueue(label: "halftype.engine", qos: .userInteractive)
     private let latest = Atomic<Int>(0)
     private let closed = Atomic<Bool>(false)
     private var model: OpaquePointer?

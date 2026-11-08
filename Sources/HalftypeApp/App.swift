@@ -1,15 +1,30 @@
 import AppKit
 import Carbon
-import ItdaCore
-import ItdaEngine
+import HalftypeCore
+import HalftypeEngine
 import Sparkle
 import Synchronization
 
-public func runItda() {
+public func runHalftype() {
+    moveFromItda(UserDefaults.standard)
     let app = NSApplication.shared
     let delegate = App()
     app.delegate = delegate
     app.run()
+}
+
+/// The app was Itda until 2026-11-08. Once, before anything reads them, its folder (models, stats, adapters) and
+/// settings move to Halftype's, with paths into the old folder pointed at the new one.
+func moveFromItda(_ defaults: UserDefaults, oldDomain: String = "app.itda.Itda", support: URL = App.support) {
+    let old = support.deletingLastPathComponent().appendingPathComponent("Itda")
+    let files = FileManager.default
+    if files.fileExists(atPath: old.path), !files.fileExists(atPath: support.path) { try? files.moveItem(at: old, to: support) }
+    guard defaults.object(forKey: "movedFromItda") == nil else { return }
+    let moved = { (path: String) in path.replacingOccurrences(of: old.path + "/", with: support.path + "/") }
+    for (key, value) in defaults.persistentDomain(forName: oldDomain) ?? [:] where defaults.object(forKey: key) == nil {
+        defaults.set((value as? String).map(moved) ?? (value as? [String])?.map(moved) ?? value, forKey: key)
+    }
+    defaults.set(true, forKey: "movedFromItda")
 }
 
 final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate, ObservableObject {
@@ -20,8 +35,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The menu bar's glyph, plain and with a problem's dot. Nil until launch, so tests make no status item.
     private var glyphs: (plain: NSImage, marked: NSImage)?
     private var shownIcon: Icon?
-    static let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda")
-    // Still "Itda", the app's old name: renaming it would strand the models people already downloaded.
+    static let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Halftype")
     let store = ModelStore(directory: App.support)
     /// Counts only, for the Stats page. Each typed key counts, so it's written at most every 10 s, and at quit.
     @Published var tally = App.tallyFile.flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONDecoder().decode(Tally.self, from: $0) } ?? Tally() {
@@ -123,7 +137,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
     var isRelease: Bool { Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil }
     var askedForAccessibility = false
-    private let loading = DispatchQueue(label: "itda.load", qos: .userInitiated)
+    private let loading = DispatchQueue(label: "halftype.load", qos: .userInitiated)
     private var latestOpen = 0
     /// The open whose model is installed, so a failure from one it replaced, even at the same path, is ignored. Main thread.
     private var installed = 0

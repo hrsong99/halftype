@@ -1,12 +1,12 @@
 import AppKit
-import ItdaCore
-import ItdaEngine
+import HalftypeCore
+import HalftypeEngine
 import class SwiftUI.NSHostingView
 import class SwiftUI.ImageRenderer
 import struct SwiftUI.ProposedViewSize
 import Synchronization
 import Testing
-@testable import ItdaApp
+@testable import HalftypeApp
 
 @Suite struct SlicingTests {
     @Test func slicesBySelectionNotLength() throws {
@@ -277,7 +277,7 @@ import Testing
         #expect(runs.load(ordering: .relaxed) == 2)
     }
     @Test func chromiumIsKnownByItsRendererHelper() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("itda-bundles-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("halftype-bundles-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }
         func make(_ path: String) throws { try FileManager.default.createDirectory(at: dir.appendingPathComponent(path), withIntermediateDirectories: true) }
         try make("Chat.app/Contents/Frameworks/Chat Helper (Renderer).app")  // Electron.
@@ -1439,9 +1439,9 @@ final class FakeServer: URLProtocol {
     }
 }
 
-/// The window's states as PNGs, drawn off screen, so nothing takes focus. `ITDA_SHOTS=<dir> swift test --filter WindowShots`. The sky's shader is blank in these; 13 and 14 draw it alone.
-@Suite(.enabled(if: ProcessInfo.processInfo.environment["ITDA_SHOTS"] != nil)) @MainActor struct WindowShots {
-    let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ITDA_SHOTS"] ?? "")
+/// The window's states as PNGs, drawn off screen, so nothing takes focus. `HALFTYPE_SHOTS=<dir> swift test --filter WindowShots`. The sky's shader is blank in these; 13 and 14 draw it alone.
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] != nil)) @MainActor struct WindowShots {
+    let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] ?? "")
 
     func app(_ set: (App) -> Void) -> App {
         let app = App(tap: FakeTap())
@@ -1524,5 +1524,26 @@ final class FakeServer: URLProtocol {
             let rep = NSBitmapImageRep(data: image.tiffRepresentation(using: .none, factor: 2)!)!  // Two pixels a point, as on a Retina bar.
             try rep.representation(using: .png, properties: [:])!.write(to: dir.appendingPathComponent(dark ? "12-icons-dark.png" : "12-icons.png"))
         }
+    }
+}
+
+@Suite struct RenameTests {
+    @Test func itdasFolderAndSettingsMoveOnceWithTheirPaths() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("halftype-move-\(UUID().uuidString)")
+        let old = root.appendingPathComponent("Itda"), new = root.appendingPathComponent("Halftype")
+        try FileManager.default.createDirectory(at: old, withIntermediateDirectories: true)
+        try Data("m".utf8).write(to: old.appendingPathComponent("m.gguf"))
+        let name = "halftype-test-\(UUID().uuidString)", oldName = name + ".old"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defaults.setPersistentDomain(["modelPath": old.path + "/m.gguf", "on": false, "pausedApps": ["a"]], forName: oldName)
+        defer { defaults.removePersistentDomain(forName: name); defaults.removePersistentDomain(forName: oldName); try? FileManager.default.removeItem(at: root) }
+        moveFromItda(defaults, oldDomain: oldName, support: new)
+        #expect(FileManager.default.fileExists(atPath: new.appendingPathComponent("m.gguf").path))
+        #expect(!FileManager.default.fileExists(atPath: old.path))
+        #expect(defaults.string(forKey: "modelPath") == new.path + "/m.gguf")
+        #expect(defaults.object(forKey: "on") as? Bool == false && defaults.stringArray(forKey: "pausedApps") == ["a"])
+        defaults.set(true, forKey: "on")
+        moveFromItda(defaults, oldDomain: oldName, support: new)
+        #expect(defaults.bool(forKey: "on"))
     }
 }

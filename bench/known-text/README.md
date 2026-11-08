@@ -1,6 +1,6 @@
 # Known text
 
-How well each model finishes text everyone knows, as Itda would show it. 200 English lines, 50 per group, one per line:
+How well each model finishes text everyone knows, as Halftype would show it. 200 English lines, 50 per group, one per line:
 
 | File | What | Source |
 |---|---|---|
@@ -14,11 +14,11 @@ Lines were picked by hand as the best-known examples of each kind, before any mo
 ## Run
 
 ```sh
-bench/known-text/run.sh                 # the four models in ~/Library/Application Support/Itda, one after another
+bench/known-text/run.sh                 # the four models in ~/Library/Application Support/Halftype, one after another
 bench/known-text/run.sh model.gguf ...  # others
 ```
 
-It builds `KnownText.swift` as an extra target in a throwaway worktree (`../itda-known-text`, the app's `Package.swift` is untouched), so it runs the app's own `Engine`, `Prompt`, `Stop`, `Gate` and `Follow` at this commit. Set `RUN_PREFIX` to a lock wrapper to run behind other model jobs. Writes `results/<model>.jsonl.gz` and `results/summary.md`. About 5 minutes per small model alone on an M-series Mac.
+It builds `KnownText.swift` as an extra target in a throwaway worktree (`../halftype-known-text`, the app's `Package.swift` is untouched), so it runs the app's own `Engine`, `Prompt`, `Stop`, `Gate` and `Follow` at this commit. Set `RUN_PREFIX` to a lock wrapper to run behind other model jobs. Writes `results/<model>.jsonl.gz` and `results/summary.md`. About 5 minutes per small model alone on an M-series Mac.
 
 Each line is typed with no screen context, synchronously: every position waits for its answer, so speed doesn't count.
 

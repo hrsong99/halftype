@@ -1,5 +1,5 @@
 import Testing
-@testable import ItdaCore
+@testable import HalftypeCore
 
 private func token(_ text: String, _ logprob: Double = 0) -> Token { Token(bytes: Array(text.utf8), logprob: logprob) }
 

@@ -19,7 +19,7 @@ Kanana 1.5 2.1B, the default until 0.1.0:
 - **While you type, the true cost is 1.5 GB of RAM nothing else can use, plus the footprint.** Metal wires the model's pages through a residency
   set. Activity Monitor's per-process Memory doesn't show it; the Wired figure at the bottom of its window does. `MTLDevice.currentAllocatedSize` says 1,472 MB.
 - RSS is the wrong number in both directions: it counts the weights the same whether wired or evictable. Footprint alone is too kind while typing.
-- By default ggml keeps this up for 3 minutes after the last request. Itda sets 15 s (`GGML_METAL_RESIDENCY_KEEP_ALIVE_S`). Requests while typing are unchanged within noise, 98-123 ms across runs.
+- By default ggml keeps this up for 3 minutes after the last request. Halftype sets 15 s (`GGML_METAL_RESIDENCY_KEEP_ALIVE_S`). Requests while typing are unchanged within noise, 98-123 ms across runs.
   The first after a pause takes about 100 ms rather than 70. Turning residency off altogether adds 25-45 ms to every request, so it's not used.
 - `use_mmap` doesn't save you while typing: with it on, the default, the mapped pages are the ones wired. Off wasn't tested.
 - Unload and reload doesn't leak: footprint goes 158 MB to 160 MB over 55 cycles, after a first step up. Metal's own caches take that step.
@@ -112,7 +112,7 @@ Where the syllable is already final, sending it is better on the author's own te
 
 The live input method is a separate check, `scripts/e2e.sh --ime`: every composing state of 17 hard words, Tab finishing each in a native field. It needs you idle for 15 s, as it switches the system's input source.
 
-Each suggestion is also unit tested without a model or GUI (`swift test`), and against a real model with `ITDA_MODEL=<gguf> swift test`.
+Each suggestion is also unit tested without a model or GUI (`swift test`), and against a real model with `HALFTYPE_MODEL=<gguf> swift test`.
 
 ## Choosing the default model
 

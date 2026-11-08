@@ -1,6 +1,6 @@
 # Credits
 
-No code was copied into ItdaCore. It is an original implementation, and these are the ideas it stands on.
+No code was copied into HalftypeCore. It is an original implementation, and these are the ideas it stands on.
 "Idea only" repos are under licences or terms that rule out copying, so nothing but the idea was taken from them.
 
 | Idea in the core | Source | Licence |
@@ -24,11 +24,11 @@ Constrained fragments were also seen in [menufactory43/Souffleuse](https://githu
 Hangul decomposition follows the Unicode Standard's syllable formula.
 
 Withholding a composing Hangul syllable, matching it by 2-set keystrokes, and accepting by letting the input method finish it from real key
-events are Itda's own. We found no earlier version in the 66 projects we read, by searching their source; none was tested live in Korean.
+events are Halftype's own. We found no earlier version in the 66 projects we read, by searching their source; none was tested live in Korean.
 
 ## The macOS app
 
-No code was copied into ItdaApp either. These are the ideas it uses.
+No code was copied into HalftypeApp either. These are the ideas it uses.
 
 | Idea in the app | Source | Licence |
 |---|---|---|

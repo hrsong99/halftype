@@ -1,5 +1,5 @@
 import AppKit
-import ItdaCore
+import HalftypeCore
 
 /// Attribute reads. Every call may stall on a hung app for up to the messaging timeout, so all of this runs off the main thread.
 enum AX {

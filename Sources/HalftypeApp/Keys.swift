@@ -1,6 +1,6 @@
 import AppKit
 import Carbon
-import ItdaCore
+import HalftypeCore
 import Synchronization
 import notify
 
@@ -73,7 +73,7 @@ class KeyTap: @unchecked Sendable {
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
     private let pid: pid_t?
     /// Owns `up` and `attempt`. Not the main thread: a tap has to come down even if that's busy.
-    let keeper = DispatchQueue(label: "itda.tap.keeper", qos: .userInteractive)
+    let keeper = DispatchQueue(label: "halftype.tap.keeper", qos: .userInteractive)
     private var up = false
     private var attempt: DispatchWorkItem?
     private var token: Int32?
@@ -254,7 +254,7 @@ class KeyTap: @unchecked Sendable {
             CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
             CFRunLoopRun()
         }
-        thread.name = "itda.tap"
+        thread.name = "halftype.tap"
         thread.qualityOfService = .userInteractive
         thread.start()
         return true

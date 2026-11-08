@@ -9,22 +9,22 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - **Every number carries how it was measured**, here or in `docs/measuring.md`. Remeasure rather than edit one by hand.
 
 ## Commands
-- Tests: `swift test --disable-keychain -j 2`. Add `ITDA_MODEL=<gguf>` for the model tests, which otherwise skip.
-- App: `scripts/build-app.sh`, output `build/Halftype.app`. The app was renamed from Itda on 2026-11-08: only what users see says Halftype. The bundle ID `app.itda.Itda`, the executable, modules, repo, Application Support folder and cask token keep "itda", so grants, settings, models and updates carry over. Don't rename them.
+- Tests: `swift test --disable-keychain -j 2`. Add `HALFTYPE_MODEL=<gguf>` for the model tests, which otherwise skip.
+- App: `scripts/build-app.sh`, output `build/Halftype.app`. Renamed from Itda on 2026-11-08, everywhere: bundle ID `app.halftype.Halftype`, modules, repo `hrsong99/halftype`, cask `halftype`. `moveFromItda` carries the old folder and settings over once. Only the local checkout folders (`itda`, `itda-learn`), the `itda-signing` keychain and the tag `bench-1`'s `itda-replay` keep the old name.
 - Private-window checks: `scripts/e2e.sh`, plus `--races` (30 s, for one failing check), `--measure <gguf>`, `--flicker`, `--engine <gguf>`. `--ime` switches the system's input source and needs the user idle.
-- Window PNGs with no focus taken: `ITDA_SHOTS=<dir> swift test --disable-keychain --filter WindowShots`. The window's halftone sky is a Metal shader (`Sky.metal`): off-screen shots leave it grey, so judge it from `13`/`14` (ImageRenderer). The app needs `Itda_ItdaApp.bundle` in Contents/Resources, which `build-app.sh` copies, or it stops at launch.
+- Window PNGs with no focus taken: `HALFTYPE_SHOTS=<dir> swift test --disable-keychain --filter WindowShots`. The window's halftone sky is a Metal shader (`Sky.metal`): off-screen shots leave it grey, so judge it from `13`/`14` (ImageRenderer). The app needs `Itda_HalftypeApp.bundle` in Contents/Resources, which `build-app.sh` copies, or it stops at launch.
 - Always pass `--disable-keychain`: without it the first SwiftPM download of llama.cpp can hang on keychain credentials.
 - **`scripts/e2e.sh` takes the user's keyboard and cursor focus while it runs. Ask them first, every time.** A 60 s pause in typing doesn't mean they have stopped using the Mac. Unit tests and reviews don't take focus.
 - The Mac has limited memory: run one heavy build or model at a time, and don't steal focus.
 - `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh d` rebuilds `Resources/`.
 
 ## Where things are
-- `ItdaCore`: pure logic, with no model or GUI. Test it here first.
-- `ItdaEngine`: llama.cpp, pinned by URL and checksum in `Package.swift`.
-- `ItdaApp`: Accessibility, key tap, panel, and the window (`Window.swift`). Swift 5 language mode, as state is confined by hand to one queue.
+- `HalftypeCore`: pure logic, with no model or GUI. Test it here first.
+- `HalftypeEngine`: llama.cpp, pinned by URL and checksum in `Package.swift`.
+- `HalftypeApp`: Accessibility, key tap, panel, and the window (`Window.swift`). Swift 5 language mode, as state is confined by hand to one queue.
 - The tag `bench-1` keeps the replay harness (`itda-replay`), removed from main. Don't move it.
 - Learning from use: branch `learn`, `lab/PLAYBOOK.md`. Only a per-user LoRA moved keys saved; prompt, logit and gate methods were ~0. Judge any prompt change against the screen-context baseline there.
-- Personal model: the last `*.gguf` by name in `~/Library/Application Support/Itda/adapters/<model file>/`, for that model only (from `lab/dogfood/train.sh` on `learn`), shows General > Personal Model. Compare leaves it off on even dates, and Stats sets the two kinds of day side by side.
+- Personal model: the last `*.gguf` by name in `~/Library/Application Support/Halftype/adapters/<model file>/`, for that model only (from `lab/dogfood/train.sh` on `learn`), shows General > Personal Model. Compare leaves it off on even dates, and Stats sets the two kinds of day side by side.
 - The local branch `bench-2` (worktree `../local-autocomplete/bench2-worktree`) replays the shipped policy; the 2026-11 numbers in `docs/measuring.md` come from it, run by `../local-autocomplete/experiments/bench2/run.sh` and scored by `report.py` there.
 
 ## Traps
@@ -34,4 +34,4 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - A delayed cleanup belongs to the input revision that scheduled it. A successful field read is not a successful display.
 - ggml asserts if a model is still loaded at exit: the app must unload on quit.
 - Automatic tests don't reach Chromium's composition or real Tab. After any change to accepting or reading, run `docs/live-test.md`.
-- An agent can run most of `docs/live-test.md` itself while the user is away: start `build/<app>/Contents/MacOS/Itda` from the shell (it inherits the terminal's Accessibility; a newly signed build's own grant needs Touch ID), bring the host app forward, type with `scripts/live-keys.swift`, and `screencapture -x` the screen. Not codex-cu: it drives apps in the background, Itda follows the frontmost one, its window shots miss the ghost panel, and a stuck `SkyComputerUseService` doubles every key (`pkill -f SkyComputerUseService`).
+- An agent can run most of `docs/live-test.md` itself while the user is away: start `build/<app>/Contents/MacOS/Halftype` from the shell (it inherits the terminal's Accessibility; a newly signed build's own grant needs Touch ID), bring the host app forward, type with `scripts/live-keys.swift`, and `screencapture -x` the screen. Not codex-cu: it drives apps in the background, Halftype follows the frontmost one, its window shots miss the ghost panel, and a stuck `SkyComputerUseService` doubles every key (`pkill -f SkyComputerUseService`).

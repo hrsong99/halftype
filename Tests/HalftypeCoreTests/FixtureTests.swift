@@ -1,5 +1,5 @@
 import Testing
-@testable import ItdaCore
+@testable import HalftypeCore
 
 /// Same shapes as the replay bench's before/after tables, in invented sentences. Each "before" is what a model did
 /// without the rule and each "after" what it did with it. No model runs here: the core must carry each of them.

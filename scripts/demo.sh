@@ -3,9 +3,9 @@
 # Usage: scripts/demo.sh <gguf>
 set -euo pipefail
 cd "${0:A:h}/.."
-args=(-c release -Xswiftc -enable-testing --disable-keychain --scratch-path .build/e2e --product itda-e2e)
+args=(-c release -Xswiftc -enable-testing --disable-keychain --scratch-path .build/e2e --product halftype-e2e)
 swift build "${args[@]}" >/dev/null  # Or a failed build would make the pictures from the last one.
-bin="$(swift build "${args[@]}" --show-bin-path)/itda-e2e"
+bin="$(swift build "${args[@]}" --show-bin-path)/halftype-e2e"
 frames=$(mktemp -d); media=$PWD/docs/media; mkdir -p "$media"
 "$bin" --demo "$1" "$frames"
 "$bin" --window-shots "$media"

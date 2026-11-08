@@ -1,5 +1,5 @@
 import Testing
-@testable import ItdaCore
+@testable import HalftypeCore
 
 @Test(arguments: [
     // anchor, suggestion, before, expected remainder (nil: drop)

@@ -7,10 +7,10 @@ Any wrong character: tell me what you typed and what came out. Use a new, empty 
 A. Quit Cotypist, which also takes Tab, and any other app that reads your screen through Accessibility, such as Raycast or Wispr Flow. Then quit and reopen T3 and ego lite, so the accessibility switches they turned on are off.
    **Cotypist's icon is gone from the menu bar, and both apps are back.**
 B. Open `build/Halftype.app`; its window asks for Accessibility. Press the button and grant it.
-   **No system dialog before you press the button. Before the grant the download already shows under the button, with its size and "You can close this window." Within 2 s of the grant Itda comes back in front of System Settings and shows its field, with no restart. Never a prompt for Input Monitoring.**
+   **No system dialog before you press the button. Before the grant the download already shows under the button, with its size and "You can close this window." Within 2 s of the grant Halftype comes back in front of System Settings and shows its field, with no restart. Never a prompt for Input Monitoring.**
    Once the model is ready, don't type: **the field holds "Please let me know if you have any" (or a Korean sentence, if a Korean source is on) with a ghost after it, and under it "Tab takes a word. Shift-Tab takes it all. Esc hides it."** Press Tab: **the word goes in, and the line becomes "That's it. Halftype works like this in almost any app." with a Start at Login button.** Press it: **the button goes, and General shows Start at Login on.** Turn it back off there if you don't want it.
 C. Once the model is ready, and before anything else touches ego lite: click its address bar or a search box, type `Can you take a look at`, pause, and keep typing slowly for a few seconds if nothing shows.
-   **A ghost within about 3 s, with nothing else running that could have woken ego lite's accessibility.** Then in Terminal, `osascript -e 'tell application "System Events" to get value of attribute "AXEnhancedUserInterface" of application process "Finder"'`: **false**, as Itda leaves native apps alone. If ego lite never shows a ghost, say so: that's the case this step is for.
+   **A ghost within about 3 s, with nothing else running that could have woken ego lite's accessibility.** Then in Terminal, `osascript -e 'tell application "System Events" to get value of attribute "AXEnhancedUserInterface" of application process "Finder"'`: **false**, as Halftype leaves native apps alone. If ego lite never shows a ghost, say so: that's the case this step is for.
 
 ## T3 composer, Korean 2-set: about 5 minutes
 This is the unknown: does Chromium's composition take our key presses the way a native field does?
@@ -61,10 +61,10 @@ This is the unknown: does Chromium's composition take our key presses the way a 
 
 ## When it must stand aside: about 4 minutes
 T1. The permission, each way. No automatic test reaches this: they stand in for the system. Write down a result for each of a, b and c.
-    Before each, run `(sleep 45; pkill -9 -x Itda) &` in Terminal, as a tap left in place can hold every click and key. If Itda is killed at 45 s, reopen it and say which step: the tap didn't come down.
-    a. First grant: step B, on a Mac where Itda has no row yet. **No system dialog before the button; the field within 2 s of the grant.**
-    b. Turn Itda off under Privacy & Security, Accessibility, and click around. **Clicks and keys work within a second. The window offers Allow Accessibility, the menu says it's waiting, and no system dialog appears, once or over and over.** Turn it back on. **The field within 2 s, and Tab takes a ghost.**
-    c. Remove the row with `-`, click around, and add Itda back. **The same as b, each way.**
+    Before each, run `(sleep 45; pkill -9 -x Halftype) &` in Terminal, as a tap left in place can hold every click and key. If Halftype is killed at 45 s, reopen it and say which step: the tap didn't come down.
+    a. First grant: step B, on a Mac where Halftype has no row yet. **No system dialog before the button; the field within 2 s of the grant.**
+    b. Turn Halftype off under Privacy & Security, Accessibility, and click around. **Clicks and keys work within a second. The window offers Allow Accessibility, the menu says it's waiting, and no system dialog appears, once or over and over.** Turn it back on. **The field within 2 s, and Tab takes a ghost.**
+    c. Remove the row with `-`, click around, and add Halftype back. **The same as b, each way.**
 T2. Secure Input. Turn on Terminal's Secure Keyboard Entry, then type in T3. Don't run `scripts/e2e.sh` meanwhile.
     **No ghost, Tab is T3's, the menu says Secure Input is on, and the menu-bar icon has a dot.** Turn it off and type: **ghosts are back, the menu line says "Working.", and the dot is gone.**
 T3. In a search field that Esc clears, type until a ghost shows, and press Esc. Press it again.
@@ -78,12 +78,12 @@ T5. With a ghost up, lock with Ctrl-Cmd-Q and unlock; then close the lid and ope
 W1. Type in its field, and Tab on the grey text. Paste with Cmd-V.
     **The same as in any app.**
 W2. Press the power button, type, press it again. Then the sidebar icon: Apps, add an app, remove it; General, Start at Login on, then off.
-    **No ghost while off. The login switch keeps what you set, and System Settings shows Itda under Login Items only while it's on.**
+    **No ghost while off. The login switch keeps what you set, and System Settings shows Halftype under Login Items only while it's on.**
 W3. Models: Get Kanana 1.5, stop it with ✕, Get it again, wait, Use it, type, then Use Qwen 3.5 0.8B.
     **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.** Click the pill: **the list opens at once, marks the model in use, and closes on a click outside or Esc.**
-W4. Close the window, then open Itda from Finder or the menu.
-    **The Dock icon goes with the window. The same window comes back, and Itda kept working between.**
-W5. Quit Itda, move `kanana-1.5-2.1b-base.Q4_K_M.gguf` out of `~/Library/Application Support/Itda`, turn Wi-Fi off, and open Itda. Turn Wi-Fi on. Mid-download, turn it off again until the line changes, then on, and press Retry. At about half, quit and reopen. Move the model back after, if it didn't finish.
+W4. Close the window, then open Halftype from Finder or the menu.
+    **The Dock icon goes with the window. The same window comes back, and Halftype kept working between.**
+W5. Quit Halftype, move `kanana-1.5-2.1b-base.Q4_K_M.gguf` out of `~/Library/Application Support/Halftype`, turn Wi-Fi off, and open Halftype. Turn Wi-Fi on. Mid-download, turn it off again until the line changes, then on, and press Retry. At about half, quit and reopen. Move the model back after, if it didn't finish.
     **"Waiting for a connection", then it starts by itself. The drop shows a failure line with Retry, in the window and in the menu, within a minute. Retry and the reopen both carry on from where it was, not from 0.**
 
 W6. Why there's no ghost. In T3, type with text after the cursor and open the menu; then in a plain field type and pause until no ghost comes, and open the menu.
@@ -91,12 +91,12 @@ W6. Why there's no ghost. In T3, type with text after the cursor and open the me
 W7. Turn on System Settings, Keyboard, Text Input, Input Sources, Edit, "Show inline predictive text". Open the window and the menu.
     **The window says macOS shows its own grey predictions too, and the menu offers Turn Off macOS Predictions; each opens Keyboard settings.** Turn the setting back off: **both go.**
 W8. Models: Delete on a model you have and aren't using.
-    **It goes back to Get, and the file is gone from `~/Library/Application Support/Itda`. The model in use has no Delete.**
+    **It goes back to Get, and the file is gone from `~/Library/Application Support/Halftype`. The model in use has no Delete.**
 
 ## The rest: about 1 minute
 21. Menu: "Pause in T3", type, unpause; turn Suggestions off, type, turn it on.
     **No ghost and a normal Tab each time, and the menu-bar icon dimmed while paused or off. Paused in T3, it's back to full when another app is in front.**
 22. In TextEdit in dark mode, repeat 1.
     **A readable grey ghost.**
-23. Quit Itda from the menu. Then in Terminal, the command from step C with `"ego lite"` in place of `"Finder"`.
-    **No crash report, and `false`: the switch Itda turned on in ego lite is back off.**
+23. Quit Halftype from the menu. Then in Terminal, the command from step C with `"ego lite"` in place of `"Finder"`.
+    **No crash report, and `false`: the switch Halftype turned on in ego lite is back off.**

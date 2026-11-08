@@ -2,9 +2,9 @@
 // real NSApplication run loop to serve AX and events, as the shipped app has.
 import AppKit
 import Carbon
-@testable import ItdaApp
-import ItdaCore
-@testable import ItdaEngine
+@testable import HalftypeApp
+import HalftypeCore
+@testable import HalftypeEngine
 import Metal
 import SwiftUI
 import Synchronization
@@ -238,7 +238,7 @@ enum EndToEnd {
         }
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)  // Never active, so the user's own keys can't land in the test window.
-        if ProcessInfo.processInfo.environment["ITDA_E2E_HOST"] != nil { return app.run() }
+        if ProcessInfo.processInfo.environment["HALFTYPE_E2E_HOST"] != nil { return app.run() }
         Thread.detachNewThread {
             usleep(200_000)
             run()
@@ -419,7 +419,7 @@ enum EndToEnd {
 
     nonisolated(unsafe) static var frontAtStart = ""
 
-    /// Itda's own window: the field there is reached like any other app's, through AX, and takes the ghost and Tab.
+    /// Halftype's own window: the field there is reached like any other app's, through AX, and takes the ghost and Tab.
     static func ownWindow() {
         let h = Harness(completer: FakeCompleter(" there friend"))
         defer { h.close() }
@@ -539,7 +539,7 @@ enum EndToEnd {
     static func hung() {
         let host = Process()
         host.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
-        host.environment = ["ITDA_E2E_HOST": "1"]
+        host.environment = ["HALFTYPE_E2E_HOST": "1"]
         guard (try? host.run()) != nil else { return check(false, "host starts") }
         defer { host.terminate(); kill(host.processIdentifier, SIGCONT) }
         usleep(1_000_000)

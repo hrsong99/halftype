@@ -1,6 +1,6 @@
 import AppKit
 import Charts
-import ItdaCore
+import HalftypeCore
 import ServiceManagement
 import SwiftUI
 
@@ -534,7 +534,7 @@ private struct GeneralPage: View {
 }
 
 extension App {
-    /// While the window is open Itda is an ordinary app, in the Dock and Cmd-Tab. Without the window it is only the menu bar icon again.
+    /// While the window is open Halftype is an ordinary app, in the Dock and Cmd-Tab. Without the window it is only the menu bar icon again.
     func showWindow() {
         if window == nil {
             let host = NSHostingController(rootView: Root(app: self))

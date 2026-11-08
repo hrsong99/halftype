@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ItdaCore
+@testable import HalftypeCore
 
 @Test(arguments: [
     ("값", "ㄱㅏㅂㅅ"), ("과", "ㄱㅗㅏ"), ("한", "ㅎㅏㄴ"), ("의", "ㅇㅡㅣ"), ("없", "ㅇㅓㅂㅅ"), ("까", "ㄲㅏ"), ("닭", "ㄷㅏㄹㄱ"), ("뷁", "ㅂㅜㅔㄹㄱ"),
