@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stats, round 2</title>
+<style>
+:root { --mute:#8a8b90; --card:#18191c; --line:#2a2b2f; }
+body { margin:0; background:#0e0f11; color:#e8e8ea; font:14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+main { max-width:1500px; margin:0 auto; padding:24px 16px 60px; }
+h1 { font-size:20px; margin:0 0 6px; } h2 { font-size:15px; margin:28px 0 10px; }
+.q { color:var(--mute); margin:0 0 14px; }
+.rec { background:#1d2430; border:1px solid #2f3b4d; border-radius:10px; padding:12px 14px; margin:0 0 14px; } .rec p { margin:6px 0 0; }
+.data { display:flex; gap:8px; align-items:center; margin:0 0 14px; color:var(--mute); }
+.data button { background:#25272b; color:#ddd; border:1px solid #3a3c41; border-radius:7px; padding:4px 10px; font:inherit; cursor:pointer; } .data button.on { background:#e8e8ea; color:#111; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 600px), 1fr)); gap:18px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.meta { padding:10px 14px 14px; } .meta p { margin:6px 0 0; color:var(--mute); } .meta .cost { color:#b9c3d0; }
+b.l { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:6px; background:#e8e8ea; color:#111; margin-right:8px; } .name { font-weight:600; }
+
+/* The window at 720 x 500 points, main's cream design, scrolled to Stats; 1em = 1 point. */
+.shot { padding:4%; background:#2b2d31; }
+.win { position:relative; aspect-ratio:720/500; container-type:inline-size; border-radius:1.4cqw; overflow:hidden; box-shadow:0 2cqw 5cqw rgba(0,0,0,.45);
+  background:#f6f1e9; color:#1d1d1f; font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+.win > * { font-size:calc(100cqw / 720); }
+.lights { position:absolute; left:14em; top:12em; display:flex; gap:8em; z-index:3; }
+.lights i { width:12em; height:12em; border-radius:50%; background:#ff5f57; } .lights i:nth-child(2){background:#febc2e} .lights i:nth-child(3){background:#28c840}
+.sbtn { position:absolute; left:84em; top:9em; width:17em; height:13em; z-index:3; color:rgba(60,60,67,.55); }
+.side { position:absolute; left:10em; top:36em; bottom:10em; width:142em; box-sizing:border-box; padding:8em; background:rgba(255,255,255,.75); border-radius:16em; box-shadow:0 0 0 .5em rgba(0,0,0,.07); z-index:2; }
+.it { display:flex; align-items:center; gap:7em; padding:5em 10em; border-radius:7em; color:rgba(60,60,67,.6); }
+.it span { font-size:12.5em; } .it.field span { font-size:13em; } .it.field { color:#1d1d1f; } .it.on { background:rgba(0,0,0,.07); color:#1d1d1f; }
+.it .dot { width:5em; height:5em; border-radius:50%; flex:none; } .it.on .dot { background:#e6946b; }
+.it svg { width:14em; height:14em; flex:none; }
+.side .hd { font-size:11em; color:rgba(60,60,67,.6); padding:0 .9em .2em; } .side .div { height:1em; background:rgba(0,0,0,.1); margin:6em 0; }
+.side .tog { position:absolute; left:18em; bottom:12em; display:flex; gap:6em; align-items:center; } .side .tog span { font-size:13em; }
+.side .tog i { width:26em; height:15em; border-radius:8em; background:#1d1d1f; position:relative; } .side .tog i::after { content:''; position:absolute; right:1.5em; top:1.5em; width:12em; height:12em; border-radius:50%; background:#fff; }
+.content { position:absolute; left:152em; right:0; top:0; bottom:0; overflow:hidden; z-index:1; }
+.pane { margin:0 auto; width:512em; box-sizing:border-box; padding:18em 20em 20em; background:rgba(255,255,255,.6); border-radius:0 0 20em 20em; min-height:100%; position:relative; }
+.pane .t { font-size:20em; font-weight:600; } .pane .n { font-size:12em; color:rgba(60,60,67,.6); margin:.15em 0 1em; }
+.figs { display:flex; align-items:baseline; gap:36em; padding:14em 0 16em; }
+.fig .v { font-size:26em; font-variant-numeric:tabular-nums; line-height:1.15; } .fig.big .v { font-size:44em; font-weight:600; } .fig .vv { white-space:nowrap; }
+.fig .k { font-size:12em; color:rgba(60,60,67,.6); margin-top:.15em; }
+.cap { font-size:12em; color:rgba(60,60,67,.6); font-variant-numeric:tabular-nums; }
+.hr { height:1em; background:rgba(0,0,0,.1); }
+.delta { font-size:12em; color:#2f7d4f; font-weight:500; margin-left:.5em; } .delta.dn { color:#a2463b; }
+.chart { position:relative; margin-right:30em; }
+.chart .gl { position:absolute; left:0; right:0; height:1em; background:rgba(0,0,0,.08); }
+.chart .yl { position:absolute; right:-3em; font-size:10em; color:rgba(60,60,67,.6); transform:translateY(50%); }
+.bars { position:absolute; left:0; right:0; top:0; bottom:18em; display:flex; align-items:flex-end; }
+.bars > div { flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; position:relative; }
+.bars b { width:60%; border-radius:3em; background:rgba(29,29,31,.18); display:block; } .bars .hi b { background:rgba(29,29,31,.85); }
+.bars .x { position:absolute; bottom:-1.6em; font-size:10em; color:rgba(60,60,67,.6); white-space:nowrap; }
+.tip { position:absolute; z-index:5; background:#1d1d1f; color:#fff; border-radius:8em; padding:7em 9em; pointer-events:none; white-space:nowrap; transform:translate(-50%,-100%); display:none; }
+.tip div { font-size:11em; line-height:1.4; } .tip .d { color:rgba(255,255,255,.6); }
+.bar { display:flex; justify-content:space-between; align-items:center; padding:12em 0 8em; }
+.seg { display:flex; background:rgba(0,0,0,.06); border-radius:7em; padding:2em; }
+.seg span { font-size:12em; padding:.2em .8em; border-radius:.45em; cursor:pointer; color:rgba(60,60,67,.8); } .seg .on { background:#fff; color:#1d1d1f; box-shadow:0 .5px 2px rgba(0,0,0,.15); }
+.pager { display:flex; align-items:center; gap:6em; } .pager button { all:unset; cursor:pointer; width:20em; height:20em; border-radius:6em; display:grid; place-items:center; color:#1d1d1f; }
+.pager button:hover { background:rgba(0,0,0,.06); } .pager button[disabled] { opacity:.25; cursor:default; } .pager button span { font-size:14em; line-height:1; }
+.cal { display:flex; gap:0; position:relative; } .cal .c { display:flex; flex-direction:column; } .cal .c > div { display:grid; place-items:center; cursor:default; }
+.cal i { display:block; border-radius:50%; } .cal .m { position:absolute; top:-1.4em; font-size:10em; color:rgba(60,60,67,.6); }
+.foot { font-size:12em; color:rgba(60,60,67,.6); margin-top:1.4em; }
+.models { font-size:20em; font-weight:600; margin-top:1.2em; }
+/* sidebar strip */
+.strip { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap:18px; }
+.strip .win { aspect-ratio:162/250; } .strip .win > * { font-size:calc(100cqw / 162); }
+</style>
+</head>
+<body>
+<main>
+<h1>Stats, round 2: past weeks, a halftone calendar, and icons</h1>
+<p class="q">John: “I guess today's page is okay, but adding a halftone calendar could be nice; adding week/month/all, or A with a way to see past weeks, might help? and i'm wondering if we should add these icons. Show me a version with that all in mind (and look at main to see our updated designs).” Drawn on main’s window as it is now: cream, the floating sidebar card, one scroll with Stats at the top. The icons are the SF Symbols from Codex’s image G (play, chart.bar, square.stack.3d.up, square.grid.2x2, gearshape). Everything below is clickable: the switch, the ‹ › arrows, hover on bars and dots.</p>
+
+<div class="rec"><b>Recommendation: B, with sidebar 3 (icons, the current one in peach, no dot).</b>
+<p>B puts all three wishes behind one switch: <b>Week</b> and <b>Month</b> are bars you page back with ‹ ›, and <b>All</b> is the halftone calendar, which is where a calendar earns its place (months at a glance), not on a 14-day page. The numbers above follow whatever is showing, so “past weeks” comes with their totals and a delta against the period before. C keeps today’s page exactly and adds the two things underneath it, which is less to learn but makes the section twice as long in a window that now scrolls through every setting. On icons: yes, but they’re a second marker next to the peach dot, so let the icon take the dot’s job (sidebar 3).</p></div>
+<div class="data">Data: <button data-d="sample" class="on">Sample, 16 weeks</button><button data-d="real">Yours, 2 days</button> <span>Nov 8–9 are real in both; the 16 weeks before are made up (<code>sample-tally-2.json</code>).</span></div>
+
+<div class="grid" id="grid"></div>
+<h2>The sidebar, with and without icons</h2>
+<div class="strip" id="strip"></div>
+</main>
+<script>
+const SAMPLE = {"days":{"2026-07-20":{"shown":552,"taken":25,"tabs":48,"characters":202,"typed":1085,"saved":141,"withModel":false,"withoutModel":true},"2026-07-21":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":true,"withoutModel":false},"2026-07-22":{"shown":472,"taken":21,"tabs":41,"characters":172,"typed":968,"saved":120,"withModel":false,"withoutModel":true},"2026-07-23":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":true,"withoutModel":false},"2026-07-24":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":false,"withoutModel":true},"2026-07-25":{"shown":230,"taken":10,"tabs":20,"characters":84,"typed":453,"saved":59,"withModel":true,"withoutModel":false},"2026-07-26":{"shown":58,"taken":3,"tabs":5,"characters":21,"typed":105,"saved":15,"withModel":false,"withoutModel":true},"2026-07-27":{"shown":736,"taken":33,"tabs":64,"characters":269,"typed":1077,"saved":188,"withModel":true,"withoutModel":false},"2026-07-28":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":false,"withoutModel":true},"2026-07-29":{"shown":552,"taken":25,"tabs":48,"characters":202,"typed":1084,"saved":141,"withModel":true,"withoutModel":false},"2026-07-30":{"shown":1138,"taken":51,"tabs":99,"characters":416,"typed":2635,"saved":291,"withModel":false,"withoutModel":true},"2026-07-31":{"shown":794,"taken":36,"tabs":69,"characters":290,"typed":1421,"saved":203,"withModel":true,"withoutModel":false},"2026-08-01":{"shown":126,"taken":6,"tabs":11,"characters":46,"typed":252,"saved":32,"withModel":true,"withoutModel":false},"2026-08-02":{"shown":69,"taken":3,"tabs":6,"characters":25,"typed":149,"saved":18,"withModel":false,"withoutModel":true},"2026-08-03":{"shown":908,"taken":41,"tabs":79,"characters":332,"typed":1578,"saved":232,"withModel":true,"withoutModel":false},"2026-08-04":{"shown":1150,"taken":52,"tabs":100,"characters":420,"typed":2228,"saved":294,"withModel":false,"withoutModel":true},"2026-08-05":{"shown":851,"taken":38,"tabs":74,"characters":311,"typed":1446,"saved":218,"withModel":true,"withoutModel":false},"2026-08-06":{"shown":1162,"taken":53,"tabs":101,"characters":424,"typed":2586,"saved":297,"withModel":false,"withoutModel":true},"2026-08-07":{"shown":552,"taken":25,"tabs":48,"characters":202,"typed":971,"saved":141,"withModel":true,"withoutModel":false},"2026-08-08":{"shown":150,"taken":7,"tabs":13,"characters":55,"typed":309,"saved":38,"withModel":false,"withoutModel":true},"2026-08-09":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":true,"withoutModel":false},"2026-08-10":{"shown":954,"taken":43,"tabs":83,"characters":349,"typed":1750,"saved":244,"withModel":false,"withoutModel":true},"2026-08-11":{"shown":1150,"taken":52,"tabs":100,"characters":420,"typed":1905,"saved":294,"withModel":true,"withoutModel":false},"2026-08-12":{"shown":828,"taken":37,"tabs":72,"characters":302,"typed":1530,"saved":211,"withModel":false,"withoutModel":true},"2026-08-13":{"shown":1035,"taken":47,"tabs":90,"characters":378,"typed":1678,"saved":265,"withModel":true,"withoutModel":false},"2026-08-14":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":false,"withoutModel":true},"2026-08-15":{"shown":299,"taken":14,"tabs":26,"characters":109,"typed":457,"saved":76,"withModel":true,"withoutModel":false},"2026-08-16":{"shown":58,"taken":3,"tabs":5,"characters":21,"typed":115,"saved":15,"withModel":false,"withoutModel":true},"2026-08-17":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":true,"withoutModel":false},"2026-08-18":{"shown":770,"taken":35,"tabs":67,"characters":281,"typed":1867,"saved":197,"withModel":false,"withoutModel":true},"2026-08-19":{"shown":667,"taken":30,"tabs":58,"characters":244,"typed":1252,"saved":171,"withModel":true,"withoutModel":false},"2026-08-20":{"shown":1426,"taken":64,"tabs":124,"characters":521,"typed":3431,"saved":365,"withModel":false,"withoutModel":true},"2026-08-21":{"shown":897,"taken":41,"tabs":78,"characters":328,"typed":1357,"saved":230,"withModel":true,"withoutModel":false},"2026-08-22":{"shown":299,"taken":14,"tabs":26,"characters":109,"typed":664,"saved":76,"withModel":false,"withoutModel":true},"2026-08-23":{"shown":58,"taken":3,"tabs":5,"characters":21,"typed":88,"saved":15,"withModel":true,"withoutModel":false},"2026-08-24":{"shown":759,"taken":34,"tabs":66,"characters":277,"typed":1759,"saved":194,"withModel":false,"withoutModel":true},"2026-08-25":{"shown":908,"taken":41,"tabs":79,"characters":332,"typed":1561,"saved":232,"withModel":true,"withoutModel":false},"2026-08-26":{"shown":794,"taken":36,"tabs":69,"characters":290,"typed":1965,"saved":203,"withModel":false,"withoutModel":true},"2026-08-27":{"shown":1070,"taken":48,"tabs":93,"characters":391,"typed":1793,"saved":274,"withModel":true,"withoutModel":false},"2026-08-28":{"shown":1035,"taken":47,"tabs":90,"characters":378,"typed":2133,"saved":265,"withModel":false,"withoutModel":true},"2026-08-29":{"shown":276,"taken":12,"tabs":24,"characters":101,"typed":560,"saved":71,"withModel":true,"withoutModel":false},"2026-08-30":{"shown":80,"taken":4,"tabs":7,"characters":29,"typed":143,"saved":20,"withModel":false,"withoutModel":true},"2026-08-31":{"shown":989,"taken":45,"tabs":86,"characters":361,"typed":1754,"saved":253,"withModel":true,"withoutModel":false},"2026-09-01":{"shown":1311,"taken":59,"tabs":114,"characters":479,"typed":2632,"saved":335,"withModel":true,"withoutModel":false},"2026-09-02":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":false,"withoutModel":true},"2026-09-03":{"shown":1104,"taken":50,"tabs":96,"characters":403,"typed":2224,"saved":282,"withModel":true,"withoutModel":false},"2026-09-04":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":false,"withoutModel":true},"2026-09-05":{"shown":230,"taken":10,"tabs":20,"characters":84,"typed":470,"saved":59,"withModel":true,"withoutModel":false},"2026-09-06":{"shown":80,"taken":4,"tabs":7,"characters":29,"typed":183,"saved":20,"withModel":false,"withoutModel":true},"2026-09-07":{"shown":1000,"taken":45,"tabs":87,"characters":365,"typed":1790,"saved":255,"withModel":true,"withoutModel":false},"2026-09-08":{"shown":1576,"taken":71,"tabs":137,"characters":575,"typed":2782,"saved":402,"withModel":false,"withoutModel":true},"2026-09-09":{"shown":1058,"taken":48,"tabs":92,"characters":386,"typed":2102,"saved":270,"withModel":true,"withoutModel":false},"2026-09-10":{"shown":1162,"taken":53,"tabs":101,"characters":424,"typed":2608,"saved":297,"withModel":false,"withoutModel":true},"2026-09-11":{"shown":759,"taken":34,"tabs":66,"characters":277,"typed":1547,"saved":194,"withModel":true,"withoutModel":false},"2026-09-12":{"shown":276,"taken":12,"tabs":24,"characters":101,"typed":651,"saved":71,"withModel":false,"withoutModel":true},"2026-09-13":{"shown":46,"taken":2,"tabs":4,"characters":17,"typed":80,"saved":12,"withModel":true,"withoutModel":false},"2026-09-14":{"shown":1506,"taken":68,"tabs":131,"characters":550,"typed":2920,"saved":385,"withModel":false,"withoutModel":true},"2026-09-15":{"shown":1184,"taken":54,"tabs":103,"characters":433,"typed":2286,"saved":303,"withModel":true,"withoutModel":false},"2026-09-16":{"shown":1150,"taken":52,"tabs":100,"characters":420,"typed":2172,"saved":294,"withModel":false,"withoutModel":true},"2026-09-17":{"shown":1092,"taken":49,"tabs":95,"characters":399,"typed":1684,"saved":279,"withModel":true,"withoutModel":false},"2026-09-18":{"shown":1334,"taken":60,"tabs":116,"characters":487,"typed":2498,"saved":341,"withModel":false,"withoutModel":true},"2026-09-19":{"shown":334,"taken":15,"tabs":29,"characters":122,"typed":627,"saved":85,"withModel":true,"withoutModel":false},"2026-09-20":{"shown":69,"taken":3,"tabs":6,"characters":25,"typed":173,"saved":18,"withModel":false,"withoutModel":true},"2026-09-21":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":true,"withoutModel":false},"2026-09-22":{"shown":1576,"taken":71,"tabs":137,"characters":575,"typed":2812,"saved":402,"withModel":false,"withoutModel":true},"2026-09-23":{"shown":1552,"taken":70,"tabs":135,"characters":567,"typed":2267,"saved":397,"withModel":true,"withoutModel":false},"2026-09-24":{"shown":1300,"taken":59,"tabs":113,"characters":475,"typed":2962,"saved":332,"withModel":false,"withoutModel":true},"2026-09-25":{"shown":862,"taken":39,"tabs":75,"characters":315,"typed":1637,"saved":220,"withModel":true,"withoutModel":false},"2026-09-26":{"shown":391,"taken":18,"tabs":34,"characters":143,"typed":725,"saved":100,"withModel":false,"withoutModel":true},"2026-09-27":{"shown":92,"taken":4,"tabs":8,"characters":34,"typed":145,"saved":24,"withModel":true,"withoutModel":false},"2026-09-28":{"shown":1449,"taken":66,"tabs":126,"characters":529,"typed":2625,"saved":370,"withModel":false,"withoutModel":true},"2026-09-29":{"shown":1702,"taken":77,"tabs":148,"characters":622,"typed":2933,"saved":435,"withModel":true,"withoutModel":false},"2026-09-30":{"shown":1495,"taken":68,"tabs":130,"characters":546,"typed":3274,"saved":382,"withModel":false,"withoutModel":true},"2026-10-01":{"shown":2024,"taken":92,"tabs":176,"characters":739,"typed":3588,"saved":517,"withModel":true,"withoutModel":false},"2026-10-02":{"shown":1541,"taken":70,"tabs":134,"characters":563,"typed":2962,"saved":394,"withModel":false,"withoutModel":true},"2026-10-03":{"shown":230,"taken":10,"tabs":20,"characters":84,"typed":448,"saved":59,"withModel":true,"withoutModel":false},"2026-10-04":{"shown":115,"taken":5,"tabs":10,"characters":42,"typed":266,"saved":29,"withModel":false,"withoutModel":true},"2026-10-05":{"shown":1840,"taken":83,"tabs":160,"characters":672,"typed":2982,"saved":470,"withModel":true,"withoutModel":false},"2026-10-06":{"shown":1552,"taken":70,"tabs":135,"characters":567,"typed":3661,"saved":397,"withModel":false,"withoutModel":true},"2026-10-07":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":true,"withoutModel":false},"2026-10-08":{"shown":1598,"taken":72,"tabs":139,"characters":584,"typed":2881,"saved":409,"withModel":false,"withoutModel":true},"2026-10-09":{"shown":1530,"taken":69,"tabs":133,"characters":559,"typed":2349,"saved":391,"withModel":true,"withoutModel":false},"2026-10-10":{"shown":264,"taken":12,"tabs":23,"characters":97,"typed":591,"saved":68,"withModel":false,"withoutModel":true},"2026-10-11":{"shown":104,"taken":5,"tabs":9,"characters":38,"typed":197,"saved":27,"withModel":true,"withoutModel":false},"2026-10-12":{"shown":1024,"taken":46,"tabs":89,"characters":374,"typed":1859,"saved":262,"withModel":false,"withoutModel":true},"2026-10-13":{"shown":1518,"taken":69,"tabs":132,"characters":554,"typed":2524,"saved":388,"withModel":true,"withoutModel":false},"2026-10-14":{"shown":1254,"taken":57,"tabs":109,"characters":458,"typed":2272,"saved":321,"withModel":false,"withoutModel":true},"2026-10-15":{"shown":1668,"taken":75,"tabs":145,"characters":609,"typed":2828,"saved":426,"withModel":true,"withoutModel":false},"2026-10-16":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":false,"withoutModel":true},"2026-10-17":{"shown":218,"taken":10,"tabs":19,"characters":80,"typed":339,"saved":56,"withModel":true,"withoutModel":false},"2026-10-18":{"shown":92,"taken":4,"tabs":8,"characters":34,"typed":180,"saved":24,"withModel":false,"withoutModel":true},"2026-10-19":{"shown":1276,"taken":58,"tabs":111,"characters":466,"typed":2168,"saved":326,"withModel":true,"withoutModel":false},"2026-10-20":{"shown":1966,"taken":89,"tabs":171,"characters":718,"typed":4682,"saved":503,"withModel":false,"withoutModel":true},"2026-10-21":{"shown":1127,"taken":51,"tabs":98,"characters":412,"typed":2086,"saved":288,"withModel":true,"withoutModel":false},"2026-10-22":{"shown":1702,"taken":77,"tabs":148,"characters":622,"typed":3448,"saved":435,"withModel":false,"withoutModel":true},"2026-10-23":{"shown":1702,"taken":77,"tabs":148,"characters":622,"typed":2969,"saved":435,"withModel":true,"withoutModel":false},"2026-10-24":{"shown":356,"taken":16,"tabs":31,"characters":130,"typed":733,"saved":91,"withModel":false,"withoutModel":true},"2026-10-25":{"shown":92,"taken":4,"tabs":8,"characters":34,"typed":159,"saved":24,"withModel":true,"withoutModel":false},"2026-10-26":{"shown":2024,"taken":92,"tabs":176,"characters":739,"typed":3918,"saved":517,"withModel":false,"withoutModel":true},"2026-10-27":{"shown":2242,"taken":101,"tabs":195,"characters":819,"typed":4177,"saved":573,"withModel":true,"withoutModel":false},"2026-10-28":{"shown":1909,"taken":86,"tabs":166,"characters":697,"typed":3538,"saved":488,"withModel":false,"withoutModel":true},"2026-10-29":{"shown":1265,"taken":57,"tabs":110,"characters":462,"typed":2206,"saved":323,"withModel":true,"withoutModel":false},"2026-10-30":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":false,"withoutModel":true},"2026-10-31":{"shown":0,"taken":0,"tabs":0,"characters":0,"typed":0,"saved":0,"withModel":true,"withoutModel":false},"2026-11-01":{"shown":138,"taken":6,"tabs":12,"characters":50,"typed":265,"saved":35,"withModel":true,"withoutModel":false},"2026-11-02":{"shown":1771,"taken":80,"tabs":154,"characters":647,"typed":4159,"saved":453,"withModel":false,"withoutModel":true},"2026-11-03":{"shown":2358,"taken":107,"tabs":205,"characters":861,"typed":4462,"saved":603,"withModel":true,"withoutModel":false},"2026-11-04":{"shown":1380,"taken":62,"tabs":120,"characters":504,"typed":2868,"saved":353,"withModel":false,"withoutModel":true},"2026-11-05":{"shown":2266,"taken":102,"tabs":197,"characters":827,"typed":4378,"saved":579,"withModel":true,"withoutModel":false},"2026-11-06":{"shown":1414,"taken":64,"tabs":123,"characters":517,"typed":3096,"saved":362,"withModel":false,"withoutModel":true},"2026-11-07":{"shown":334,"taken":15,"tabs":29,"characters":122,"typed":528,"saved":85,"withModel":true,"withoutModel":false},"2026-11-08":{"typed":3868,"taken":110,"tabs":219,"shown":2371,"withModel":false,"withoutModel":true,"characters":926,"saved":637},"2026-11-09":{"typed":2483,"taken":61,"tabs":167,"shown":1327,"withModel":true,"withoutModel":false,"characters":847,"saved":847}}};
+const REAL = {"days":{"2026-11-08":{"typed":3868,"taken":110,"tabs":219,"shown":2371,"withModel":false,"withoutModel":true,"characters":926,"saved":637},"2026-11-09":{"typed":2483,"taken":61,"tabs":167,"shown":1327,"withModel":true,"withoutModel":false,"characters":847,"saved":847}}};
+const TODAY = new Date('2026-11-09T12:00');
+const key = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const add = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const n = x => x.toLocaleString('en-US'), pct = (x, f = 0) => (x * 100).toFixed(f) + '%';
+const md = d => d.toLocaleDateString('en-US', { month:'short', day:'numeric' }), long = d => d.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
+let DATA = SAMPLE;
+const day = d => { const r = DATA.days[key(d)]; return r ? { d, ...r, by: r.typed ? r.saved / (r.saved + r.typed) : null } : { d, tabs:0, characters:0, shown:0, taken:0, typed:0, saved:0, none:true }; };
+const range = (from, count) => Array.from({ length: count }, (_, i) => day(add(from, i)));
+const sum = ds => ds.reduce((s, x) => ({ tabs:s.tabs + x.tabs, characters:s.characters + x.characters, shown:s.shown + x.shown, taken:s.taken + x.taken, typed:s.typed + x.typed, saved:s.saved + x.saved }), { tabs:0, characters:0, shown:0, taken:0, typed:0, saved:0 });
+const first = () => new Date(Object.keys(DATA.days).sort()[0] + 'T12:00');
+const monday = d => add(d, -((d.getDay() + 6) % 7));
+
+const ICON = {
+  'Try It': '<path d="M5 3.5v9l7-4.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  Stats: '<path d="M3.5 13V9M8 13V5M12.5 13V2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  Models: '<path d="M8 2.5l5.5 2.8L8 8.1 2.5 5.3z M2.5 8l5.5 2.8L13.5 8 M2.5 10.7l5.5 2.8 5.5-2.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>',
+  Apps: '<g fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="9" width="4.5" height="4.5" rx="1.2"/></g>',
+  General: '<g fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="2.1"/><path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M3.6 12.4l1.2-1.2M11.2 4.8l1.2-1.2"/><circle cx="8" cy="8" r="4.4"/></g>',
+};
+// Sidebar: style 1 today (dot), 2 icons + dot, 3 icons with the current one in peach.
+function side(style) {
+  const item = (name, on, field) => { const ic = style > 1 ? `<svg viewBox="0 0 16 16" style="${on && style === 3 ? 'color:#e6946b' : ''}">${ICON[name]}</svg>` : '';
+    return `<div class="it ${field ? 'field' : ''} ${on ? 'on' : ''}">${!field && style !== 3 ? '<i class="dot"></i>' : ''}${ic}<span>${name}</span></div>`; };
+  return `<div class="side">${item('Try It', false, true)}<div class="div"></div><div class="hd">Settings</div>${['Stats', 'Models', 'Apps', 'General'].map((x, i) => item(x, i === 0)).join('')}<div class="tog"><span>On</span><i></i></div></div>`;
+}
+const chrome = (style, inner) => `<div class="lights"><i></i><i></i><i></i></div><svg class="sbtn" viewBox="0 0 17 13" fill="none" stroke="currentColor" stroke-width="1.1"><rect x=".6" y=".6" width="15.8" height="11.8" rx="2.5"/><path d="M5.5 .6v11.8M2.3 3.2h1.6M2.3 5h1.6M2.3 6.8h1.6"/></svg>${side(style)}<div class="content"><div class="pane"><div class="t">Stats</div><div class="n">What Tab has typed for you.</div>${inner}</div></div><div class="tip"></div>`;
+
+const fig = (v, k, big, extra = '') => `<div class="fig ${big ? 'big' : ''}"><div class="vv"><span class="v">${v}</span>${extra}</div><div class="k">${k}</div></div>`;
+const signed = (x, unit = '') => `<span class="delta ${x < 0 ? 'dn' : ''}">${x < 0 ? '−' : '+'}${n(Math.abs(x))}${unit}</span>`;
+const nice = m => { const s = [50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000]; return s.find(x => x >= m) || Math.ceil(m / 1000) * 1000; };
+function chart(days, { h = 122, xl = d => d.d.toLocaleDateString('en-US', { weekday:'narrow' }), hi = d => key(d.d) === key(TODAY), val = d => d.tabs } = {}) {
+  const max = nice(Math.max(10, ...days.map(val))), ticks = [0, max / 2, max];
+  return `<div class="chart" style="height:${h + 18}em">${ticks.map(t => `<div class="gl" style="bottom:${18 + t / max * h}em"></div><div class="yl" style="bottom:${(18 + t / max * h) / 10}em">${n(t)}</div>`).join('')}
+    <div class="bars">${days.map((d, i) => `<div data-i="${i}" class="${hi(d) ? 'hi' : ''}"><b style="height:${val(d) / max * h}em"></b><span class="x">${xl(d, i)}</span></div>`).join('')}</div></div>`;
+}
+function hoverBars(win, days, cap) {
+  const els = [...win.querySelectorAll('.bars > div')], base = cap.textContent;
+  els.forEach(el => el.onmouseenter = () => { els.forEach(o => o.classList.toggle('hi', o === el)); const d = days[+el.dataset.i];
+    tip(win, el.querySelector('b'), `<div class="d">${long(d.d)}</div><div>${d.tabs} Tabs · ${n(d.characters)} letters</div>${d.by != null ? `<div>${pct(d.by, 1)} typed by Tab</div>` : ''}`); });
+  const bars = win.querySelector('.bars'); if (bars) bars.onmouseleave = () => { els.forEach((o, i) => o.classList.toggle('hi', key(days[i].d) === key(TODAY))); tip(win); };
+}
+function tip(win, target, html) { const t = win.querySelector('.tip'); if (!target) return t.style.display = 'none';
+  const wr = win.getBoundingClientRect(), r = target.getBoundingClientRect(), s = wr.width / 720;
+  t.style.display = 'block'; t.innerHTML = html; t.style.left = (r.left + r.width / 2 - wr.left) / s + 'em'; t.style.top = (r.top - wr.top) / s - 6 + 'em'; }
+// Halftone calendar: `weeks` Monday-first columns ending this week; dot area by Tabs.
+function cal(weeks, cell) {
+  const end = monday(TODAY), max = Math.max(1, ...Object.values(DATA.days).map(x => x.tabs)), r0 = cell * 0.42, cols = []; let lastM = -1;
+  for (let w = weeks - 1; w >= 0; w--) { const m0 = add(end, -7 * w), dots = [];
+    const lab = m0.getMonth() !== lastM && m0.getDate() <= 7 ? `<span class="m" style="left:${(weeks - 1 - w) * cell / 10}em">${m0.toLocaleDateString('en-US', { month:'short' })}</span>` : ''; if (lab) lastM = m0.getMonth();
+    for (let i = 0; i < 7; i++) { const d = add(m0, i), x = day(d), future = d > TODAY, today = key(d) === key(TODAY);
+      const r = future ? 0 : x.none ? 0.9 : x.tabs ? 1.4 + (r0 - 1.4) * Math.sqrt(x.tabs / max) : 1.2;
+      const c = today ? '#1d1d1f' : x.none ? 'rgba(29,29,31,.13)' : 'rgba(29,29,31,.55)';
+      dots.push(`<div data-k="${key(d)}" style="width:${cell}em;height:${cell}em"><i style="width:${2 * r}em;height:${2 * r}em;background:${c}"></i></div>`); }
+    cols.push(lab + `<div class="c">${dots.join('')}</div>`); }
+  return `<div class="cal" style="margin-top:14em">${cols.join('')}</div>`;
+}
+function hoverCal(win) {
+  win.querySelectorAll('.cal [data-k]').forEach(el => { el.onmouseenter = () => { const x = day(new Date(el.dataset.k + 'T12:00'));
+    tip(win, el.querySelector('i'), `<div class="d">${long(x.d)}</div><div>${x.none ? 'Halftype wasn’t counting yet' : `${x.tabs} Tabs · ${n(x.characters)} letters`}</div>`); }; el.onmouseleave = () => tip(win); }); }
+
+// B: one switch. Week / Month page back with ‹ ›; All is the calendar.
+function B(win, st = { r:'w', back:0 }) {
+  const go = () => B(win, st);
+  let ds, prev, head, body, label;
+  if (st.r === 'w') { const m = add(monday(TODAY), -7 * st.back); ds = range(m, 7); prev = range(add(m, -7), st.back ? 7 : (TODAY.getDay() + 6) % 7 + 1);
+    head = st.back ? `${md(m)} – ${md(add(m, 6))}` : 'This week'; label = st.back ? 'vs the week before' : `vs last week’s first ${(TODAY.getDay() + 6) % 7 + 1} day${TODAY.getDay() === 1 ? '' : 's'}`; body = chart(ds); }
+  else if (st.r === 'm') { const m = new Date(TODAY.getFullYear(), TODAY.getMonth() - st.back, 1, 12), len = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+    ds = range(m, len); prev = range(new Date(m.getFullYear(), m.getMonth() - 1, 1, 12), st.back ? new Date(m.getFullYear(), m.getMonth(), 0).getDate() : TODAY.getDate());
+    head = m.toLocaleDateString('en-US', { month:'long', year: m.getFullYear() === TODAY.getFullYear() ? undefined : 'numeric' }); label = st.back ? 'vs the month before' : `vs ${TODAY.getDate()} days of last month`;
+    body = chart(ds, { xl: d => [1, 8, 15, 22, 29].includes(d.d.getDate()) ? d.d.getDate() : '' }); }
+  else { const f = first(); ds = Object.keys(DATA.days).map(k => day(new Date(k + 'T12:00'))); prev = null;
+    head = `Since ${md(f)}`; body = cal(26, 18); }
+  const s = sum(ds), p = prev && sum(prev), dl = (a, b) => p && b ? signed(a - b) : '';
+  const oldest = st.r === 'w' ? add(monday(TODAY), -7 * st.back) <= first() : new Date(TODAY.getFullYear(), TODAY.getMonth() - st.back, 1) <= first();
+  win.innerHTML = chrome(win.dataset.side, `<div class="bar"><div class="pager">${st.r !== 'a' ? `<button data-p="1" ${oldest ? 'disabled' : ''}><span>‹</span></button><button data-p="-1" ${st.back ? '' : 'disabled'}><span>›</span></button>` : ''}<span style="font-size:13em;font-weight:500">${head}</span></div>
+    <div class="seg">${[['w', 'Week'], ['m', 'Month'], ['a', 'All']].map(([k, t]) => `<span data-r="${k}" class="${st.r === k ? 'on' : ''}">${t}</span>`).join('')}</div></div>
+    <div class="figs" style="padding-top:6em">${fig(n(s.tabs), 'Tabs', true, dl(s.tabs, p && p.tabs))}${fig(n(s.characters), 'letters typed for you', false, dl(s.characters, p && p.characters))}${fig(s.typed ? pct(s.saved / (s.saved + s.typed)) : '–', 'of your typing by Tab')}</div>
+    <div class="hr"></div><div class="cap" style="padding:1.2em 0 .6em">${p && sum(prev).tabs ? `${label}: ${n(p.tabs)} Tabs` : st.r === 'a' ? 'Each dot a day, bigger for more Tabs. Hover one.' : 'Hover a bar for the day.'}</div>${body}
+    <div class="foot">Only counts are kept, never what you type.</div><div class="models">Models</div>`);
+  win.querySelectorAll('.seg span').forEach(x => x.onclick = () => { st.r = x.dataset.r; st.back = 0; go(); });
+  win.querySelectorAll('.pager button').forEach(x => x.onclick = () => { if (!x.disabled) { st.back += +x.dataset.p; go(); } });
+  const cap = win.querySelector('.cap'); if (st.r === 'a') hoverCal(win, cap); else hoverBars(win, ds, cap);
+}
+// A: main today, unchanged.
+function A(win) {
+  const t = day(TODAY), ds = range(add(TODAY, -13), 14), s = sum(ds);
+  win.innerHTML = chrome(win.dataset.side, `<div class="figs">${fig(n(t.tabs), 'Tabs today', true)}${fig(n(t.characters), 'letters typed for you')}${fig(t.shown ? pct(Math.min(1, t.taken / t.shown)) : '–', 'of suggestions taken')}</div>
+    <div class="hr"></div><div class="cap" style="padding:1.33em 0 .67em">Last 14 days: ${n(s.tabs)} Tabs</div>${chart(ds)}<div class="foot">${n(sum(Object.values(DATA.days)).tabs)} Tabs in all. Only counts are kept, never what you type.</div><div class="models">Models</div>`);
+  const cap = win.querySelector('.cap'), els = [...win.querySelectorAll('.bars > div')];
+  els.forEach(el => el.onmouseenter = () => { els.forEach(o => o.classList.toggle('hi', o === el)); const d = ds[+el.dataset.i]; cap.textContent = `${long(d.d)}: ${d.tabs} Tabs, ${d.characters} letters`; });
+  win.querySelector('.bars').onmouseleave = () => { els.forEach((o, i) => o.classList.toggle('hi', i === 13)); cap.textContent = `Last 14 days: ${n(s.tabs)} Tabs`; };
+}
+// C: A as it is, with ‹ › on the 14 days and the calendar under it; a dot jumps the bars to its fortnight.
+function C(win, st = { back:0 }) {
+  const t = day(TODAY), end = add(TODAY, -14 * st.back), ds = range(add(end, -13), 14), s = sum(ds), oldest = add(end, -13) <= first();
+  win.innerHTML = chrome(win.dataset.side, `<div class="figs" style="padding-bottom:12em">${fig(n(t.tabs), 'Tabs today', true)}${fig(n(t.characters), 'letters typed for you')}${fig(t.shown ? pct(Math.min(1, t.taken / t.shown)) : '–', 'of suggestions taken')}</div>
+    <div class="hr"></div><div class="bar" style="padding-bottom:4em"><div class="pager"><button data-p="1" ${oldest ? 'disabled' : ''}><span>‹</span></button><button data-p="-1" ${st.back ? '' : 'disabled'}><span>›</span></button>
+    <span class="cap">${st.back ? `${md(add(end, -13))} – ${md(end)}` : 'Last 14 days'}: ${n(s.tabs)} Tabs</span></div></div>${chart(ds, { h: 92 })}
+    <div class="cap" style="padding:1.8em 0 0">Since ${md(first())}: ${n(sum(Object.values(DATA.days)).tabs)} Tabs. Click a week to see it above.</div>${cal(26, 14)}<div class="foot">Only counts are kept, never what you type.</div>`);
+  win.querySelectorAll('.pager button').forEach(x => x.onclick = () => { if (!x.disabled) { st.back += +x.dataset.p; C(win, st); } });
+  hoverBars(win, ds, win.querySelector('.cap')); hoverCal(win);
+  win.querySelectorAll('.cal [data-k]').forEach(el => el.onclick = () => { const d = new Date(el.dataset.k + 'T12:00'); st.back = Math.max(0, Math.floor((TODAY - d) / 864e5 / 14)); C(win, st); });
+}
+const V = [
+  { l:'A', name:'Main today', f:A, side:1, note:'What ships on main: today’s three numbers and 14 bars, no way back past two weeks.', cost:'—' },
+  { l:'B', name:'Week / Month / All, with All as the calendar', f:B, side:3, note:'One switch. Week and Month page back with ‹ ›, and the numbers above follow what’s showing, with a delta against the same stretch before (this week so far against last week’s first days, so a Monday isn’t compared with a whole week). All is the halftone calendar of the last six months. Try the switch, the arrows, and the switch again with “Yours, 2 days”.',
+    cost:'~1.5 days. A segmented <code>Picker</code> and an offset in <code>@State</code>; sums via <code>tally.last(_:to:)</code>, which takes an end date already; the calendar is a <code>Canvas</code> of circles with <code>onContinuousHover</code>. No new data. Icons: <code>Label</code> with five SF Symbols, ~10 lines.' },
+  { l:'C', name:'Today, plus ‹ › and a calendar below', f:C, side:2, note:'Keeps A’s top exactly. The 14 bars get ‹ › to step back two weeks at a time, and the halftone calendar sits under them; clicking a dot jumps the bars to that fortnight. Less to learn, but the Stats section grows by about 130 points in the one long scroll.',
+    cost:'~1 day. Same pieces as B without the Picker or the range sums.' },
+];
+function draw() {
+  const grid = document.getElementById('grid'); grid.innerHTML = '';
+  for (const v of V) { const el = document.createElement('div'); el.className = 'card';
+    el.innerHTML = `<div class="shot"><div class="win" data-side="${v.side}"></div></div><div class="meta"><b class="l">${v.l}</b><span class="name">${v.name}</span><p>${v.note}</p><p class="cost">Cost in Swift: ${v.cost}</p></div>`;
+    grid.appendChild(el); v.f(el.querySelector('.win')); }
+}
+document.getElementById('strip').innerHTML = [[1, 'Sidebar 1: today', 'The peach dot marks the section you’re scrolled to. No icons.'], [2, 'Sidebar 2: icons and the dot', 'SF Symbols beside each name, and the dot still marks the current one: two markers.'], [3, 'Sidebar 3: icons, current one in peach', 'The icon takes the dot’s job: the current one turns peach. Recommended.']]
+  .map(([s, name, note]) => `<div class="card"><div class="shot"><div class="win" style="background:#f6f1e9">${side(s).replace('class="side"', 'class="side" style="top:14em"')}</div></div><div class="meta"><span class="name">${name}</span><p>${note}</p></div></div>`).join('');
+document.querySelectorAll('.data button').forEach(b => b.onclick = () => { DATA = b.dataset.d === 'real' ? REAL : SAMPLE; document.querySelectorAll('.data button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
+draw();
+if (location.href.includes('real')) document.querySelector('[data-d=real]').click();
+if (location.href.includes('all')) document.querySelectorAll('.win')[1].querySelector('[data-r=a]').click();
+if (location.href.includes('month')) document.querySelectorAll('.win')[1].querySelector('[data-r=m]').click();
+</script>
+</body>
+</html>
