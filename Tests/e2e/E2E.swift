@@ -340,31 +340,36 @@ enum EndToEnd {
             onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, shift: shift, glint: glint)), to: dir) }
             delays += "\(name).png \(delay)\n"
         }
-        // Where the app couldn't draw it (no room at the line's end), there is no suggestion to take.
         func drawable(_ typed: String, _ ghost: String) -> Bool { onMain { render(shot("", typed, ghost, Stage(keys: 0, wrote: 0, letters: 0, press: 0)), to: nil) } }
+        // What the app would show after `text`: the suggestion, if it can be drawn there (no room at the line's end means none).
+        func suggestion(_ text: String) -> String {
+            let ghost = ask(text)
+            return ghost.isEmpty || drawable(text, ghost) ? ghost : ""
+        }
+        // No pauses of its own: each frame shows the letter and, at once, what the app suggests after it; Tab comes at the typing rhythm.
         for target in sentences {
             var text = "", keys = 0, wrote = 0
-            draw("", "", 0, 0, 40)
+            var ghost = ""
+            draw("", "", 0, 0, 30)
             while text.count < target.count {
-                var ghost = ask(text)
-                if !ghost.isEmpty, !drawable(text, ghost) { ghost = "" }
-                // Shift-Tab when all of it is what comes next, else Tab while the next word is; then the app asks again.
-                var took = false
-                while !ghost.isEmpty {
-                    let all = target.dropFirst(text.count).hasPrefix(ghost)
-                    let take = all ? ghost : Accept.nextWord(Ghost(remainder: ghost)).text
-                    guard !take.isEmpty, target.dropFirst(text.count).hasPrefix(take) else { break }
-                    draw(text, ghost, keys, wrote, shift: all, took ? 9 : 30)  // A beat to read it the first time, then a quick rhythm.
-                    draw(text, ghost, keys, wrote, press: 0.5, shift: all, 3)
-                    text += take; keys += 1; wrote += take.count; ghost = String(ghost.dropFirst(take.count)); took = true
-                    draw(text, ghost, keys, wrote, press: 1, shift: all, glint: 0.3, 4)
-                    draw(text, ghost, keys, wrote, press: 0.5, shift: all, glint: 0.65, 3)
+                let rest = target.dropFirst(text.count)
+                // Shift-Tab when all of it is what comes next, else Tab when its next word is.
+                let all = !ghost.isEmpty && rest.hasPrefix(ghost)
+                let word = ghost.isEmpty ? "" : Accept.nextWord(Ghost(remainder: ghost)).text
+                if all || (!word.isEmpty && rest.hasPrefix(word)) {
+                    let take = all ? ghost : word
+                    draw(text, ghost, keys, wrote, press: 0.6, shift: all, 3)
+                    text += take; keys += 1; wrote += take.count; ghost = String(ghost.dropFirst(take.count))
+                    if ghost.isEmpty { ghost = suggestion(text) }
+                    draw(text, ghost, keys, wrote, press: 1, shift: all, glint: 0.35, 4)
+                    draw(text, ghost, keys, wrote, press: 0.4, shift: all, glint: 0.75, 3)
                     draw(text, ghost, keys, wrote, glint: 1, 3)
+                    continue
                 }
-                if took { draw(text, ghost, keys, wrote, 8); continue }
-                if !ghost.isEmpty { draw(text, ghost, keys, wrote, 10) }  // Shown, wrong, and typed over.
-                text.append(target[target.index(target.startIndex, offsetBy: text.count)]); keys += 1
-                draw(text, "", keys, wrote, 4 + Int(hash(keys, text.count) * 3))  // About 90 words a minute, unevenly, like hands.
+                // Type the next letter; a suggestion that no longer fits goes, and the app asks again.
+                text.append(rest.first!); keys += 1
+                ghost = suggestion(text)
+                draw(text, ghost, keys, wrote, 4 + Int(hash(keys, text.count) * 3))  // About 90 words a minute, unevenly, like hands.
             }
             let saved = 100 * (target.count - keys) / max(target.count, 1)
             print("      \(target.count) letters, \(keys) keys, \(wrote) by Tab: \(saved)% saved | \(target)")
