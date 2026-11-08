@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import HalftypeCore
 
 /// Everything needed to draw one ghost, in AX coordinates (origin top-left of the primary display, y down, points).
@@ -247,7 +248,8 @@ class GhostPanel: NSPanel {
 /// Plays a GlintView for a quarter of a second. A ghost panel too, so Try It's observer knows its moves aren't the field's.
 final class GlintPanel: GhostPanel {
     private let glint = GlintView()
-    private var timer: Timer?
+    private var link: CADisplayLink?
+    private var start = CFTimeInterval(0)
     /// Held while it plays: a layout manager doesn't keep its text, and the ghost may drop this layout at once.
     private var playing: GhostLayout?
 
@@ -264,16 +266,20 @@ final class GlintPanel: GhostPanel {
         glint.progress = 0
         setFrame(frame, display: false, animate: false)
         orderFrontRegardless()
-        timer?.invalidate()
-        let start = Date()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
-            let t = min(Date().timeIntervalSince(start) / 0.25, 1)
-            self?.glint.progress = t * t * (3 - 2 * t)
-            if t >= 1 {
-                timer.invalidate()
-                self?.orderOut(nil)
-                self?.playing = nil
-            }
-        }
+        link?.invalidate()
+        start = CACurrentMediaTime()
+        // In step with the display, and in every run loop mode, so a drag or an open menu doesn't stall it.
+        link = glint.displayLink(target: self, selector: #selector(step))
+        link?.add(to: .main, forMode: .common)
+    }
+
+    @objc private func step(_ link: CADisplayLink) {
+        let t = min((link.targetTimestamp - start) / 0.25, 1)
+        glint.progress = t * t * (3 - 2 * t)
+        guard t >= 1 else { return }
+        link.invalidate()
+        self.link = nil
+        orderOut(nil)
+        playing = nil
     }
 }

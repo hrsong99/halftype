@@ -1534,6 +1534,17 @@ final class FakeServer: URLProtocol {
 }
 
 @Suite struct GlintTests {
+    @MainActor @Test func aGlintPlaysThroughAndGoes() throws {
+        let spec = GhostSpec(text: " notes", caret: CGRect(x: 200, y: 200, width: 0, height: 18), frame: CGRect(x: 100, y: 190, width: 400, height: 40),
+                             fontSize: 15, fontName: nil, color: nil, lineLeft: nil, previousCharacter: "e", mayWrap: false, glass: true)
+        let layout = try #require(GhostLayout.make(spec))
+        let panel = GlintPanel()
+        panel.play(layout, taken: NSRange(location: 0, length: 6), frame: CGRect(x: 100, y: 100, width: 300, height: 30))
+        #expect(panel.isVisible)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        #expect(!panel.isVisible, "the display link ran it to the end and took it down")
+    }
+
     @Test func quickTabsLightTheNextWordsNotTheFirstAgain() {
         #expect(GhostPanel.next(" very", in: " very very good", after: 0) == NSRange(location: 0, length: 5))
         #expect(GhostPanel.next(" very", in: " very very good", after: 5) == NSRange(location: 5, length: 5))
