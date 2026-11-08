@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halftype Code Audit</title>
+<style>
+:root {
+  --bg: #f6f1e9; --card: #fffdf9; --ink: #1d1b18; --muted: #6b655c; --line: #e4ddd1;
+  --must: #a3453b; --should: #b0702a; --nice: #4f7a5a; --code: #f1ebe0; --accent: #e6946b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1a18; --card: #24221f; --ink: #ece7df; --muted: #a39b8f; --line: #3a3631;
+    --must: #e07a6e; --should: #e0a35e; --nice: #8cc09a; --code: #2e2b27; --accent: #e6946b;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1a18; --card: #24221f; --ink: #ece7df; --muted: #a39b8f; --line: #3a3631;
+  --must: #e07a6e; --should: #e0a35e; --nice: #8cc09a; --code: #2e2b27; --accent: #e6946b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 28px; margin: 0 0 4px; }
+h2 { font-size: 19px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.sub { color: var(--muted); margin: 0 0 20px; }
+.tldr { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; padding: 16px 20px; }
+.tldr p { margin: 6px 0; }
+.f { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+.f h3 { margin: 0 0 8px; font-size: 16px; }
+.f h3 .n { display: inline-block; min-width: 26px; height: 26px; line-height: 26px; text-align: center; border-radius: 13px; color: #fff; font-size: 13px; margin-right: 8px; }
+.must .n { background: var(--must); } .should .n { background: var(--should); } .nice .n { background: var(--nice); }
+.f dl { margin: 0; display: grid; grid-template-columns: 120px 1fr; gap: 4px 12px; }
+.f dt { color: var(--muted); font-size: 13px; padding-top: 1px; }
+.f dd { margin: 0; }
+code { font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 1px 4px; border-radius: 4px; }
+pre { font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 10px 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0 2px; white-space: pre; }
+pre .del { color: var(--must); } pre .add { color: var(--nice); }
+.loc { color: var(--muted); font-size: 13px; font-weight: normal; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+@media (max-width: 560px) { .f dl { grid-template-columns: 1fr; } .f dt { padding-top: 6px; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Halftype code audit</h1>
+<p class="sub">2026-11-09 · <code>main</code> at 528a435 · read-only, nothing changed · ponytail audit</p>
+
+<div class="tldr">
+<p><strong>TL;DR.</strong> Yes, mostly. The core is small and pure, the app follows one path, and almost every odd branch has a reason and a test behind it. I found <strong>one real bug</strong>: the <code>shown</code> count goes up on every streamed token, not once per suggestion (#1). That makes the personal-model A/B's take rate wrong. It is a one-line fix. Everything else is small: one untested rule that the A/B relies on (#2), a window that may redraw on every key (#3), and about 20 lines of duplicated or shorter code (#4–#8).</p>
+<p><strong>Fix first:</strong> #1, then #2. <strong>Lean:</strong> about −20 lines and no dependencies to remove (Sparkle is the only one, and it is needed).</p>
+</div>
+
+<h2>What this repo does</h2>
+<p>A menu-bar Mac app. It reads the focused text field through Accessibility, asks a small llama.cpp model running in-process for the next words, and draws them as grey text at the caret. Tab types them in. Korean works through real 2-set key presses. It keeps only counts.</p>
+<p><strong>Load I assumed:</strong> one person on one Mac, typing up to about 10 keys a second, with one model loaded. "Scale" here means per-key latency and memory, not many users.</p>
+<p><strong>What I read in full:</strong> all of <code>Sources/</code> (HalftypeCore, HalftypeEngine, HalftypeApp, about 4,600 lines), <code>Package.swift</code>, the README, <code>docs/how-it-works.md</code>, <code>AGENTS.md</code>, and the test list in <code>Tests/HalftypeAppTests/PureTests.swift</code> (129 tests). I also grepped <code>scripts/</code> and the <code>learn</code> branch's <code>lab/dogfood/ab.py</code>.</p>
+
+<h2>Must fix</h2>
+
+<div class="f must">
+<h3><span class="n">1</span>"Shown" counts every streamed token, not every suggestion <span class="loc">Watcher.swift:417, 449, 475</span></h3>
+<dl>
+<dt>What this is</dt><dd>Each suggestion gets a number, so Stats can count it "shown" once and "taken" once. <code>stats.json</code> keeps these per day. <code>lab/dogfood/ab.py</code> on <code>learn</code> divides <code>taken / shown</code> to compare days with the personal model against days without it.</dd>
+<dt>Problem</dt><dd>The engine streams. After the first word passes the gate, it calls back each time the text grows (<code>Engine.swift:170</code>). Every callback runs <code>received</code>, which does <code>suggestionNumber += 1</code>. Every draw then sees a new number and calls <code>onShown</code>. So a 3-word suggestion streamed in 3 steps counts as shown 3 times. A Tab in the middle of a stream can also count as "taken" twice. No test checks how many times <code>onShown</code> fires.</dd>
+<dt>Fix</dt><dd>Number the suggestion by its request, which stays the same for the whole stream and only goes up:
+<pre><span class="del">-        suggestionNumber += 1</span>
+<span class="add">+        suggestionNumber = id  // One request is one suggestion, however many times it streams.</span></pre>
+Add one test: a fake completer that streams three results for one request, and expect one <code>onShown</code>.</dd>
+<dt>If we skip it</dt><dd>The Stats page itself is fine: it shows Tabs, letters and share by Tab, which don't use <code>shown</code>. But every <code>shown</code> in <code>stats.json</code> so far is too high, and the A/B take rate is too low. The personal model is the one method that moved keys saved, so a skewed A/B could hide a real gain or loss, for example when the personal model writes longer suggestions.</dd>
+</dl>
+</div>
+
+<h2>Should fix</h2>
+
+<div class="f should">
+<h3><span class="n">2</span>The rule that marks a day "with" or "without" the personal model has no test <span class="loc">App.swift:100–110</span></h3>
+<dl>
+<dt>What this is</dt><dd><code>count()</code> decides, on every counted event, whether today ran with the adapter, without it, or mixed. Only days that are wholly one or the other go into the comparison (<code>Tally.sum(personal:)</code>).</dd>
+<dt>Problem</dt><dd>It is a three-way branch with a known <code>shortcut:</code> comment, and it can't be tested as written. It reads <code>engine?.applied</code>, and <code>engine</code> is set only when the completer is a real <code>Engine</code> (<code>engine as? Engine</code>, App.swift:456), so a fake model never reaches the branch. One example of a mistake it would hide: if <code>applied == wanted</code> were flipped, every Compare day would be marked mixed, the comparison would have no days, and the Stats card would just never show.</dd>
+<dt>Fix</dt><dd>Move the decision into a static function, the way this file already does with <code>App.line</code> and <code>App.icon</code>, and test its three cases:
+<pre>/// nil: mark nothing yet. Some(nil): a mixed day. Some(x): a day wholly with or without.
+static func personalMark(hasAdapter: Bool, applied: Bool?, wanted: Bool) -> Bool?? {
+    guard hasAdapter else { return .some(nil) }
+    guard let applied, applied == wanted else { return nil }
+    return .some(applied)
+}</pre></dd>
+<dt>If we skip it</dt><dd>A regression here quietly empties or skews the only number that says whether Personal Model, the planned paid feature, helps.</dd>
+</dl>
+</div>
+
+<div class="f should">
+<h3><span class="n">3</span>Every key may redraw the whole window <span class="loc">App.swift:56, 251; Window.swift:771</span></h3>
+<dl>
+<dt>What this is</dt><dd><code>tally</code> is a <code>@Published</code> property on <code>App</code>, and every view in the window watches <code>App</code>. Each character typed anywhere adds 1 to <code>tally.days[today].typed</code>.</dd>
+<dt>Problem</dt><dd>While the window is open, each key makes SwiftUI rebuild <code>Root</code>, <code>FieldPage</code>, <code>StatsPage</code> (a chart plus 182 dots), <code>ModelsPage</code> (a file size check for each model) and <code>GeneralPage</code> (a folder listing for the adapter), all on the main thread. That is also the thread that draws the ghost. <code>count()</code> lists the adapters folder once or twice more on each key (<code>adapterFile</code>, then <code>adapterToday</code>). <strong>I did not measure this.</strong> It matters most in Try It, where people judge Halftype first.</dd>
+<dt>Fix</dt><dd>Measure first: Instruments' SwiftUI template while typing in Try It. If the per-key work is over about 1 ms, move <code>tally</code> into its own small <code>ObservableObject</code> that only <code>StatsPage</code> watches, so typing redraws only the Stats card. If it's under 1 ms, leave it.</dd>
+<dt>If we skip it</dt><dd>Probably nothing you can see. At worst, the main thread does extra work during typing in Try It, next to the ghost's one-frame timing.</dd>
+</dl>
+</div>
+
+<div class="f should">
+<h3><span class="n">4</span>The glass and glint colours are copied in four places <span class="loc">GhostPanel.swift:129, 166; Onboarding.swift:190, 200; Window.swift:52; Practice.swift:143</span></h3>
+<dl>
+<dt>What this is</dt><dd>The suggestion's blue-to-peach glass, the Tab glint's band, and the window's cream.</dd>
+<dt>Problem</dt><dd>Each is typed out twice, once for AppKit and once for SwiftUI. The comments say they must match ("GhostView.glass: pale blue to peach"). Change the glass in <code>GhostView</code> and onboarding's Welcome keeps the old one.</dd>
+<dt>Fix</dt><dd>One list of colours, and both sides read from it:
+<pre>enum Palette {
+    static let glass = [(0.373, 0.608, 0.847), (0.6, 0.69, 0.79), (0.91, 0.561, 0.369)]
+    static let cream = (0.965, 0.945, 0.914)
+}
+// GhostView:  NSGradient(colors: Palette.glass.map { NSColor(srgbRed: $0.0, green: $0.1, blue: $0.2, alpha: 1) })
+// Welcome:    LinearGradient(colors: Palette.glass.map { Color(red: $0.0, green: $0.1, blue: $0.2) }, ...)</pre>
+About −6 lines.</dd>
+<dt>If we skip it</dt><dd>The next icon or colour change leaves onboarding a shade off from the app.</dd>
+</dl>
+</div>
+
+<h2>Nice to have</h2>
+
+<div class="f nice">
+<h3><span class="n">5</span>Two doc comments sit on the wrong declaration <span class="loc">App.swift:71–72, 663</span></h3>
+<dl>
+<dt>What this is</dt><dd>The comment "Nil in the window pictures, whose made-up counts must not reach the real file" is on <code>lastTaken</code>, but it describes <code>tallyFile</code> three lines down. "The same replay: suggestions shown on 12%, 20% and 31%…" is on <code>enum Personal</code>, but it describes <code>Often</code>, below it.</dd>
+<dt>Problem</dt><dd>A reader takes the measured numbers as facts about the wrong setting. In this repo every number must carry how it was measured, so this one points at the wrong thing.</dd>
+<dt>Fix</dt><dd>Move each comment to the declaration it describes:
+<pre><span class="del">-/// The same replay: suggestions shown on 12%, 20% and 31% …</span>
+ enum Personal: String, CaseIterable { case off, compare, on }
+
+<span class="add">+/// The same replay: suggestions shown on 12%, 20% and 31% …</span>
+ enum Often: String, CaseIterable {</pre></dd>
+<dt>If we skip it</dt><dd>Someone tuning Personal Model reads Often's numbers.</dd>
+</dl>
+</div>
+
+<div class="f nice">
+<h3><span class="n">6</span><code>scheduleUpdate</code> writes <code>OneAtATime</code> out by hand <span class="loc">Watcher.swift:37, 207–213, 591–601</span></h3>
+<dl>
+<dt>What this is</dt><dd>Both stop a hung app from building up a queue: at most one job waits on the watcher queue.</dd>
+<dt>Problem</dt><dd>They are the same idea with one difference. <code>scheduleUpdate</code> clears its flag <em>before</em> it runs, so a notice that arrives during a slow read still gets its own read. <code>OneAtATime</code> clears it <em>after</em>. The difference matters for reads and doesn't for <code>heal</code>.</dd>
+<dt>Fix</dt><dd>Make <code>OneAtATime</code> clear first (still at most one waiting, so still no backlog), and use it for both:
+<pre><span class="del">-    private let updatePending = Atomic&lt;Bool&gt;(false)</span>
+<span class="add">+    private let updating = OneAtATime()</span>
+     func scheduleUpdate() {
+<span class="del">-        guard !updatePending.exchange(true, ordering: .acquiringAndReleasing) else { return }</span>
+<span class="del">-        queue.async { [self] in</span>
+<span class="del">-            updatePending.store(false, ordering: .releasing)</span>
+<span class="del">-            update()</span>
+<span class="del">-        }</span>
+<span class="add">+        updating.run(on: queue) { [weak self] in self?.update() }</span>
+     }
+ // OneAtATime.run:
+<span class="del">-            work()</span>
+<span class="del">-            pending.store(false, ordering: .releasing)</span>
+<span class="add">+            pending.store(false, ordering: .releasing)  // Before: input during the work gets its own run.</span>
+<span class="add">+            work()</span></pre>
+Update the doc comment and <code>aBurstOfInputAgainstABlockedHostRunsOneRecoveryAndThenAgain</code> to match. About −5 lines.</dd>
+<dt>If we skip it</dt><dd>Two ways to do one job, and someone fixing one of them misses the other.</dd>
+</dl>
+</div>
+
+<div class="f nice">
+<h3><span class="n">7</span>Each token builds a vocab-sized mask and scans the logits twice <span class="loc">Engine.swift:386–398</span></h3>
+<dl>
+<dt>What this is</dt><dd><code>Pick.best</code> picks the most likely allowed token and its log probability over all allowed tokens, which is what the gate needs.</dd>
+<dt>Problem</dt><dd>It allocates <code>[Bool](count: vocab)</code> (262k entries for Gemma) for each token, then scans the logits a second time to sum. That is small next to a decode step (milliseconds), but it runs on every token.</dd>
+<dt>Fix</dt><dd>One pass with a running log-sum-exp, and no mask:
+<pre>var best = -1, top = -Float.infinity, mass = 0.0
+for t in 0..&lt;logits.count where allowed(t) {
+    let l = logits[t]
+    if l > top { mass = mass * exp(Double(top - l)) + 1; (best, top) = (t, l) }
+    else { mass += exp(Double(l - top)) }
+}
+guard best >= 0 else { return nil }
+return Pick(token: llama_token(best), logprob: -log(mass), isEnd: isEnd(best))</pre>
+About −3 lines. The engine tests would catch a mistake.</dd>
+<dt>If we skip it</dt><dd>A fraction of a millisecond per token, and a 262 KB allocation per token on the engine queue.</dd>
+</dl>
+</div>
+
+<div class="f nice">
+<h3><span class="n">8</span><code>.DS_Store</code> is committed <span class="loc">/.DS_Store, .gitignore</span></h3>
+<dl>
+<dt>What this is</dt><dd>Finder's folder metadata, tracked at the repo root.</dd>
+<dt>Problem</dt><dd>It changes whenever someone opens the folder in Finder. In a public repo it also shows file names from the author's folder view.</dd>
+<dt>Fix</dt><dd><code>git rm --cached .DS_Store</code> and add <code>.DS_Store</code> to <code>.gitignore</code>.</dd>
+<dt>If we skip it</dt><dd>Noise in <code>git status</code>, and it may end up in another session's commit.</dd>
+</dl>
+</div>
+
+<p class="sub">Left out: 4 smaller items. <code>KeyTap.handle</code> reads the key's text twice (Keys.swift:200, 247). <code>isActive(_ model:)</code> checks <code>ready &amp;&amp;</code>, which <code>activePath == x</code> already implies (App.swift:220). <code>moveFromItda</code> runs on every launch, so delete it a few releases after 2026-11-08, once no Itda installs remain. And <code>:Tuning(</code> is missing a space (App.swift:194).</p>
+
+<h2>Judged and kept: these looked like bloat and aren't</h2>
+<table>
+<tr><th>Code</th><th>Why it earns its place</th></tr>
+<tr><td><code>Priming</code>, the Chromium/Electron switch (Watcher.swift:533–589)</td><td>Each rule (once per process, 3 s recheck, pid plus launch time, VoiceOver asked each time, restore only where ours) answers a documented failure, and each has its own test.</td></tr>
+<tr><td><code>Reader.valueIndex</code> and the <code>skipped</code> offset</td><td>Chromium's value and its ranges disagree by one per paragraph. Without this the caret is a paragraph off in web editors. Tested.</td></tr>
+<tr><td>Generation counter, <code>held</code> Tab, <code>pending</code> accept</td><td>One counter guards every "a key came in during the read" race. <code>held</code> and <code>pending</code> each fix a seen bug (AGENTS.md notes the hold was once removed, and it broke).</td></tr>
+<tr><td>The tap keeper and <code>tcc.access.changed</code></td><td>A tap left up after a revoke can freeze every key on the Mac. The one retry loop stops once it succeeds.</td></tr>
+<tr><td><code>Constraint.canBegin</code> (Engine.swift:355)</td><td>A token can end in the middle of a Hangul character. This is the only place that decides whether those bytes could still match the typed jamo.</td></tr>
+<tr><td>Quit ordering (App.swift:313–330, Watcher.quit)</td><td>ggml asserts if a model is still loaded at exit. Each step has a deadline, so a hung host can't hold up quit.</td></tr>
+</table>
+
+<h2>Verdict</h2>
+<p><strong>Healthy. Fix #1 first, then #2.</strong> On John's question, is it simple and elegant: mostly yes, and better than most code of this kind. The design keeps choosing the one mechanism over the many. Field text is compared instead of key events, so typing through, Backspace, smart quotes and late answers all take one path (<code>Follow.check</code>). One word rule (<code>Word</code>) serves the prompt, the gate, stopping and accepting. There is one raw prompt path with no per-model tables. A single generation counter settles every race between a read and a key. The core is pure and tested, and there is one dependency. The weight in Watcher and Keys is real edge cases, each with a reason and a test, not speculation. It is less elegant in three places. <code>App</code> is a 690-line grab bag: app delegate, settings, model loading, menu, icon, updates and counting. The counting side channel (suggestion numbers passed from the watcher to the tap to the panel to <code>App</code>) is the least clean part, and that is where the bug is. And the code is dense: long lines and comments in place of names make each file slow to read, even though each line is correct. If you split one thing later, pull model loading (<code>open</code>, <code>lost</code>, <code>engines</code>, <code>afterFetch</code>, <code>loadingPath</code>, about 120 lines) out of <code>App</code>. Not before it gets in the way.</p>
+<p><strong>Lean:</strong> about −20 lines possible, −0 dependencies.</p>
+<p><strong>Not checked:</strong> I didn't run any tests or builds, and I didn't run <code>scripts/e2e.sh</code> (it takes the keyboard). Finding #3 is unmeasured. I read the tests by name only, not every body. I skimmed <code>Tests/e2e/E2E.swift</code>, <code>bench/</code>, <code>scripts/</code> and <code>docs/measuring.md</code>. I didn't review the <code>learn</code> branch beyond the one script that reads <code>stats.json</code>.</p>
+</main>
+</body>
+</html>
