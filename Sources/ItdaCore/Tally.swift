@@ -37,8 +37,11 @@ public struct Tally: Codable, Equatable, Sendable {
     }
 
     public mutating func shown(on date: Date = Date(), _ calendar: Calendar = .current) { days[Self.key(date, calendar), default: Day()].shown += 1 }
-    public mutating func mark(personal: Bool, on date: Date = Date(), _ calendar: Calendar = .current) {
-        if personal { days[Self.key(date, calendar), default: Day()].withModel = true } else { days[Self.key(date, calendar), default: Day()].withoutModel = true }
+    /// Nil for another model than the one adapters are trained on, which leaves the day out of any comparison.
+    public mutating func mark(personal: Bool?, on date: Date = Date(), _ calendar: Calendar = .current) {
+        let key = Self.key(date, calendar)
+        if personal != false { days[key, default: Day()].withModel = true }
+        if personal != true { days[key, default: Day()].withoutModel = true }
     }
     public mutating func typed(_ keys: Int, on date: Date = Date(), _ calendar: Calendar = .current) {
         guard keys > 0 else { return }

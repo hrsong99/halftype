@@ -51,14 +51,16 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         didSet { UserDefaults.standard.set(personal.rawValue, forKey: "personal") }
     }
     private var engine: Engine?
-    /// Adds the keys typed since the last count, the event, and which kind of day it is, in one write. Days on another model aren't marked.
+    /// Adds the keys typed since the last count, on the day the first was typed, the event, and which kind of day it is, in one write.
+    /// shortcut: keys typed in the minute across midnight count on the day before, which is noise next to a day's thousands.
     private func count(_ event: ((inout Tally) -> Void)? = nil) {
-        let keys = tap.takeTyped()
+        let (keys, since) = tap.takeTyped()
         guard keys > 0 || event != nil else { return }
         var next = tally
-        next.typed(keys)
+        next.typed(keys, on: since)
         event?(&next)
-        if let engine, activePath == store.path(ModelStore.models[0]).path { next.mark(personal: engine.applied.withLock { $0 }) }
+        if let activePath, activePath != store.path(ModelStore.models[0]).path { next.mark(personal: nil) }
+        else if let applied = engine?.applied.withLock({ $0 }) { next.mark(personal: applied) }  // Unloaded while idle: nothing to say.
         tally = next
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.

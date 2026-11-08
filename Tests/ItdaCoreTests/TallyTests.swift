@@ -34,4 +34,6 @@ import Testing
     #expect(tally.sum(personal: false).count == 2 && tally.sum(personal: false).sum.byTab == 0.05)  // The old day has no keys, so it's left out.
     tally.mark(personal: true, on: next, calendar)  // A switch mid-day mixes it, and it drops out.
     #expect(tally.sum(personal: false).count == 1 && tally.sum(personal: true).count == 1)
+    tally.mark(personal: nil, on: day, calendar)  // Another model, the same.
+    #expect(tally.sum(personal: true).count == 0)
 }

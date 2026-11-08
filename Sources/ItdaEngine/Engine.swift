@@ -32,8 +32,8 @@ public final class Engine: @unchecked Sendable {
     /// doesn't fit the model is left out, not an error.
     private let adapter: @Sendable (String) -> String?
     private var loadedAdapter: String?
-    /// The adapter is in use, not only asked for. For the Stats page, which reads it from the main thread.
-    public let applied = Mutex(false)
+    /// The adapter is in use, not only asked for, or nil while no model is loaded. For the Stats page, which reads it from the main thread.
+    public let applied = Mutex<Bool?>(nil)
     private let queue = DispatchQueue(label: "itda.engine", qos: .userInteractive)
     private let latest = Atomic<Int>(0)
     private var model: OpaquePointer?
@@ -89,7 +89,7 @@ public final class Engine: @unchecked Sendable {
         if let ctx { llama_free(ctx) }
         if let model { llama_model_free(model) }
         (ctx, model, vocab, cached, checkpoint) = (nil, nil, nil, [], nil)
-        applied.withLock { $0 = false }
+        applied.withLock { $0 = nil }
     }
 
     /// Tokens the prompt may take, as each byte the output must match can cost one. Nil if none are left.
@@ -115,6 +115,7 @@ public final class Engine: @unchecked Sendable {
             throw EngineError.load(path)
         }
         // Freed with the model.
+        applied.withLock { $0 = false }
         loadedAdapter = adapter(path)
         if let file = loadedAdapter, let lora = llama_adapter_lora_init(model, file) {
             var adapters: [OpaquePointer?] = [lora], scales: [Float] = [1]

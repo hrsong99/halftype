@@ -31,8 +31,8 @@ final class KeyTap: @unchecked Sendable {
         /// What the field will hold once our last accept lands; Tab-Tab can beat the host's update. Any other input ends it, as the
         /// field then holds something else: Tab, Backspace, and `hello ther` would otherwise read as on its way to `hello there`.
         var pending: (from: String, to: String)?
-        /// Keys that typed a character since `takeTyped`, for the Stats page's share typed by Tab.
-        var typed = 0
+        /// Keys that typed a character since `takeTyped`, and when the first of them was, for the Stats page's share typed by Tab.
+        var typed = 0, typedSince = Date()
 
         mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)? {
             let next = all ? Accept.all(armed.ghost) : Accept.nextWord(armed.ghost)
@@ -65,7 +65,7 @@ final class KeyTap: @unchecked Sendable {
     init(pid: pid_t? = nil) { self.pid = pid }
 
     var generation: Int { state.withLock { $0.generation } }
-    func takeTyped() -> Int { state.withLock { s in defer { s.typed = 0 }; return s.typed } }
+    func takeTyped() -> (keys: Int, since: Date) { state.withLock { s in defer { s.typed = 0 }; return (s.typed, s.typedSince) } }
 
     func invalidate() {
         state.withLock {
@@ -128,7 +128,10 @@ final class KeyTap: @unchecked Sendable {
                 suggestion = armed.suggestion
             }
             if plan == nil { s.pending = nil }
-            if plan == nil, Self.types(type, event, flags) { s.typed += 1 }
+            if plan == nil, Self.types(type, event, flags) {
+                if s.typed == 0 { s.typedSince = Date() }
+                s.typed += 1
+            }
             return decision
         }
         if let plan {
