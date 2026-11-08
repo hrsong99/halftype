@@ -554,9 +554,18 @@ enum EndToEnd {
     }
 
     /// A ghost up in a fresh harness, its model holding the rest back. A blocked queue stands for an unresponsive AX read.
-    static func raceHarness() -> (h: Harness, model: HeldCompleter) {
+    /// `rememberLook` for a test that blocks main: reading our own window's look hops to main (AX.own), so the first display's look stands.
+    static func raceHarness(rememberLook: Bool = false) -> (h: Harness, model: HeldCompleter) {
         let model = HeldCompleter()
         let h = Harness(completer: model)
+        if rememberLook {
+            let read = h.watcher.traits
+            var look: FieldTraits?
+            h.watcher.traits = { field, reading in
+                if look == nil { look = read(field, reading) }
+                return look
+            }
+        }
         h.watcher.bind(pid: getpid())
         usleep(100_000)
         typeToSelf("hello")
@@ -594,7 +603,7 @@ enum EndToEnd {
             check(h.text == "hello there\n\t", "nothing inserted when the reader comes back: \(h.text.debugDescription)")
         }
         do {
-            let (h, model) = raceHarness()
+            let (h, model) = raceHarness(rememberLook: true)
             defer { h.close() }
             let hold = DispatchSemaphore(value: 0), holding = DispatchSemaphore(value: 0)
             DispatchQueue.main.async { holding.signal(); hold.wait() }

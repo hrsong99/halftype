@@ -7,12 +7,23 @@ enum AX {
     static let timeout: Float = 0.25
 
     static func get(_ e: AXUIElement, _ key: String) -> CFTypeRef? {
-        var v: CFTypeRef?
-        return AXUIElementCopyAttributeValue(e, key as CFString, &v) == .success ? v : nil
+        own(e) {
+            var v: CFTypeRef?
+            return AXUIElementCopyAttributeValue(e, key as CFString, &v) == .success ? v : nil
+        }
     }
     static func get(_ e: AXUIElement, _ key: String, _ arg: CFTypeRef) -> CFTypeRef? {
-        var v: CFTypeRef?
-        return AXUIElementCopyParameterizedAttributeValue(e, key as CFString, arg, &v) == .success ? v : nil
+        own(e) {
+            var v: CFTypeRef?
+            return AXUIElementCopyParameterizedAttributeValue(e, key as CFString, arg, &v) == .success ? v : nil
+        }
+    }
+    /// Our own window (Try It) answers in-process, on the asking thread, and SwiftUI must be read on the main thread: Tab there crashed
+    /// twice in its accessibility frame (2026-11-08). Main only ever waits on the watcher with a deadline (`unprime`), so this can't deadlock.
+    static func own<T>(_ e: AXUIElement, _ read: () -> T) -> T {
+        var pid: pid_t = 0
+        guard !Thread.isMainThread, AXUIElementGetPid(e, &pid) == .success, pid == getpid() else { return read() }
+        return DispatchQueue.main.sync(execute: read)
     }
     static func element(_ v: CFTypeRef?) -> AXUIElement? {
         guard let v, CFGetTypeID(v) == AXUIElementGetTypeID() else { return nil }
@@ -30,7 +41,7 @@ enum AX {
     }
     static func valueIsSettable(_ e: AXUIElement) -> Bool {
         var settable = DarwinBoolean(false)
-        return AXUIElementIsAttributeSettable(e, "AXValue" as CFString, &settable) == .success && settable.boolValue
+        return own(e) { AXUIElementIsAttributeSettable(e, "AXValue" as CFString, &settable) == .success } && settable.boolValue
     }
     static func startMarker(_ range: CFTypeRef?) -> AXTextMarker? {
         guard let range, CFGetTypeID(range) == AXTextMarkerRangeGetTypeID() else { return nil }
