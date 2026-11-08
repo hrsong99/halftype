@@ -1,14 +1,14 @@
 #!/bin/zsh
 # Publishes a release: signed, notarized DMG, appcast for Sparkle, GitHub release, and the Homebrew cask. Usage: scripts/release.sh 0.1.0
-# Needs, on the releasing Mac only: `gh`, a Developer ID certificate in a keychain called itda-signing, and
-# ~/.config/itda-signing/env with KEYCHAIN_PASSWORD, NOTARY_KEY (path to an App Store Connect .p8), NOTARY_KEY_ID, NOTARY_ISSUER
+# Needs, on the releasing Mac only: `gh`, a Developer ID certificate in a keychain called halftype-signing, and
+# ~/.config/halftype-signing/env with KEYCHAIN_PASSWORD, NOTARY_KEY (path to an App Store Connect .p8), NOTARY_KEY_ID, NOTARY_ISSUER
 # and SPARKLE_KEY (a file from Sparkle's generate_keys -x, public half in scripts/sparkle-public-key.txt).
 set -euo pipefail
 cd "${0:A:h}/.."
 version=$1
 [[ -z "$(git status --porcelain)" ]] || { echo "Commit first: a release is one commit."; exit 1; }
-source ~/.config/itda-signing/env
-security unlock-keychain -p "$KEYCHAIN_PASSWORD" itda-signing.keychain
+source ~/.config/halftype-signing/env
+security unlock-keychain -p "$KEYCHAIN_PASSWORD" halftype-signing.keychain
 security find-identity -v -p codesigning | grep -q "Developer ID Application" || { echo "No Developer ID certificate."; exit 1; }
 
 HALFTYPE_VERSION=$version scripts/build-app.sh
