@@ -41,13 +41,13 @@ struct Root: View {
             ScrollView {
                 VStack(spacing: 0) {
                     FieldPage(app: app, draft: $draft, picking: picking) { go(.models) }
+                        .padding(.leading, open ? 160 : 0)  // The card's room, inside the arch, which keeps the whole width.
                         .containerRelativeFrame(.vertical)
                         // The arch belongs to the field, so it scrolls with it; it reaches up under the title bar, as the window's ground did.
                         .background { Arch().padding(.top, -28).visualEffect { arch, place in arch.opacity(1 + place.frame(in: .scrollView).minY / place.size.height) } }
                         .id(Page.field)
-                    settings
+                    settings.padding(.leading, open ? 160 : 0)
                 }
-                .padding(.leading, open ? 160 : 0)
             }
             .safeAreaPadding(.top, 28)
             .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.containerSize.height >= $0.contentSize.height - 4 && $0.contentOffset.y > 0 } action: { end = $1 }
