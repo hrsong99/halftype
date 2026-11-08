@@ -73,6 +73,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if let activePath {
             if App.adapterFile(for: activePath) == nil { next.mark(personal: nil) }  // A model with no adapter compares nothing.
             // Only once the engine has caught up with today: unloaded, just past midnight, or an adapter that won't load says nothing.
+            // shortcut: a broken adapter's hours, then a working one's the same day, count as a personal day; track failed loads if adapters ship.
             else if let applied = engine?.applied.withLock({ $0 }), applied == (App.adapterToday(model: activePath) != nil) { next.mark(personal: applied) }
         }
         tally = next
