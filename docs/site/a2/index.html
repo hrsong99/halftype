@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-type="software" data-radius="soft" data-ground="sky" data-buttons="solid" data-motion>
+<html lang="en" data-type="software" data-radius="soft" data-buttons="solid" data-motion>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -11,13 +11,10 @@
 <meta property="og:image" content="share.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="theme-color" content="#fcfaf6">
+<meta name="theme-color" content="#f6f1e9">
 <!-- <link rel="canonical" href="https://[domain to come]/"> -->
 <meta name="site-kind" content="software">
 <meta name="page-type" content="software">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@400..700&family=Funnel+Sans:wght@400..600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/system.css">
 <link rel="stylesheet" href="assets/ui/cards.css">
 <link rel="stylesheet" href="assets/motion/motion.css">
@@ -26,16 +23,16 @@
 <link rel="stylesheet" href="assets/icons/icon.css">
 <style>
 :root {
-  --p-bg: #fcfaf6; --p-surface: #f3f1ec; --p-ink: #1d1c1a; --p-muted: #696865;
-  --p-accent: #24558f; --p-accent-ink: #fcfaf6; --p-action: #24558f; --p-action-ink: #fcfaf6;
+  --p-bg: #f6f1e9; --p-surface: #fffdfa; --p-ink: #1d1c1a; --p-muted: #6a6762;
+  --p-accent: #1d1c1a; --p-accent-ink: #f6f1e9; --p-action: #1d1c1a; --p-action-ink: #f6f1e9;
   --p-inv-bg: #1d1c1a; --p-inv-surface: #2a2926; --p-inv-ink: #fcfaf6; --p-inv-muted: #9f9d9a;
   --p-inv-accent: #fcfaf6; --p-inv-accent-ink: #1d1c1a; --p-inv-action: #fcfaf6; --p-inv-action-ink: #1d1c1a;
-  --font-display: "Funnel Display", system-ui, sans-serif;
-  --font-text: "Funnel Sans", system-ui, sans-serif;
-  --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --display-weight: 400;
-  --display-tracking: -0.03em;
-  --display-tracking-xl: -0.04em;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --display-weight: 600;
+  --display-tracking: -0.025em;
+  --display-tracking-xl: -0.03em;
   --ly-scale: 0.98;
 }
 </style>
@@ -46,14 +43,16 @@
 <link rel="modulepreload" href="assets/moments/moments.js">
 <link rel="modulepreload" href="assets/moments/lib.js">
 <link rel="modulepreload" href="assets/moments/liquid-type/moment.js">
-<!-- page CSS: only what sits inside a visual (the Halftype window replica, its halftone sky, keycaps) -->
+<!-- page CSS: only what sits inside a visual (the Halftype window replica, its arch, keycaps) -->
 <style>
-  /* the app's own sky (Sources/HalftypeApp/Sky.swift): paper, a blue ink from the top, a peach ink from the bottom */
-  .sky { position: relative; overflow: hidden; border-radius: var(--r-lg); background: #fcfaf6; border: 1px solid var(--line); }
-  .sky > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .ht-field { position: relative; z-index: 1; background: rgba(243, 242, 240, .96); border-radius: 28px; padding: 22px 24px 16px; min-height: 168px; display: grid; grid-template-rows: 1fr auto; gap: 16px; }
+  /* the app's window (Sources/HalftypeApp/Window.swift): the icon's cream, and its arch large and out of focus behind the field */
+  .sky { position: relative; overflow: hidden; border-radius: var(--r-lg); background: #f6f1e9; border: 1px solid rgba(29,28,26,.06); isolation: isolate; }
+  .sky::after { content: ""; position: absolute; inset: 4% 2%; z-index: -1; background: url(img/arch.svg) center / 100% 100% no-repeat; filter: blur(26px); opacity: .75; }
+  .ht-field { position: relative; z-index: 1; background: rgba(255, 255, 255, .6); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border: .5px solid rgba(29,28,26,.07); border-radius: 20px; padding: 22px 24px 16px; min-height: 168px; display: grid; grid-template-rows: 1fr auto; gap: 16px; }
   .ht-text { font: 400 clamp(19px, 1.6vw, 24px)/1.45 var(--font-text); color: var(--ink); min-height: 2.9em; overflow-wrap: anywhere; }
-  .ht-text .ghost { color: #a3a19c; }
+  .ht-text .ghost { background: linear-gradient(90deg, #5f9bd8, #99b0c9, #e88f5e); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .ht-text .taken { background: linear-gradient(90deg, var(--ink) 0 38%, #73a6e0 44%, #c2d4e8 50%, #ed9a6b 56%, var(--ink) 62% 100%) 100% 0 / 320% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: ht-glint .25s ease-in-out forwards; }
+  @keyframes ht-glint { to { background-position: 0 0; } }
   .ht-text .caret { border-left: 2px solid var(--ink); margin: 0 -1px 0 -1px; animation: ht-blink 1.05s steps(1) infinite; }
   .ht-text .ghost, .ht-text .caret { white-space: nowrap; }
   @keyframes ht-blink { 50% { border-left-color: transparent; } }
@@ -62,11 +61,12 @@
   .ht-power { width: 36px; height: 36px; border-radius: 50%; background: #262624; display: grid; place-items: center; }
   .ht-power svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; }
   .kc { display: inline-grid; place-items: center; min-width: 44px; height: 34px; padding: 0 10px; border-radius: 8px; background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 0 rgba(29,28,26,.14); font: 500 14px/1 var(--font-mono); color: var(--ink); transition: transform .09s, box-shadow .09s, background .09s; }
-  .kc.is-down { transform: translateY(2px); box-shadow: 0 0 0 rgba(29,28,26,.14); background: #f6c3a4; }
+  .kc.is-down { transform: translateY(2px); box-shadow: 0 0 0 rgba(29,28,26,.14); background: #f4b48c; }
   .ht-bar .kc { margin-right: auto; }
   .ht-note { position: absolute; z-index: 1; left: 24px; right: 64px; bottom: 18px; font: 400 13px/1.45 var(--font-mono); color: #4d4c49; }
   /* the hero window: the field centred in the sky, as the app's window has it */
   .hero__media.sky { display: grid; align-content: center; padding: 48px clamp(20px, 4vw, 48px) 72px; }
+  .hero-mark { justify-self: center; margin-bottom: 18px; }
   /* the brew box */
   .brew { display: flex; align-items: center; gap: 12px; margin-top: var(--s-5); padding: 10px 10px 10px 16px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); max-width: 519px; }
   .brew code { flex: 1; min-width: 0; font: 400 13px/1.6 var(--font-mono); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -89,19 +89,20 @@
   .vs__name { font: 500 15px/1 var(--font-text); color: var(--ink); }
   .vs__track { height: 24px; display: block; }
   .vs__fill { display: block; height: 100%; width: var(--w); border-radius: 0 4px 4px 0; transform-origin: left; transition: opacity .15s; }
-  .vs__fill--us { background: #24558f; } .vs__fill--them { background: #b8683a; }
+  .vs__fill--us { background: #3f7fc4; } .vs__fill--them { background: #d9824f; }
   .vs__chart:hover .vs__fill { opacity: .55; } .vs__chart .vs__bar:hover .vs__fill { opacity: 1; }
   .vs__val { font: 500 15px/1 var(--font-mono); color: var(--ink); text-align: right; }
   .vs__ko { margin-top: var(--s-6); border-collapse: collapse; width: 100%; max-width: 860px; font-size: 15px; }
   .vs__ko caption { text-align: left; padding-bottom: 10px; }
   .vs__ko th, .vs__ko td { text-align: left; padding: 7px 16px 7px 0; border-top: 1px solid var(--line); vertical-align: top; }
   .vs__ko th { font-weight: 500; white-space: nowrap; } .vs__ko td:nth-child(2) { font-family: var(--font-mono); white-space: nowrap; } .vs__ko td:last-child { color: var(--muted); }
-  .vs__ko .is-yes { color: #24558f; font-weight: 600; }
+  .vs__ko .is-yes { color: #2f6aa8; font-weight: 600; }
   .vs__x { margin: 4px 0 0 96px; font: 400 clamp(28px, 3vw, 40px)/1.1 var(--font-display); letter-spacing: -.02em; color: var(--ink); }
   .vs__facts { list-style: none; padding: 0; margin: var(--s-7) 0 0; display: flex; flex-wrap: wrap; gap: 12px 40px; color: var(--muted); }
   .vs__facts b { font: 500 20px/1 var(--font-mono); color: var(--ink); margin-right: 6px; }
   .vs__how { margin-top: var(--s-5); font: 400 13px/1.5 var(--font-mono); color: #4d4c49; }
-  #keys .panel { --p-h: 340px; }
+  #keys .panel { --p-h: 340px; background: #f6f1e9; position: relative; overflow: hidden; isolation: isolate; }
+  #keys .panel::before { content: ""; position: absolute; inset: 10% -10%; z-index: -1; background: url(img/arch.svg) center / 100% 100% no-repeat; filter: blur(22px); opacity: .7; }
   .vs__tip { position: fixed; z-index: 50; pointer-events: none; background: var(--ink); color: var(--bg); font: 400 13px/1.4 var(--font-text); padding: 8px 10px; border-radius: 6px; max-width: 260px; }
   @media (max-width: 639px) { .vs__ko td:last-child { display: none; } .vs__bar { grid-template-columns: 72px 1fr 64px; gap: 8px; } .vs__x { margin-left: 80px; } .vs__val, .vs__name { font-size: 13px; } }
   /* the Korean keys diagram */
@@ -110,9 +111,7 @@
   .ko-figure { display: grid; align-content: center; gap: 24px; padding: clamp(24px, 4vw, 48px); }
   .ko-figure .t-label { font-family: var(--font-mono); color: #4d4c49; }
   .shot { width: 100%; height: auto; display: block; border-radius: var(--r-lg); border: 1px solid var(--line); }
-  .night { position: relative; overflow: hidden; padding-block: clamp(24px, 4vw, 48px) clamp(48px, 8vw, 96px); }
-  .night > canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
-  .night > :not(canvas) { position: relative; z-index: 1; }
+  .night { padding: clamp(24px, 4vw, 48px) clamp(20px, 4vw, 48px) clamp(48px, 8vw, 96px); margin-bottom: var(--s-7); }
   @media (max-width: 359px) { #privacy, #cost, #korean { --hm: 2; } }
   @media (prefers-reduced-motion: reduce) { .ht-text .caret { animation: none; } }
   @media (max-width: 639px) {
@@ -129,6 +128,7 @@
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="ht-arch" x1="4.9" y1="0" x2="15.2" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1d1c1a"/><stop offset=".45" stop-color="#a9cdf0"/><stop offset="1" stop-color="#f6c3a4"/></linearGradient></defs></svg>
 <!-- type: software
      deal: hero split, nav nav-centre (nav-cards dealt; no photographs to put in its cards, so dealt again without it), close close-type,
      footer footer-dark, rhythm surface-pairs, buttons solid, mark ring (replaced by the client's own mark, docs/icon/menubar.svg),
@@ -138,7 +138,7 @@
 <header class="nav nav--centre">
   <div class="wrap nav__bar">
     <a class="skip-link" href="#top">Skip to content</a>
-    <a class="nav__logo" href="#top"><svg class="ht-mark" viewBox="0 0 18 18" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke-opacity=".38"/></svg>Halftype</a>
+    <a class="nav__logo" href="#top"><svg class="ht-mark" viewBox="0 0 18 18" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke="url(#ht-arch)"/></svg>Halftype</a>
     <nav class="nav__links" aria-label="Main">
       <div class="nav__item"><a class="nav__link" href="#keys">Keys</a></div>
       <div class="nav__item"><a class="nav__link" href="#privacy">Privacy</a></div>
@@ -169,7 +169,7 @@ brew install --cask halftype</code>
         </div>
       </div>
       <div class="hero__media sky span-6 start-7">
-        <canvas data-sky aria-hidden="true"></canvas>
+        <svg class="hero-mark" viewBox="0 0 18 18" width="40" height="40" fill="none" stroke="#1d1c1a" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke="url(#ht-arch)"/></svg>
         <div class="ht-field" role="img" aria-label="The Halftype window: a sentence is typed, grey text suggests its ending, and Tab turns it to ink.">
           <div class="ht-text" data-replay aria-hidden="true"></div>
           <div class="ht-bar"><span class="kc" data-tabkey>tab</span><span class="ht-pill">Qwen 3.5 0.8B</span><span class="ht-power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
@@ -210,7 +210,6 @@ brew install --cask halftype</code>
           <p>Most tools go quiet while you compose Hangul. Halftype suggests from 하, then Tab presses the keys left, so your input method finishes the syllable.</p>
         </div>
         <div class="frame span-6 start-7 sky" role="img" aria-label="“만나서 반갑” with “습니다.” in grey; Tab presses ㅅ ㅡ ㅂ ㄴ ㅣ ㄷ ㅏ and the full stop">
-          <canvas data-sky data-still aria-hidden="true"></canvas>
           <div class="ko-figure">
             <div class="ht-field"><div class="ht-text">만나서 반갑<span class="ghost">습니다.</span></div><div class="ht-bar"><span class="ht-pill">2-Set Korean</span></div></div>
             <p class="t-label">Tab presses</p>
@@ -246,7 +245,7 @@ brew install --cask halftype</code>
           <li><span class="rows__name">On disk</span><p>Settings, models and four counts a day. No text, no logs.</p></li>
           <li><span class="rows__name">Password fields</span><p>Skipped.</p></li>
         </ul>
-        <div class="span-6 start-7"><img class="shot" src="img/window-general.png" alt="Halftype’s General settings: Start at Login, Length, How Often, the three keys, and “Everything runs on this Mac. Nothing you type is sent, and only counts are saved, never text.”" width="1440" height="1000"></div>
+        <div class="span-6 start-7"><img class="shot" src="img/window-settings.png" alt="Halftype’s settings: models that run on this Mac, paused apps, and General with Length, How Often and the three keys" width="1800" height="1640" loading="lazy"></div>
       </div>
     </div>
   </section>
@@ -295,10 +294,9 @@ brew install --cask halftype</code>
 
 </main>
 
-<footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
+<footer class="footer closing" id="contact" aria-labelledby="close-h">
   <div class="wrap">
-    <div class="closing__cta close--type night">
-      <canvas data-sky data-night aria-hidden="true"></canvas>
+    <div class="closing__cta close--type night sky">
       <div class="section-head">
         <h2 id="close-h">Download Halftype for your Mac</h2>
         <p>Free, open source, and it updates itself.</p>
@@ -308,7 +306,7 @@ brew install --cask halftype</code>
     <div class="closing__links">
       <div class="grid">
         <div class="span-4 stack-4">
-          <a class="nav__logo" href="#top"><svg class="ht-mark" viewBox="0 0 18 18" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke-opacity=".38"/></svg>Halftype</a>
+          <a class="nav__logo" href="#top"><svg class="ht-mark" viewBox="0 0 18 18" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke="url(#ht-arch)"/></svg>Halftype</a>
           <p class="footer__lede">Inline suggestions in any app, from a model on your Mac.</p>
         </div>
         <div class="span-2 footer__col"><h3>Product</h3><ul><li><a href="#keys">Keys</a></li><li><a href="#limits">Limits</a></li></ul></div>
@@ -345,43 +343,6 @@ brew install --cask halftype</code>
 <script type="module" src="assets/motion/motion.js"></script>
 <script type="module" src="assets/layout/layout.js"></script>
 <script>
-// The halftone sky, after Sources/HalftypeApp/Sky.metal: dot area is ink, blue from the top, peach from the bottom; a Tab swells the peach.
-(() => {
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const skies = [...document.querySelectorAll('canvas[data-sky]')].map(c => ({ c, night: c.hasAttribute('data-night'), swell: -1, progress: 0 }));
-  const sat = x => Math.max(0, Math.min(1, x));
-  function draw(s) {
-    const r = s.c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
-    if (!r.width) return;
-    if (s.c.width !== Math.round(r.width * dpr) || s.c.height !== Math.round(r.height * dpr)) { s.c.width = Math.round(r.width * dpr); s.c.height = Math.round(r.height * dpr); }
-    const g = s.c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
-    const cell = 7, rad = cell * 0.62, W = r.width, H = r.height;
-    const inks = s.night ? ['#21384f', '#4d3024'] : ['#a9cdf0', '#f6c3a4'];
-    const age = s.swell < 0 ? -1 : (performance.now() - s.swell) / 1000;
-    for (let k = 0; k < 2; k++) {
-      g.fillStyle = inks[k];
-      const off = k ? cell / 2 : 0;
-      for (let y = off; y < H + cell; y += cell) for (let x = off; x < W + cell; x += cell) {
-        const v = y / H, u = x / W;
-        let a;
-        if (k === 0) a = sat(0.62 - v * 1.5 * 1.2 - 0.05 * s.progress);
-        else {
-          const horizon = 0.66 - 0.08 * s.progress - 0.02 * Math.sin(u * 9 + s.progress * 4);
-          a = sat((v - horizon) * 1.6);
-          if (age >= 0) a += 0.32 * Math.exp(-age * 2.2) * Math.min(age * 5, 1) * sat(v * 1.6) * sat((v - (1 - age * 2)) * 3 + 1);
-          a = sat(a);
-        }
-        if (a < 0.02) continue;
-        g.beginPath(); g.arc(x, y, rad * Math.sqrt(a), 0, 6.2832); g.fill();
-      }
-    }
-  }
-  const drawAll = () => skies.forEach(draw);
-  addEventListener('resize', drawAll); drawAll();
-  if (document.fonts) document.fonts.ready.then(drawAll);
-  window.htSky = { tab(s) { if (still) return; s.swell = performance.now(); const step = () => { draw(s); if ((performance.now() - s.swell) < 1600) requestAnimationFrame(step); }; requestAnimationFrame(step); }, skies, draw };
-})();
-
 // The replay: each typed part and grey ending is what the real model and gate said (docs/media/en.gif, ko.gif, scripts/demo.sh).
 (() => {
   const lines = [
@@ -415,9 +376,8 @@ brew install --cask halftype</code>
   const out = document.querySelector('[data-replay]');
   if (!out) return;
   const key = document.querySelector('[data-tabkey]'), pauseBtn = document.querySelector('[data-replay-pause]');
-  const sky = window.htSky && window.htSky.skies[0];
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const show = (typed, ghost) => { out.innerHTML = esc(typed) + '<span class="caret"></span>' + (ghost ? '<span class="ghost">' + esc(ghost) + '</span>' : ''); };
+  const show = (typed, ghost, taken = '') => { out.innerHTML = esc(typed) + (taken ? '<span class="taken">' + esc(taken) + '</span>' : '') + '<span class="caret"></span>' + (ghost ? '<span class="ghost">' + esc(ghost) + '</span>' : ''); };
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { show(lines[0][0] + lines[0][1], ''); pauseBtn.hidden = true; return; }
   let paused = false, wake = null;
   pauseBtn.addEventListener('click', () => {
@@ -431,16 +391,14 @@ brew install --cask halftype</code>
       const keys = keysOf(typed);
       for (let k = 1; k <= keys.length; k++) {
         show(compose(keys.slice(0, k)), ''); await wait(keys[k - 1] === ' ' ? 120 : 70 + Math.random() * 70);
-        if (sky) { sky.progress = k / keys.length; window.htSky.draw(sky); }
       }
       await wait(260);
       show(typed, ghost);
       await wait(1300);
-      key.classList.add('is-down'); if (sky) window.htSky.tab(sky);
+      key.classList.add('is-down');
       await wait(140); key.classList.remove('is-down');
-      show(typed + ghost, '');
+      show(typed, '', ghost);
       await wait(1700);
-      if (sky) { sky.progress = 0; }
     }
   })();
 })();
