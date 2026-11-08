@@ -535,17 +535,22 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
     /// The glyph with a dot at its top right, cut clear around it so it reads at menu-bar size.
+    /// Not a template, as macOS paints a template in one colour and the dot should be orange; the glyph is coloured for the menu bar's
+    /// appearance at each draw instead, so it still follows light and dark.
     static func marked(_ glyph: NSImage) -> NSImage {
         let image = NSImage(size: glyph.size, flipped: false) { rect in
             glyph.draw(in: rect)
+            // Solid black or white, as macOS draws a template (labelColor is a shade lighter).
+            (NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor.white : NSColor.black).set()
+            rect.fill(using: .sourceAtop)
             let dot = CGRect(x: rect.maxX - 6, y: rect.maxY - 6, width: 6, height: 6)
             NSGraphicsContext.current?.compositingOperation = .clear
             NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
             NSGraphicsContext.current?.compositingOperation = .sourceOver
+            NSColor.systemOrange.setFill()
             NSBezierPath(ovalIn: dot).fill()
             return true
         }
-        image.isTemplate = true
         image.accessibilityDescription = "Halftype, needs attention"
         return image
     }

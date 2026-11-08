@@ -1617,7 +1617,8 @@ final class FakeServer: URLProtocol {
                 }
                 draw(glyph, x: 8, alpha: 1)
                 draw(glyph, x: 48, alpha: 0.4)
-                draw(marked, x: 88, alpha: 1)
+                // Drawn as the menu bar would: it isn't a template, and takes its colours from the appearance it's drawn in.
+                NSAppearance(named: dark ? .darkAqua : .aqua)!.performAsCurrentDrawingAppearance { marked.draw(in: CGRect(x: 88, y: 3, width: 18, height: 18)) }
                 draw(glyph, x: 128, alpha: 1, title: "37%")
                 return true
             }
