@@ -15,7 +15,7 @@ brew tap hrsong99/halftype && brew trust hrsong99/halftype
 brew install --cask halftype
 ```
 
-You need macOS 26 on Apple Silicon. Open Halftype: its window asks for Accessibility, fetches a 3.4 GB model once, and gives you a field to try it in, with a sentence already typed so the first suggestion needs no typing.
+You need macOS 26 on Apple Silicon. Open Halftype: a short welcome asks for Accessibility, with a card beside System Settings showing which switch to flip, and fetches a 3.4 GB model once in the meantime. Then three quick lessons, one each for Tab, Shift-Tab and Esc, on suggestions that need no model yet.
 
 It keeps itself up to date, with signed and notarized releases. Turn off Update Automatically under General and it only tells you, with a dot on its menu-bar icon, when there's a new version. To build it yourself, with Swift 6.2 (Xcode 26), run `scripts/build-app.sh` and open `build/Halftype.app`.
 
