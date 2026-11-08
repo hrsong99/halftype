@@ -254,7 +254,7 @@ enum EndToEnd {
         var glass = false
     }
     /// The README demo's surroundings: the counts so far and whether Tab is down.
-    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat }
+    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat, shift: Bool = false, glint: CGFloat? = nil }
 
     /// `--shots <dir>`: a real text view with the real ghost view over it, placed by the real layout from what AX would report.
     static func shots(to dir: String) {
@@ -317,44 +317,49 @@ enum EndToEnd {
     static func demo(model: String, to dir: String, sentences: [String]) {
         guard let engine = try? Engine(modelPath: model) else { return check(false, "engine loads") }
         defer { engine.unload() }
+        // General's Length Long and How Often More, which anyone can choose: longer suggestions, shown more often. On these sentences it beat
+        // Try It's own (no cap, always) by a few keys (2026-11-09).
+        let tuning = Tuning(floor: Length.long.floor, threshold: Often.more.threshold)
+        Tuning.current.withLock { $0 = tuning }
         func ask(_ before: String) -> String {
             let prompt = Prompt.make(context: "", before: before)
             let latest = Mutex<Suggestion?>(nil)
             engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in latest.withLock { $0 = suggestion } }
             engine.finish()
-            guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= Gate.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return "" }
+            guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= tuning.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return "" }
             return s.text
         }
         var frame = 0, delays = ""
+        func shot(_ name: String, _ typed: String, _ ghost: String, _ stage: Stage) -> Shot {
+            Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false, stage: stage, glass: true)
+        }
         // Delays in hundredths; browsers play anything under 2 as 10, so nothing goes below 3.
-        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, _ delay: Int) {
+        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, shift: Bool = false, glint: CGFloat? = nil, _ delay: Int) {
             frame += 1
             let name = String(format: "en-%04d", frame)
-            onMain { render(Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false,
-                                 stage: Stage(keys: keys, wrote: wrote, letters: typed.count, press: press)), to: dir) }
+            onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, shift: shift, glint: glint)), to: dir) }
             delays += "\(name).png \(delay)\n"
         }
         // Where the app couldn't draw it (no room at the line's end), there is no suggestion to take.
-        func drawable(_ typed: String, _ ghost: String) -> Bool {
-            onMain { render(Shot(name: "", typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false,
-                                 stage: Stage(keys: 0, wrote: 0, letters: 0, press: 0)), to: nil) }
-        }
+        func drawable(_ typed: String, _ ghost: String) -> Bool { onMain { render(shot("", typed, ghost, Stage(keys: 0, wrote: 0, letters: 0, press: 0)), to: nil) } }
         for target in sentences {
             var text = "", keys = 0, wrote = 0
             draw("", "", 0, 0, 40)
             while text.count < target.count {
                 var ghost = ask(text)
                 if !ghost.isEmpty, !drawable(text, ghost) { ghost = "" }
-                // Tab while the next word is what comes next; then the app asks again.
+                // Shift-Tab when all of it is what comes next, else Tab while the next word is; then the app asks again.
                 var took = false
                 while !ghost.isEmpty {
-                    let word = Accept.nextWord(Ghost(remainder: ghost)).text
-                    guard !word.isEmpty, target.dropFirst(text.count).hasPrefix(word) else { break }
-                    draw(text, ghost, keys, wrote, took ? 9 : 26)  // A beat to read it the first time, then a quick rhythm.
-                    draw(text, ghost, keys, wrote, press: 0.5, 3)
-                    text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count)); took = true
-                    draw(text, ghost, keys, wrote, press: 1, 5)
-                    draw(text, ghost, keys, wrote, press: 0.5, 3)
+                    let all = target.dropFirst(text.count).hasPrefix(ghost)
+                    let take = all ? ghost : Accept.nextWord(Ghost(remainder: ghost)).text
+                    guard !take.isEmpty, target.dropFirst(text.count).hasPrefix(take) else { break }
+                    draw(text, ghost, keys, wrote, shift: all, took ? 9 : 30)  // A beat to read it the first time, then a quick rhythm.
+                    draw(text, ghost, keys, wrote, press: 0.5, shift: all, 3)
+                    text += take; keys += 1; wrote += take.count; ghost = String(ghost.dropFirst(take.count)); took = true
+                    draw(text, ghost, keys, wrote, press: 1, shift: all, glint: 0.3, 4)
+                    draw(text, ghost, keys, wrote, press: 0.5, shift: all, glint: 0.65, 3)
+                    draw(text, ghost, keys, wrote, glint: 1, 3)
                 }
                 if took { draw(text, ghost, keys, wrote, 8); continue }
                 if !ghost.isEmpty { draw(text, ghost, keys, wrote, 10) }  // Shown, wrong, and typed over.
@@ -374,10 +379,30 @@ enum EndToEnd {
         return h - h.rounded(.down)
     }
 
-    /// Option F of docs/design/readme-demo: the app's dot sky, a white panel for the field, the counts so far, and a Tab keycap.
+    /// Option F of docs/design/readme-demo in the home window's glass (docs/design/home-glass): cream, the blurred arch, a frosted panel for the
+    /// field with the counts so far, and the shift and tab keys. A taken suggestion sends the window's glint across the panel.
     final class DemoStage: NSView {
         static let size = CGSize(width: 760, height: 360)
         static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
+        static let blue = NSColor(srgbRed: 0.561, green: 0.733, blue: 0.91, alpha: 1), peach = NSColor(srgbRed: 0.957, green: 0.706, blue: 0.549, alpha: 1)
+        /// The window's `Backdrop` arch, on its 720 x 460 grid scaled to this stage, blurred once.
+        static let arch: CGImage = {
+            let scale: CGFloat = 2, w = size.width * scale, h = size.height * scale
+            let context = CGContext(data: nil, width: Int(w), height: Int(h), bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.translateBy(x: 0, y: h); context.scaleBy(x: scale, y: -scale)
+            let sx = size.width / 720, sy = size.height / 460, p = { (x: CGFloat, y: CGFloat) in CGPoint(x: x * sx, y: y * sy) }
+            let path = CGMutablePath()
+            path.move(to: p(40, 400)); path.addCurve(to: p(400, 150), control1: p(160, 200), control2: p(300, 120))
+            path.addCurve(to: p(520, 370), control1: p(500, 180), control2: p(470, 330))
+            path.addCurve(to: p(700, 320), control1: p(570, 410), control2: p(640, 380))
+            context.addPath(path.copy(strokingWithWidth: 90 * sx, lineCap: .round, lineJoin: .round, miterLimit: 10))
+            context.clip()
+            let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: [blue.cgColor, NSColor(srgbRed: 0.875, green: 0.906, blue: 0.937, alpha: 1).cgColor, peach.cgColor] as CFArray, locations: nil)!
+            context.drawLinearGradient(gradient, start: p(60, 0), end: p(680, 0), options: [])
+            let blurred = CIImage(cgImage: context.makeImage()!).clampedToExtent().applyingGaussianBlur(sigma: 26 * scale).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
+            return CIContext().createCGImage(blurred, from: blurred.extent)!
+        }()
         let stage: Stage
         init(frame: CGRect, stage: Stage) { self.stage = stage; super.init(frame: frame) }
         required init?(coder: NSCoder) { nil }
@@ -385,61 +410,61 @@ enum EndToEnd {
 
         override func draw(_ dirty: NSRect) {
             let c = NSGraphicsContext.current!.cgContext
-            NSColor(srgbRed: 0.988, green: 0.98, blue: 0.965, alpha: 1).setFill()
+            NSColor(srgbRed: 0.965, green: 0.945, blue: 0.914, alpha: 1).setFill()
             bounds.fill()
-            // Halftone, as in Sky.metal: dot area is ink, blue fading down from the top, peach up from the bottom on the offset grid.
-            let cell: CGFloat = 7, h = bounds.height
-            func dots(_ color: NSColor, offset: CGFloat, ink: (CGFloat) -> CGFloat) {
-                color.setFill()
-                var y = offset
-                while y < h {
-                    let d = ink(y)
-                    if d > 0.04 {
-                        let r = cell * 0.5 * d.squareRoot()
-                        var x = offset
-                        while x < bounds.width { c.fillEllipse(in: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r)); x += cell }
-                    }
-                    y += cell
-                }
-            }
-            dots(NSColor(srgbRed: 0.56, green: 0.73, blue: 0.91, alpha: 1), offset: 0) { y in pow(max(0, 1 - y / (h * 0.34)), 1.2) }
-            dots(NSColor(srgbRed: 0.95, green: 0.68, blue: 0.53, alpha: 1), offset: cell / 2) { y in pow(max(0, (y - h * 0.62) / (h * 0.38)), 1.1) }
-
-            let panel = NSBezierPath(roundedRect: Self.panel, xRadius: 14, yRadius: 14)
-            c.saveGState()
-            c.setShadow(offset: CGSize(width: 0, height: 8), blur: 26, color: NSColor(white: 0.2, alpha: 0.16).cgColor)
-            NSColor.white.setFill(); panel.fill()
+            c.saveGState(); c.setAlpha(0.75)
+            c.translateBy(x: 0, y: bounds.height); c.scaleBy(x: 1, y: -1)  // CGImage draws bottom-up.
+            c.draw(Self.arch, in: bounds)
             c.restoreGState()
-            let divider = Self.panel.maxY - 42
-            NSColor(white: 0.93, alpha: 1).setFill()
-            NSRect(x: Self.panel.minX + 20, y: divider, width: Self.panel.width - 40, height: 1).fill()
 
-            let label: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor(white: 0.42, alpha: 1)]
+            let panel = NSBezierPath(roundedRect: Self.panel, xRadius: 20, yRadius: 20)
+            c.saveGState()
+            c.setShadow(offset: CGSize(width: 0, height: 10), blur: 30, color: NSColor(srgbRed: 0.45, green: 0.38, blue: 0.3, alpha: 0.14).cgColor)
+            NSColor(white: 1, alpha: 0.86).setFill(); panel.fill()
+            c.restoreGState()
+            NSColor(white: 1, alpha: 0.9).setStroke(); panel.lineWidth = 1; panel.stroke()
+            if let glint = stage.glint {
+                // The window's Glint: a 90-point band of light, blue, white, peach, crossing the pane.
+                c.saveGState(); panel.addClip()
+                let x = Self.panel.minX - 90 + glint * (Self.panel.width + 90)
+                NSGradient(colors: [.clear, Self.blue.withAlphaComponent(0.35), NSColor(white: 1, alpha: 0.85), Self.peach.withAlphaComponent(0.35), .clear])!
+                    .draw(in: CGRect(x: x, y: Self.panel.minY, width: 90, height: Self.panel.height), angle: 0)
+                c.restoreGState()
+            }
+            let divider = Self.panel.maxY - 42
+            NSColor(srgbRed: 0.9, green: 0.88, blue: 0.85, alpha: 1).setFill()
+            NSRect(x: Self.panel.minX + 22, y: divider, width: Self.panel.width - 44, height: 1).fill()
+
+            let label: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor(srgbRed: 0.45, green: 0.42, blue: 0.39, alpha: 1)]
             func number(_ n: Int, _ color: NSColor) -> NSAttributedString {
                 NSAttributedString(string: "\(n)", attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .semibold), .foregroundColor: color])
             }
             func pair(_ title: String, _ value: NSAttributedString) -> NSAttributedString {
                 let out = NSMutableAttributedString(string: title + "  ", attributes: label); out.append(value); return out
             }
-            let y = divider + 13, ink = NSColor(white: 0.1, alpha: 1)
-            pair("Keys you pressed", number(stage.keys, NSColor(srgbRed: 0.29, green: 0.55, blue: 0.84, alpha: 1))).draw(at: CGPoint(x: Self.panel.minX + 20, y: y))
-            pair("Letters Tab wrote", number(stage.wrote, ink)).draw(at: CGPoint(x: Self.panel.minX + 200, y: y))
+            let y = divider + 13
+            pair("Keys you pressed", number(stage.keys, NSColor(srgbRed: 0.29, green: 0.52, blue: 0.78, alpha: 1))).draw(at: CGPoint(x: Self.panel.minX + 22, y: y))
+            pair("Letters Halftype wrote", number(stage.wrote, NSColor(white: 0.1, alpha: 1))).draw(at: CGPoint(x: Self.panel.minX + 200, y: y))
             if stage.letters > 0, stage.wrote > 0 {
                 let saved = NSAttributedString(string: "\(100 * (stage.letters - stage.keys) / stage.letters)% fewer keys",
-                                               attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: NSColor(srgbRed: 0.82, green: 0.48, blue: 0.29, alpha: 1)])
-                saved.draw(at: CGPoint(x: Self.panel.maxX - 20 - saved.size().width, y: y))
+                                               attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: NSColor(srgbRed: 0.8, green: 0.47, blue: 0.3, alpha: 1)])
+                saved.draw(at: CGPoint(x: Self.panel.maxX - 22 - saved.size().width, y: y))
             }
 
-            // The keycap: a rounded key on its own darker edge, which it sinks into while down.
-            let key = CGRect(x: bounds.midX - 48, y: Self.panel.maxY + 26, width: 96, height: 40)
-            let sink = 3 * stage.press
-            NSColor(srgbRed: 0.8, green: 0.78, blue: 0.74, alpha: 1).setFill()
-            NSBezierPath(roundedRect: key.offsetBy(dx: 0, dy: 3), xRadius: 9, yRadius: 9).fill()
-            let top = NSBezierPath(roundedRect: key.offsetBy(dx: 0, dy: sink), xRadius: 9, yRadius: 9)
-            NSColor.white.blended(withFraction: stage.press, of: NSColor(srgbRed: 0.86, green: 0.91, blue: 0.98, alpha: 1))!.setFill(); top.fill()
-            NSColor(srgbRed: 0.85, green: 0.83, blue: 0.79, alpha: 1).setStroke(); top.lineWidth = 1; top.stroke()
-            let tab = NSAttributedString(string: "tab ⇥", attributes: [.font: NSFont.systemFont(ofSize: 15, weight: .semibold), .foregroundColor: NSColor(white: 0.24, alpha: 1)])
-            tab.draw(at: CGPoint(x: key.midX - tab.size().width / 2, y: key.midY - tab.size().height / 2 + sink - 1))
+            // Shift and tab, side by side; each sinks into its darker edge while down.
+            func key(_ title: String, _ rect: CGRect, _ press: CGFloat) {
+                let sink = 3 * press
+                NSColor(srgbRed: 0.82, green: 0.79, blue: 0.75, alpha: 1).setFill()
+                NSBezierPath(roundedRect: rect.offsetBy(dx: 0, dy: 3), xRadius: 9, yRadius: 9).fill()
+                let top = NSBezierPath(roundedRect: rect.offsetBy(dx: 0, dy: sink), xRadius: 9, yRadius: 9)
+                NSColor(white: 1, alpha: 1).blended(withFraction: press, of: NSColor(srgbRed: 0.87, green: 0.91, blue: 0.97, alpha: 1))!.setFill(); top.fill()
+                NSColor(srgbRed: 0.86, green: 0.83, blue: 0.79, alpha: 1).setStroke(); top.lineWidth = 1; top.stroke()
+                let text = NSAttributedString(string: title, attributes: [.font: NSFont.systemFont(ofSize: 15, weight: .semibold), .foregroundColor: NSColor(white: 0.26, alpha: 1)])
+                text.draw(at: CGPoint(x: rect.midX - text.size().width / 2, y: rect.midY - text.size().height / 2 + sink - 1))
+            }
+            let top = Self.panel.maxY + 26
+            key("⇧ shift", CGRect(x: bounds.midX - 112, y: top, width: 112, height: 40), stage.shift ? stage.press : 0)
+            key("tab ⇥", CGRect(x: bounds.midX + 8, y: top, width: 96, height: 40), stage.press)
         }
     }
 
