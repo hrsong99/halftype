@@ -51,6 +51,7 @@ th { color: var(--muted); font-weight: 500; }
 
 <div class="tldr">
 <p><strong>TL;DR.</strong> Yes, mostly. The core is small and pure, the app follows one path, and almost every odd branch has a reason and a test behind it. I found <strong>one real bug</strong>: the <code>shown</code> count goes up on every streamed token, not once per suggestion (#1). That makes the personal-model A/B's take rate wrong. It is a one-line fix. Everything else is small: one untested rule that the A/B relies on (#2), a window that may redraw on every key (#3), and about 20 lines of duplicated or shorter code (#4–#8).</p>
+<p><strong>Status:</strong> #1 and #2 fixed in cf8b6bd, same day (a test proved #1: one streamed suggestion counted 3 times). The rest are open.</p>
 <p><strong>Fix first:</strong> #1, then #2. <strong>Lean:</strong> about −20 lines and no dependencies to remove (Sparkle is the only one, and it is needed).</p>
 </div>
 
