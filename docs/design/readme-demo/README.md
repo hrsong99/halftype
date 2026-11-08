@@ -30,3 +30,9 @@ John: "What if we mix tabs and shift tabs? So show using tab for some small sugg
 - `round3.png`: one frame of each.
 
 Recommendation: H (`beat=12,tab=14,after=8,glint=burst,long=3,hold=40`).
+
+## Built
+
+John (after round 3): "Let's go with 'Happy birthday! I hope you have a great day!', but 'Ha' shows 'ppy birthday' and two tabs accept that. And 'I ' shows 'hope you have a great day' and shift tab accepts that. but the keys don't exist on the bottom and only show up when clicked. No need to show another set of texts".
+
+No model suggests that from those prefixes (probed 2026-11-09 with `HALFTYPE_DEMO_PROBE=1`: Qwen 3.5 0.8B says "ar's" after "Ha"), so the demo is scripted (`HALFTYPE_DEMO_SCRIPT` in `scripts/demo.sh`) and the README calls it an illustration. H's timing is the default; the keys show only while pressed, then fade.

@@ -254,7 +254,7 @@ enum EndToEnd {
         var glass = false
     }
     /// The README demo's surroundings: the counts so far and whether Tab is down.
-    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat, glint: CGFloat? = nil, taken: Int = 0, shift: Bool = false }
+    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat, glint: CGFloat? = nil, taken: Int = 0, shift: Bool = false, seen: CGFloat = 0 }
 
     /// `--shots <dir>`: a real text view with the real ghost view over it, placed by the real layout from what AX would report.
     static func shots(to dir: String) {
@@ -326,7 +326,26 @@ enum EndToEnd {
         // Try It's own (no cap, always) by a few keys (2026-11-09).
         let tuning = Tuning(floor: Length.long.floor, threshold: Often.more.threshold)
         Tuning.current.withLock { $0 = tuning }
+        if ProcessInfo.processInfo.environment["HALFTYPE_DEMO_PROBE"] != nil {
+            let context = ProcessInfo.processInfo.environment["HALFTYPE_DEMO_CONTEXT"] ?? ""
+            for prefix in sentences {
+                let prompt = Prompt.make(context: context, before: prefix)
+                let latest = Mutex<Suggestion?>(nil)
+                engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in latest.withLock { $0 = suggestion } }
+                engine.finish()
+                let s = latest.withLock { $0 }
+                print("PROBE '\(prefix)' -> '\(s?.text ?? "nil")' gate \(s?.gate.map { String(format: "%.2f", $0) } ?? "nil")")
+            }
+            return
+        }
+        // HALFTYPE_DEMO_SCRIPT="Ha=ppy birthday|…": a scripted demo, with these suggestions after these texts and none elsewhere.
+        let script = ProcessInfo.processInfo.environment["HALFTYPE_DEMO_SCRIPT"].map { line in
+            Dictionary(uniqueKeysWithValues: line.split(separator: "|").map { pair in
+                let parts = pair.split(separator: "=", maxSplits: 1); return (String(parts[0]), String(parts[1]))
+            })
+        }
         func ask(_ before: String) -> String {
+            if let script { return script[before] ?? "" }
             let prompt = Prompt.make(context: "", before: before)
             let latest = Mutex<Suggestion?>(nil)
             engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in latest.withLock { $0 = suggestion } }
@@ -339,10 +358,10 @@ enum EndToEnd {
             Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false, stage: stage, glass: true)
         }
         // Delays in hundredths; browsers play anything under 2 as 10, so nothing goes below 3.
-        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, glint: CGFloat? = nil, taken: Int = 0, shift: Bool = false, _ delay: Int) {
+        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, glint: CGFloat? = nil, taken: Int = 0, shift: Bool = false, seen: CGFloat = 0, _ delay: Int) {
             frame += 1
             let name = String(format: "en-%04d", frame)
-            onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, glint: glint, taken: taken, shift: shift)), to: dir) }
+            onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, glint: glint, taken: taken, shift: shift, seen: seen)), to: dir) }
             delays += "\(name).png \(delay)\n"
         }
         func drawable(_ typed: String, _ ghost: String) -> Bool { onMain { render(shot("", typed, ghost, Stage(keys: 0, wrote: 0, letters: 0, press: 0)), to: nil) } }
@@ -352,17 +371,15 @@ enum EndToEnd {
             return ghost.isEmpty || drawable(text, ghost) ? ghost : ""
         }
         // No pauses of its own: each frame shows the letter and, at once, what the app suggests after it; Tab comes at the typing rhythm.
-        // The pace, for docs/design/readme-demo round 2: HALFTYPE_DEMO_PACE="type=4,tab=12,beat=0,after=0,glint=word,key=1" (hundredths;
+        // The pace (docs/design/readme-demo rounds 2 and 3): HALFTYPE_DEMO_PACE="type=4,tab=14,…" (hundredths;
         // glint word, burst or none). beat waits once a suggestion shows before the first Tab; after waits once a run of Tabs ends.
         // Round 3: long=N takes a fresh suggestion of N words or more that is right to the end with Shift-Tab, after hold.
-        var pace = ["type": "4", "tab": "12", "beat": "0", "after": "0", "glint": "word", "key": "1", "long": "0", "hold": "40"]
+        var pace = ["type": "4", "tab": "14", "beat": "12", "after": "8", "glint": "burst", "long": "3", "hold": "40"]  // Round 3's H.
         for pair in (ProcessInfo.processInfo.environment["HALFTYPE_DEMO_PACE"] ?? "").split(separator: ",") {
             let kv = pair.split(separator: "="); if kv.count == 2 { pace[String(kv[0])] = String(kv[1]) }
         }
         let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!, glintMode = pace["glint"]!
-        showKey = pace["key"] != "0"
         let long = Int(pace["long"]!)!, hold = Int(pace["hold"]!)!
-        showShift = long > 0
         for target in sentences {
             var text = "", keys = 0, wrote = 0
             var ghost = "", burst = 0
@@ -374,13 +391,13 @@ enum EndToEnd {
                     // A long suggestion, all of it right: a moment to read it, then Shift-Tab takes the lot, and one glint crosses it.
                     draw(text, ghost, keys, wrote, hold)
                     let all = ghost
-                    draw(text, ghost, keys, wrote, press: 0.5, shift: true, 3)
+                    draw(text, ghost, keys, wrote, press: 0.5, shift: true, seen: 1, 3)
                     text += all; keys += 1; wrote += all.count
                     ghost = suggestion(text)
                     let taken = (all as NSString).length
-                    draw(text, ghost, keys, wrote, press: 1, glint: 0.15, taken: taken, shift: true, 4)
-                    draw(text, ghost, keys, wrote, press: 0.4, glint: 0.4, taken: taken, shift: true, 4)
-                    draw(text, ghost, keys, wrote, glint: 0.65, taken: taken, 4)
+                    draw(text, ghost, keys, wrote, press: 1, glint: 0.15, taken: taken, shift: true, seen: 1, 4)
+                    draw(text, ghost, keys, wrote, press: 0.4, glint: 0.4, taken: taken, shift: true, seen: 1, 4)
+                    draw(text, ghost, keys, wrote, glint: 0.65, taken: taken, shift: true, seen: 0.4, 4)
                     draw(text, ghost, keys, wrote, glint: 0.9, taken: taken, 4)
                     if after > 0 { draw(text, ghost, keys, wrote, after) }
                     continue
@@ -392,9 +409,9 @@ enum EndToEnd {
                     let taken = (word as NSString).length
                     burst += taken
                     let third = max(3, tabDelay / 3), lit = glintMode == "word"
-                    draw(text, ghost, keys, wrote, press: 1, glint: lit ? 0.3 : nil, taken: taken, third)
-                    draw(text, ghost, keys, wrote, press: 0.4, glint: lit ? 0.7 : nil, taken: taken, third)
-                    draw(text, ghost, keys, wrote, glint: lit ? 0.95 : nil, taken: taken, max(3, tabDelay - 2 * third))
+                    draw(text, ghost, keys, wrote, press: 1, glint: lit ? 0.3 : nil, taken: taken, seen: 1, third)
+                    draw(text, ghost, keys, wrote, press: 0.4, glint: lit ? 0.7 : nil, taken: taken, seen: 1, third)
+                    draw(text, ghost, keys, wrote, glint: lit ? 0.95 : nil, taken: taken, seen: 0.4, max(3, tabDelay - 2 * third))
                     continue
                 }
                 if burst > 0 {
@@ -425,7 +442,6 @@ enum EndToEnd {
 
     /// Option F of docs/design/readme-demo in the home window's glass (docs/design/home-glass): cream, the blurred arch, a frosted panel for the
     /// field with the counts so far, and the tab key. A taken suggestion glints across its own words, as in the app.
-    nonisolated(unsafe) static var showKey = true, showShift = false
     final class DemoStage: NSView {
         static let size = CGSize(width: 760, height: 360)
         static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
@@ -488,7 +504,9 @@ enum EndToEnd {
                 saved.draw(at: CGPoint(x: Self.panel.maxX - 22 - saved.size().width, y: y))
             }
 
-            // Shift and tab, side by side; each sinks into its darker edge while down.
+            // The keys show only while pressed, then fade: tab alone, or shift and tab together. Each sinks into its darker edge while down.
+            guard stage.seen > 0 else { return }
+            c.setAlpha(stage.seen)
             func key(_ title: String, _ rect: CGRect, _ press: CGFloat) {
                 let sink = 3 * press
                 NSColor(srgbRed: 0.82, green: 0.79, blue: 0.75, alpha: 1).setFill()
@@ -500,10 +518,10 @@ enum EndToEnd {
                 text.draw(at: CGPoint(x: rect.midX - text.size().width / 2, y: rect.midY - text.size().height / 2 + sink - 1))
             }
             let top = Self.panel.maxY + 26
-            if EndToEnd.showShift {
-                key("⇧ shift", CGRect(x: bounds.midX - 112, y: top, width: 112, height: 40), stage.shift ? stage.press : 0)
+            if stage.shift {
+                key("⇧ shift", CGRect(x: bounds.midX - 112, y: top, width: 112, height: 40), stage.press)
                 key("tab ⇥", CGRect(x: bounds.midX + 8, y: top, width: 96, height: 40), stage.press)
-            } else if EndToEnd.showKey { key("tab ⇥", CGRect(x: bounds.midX - 48, y: top, width: 96, height: 40), stage.press) }
+            } else { key("tab ⇥", CGRect(x: bounds.midX - 48, y: top, width: 96, height: 40), stage.press) }
         }
     }
 
