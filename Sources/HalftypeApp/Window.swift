@@ -230,6 +230,11 @@ extension View {
     }
 }
 
+extension Color {
+    /// The icon's glass, at either end of its arch.
+    static let glassBlue = Color(red: 0.561, green: 0.733, blue: 0.91), glassPeach = Color(red: 0.957, green: 0.706, blue: 0.549)
+}
+
 /// The window's ground, from the icon: its cream tile, and on the field page its arch drawn large and out of focus, blue to peach.
 private struct Backdrop: View {
     var ribbon: Bool
@@ -247,7 +252,7 @@ private struct Backdrop: View {
                         arch.addCurve(to: p(700, 320), control1: p(570, 410), control2: p(640, 380))
                         context.addFilter(.blur(radius: 26))
                         context.opacity = 0.75
-                        context.stroke(arch, with: .linearGradient(Gradient(colors: [Color(red: 0.561, green: 0.733, blue: 0.91), Color(red: 0.875, green: 0.906, blue: 0.937), Color(red: 0.957, green: 0.706, blue: 0.549)]),
+                        context.stroke(arch, with: .linearGradient(Gradient(colors: [.glassBlue, Color(red: 0.875, green: 0.906, blue: 0.937), .glassPeach]),
                                                                    startPoint: p(60, 0), endPoint: p(680, 0)),
                                        style: StrokeStyle(lineWidth: 90 * s.width, lineCap: .round))
                     }
@@ -262,7 +267,7 @@ private struct Glint: View {
     var tab: Date?
     var body: some View {
         GeometryReader { geometry in
-            LinearGradient(colors: [.clear, Color(red: 0.561, green: 0.733, blue: 0.91).opacity(0.35), .white.opacity(0.85), Color(red: 0.957, green: 0.706, blue: 0.549).opacity(0.35), .clear],
+            LinearGradient(colors: [.clear, .glassBlue.opacity(0.35), .white.opacity(0.85), .glassPeach.opacity(0.35), .clear],
                            startPoint: .leading, endPoint: .trailing)
                 .frame(width: 90)
                 // Progress, not points, so the band rests off the edge of the pane at its current width, after a resize too.
