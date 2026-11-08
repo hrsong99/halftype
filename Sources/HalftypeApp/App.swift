@@ -360,6 +360,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if granted, let window {
             showWindow()
             window.orderFrontRegardless()
+            // `activate()` is only a request since macOS 14, and Settings, active, keeps the front: the window showed but stayed
+            // inactive, so the watcher kept watching Settings and the first lesson's suggestion waited for a click (John: "takes a few
+            // seconds"). The deprecated form still takes the front (tried on macOS 27), and here the user has just asked to come back.
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
