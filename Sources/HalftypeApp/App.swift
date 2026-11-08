@@ -33,7 +33,7 @@ func moveFromItda(_ defaults: UserDefaults, oldDomain: String = "app.itda.Itda",
     // Every launch, so a file that only moves on a retry still gets its path fixed.
     let moved = { (path: String) -> String in
         let new = path.replacingOccurrences(of: old.path + "/", with: support.path + "/")
-        return files.fileExists(atPath: new) ? new : path  // only where the file really arrived
+        return files.fileExists(atPath: new) && !files.fileExists(atPath: path) ? new : path  // only where the file really moved
     }
     if let path = defaults.string(forKey: "modelPath"), moved(path) != path { defaults.set(moved(path), forKey: "modelPath") }
     if let paths = defaults.stringArray(forKey: "ownModels"), paths.map(moved) != paths { defaults.set(paths.map(moved), forKey: "ownModels") }
