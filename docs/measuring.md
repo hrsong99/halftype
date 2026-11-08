@@ -26,6 +26,14 @@ Kanana 1.5 2.1B, the default until 0.1.0:
 
 CPU: the shipped app, idle, 0.13% to 0.27% of a core over 60 s, loaded or unloaded, measured from outside. Typing at about 5 keys a second, 7-8%. Power isn't measured: `powermetrics` needs sudo.
 
+## Against Cotypist (landing page, 2026-11-09)
+
+Cotypist 2026.5.2 on the same M5 with 16 GB. Its model, as it downloaded it: `gemma-4-E2B-Q4_C.gguf`, 2.98 GB, in `~/Library/Application Support/app.cotypist.Cotypist/Models/`. Halftype's default is 0.53 GB.
+Started hidden (`open -g -j -a Cotypist`), with no typing. `footprint -p` gave 562 MB at 45 s, with RSS 1.9 GB and the model loaded at launch. At 8 idle minutes the footprint was 478 MB, RSS 181 MB, and the model was no longer mapped (`vmmap`). Halftype's 79 MB is its footprint with the model unloaded, from the section above.
+Not measured: Cotypist while typing (that takes the keyboard), its speed, and its power.
+- System-wide wired memory is useless here while other agents run: it swung 4.9-7.1 GB with Cotypist idle.
+- To measure Halftype the same way, first check `pgrep -lf Halftype.app`: another session's dev build may already be running, and two copies fight over the key tap. Check `defaults read app.halftype.Halftype modelPath` too. On this Mac it was Gemma 4 E2B, not the default.
+
 ## The frame a key's ghost stays
 
 After a key the tap disarms at once, and the panel hides one frame later unless the field's update has drawn it again. Whether a host will answer a key at all can only be told by waiting.

@@ -14,6 +14,14 @@ Both pages replay the six suggestions in `docs/media/{en,ko}.gif`, which `script
 
 Preview locally: `python3 -m http.server -d docs/site` and open `http://127.0.0.1:8000/`.
 
+## Round 2 (2026-11-09)
+
+John: "A looks best but it has some overly long ux writing and i want to see a version of the "resource" section comparing it to incuments, showing graphically/visually why we're much better".
+
+- `round2.html`: A2 next to A.
+- `a2/`: A with every section's copy cut, and the Cost section rebuilt as two bar charts against Cotypist. The method is in `docs/measuring.md`, "Against Cotypist".
+- Copy rule for these pages, from that feedback: a hero lead of 20 words or fewer, a card title with no sentence under it, an FAQ answer in one short line. Detail goes to the README.
+
 ## Pick
 
-(not yet)
+A over B (round 1). A2 pending.
