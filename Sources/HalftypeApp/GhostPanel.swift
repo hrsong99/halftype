@@ -16,6 +16,8 @@ struct GhostSpec {
     var mayWrap: Bool
     /// The caret is a web view's sliver, on screen at page zoom, while the font size beside it is before zoom.
     var webCaret = false
+    /// Our own window's field: the suggestion is drawn in the icon's glass rather than the host's colour.
+    var glass = false
 }
 
 struct GhostLayout {
@@ -25,6 +27,7 @@ struct GhostLayout {
     var storage: NSTextStorage
     var manager: NSLayoutManager
     var glyphs: NSRange
+    var glass = false
     var visibleText: String { (storage.string as NSString).substring(with: manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)) }
 
     static func font(_ spec: GhostSpec) -> NSFont {
@@ -60,7 +63,7 @@ struct GhostLayout {
         paragraph.minimumLineHeight = line
         paragraph.maximumLineHeight = line
         paragraph.lineBreakMode = .byWordWrapping
-        let storage = NSTextStorage(string: spec.text, attributes: [.font: font, .foregroundColor: color(spec), .paragraphStyle: paragraph])
+        let storage = NSTextStorage(string: spec.text, attributes: [.font: font, .foregroundColor: spec.glass ? NSColor.black : color(spec), .paragraphStyle: paragraph])
         let manager = NSLayoutManager()
         let container = NSTextContainer(size: CGSize(width: width, height: CGFloat(lines) * line))
         container.lineFragmentPadding = 0
@@ -89,7 +92,7 @@ struct GhostLayout {
         let top = baseline - baselineInLine
         let window = CGRect(x: floor(left), y: floor(top - margin), width: ceil(width + left - floor(left)), height: ceil(max(used.maxY, first.maxY) + 2 * margin) + 1)
         return GhostLayout(window: window, drawOrigin: CGPoint(x: left - floor(left), y: top - floor(top - margin)),
-                           storage: storage, manager: manager, glyphs: glyphs)
+                           storage: storage, manager: manager, glyphs: glyphs, glass: spec.glass)
     }
 
     /// Inside a word of an alphabet: Hangul and other CJK may break between any two characters, in hosts too.
@@ -121,9 +124,32 @@ struct GhostLayout {
 final class GhostView: NSView {
     var layout: GhostLayout? { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
+    /// The icon's glass, pale blue to peach across the suggestion.
+    static let glass = NSGradient(colors: [NSColor(srgbRed: 0.373, green: 0.608, blue: 0.847, alpha: 1), NSColor(srgbRed: 0.6, green: 0.69, blue: 0.79, alpha: 1),
+                                           NSColor(srgbRed: 0.91, green: 0.561, blue: 0.369, alpha: 1)])!
     override func draw(_ dirtyRect: NSRect) {
         guard let layout else { return }
+        guard layout.glass, let context = NSGraphicsContext.current?.cgContext else { return layout.manager.drawGlyphs(forGlyphRange: layout.glyphs, at: layout.drawOrigin) }
+        // The letters, then the gradient painted only where they are.
+        context.beginTransparencyLayer(auxiliaryInfo: nil)
         layout.manager.drawGlyphs(forGlyphRange: layout.glyphs, at: layout.drawOrigin)
+        context.setBlendMode(.sourceIn)
+        // In reading order: each line takes the next stretch of one gradient as long as all the lines laid end to end.
+        var lines: [CGRect] = []
+        layout.manager.enumerateLineFragments(forGlyphRange: layout.glyphs) { _, _, container, range, _ in
+            lines.append(layout.manager.boundingRect(forGlyphRange: NSIntersectionRange(range, layout.glyphs), in: container)
+                .offsetBy(dx: layout.drawOrigin.x, dy: layout.drawOrigin.y))
+        }
+        let total = lines.reduce(0) { $0 + $1.width }
+        var before: CGFloat = 0
+        for line in lines {
+            context.saveGState()
+            context.clip(to: line.insetBy(dx: 0, dy: -3))
+            Self.glass.draw(from: CGPoint(x: line.minX - before, y: 0), to: CGPoint(x: line.minX - before + total, y: 0), options: [.drawsBeforeStartingLocation, .drawsAfterEndingLocation])
+            context.restoreGState()
+            before += line.width
+        }
+        context.endTransparencyLayer()
     }
 }
 

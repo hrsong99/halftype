@@ -84,6 +84,7 @@ final class Watcher: @unchecked Sendable {
     /// Queue, so reports go out in the order they're made. A draw comes back from the main thread only for its own input and binding,
     /// and every hide comes back the same way, after it: see `display` and `hidePanel`.
     private func record(_ now: Why) {
+        trace("why \(now)")
         guard (now, binding) != reported else { return }
         reported = (now, binding)
         onWhy?(now, binding)
@@ -163,6 +164,7 @@ final class Watcher: @unchecked Sendable {
 
     /// Main run loop, no IPC here.
     private func notified(_ name: String) {
+        trace("ax \(name)")
         switch name {
         case "AXWindowMoved", "AXWindowResized":
             hideNow()
@@ -419,7 +421,7 @@ final class Watcher: @unchecked Sendable {
         }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
-                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret)
+                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid())
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before, suggestion: suggestionNumber)
         let binding = binding
         /// Back on the queue, and only for the binding and input this draw was made under: input during the draw has queued a newer report.

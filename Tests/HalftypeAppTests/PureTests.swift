@@ -1463,7 +1463,7 @@ final class FakeServer: URLProtocol {
     }
 }
 
-/// The window's states as PNGs, drawn off screen, so nothing takes focus. `HALFTYPE_SHOTS=<dir> swift test --filter WindowShots`. The sky's shader is blank in these; 13 and 14 draw it alone.
+/// The window's states as PNGs, drawn off screen, so nothing takes focus. `HALFTYPE_SHOTS=<dir> swift test --filter WindowShots`. cacheDisplay leaves out SwiftUI's Canvas, so the ribbon shows only in 15.
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] != nil)) @MainActor struct WindowShots {
     let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] ?? "")
 
@@ -1475,9 +1475,8 @@ final class FakeServer: URLProtocol {
     }
     func textView(in view: NSView) -> NSTextView? { (view as? NSTextView) ?? view.subviews.lazy.compactMap(textView).first }
 
-    @discardableResult func shoot(_ name: String, _ app: App, page: Root.Page = .field, dark: Bool = false) -> NSView {
+    @discardableResult func shoot(_ name: String, _ app: App, page: Root.Page = .field) -> NSView {
         let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field))
-        host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
         let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = host
@@ -1498,31 +1497,21 @@ final class FakeServer: URLProtocol {
         let field = try #require(textView(in: host))
         #expect(field.string == "Please let me know if you have any")
         #expect(field.selectedRange() == NSRange(location: field.string.utf16.count, length: 0), "the caret at the end, where a ghost goes")
-        shoot("4-teach-dark", app { ready($0); $0.why = .shown }, dark: true)
+        shoot("4-teach", app { ready($0); $0.why = .shown })
         shoot("5-unsure", app { ready($0); $0.why = .unsure })
         shoot("6-accepted", app { ready($0); $0.why = .idle; $0.accepted = true })
         shoot("7-predictions", app { ready($0); $0.why = .unsure; $0.readPredictions = { true } })
         shoot("8-no-font", app { ready($0); $0.why = .noFont })
         shoot("9-failed-download", app { $0.trusted = true; $0.modelChanged(.failed("Hugging Face answered 503. Try again later.")) })
         shoot("10-models-delete", app { $0.trusted = true; $0.activePath = $0.store.directory.appendingPathComponent("Qwen3.5-0.8B-Q4_K_M.gguf").path }, page: .models)
-        // The sky mid-typing (fast keys lifting the bars) and 0.35 s into a Tab's swell.
-        let now = Date()
-        for (name, keys, tabs) in [("13-sky-typing", [0.3, 0.2, 0.12, 0.05], [Double]()), ("14-sky-tab", [0.5], [0.35])] {
-            // The sky is a Metal shader, which cacheDisplay leaves blank.
-            let renderer = ImageRenderer(content: Sky(rise: 0.6, keys: keys.map { now - $0 }, tabs: tabs.map { now - $0 }))
-            renderer.proposedSize = ProposedViewSize(width: 720, height: 500)
-            renderer.scale = 2
-            let image = try #require(renderer.cgImage)
-            try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])).write(to: dir.appendingPathComponent("\(name).png"))
-        }
-        // The whole window through ImageRenderer, which does draw the sky, at the smallest size and a tall one: the inks keep clear of the content.
+        // The whole window through ImageRenderer, which draws the ribbon too, at the smallest size and a tall one.
         for (width, height) in [(640.0, 440.0), (720.0, 500.0), (900.0, 820.0)] {
-            let renderer = ImageRenderer(content: Root(app: app { ready($0); $0.why = .idle }).environment(\.colorScheme, .dark).frame(width: width, height: height))
+            let renderer = ImageRenderer(content: Root(app: app { ready($0); $0.why = .idle }).frame(width: width, height: height))
             renderer.scale = 2
             let image = try #require(renderer.cgImage)
             try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])).write(to: dir.appendingPathComponent("15-window-\(Int(width))x\(Int(height)).png"))
         }
-        shoot("11-accepted-dark", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } }, dark: true)
+        shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } })
     }
 
     @Test func icons() throws {
@@ -1555,14 +1544,6 @@ final class FakeServer: URLProtocol {
             let rep = NSBitmapImageRep(data: image.tiffRepresentation(using: .none, factor: 2)!)!  // Two pixels a point, as on a Retina bar.
             try rep.representation(using: .png, properties: [:])!.write(to: dir.appendingPathComponent(dark ? "12-icons-dark.png" : "12-icons.png"))
         }
-    }
-}
-
-@Suite struct SkyBandTests {
-    @Test func theBandKeepsAMarginThatShrinksButNeverUnderTheShadersFade() {
-        #expect(Root.clear(CGRect(x: 0, y: 150, width: 400, height: 200), in: 500) == 106...394)  // room: 44 each side
-        #expect(Root.clear(CGRect(x: 0, y: 60, width: 400, height: 340), in: 440) == 30...424)    // short: half the free space
-        #expect(Root.clear(CGRect(x: 0, y: 10, width: 400, height: 425), in: 440) == -14...459)   // cramped: still 24
     }
 }
 

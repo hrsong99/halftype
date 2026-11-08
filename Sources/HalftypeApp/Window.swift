@@ -11,8 +11,8 @@ struct Root: View {
     @State private var draft = ""
     @State private var sidebar: Bool
     @State private var page: Page
-    @State private var keys: [Date] = []
-    @State private var tabs: [Date] = []
+    /// The last Tab taken in this window, which the field glints with.
+    @State private var tab: Date?
     @Environment(\.accessibilityReduceMotion) private var still
     @Environment(\.controlActiveState) private var active
 
@@ -32,7 +32,7 @@ struct Root: View {
             if sidebar { side.transition(.move(edge: .leading)) }
             ZStack {
                 switch page {
-                case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking, tab: tabs.last)
+                case .field: FieldPage(app: app, draft: $draft, page: $page, picking: picking, tab: tab)
                 case .stats: StatsPage(app: app)
                 case .models: ModelsPage(app: app)
                 case .apps: AppsPage(app: app)
@@ -51,27 +51,13 @@ struct Root: View {
                 .padding(.top, 9)
         }
         .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
-        .backgroundPreferenceValue(Clear.self) { content in
-            GeometryReader { geometry in
-                Sky(rise: page == .field ? min(Double(draft.count) / 34, 1) : 0, keys: keys, tabs: tabs, clear: content.map { Root.clear(geometry[$0], in: geometry.size.height) })
-            }
-        }
-        .onChange(of: draft) { if !still { keys = Root.recent(keys) } }
+        .background { Backdrop(ribbon: page == .field) }
+        // The icon's cream tile, in dark mode too (docs/design/home-glass).
+        .preferredColorScheme(.light)
         // A Tab in another app, with this window behind it, isn't this window's.
-        .onChange(of: app.tabs) { if !still, active == .key { tabs = Root.recent(tabs) } }
+        .onChange(of: app.tabs) { if !still, active == .key { tab = .now } }
         .ignoresSafeArea()
     }
-
-    /// The band the sky's dots stay out of: the field page's content plus a margin, smaller when the window is short.
-    /// Never under 24 points: Sky.metal lets the lifted peach 24 points into the band, and that must stop short of the content.
-    static func clear(_ content: CGRect, in height: CGFloat) -> ClosedRange<CGFloat> {
-        let margin = { (free: CGFloat) in max(24, min(44, free / 2)) }
-        let top = content.minY - margin(content.minY), bottom = content.maxY + margin(height - content.maxY)
-        return top...max(top, bottom)
-    }
-
-    /// The moments still moving the sky, and now.
-    static func recent(_ moments: [Date]) -> [Date] { moments.filter { -$0.timeIntervalSinceNow < Sky.life } + [.now] }
 
     private var side: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -93,7 +79,7 @@ struct Root: View {
     }
 }
 
-/// The app icon's cursive h (docs/icon/menubar.svg, on an 18-point grid): an inked stem, then an arch that thins into the sky's blue and peach.
+/// The app icon's cursive h (docs/icon/menubar.svg, on an 18-point grid): an inked stem, then an arch that thins into the icon's blue and peach.
 private struct Mark: View {
     var body: some View {
         Canvas { context, size in
@@ -113,12 +99,6 @@ private struct Mark: View {
         .frame(width: 36, height: 36)
         .accessibilityHidden(true)
     }
-}
-
-/// Where the field page's content sits, for the sky.
-private struct Clear: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) { value = value ?? nextValue() }
 }
 
 private struct FieldPage: View {
@@ -147,7 +127,6 @@ private struct FieldPage: View {
             if app.trusted { field.zIndex(1) } else { allow }  // The list hangs over what's below the field.
             status
         }
-        .anchorPreference(key: Clear.self, value: .bounds) { $0 }
         .padding(24)
         .padding(.bottom, 40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -204,6 +183,7 @@ private struct FieldPage: View {
         }
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
         .pane()
+        .overlay { Glint(tab: tab) }
         .keyframeAnimator(initialValue: 1.0, trigger: tab) { view, scale in view.scaleEffect(scale) } keyframes: { _ in
             CubicKeyframe(1.006, duration: 0.25)
             CubicKeyframe(1, duration: 0.45)
@@ -244,9 +224,56 @@ private struct FieldPage: View {
 }
 
 extension View {
-    /// A milky pane over the sky, as in the design. Not `.glassEffect`: it decides its text colour from what's behind, which went dark on a dark window in our off-screen shots.
+    /// A milky pane over the ribbon, as in the design. Not `.glassEffect`: it decides its text colour from what's behind, which went dark on a dark window in our off-screen shots.
     func pane() -> some View {
         background(Color(nsColor: .textBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+/// The window's ground, from the icon: its cream tile, and on the field page its arch drawn large and out of focus, blue to peach.
+private struct Backdrop: View {
+    var ribbon: Bool
+    var body: some View {
+        Color(red: 0.965, green: 0.945, blue: 0.914)
+            .overlay {
+                if ribbon {
+                    Canvas { context, size in
+                        // The arch on a 720 x 460 window, scaled to this one.
+                        let s = CGSize(width: size.width / 720, height: size.height / 460)
+                        let p = { (x: CGFloat, y: CGFloat) in CGPoint(x: x * s.width, y: y * s.height) }
+                        var arch = Path()
+                        arch.move(to: p(40, 400)); arch.addCurve(to: p(400, 150), control1: p(160, 200), control2: p(300, 120))
+                        arch.addCurve(to: p(520, 370), control1: p(500, 180), control2: p(470, 330))
+                        arch.addCurve(to: p(700, 320), control1: p(570, 410), control2: p(640, 380))
+                        context.addFilter(.blur(radius: 26))
+                        context.opacity = 0.75
+                        context.stroke(arch, with: .linearGradient(Gradient(colors: [Color(red: 0.561, green: 0.733, blue: 0.91), Color(red: 0.875, green: 0.906, blue: 0.937), Color(red: 0.957, green: 0.706, blue: 0.549)]),
+                                                                   startPoint: p(60, 0), endPoint: p(680, 0)),
+                                       style: StrokeStyle(lineWidth: 90 * s.width, lineCap: .round))
+                    }
+                }
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// On a Tab taken here, one quick band of light crosses the field, as on the icon's glass. Still otherwise: suggestions change with every key, so they get no motion of their own.
+private struct Glint: View {
+    var tab: Date?
+    var body: some View {
+        GeometryReader { geometry in
+            LinearGradient(colors: [.clear, Color(red: 0.561, green: 0.733, blue: 0.91).opacity(0.35), .white.opacity(0.85), Color(red: 0.957, green: 0.706, blue: 0.549).opacity(0.35), .clear],
+                           startPoint: .leading, endPoint: .trailing)
+                .frame(width: 90)
+                // From just off the left edge to just off the right, so resting at either end shows nothing.
+                .keyframeAnimator(initialValue: -90.0, trigger: tab) { band, x in band.offset(x: x) } keyframes: { _ in
+                    MoveKeyframe(-90)
+                    CubicKeyframe(geometry.size.width, duration: 0.25)
+                }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

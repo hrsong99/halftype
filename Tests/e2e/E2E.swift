@@ -251,9 +251,10 @@ enum EndToEnd {
     struct Shot {
         var name: String, typed: String, ghost: String, font: CGFloat, size: CGSize, dark: Bool
         var stage: Stage? = nil
+        var glass = false
     }
     /// The README demo's surroundings: the counts so far and whether Tab is down.
-    struct Stage { var keys: Int, wrote: Int, letters: Int, down: Bool }
+    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat }
 
     /// `--shots <dir>`: a real text view with the real ghost view over it, placed by the real layout from what AX would report.
     static func shots(to dir: String) {
@@ -266,6 +267,8 @@ enum EndToEnd {
             Shot(name: "multi-line-wrap", typed: "This line is already quite close to the edge of", ghost: " the field, so the rest of the suggestion wraps", font: 14, size: CGSize(width: 400, height: 90), dark: true),
             Shot(name: "korean-light", typed: "오늘 회의는 세 시에", ghost: " 시작할 예정입니다", font: 15, size: CGSize(width: 420, height: 40), dark: false),
             Shot(name: "korean-dark-wrap", typed: "내일 오전에 다시 한번 확인해 보고 결과를 정리해서", ghost: " 공유드리겠습니다 감사합니다", font: 15, size: CGSize(width: 380, height: 90), dark: true),
+            Shot(name: "glass", typed: "See you at four, I'll bring the", ghost: " notes from Monday", font: 15, size: CGSize(width: 480, height: 40), dark: false, glass: true),
+            Shot(name: "glass-wrap", typed: "See you at four, I'll bring the notes and the", ghost: " slides from Monday's meeting", font: 15, size: CGSize(width: 380, height: 70), dark: false, glass: true),
         ]
         for shot in shots { render(shot, to: dir) }
     }
@@ -323,21 +326,22 @@ enum EndToEnd {
             return s.text
         }
         var frame = 0, delays = ""
-        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, down: Bool = false, _ delay: Int) {
+        // Delays in hundredths; browsers play anything under 2 as 10, so nothing goes below 3.
+        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, _ delay: Int) {
             frame += 1
             let name = String(format: "en-%04d", frame)
             onMain { render(Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false,
-                                 stage: Stage(keys: keys, wrote: wrote, letters: typed.count, down: down)), to: dir) }
+                                 stage: Stage(keys: keys, wrote: wrote, letters: typed.count, press: press)), to: dir) }
             delays += "\(name).png \(delay)\n"
         }
         // Where the app couldn't draw it (no room at the line's end), there is no suggestion to take.
         func drawable(_ typed: String, _ ghost: String) -> Bool {
             onMain { render(Shot(name: "", typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false,
-                                 stage: Stage(keys: 0, wrote: 0, letters: 0, down: false)), to: nil) }
+                                 stage: Stage(keys: 0, wrote: 0, letters: 0, press: 0)), to: nil) }
         }
         for target in sentences {
             var text = "", keys = 0, wrote = 0
-            draw("", "", 0, 0, 60)
+            draw("", "", 0, 0, 40)
             while text.count < target.count {
                 var ghost = ask(text)
                 if !ghost.isEmpty, !drawable(text, ghost) { ghost = "" }
@@ -346,20 +350,28 @@ enum EndToEnd {
                 while !ghost.isEmpty {
                     let word = Accept.nextWord(Ghost(remainder: ghost)).text
                     guard !word.isEmpty, target.dropFirst(text.count).hasPrefix(word) else { break }
-                    draw(text, ghost, keys, wrote, took ? 35 : 55)
-                    draw(text, ghost, keys, wrote, down: true, 9)
+                    draw(text, ghost, keys, wrote, took ? 9 : 26)  // A beat to read it the first time, then a quick rhythm.
+                    draw(text, ghost, keys, wrote, press: 0.5, 3)
                     text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count)); took = true
+                    draw(text, ghost, keys, wrote, press: 1, 5)
+                    draw(text, ghost, keys, wrote, press: 0.5, 3)
                 }
-                if took { draw(text, ghost, keys, wrote, 25); continue }
-                if !ghost.isEmpty { draw(text, ghost, keys, wrote, 18) }  // Shown, wrong, and typed over.
+                if took { draw(text, ghost, keys, wrote, 8); continue }
+                if !ghost.isEmpty { draw(text, ghost, keys, wrote, 10) }  // Shown, wrong, and typed over.
                 text.append(target[target.index(target.startIndex, offsetBy: text.count)]); keys += 1
-                draw(text, "", keys, wrote, 7)
+                draw(text, "", keys, wrote, 4 + Int(hash(keys, text.count) * 3))  // About 90 words a minute, unevenly, like hands.
             }
             let saved = 100 * (target.count - keys) / max(target.count, 1)
             print("      \(target.count) letters, \(keys) keys, \(wrote) by Tab: \(saved)% saved | \(target)")
-            draw(text, "", keys, wrote, 220)
+            draw(text, "", keys, wrote, 170)
         }
         try! delays.write(to: URL(fileURLWithPath: dir).appendingPathComponent("en-delays.txt"), atomically: true, encoding: .utf8)
+    }
+
+    /// A fixed pseudo-random 0..<1, so the demo's rhythm is the same each run.
+    static func hash(_ a: Int, _ b: Int) -> Double {
+        let h = sin(Double(a) * 127.1 + Double(b) * 311.7) * 43758.5453
+        return h - h.rounded(.down)
     }
 
     /// Option F of docs/design/readme-demo: the app's dot sky, a white panel for the field, the counts so far, and a Tab keycap.
@@ -420,11 +432,11 @@ enum EndToEnd {
 
             // The keycap: a rounded key on its own darker edge, which it sinks into while down.
             let key = CGRect(x: bounds.midX - 48, y: Self.panel.maxY + 26, width: 96, height: 40)
-            let sink: CGFloat = stage.down ? 3 : 0
+            let sink = 3 * stage.press
             NSColor(srgbRed: 0.8, green: 0.78, blue: 0.74, alpha: 1).setFill()
             NSBezierPath(roundedRect: key.offsetBy(dx: 0, dy: 3), xRadius: 9, yRadius: 9).fill()
             let top = NSBezierPath(roundedRect: key.offsetBy(dx: 0, dy: sink), xRadius: 9, yRadius: 9)
-            (stage.down ? NSColor(srgbRed: 0.89, green: 0.93, blue: 0.98, alpha: 1) : .white).setFill(); top.fill()
+            NSColor.white.blended(withFraction: stage.press, of: NSColor(srgbRed: 0.86, green: 0.91, blue: 0.98, alpha: 1))!.setFill(); top.fill()
             NSColor(srgbRed: 0.85, green: 0.83, blue: 0.79, alpha: 1).setStroke(); top.lineWidth = 1; top.stroke()
             let tab = NSAttributedString(string: "tab ⇥", attributes: [.font: NSFont.systemFont(ofSize: 15, weight: .semibold), .foregroundColor: NSColor(white: 0.24, alpha: 1)])
             tab.draw(at: CGPoint(x: key.midX - tab.size().width / 2, y: key.midY - tab.size().height / 2 + sink - 1))
@@ -467,7 +479,7 @@ enum EndToEnd {
         let caret = CGRect(x: frame.minX + origin.x + glyphRect.maxX, y: frame.minY + origin.y + line.minY, width: 0, height: line.height)
         let spec = GhostSpec(text: shot.ghost, caret: caret, frame: frame, fontSize: shot.font, fontName: nil,
                              color: appearance.performAsCurrentDrawingAppearance2 { NSColor.textColor.usingColorSpace(.sRGB)!.cgColor },
-                             lineLeft: frame.minX + origin.x + container.lineFragmentPadding, previousCharacter: String(shot.typed.last!), mayWrap: true)
+                             lineLeft: frame.minX + origin.x + container.lineFragmentPadding, previousCharacter: String(shot.typed.last!), mayWrap: true, glass: shot.glass)
         if !shot.ghost.isEmpty {
             guard let layout = GhostLayout.make(spec) else { if dir != nil { check(false, "\(shot.name): no ghost") }; return false }
             if dir == nil { return true }

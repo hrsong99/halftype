@@ -123,7 +123,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var why = Watcher.Why.unreadable
     /// A suggestion was taken since the window opened, and nothing has stood in the way since.
     @Published var accepted = false
-    /// Counts every Tab taken anywhere, so the window's sky can swell on one.
+    /// Counts every Tab taken anywhere, so the window's field can glint on one.
     @Published var tabs = 0
     /// Counts each bind and unbind, so a reason from an earlier one is dropped.
     var binding = 0

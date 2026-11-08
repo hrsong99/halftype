@@ -17,4 +17,4 @@ John: "Show me B + (subtle) F and B + C"
 - `round2.png`: frozen screenshot, at rest, dark.
 - C's first try dropped faint dots at random, which threw away B's taper and made the edge hard again; varying dot size instead keeps it soft.
 
-Recommendation: C. Pick (John, 2026-11-08): C, "Sure I guess C is okay". Not built yet: John moved on to the home page's look (`../home-glass/`) first.
+Recommendation: C. Pick (John, 2026-11-08): C, "Sure I guess C is okay". Never built: the home window dropped the halftone sky for the icon's cream and glass (`../home-glass/`), so the sky was removed.

@@ -19,3 +19,5 @@ John: "What about C + D (and can we make the suggestions gleam like that)"
 Recommendation: A (sweep); ribbon D or E.
 
 John (after round 2): "because suggestions change so often we don't want there to be an animation when the suggestions appear right? They should just appear instantaneously with the glassy look, but when accepted they should sweep or something very quickly". So: C + D, suggestions in glass with no entrance, one quick glint on Tab only.
+
+Pick (John, 2026-11-08), with the recommended answers: the soft ribbon (round 2's A–C), a 0.25 s glint, cream in dark mode too, upright (not italic) suggestions. Built on main: the window draws the icon's cream with the blurred arch on the field page (`Backdrop` in `Window.swift`), the field glints on a Tab taken here (`Glint`), and the ghost overlay paints a suggestion in our own field blue to peach in reading order (`GhostView`). The halftone sky (`Sky.swift`, `Sky.metal`) is gone. `built/window/` and `built/ghost/` are the shots: `15-window-*.png` and `glass*.png`.
