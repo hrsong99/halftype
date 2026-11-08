@@ -29,26 +29,36 @@ final class Practice: Completer {
 final class SettingsGuide {
     private var panel: NSPanel?
     private var timer: Timer?
+    private var quit: NSObjectProtocol?
+    private var asked = Date.distantPast
     private var seen = false
+    static let settingsID = "com.apple.systempreferences"
 
     func show() {
-        timer?.invalidate()
-        seen = false
-        // Settings takes a moment to open; the card follows its window wherever it's dragged.
+        close()
+        (asked, seen) = (Date(), false)
+        // Settings takes a moment to open; the card follows its window wherever it's dragged, and hides while it's minimized or hidden.
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.follow() }
+        quit = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+            if (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier == SettingsGuide.settingsID { self?.close() }
+        }
         follow()
     }
 
     func close() {
         timer?.invalidate()
         timer = nil
+        quit.map(NSWorkspace.shared.notificationCenter.removeObserver)
+        quit = nil
         panel?.orderOut(nil)
         panel = nil
     }
 
     private func follow() {
         guard let settings = SettingsGuide.settingsFrame() else {
-            if seen { close() } else { panel?.orderOut(nil) }  // Quit after showing: done. Not open yet: wait.
+            panel?.orderOut(nil)
+            // Settings never came (the prompt was denied): stop asking the window list. A second click starts it again.
+            if !seen, Date().timeIntervalSince(asked) > 120 { close() }
             return
         }
         seen = true
@@ -77,7 +87,7 @@ final class SettingsGuide {
 
     /// System Settings' largest window, in AppKit's coordinates. Bounds and owner need no Screen Recording; the title would.
     static func settingsFrame() -> CGRect? {
-        guard let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.systempreferences").first?.processIdentifier,
+        guard let pid = NSRunningApplication.runningApplications(withBundleIdentifier: settingsID).first?.processIdentifier,
               let primary = NSScreen.screens.first,
               let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
         let frames = list.compactMap { info -> CGRect? in

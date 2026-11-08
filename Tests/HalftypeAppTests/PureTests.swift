@@ -1457,6 +1457,8 @@ final class FakeServer: URLProtocol {
         app.practicing = true
         app.fresh = true
         #expect(app.takePrefill(draft: "") == "Please let me know if you have any")
+        #expect(app.takePrefill(draft: "") != nil, "again in a field opened again, as practice knows only this sentence")
+        #expect(app.takePrefill(draft: "mine") == nil)
     }
 
     @Test func theGuideSitsBesideSettingsAndStaysOnScreen() {

@@ -225,6 +225,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func isLoading(path: String) -> Bool { loadingPath == path }
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        // Before anything makes the folder. Every install before onboarding has it (a model, or the move from Itda), or chose its own model.
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "onboarded") == nil {
+            defaults.set(FileManager.default.fileExists(atPath: App.support.path) || defaults.string(forKey: "modelPath") != nil, forKey: "onboarded")
+        }
+        onboarding = !defaults.bool(forKey: "onboarded")
         tune()
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
@@ -272,9 +278,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tap.onUp = { [weak self] up in DispatchQueue.main.async { self?.tapChanged(up: up) } }
         trusted = tap.hold()
         if !trusted { fresh = true }
-        // Someone who already has the permission and a model has nothing to learn here.
-        if !fresh { UserDefaults.standard.set(true, forKey: "onboarded") }
-        onboarding = !UserDefaults.standard.bool(forKey: "onboarded")
         // A model opening now installs after this, and replaces it.
         if onboarding, !ready {
             practicing = true
@@ -472,7 +475,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The prefill, taken once. The field is asked again, as a model installed in the same moment may have read it still empty.
     func takePrefill(draft: String) -> String? {
         // Practice knows English only.
-        guard let sentence = App.prefill(fresh: fresh, ready: ready || practicing, draft: draft, korean: ready && watcher.koreanInput.load(ordering: .relaxed)) else { return nil }
+        // Practice finishes only its own sentence, so a field opened again (the window closed mid-step) needs it again too.
+        guard let sentence = App.prefill(fresh: fresh || practicing, ready: ready || practicing, draft: draft, korean: ready && watcher.koreanInput.load(ordering: .relaxed)) else { return nil }
         fresh = false
         DispatchQueue.main.async { [self] in watcher.redraw() }
         return sentence
