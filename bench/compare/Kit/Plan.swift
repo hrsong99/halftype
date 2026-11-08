@@ -52,9 +52,11 @@ public struct Plan: Sendable {
         var candidates = [field + take]
         if !composing.isEmpty {
             candidates.append(committed + take)
-            if target.count > committed.count, target.hasPrefix(committed) {
-                let own = String(target[target.index(target.startIndex, offsetBy: committed.count)])
-                if Hangul.fits(composing: composing, suggestion: own) { candidates.append(committed + own + take) }
+            // The target's syllables the composing keys reach into: 달 reaches two of 다라가.
+            if target.hasPrefix(committed) {
+                var own = "", left = Hangul.keys(composing).count
+                for c in target.dropFirst(committed.count) where left > 0 { own.append(c); left -= Hangul.keys(String(c)).count }
+                if !own.isEmpty, Hangul.fits(composing: composing, suggestion: own) { candidates.append(committed + own + take) }
             }
         }
         // The last syllable may still be composing after a Tab that types keys through the input method.
@@ -64,12 +66,11 @@ public struct Plan: Sendable {
     }
 
     /// The oracle: press Tab only when what it takes is the true text and saves more than the Tab costs.
-    /// Returns the text the field should hold after the Tab, to check the app and the OCR against.
-    public func tab(field: String, composing: String = "", ghost: String, unit: TabUnit) -> String? {
-        guard let now = done(field: field, composing: composing),
-              let a = (unit == .all ? [ghost] : Plan.words(ghost)).compactMap({ after(field: field, composing: composing, take: $0) }).max(by: { $0.done < $1.done }),
-              a.done - now >= 2 else { return nil }
-        return a.text
+    /// Returns every field a right Tab could leave (`Hello,` or `Hello`), to check the app and the OCR against; empty is no Tab.
+    public func tab(field: String, composing: String = "", ghost: String, unit: TabUnit) -> [String] {
+        guard let now = done(field: field, composing: composing) else { return [] }
+        return (unit == .all ? [ghost] : Plan.words(ghost)).compactMap { after(field: field, composing: composing, take: $0) }
+            .filter { $0.done - now >= 2 }.sorted { $0.done > $1.done }.map(\.text)
     }
 
     /// The first shown word is the true next word, ending where the target's word ends (`lo` is not right for `lot`).

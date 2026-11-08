@@ -18,13 +18,13 @@ import Testing
 
 @Test func oracleTakesOnlyTrueText() {
     let p = Plan("Hello world is round")
-    #expect(p.tab(field: "Hel", ghost: "lo world", unit: .word) == "Hello")
-    #expect(p.tab(field: "Hello", ghost: " world is flat", unit: .word) == "Hello world")
-    #expect(p.tab(field: "Hello", ghost: " world is flat", unit: .all) == nil)  // macOS would take the wrong tail too.
-    #expect(p.tab(field: "Hello", ghost: " world is", unit: .all) == "Hello world is")
-    #expect(p.tab(field: "Hello", ghost: "world", unit: .word) == nil)  // No space: helloworld.
-    #expect(p.tab(field: "Hello worl", ghost: "d", unit: .word) == nil)  // Saves nothing over the key itself.
-    #expect(p.tab(field: "Hello", ghost: " ", unit: .word) == nil)
+    #expect(p.tab(field: "Hel", ghost: "lo world", unit: .word).first == "Hello")
+    #expect(p.tab(field: "Hello", ghost: " world is flat", unit: .word).first == "Hello world")
+    #expect(p.tab(field: "Hello", ghost: " world is flat", unit: .all).isEmpty)  // macOS would take the wrong tail too.
+    #expect(p.tab(field: "Hello", ghost: " world is", unit: .all).first == "Hello world is")
+    #expect(p.tab(field: "Hello", ghost: "world", unit: .word).isEmpty)  // No space: helloworld.
+    #expect(p.tab(field: "Hello worl", ghost: "d", unit: .word).isEmpty)  // Saves nothing over the key itself.
+    #expect(p.tab(field: "Hello", ghost: " ", unit: .word).isEmpty)
 }
 
 @Test func firstWordMustEndWhereTheTargetsDoes() {
@@ -39,23 +39,24 @@ import Testing
 @Test func koreanGhostsReplaceOrFollowTheSyllable() {
     let p = Plan("오늘 날씨가 좋다")
     // A ghost that finishes the composing syllable, as Halftype shows it.
-    #expect(p.tab(field: "오", composing: "오", ghost: "오늘 날씨", unit: .word) == "오늘")
-    #expect(p.tab(field: "오느", composing: "느", ghost: "늘 날씨", unit: .word) == nil)  // One key saved, one Tab spent.
+    #expect(p.tab(field: "오", composing: "오", ghost: "오늘 날씨", unit: .word).first == "오늘")
+    #expect(p.tab(field: "오느", composing: "느", ghost: "늘 날씨", unit: .word).isEmpty)  // One key saved, one Tab spent.
     #expect(p.firstWordRight(field: "오느", composing: "느", ghost: "늘 날씨"))
     // One that starts after it.
-    #expect(p.tab(field: "오늘", composing: "늘", ghost: " 날씨가 좋네", unit: .word) == "오늘 날씨가")
+    #expect(p.tab(field: "오늘", composing: "늘", ghost: " 날씨가 좋네", unit: .word).first == "오늘 날씨가")
     #expect(p.firstWordRight(field: "오늘", composing: "늘", ghost: " 날씨가 좋네"))
     #expect(!p.firstWordRight(field: "오늘", composing: "늘", ghost: " 날씨 좋네"))  // 날씨 is not 날씨가.
-    #expect(p.tab(field: "오느", composing: "느", ghost: "는 아침", unit: .word) == nil)
+    #expect(p.tab(field: "오느", composing: "느", ghost: "는 아침", unit: .word).isEmpty)
     // Halftype draws only what follows the syllable its Tab will finish: 가 on screen, then 다면 in grey, for 간다면.
-    #expect(Plan("간다면 좋지").tab(field: "가", composing: "가", ghost: "다면 좋지", unit: .word) == "간다면")
+    #expect(Plan("간다면 좋지").tab(field: "가", composing: "가", ghost: "다면 좋지", unit: .word).first == "간다면")
 }
 
 @Test func aWordStopsBeforeItsPunctuationToo() {
     let p = Plan("Hello world")
-    #expect(p.tab(field: "Hel", ghost: "lo, everyone", unit: .word) == "Hello")  // Halftype takes `lo`, not `lo,`.
+    #expect(p.tab(field: "Hel", ghost: "lo, everyone", unit: .word).first == "Hello")  // Halftype takes `lo`, not `lo,`.
     #expect(p.firstWordRight(field: "Hel", ghost: "lo, everyone"))
-    #expect(Plan("Hello, world").tab(field: "Hel", ghost: "lo, there", unit: .word) == "Hello,")
+    #expect(Plan("Hello, world").tab(field: "Hel", ghost: "lo, there", unit: .word) == ["Hello,", "Hello"])  // Either is right.
+    #expect(Plan("다라가 보자").tab(field: "달", composing: "달", ghost: "가 보자", unit: .word).first == "다라가")  // 달 reaches into 다라.
 }
 
 @Test func delaysAreSeededAndHuman() {

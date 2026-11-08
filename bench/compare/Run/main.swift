@@ -137,8 +137,8 @@ for sig in [SIGINT, SIGTERM, SIGHUP] {
     s.setEventHandler {
         print("\nStopping: putting things back.")
         stopLock.withLock { stopAsked = true }
-        // The runner checks at every key and every 5 s of waiting; if it hangs anyway, clean up from here.
-        sleepMs(30_000)
+        // The runner checks at every key and every 5 s of waiting, and quitting an app takes under 45 s; if it hangs anyway, clean up from here.
+        sleepMs(120_000)
         cleanUp()
         exit(2)
     }
@@ -201,7 +201,7 @@ final class Typist {
             }
             let before = capture.inkNow, t0: UInt64
             let isTab: Bool, probe: Bool
-            if let ghost, let expected = plan.tab(field: now_, composing: composing, ghost: ghost, unit: r.unit) {
+            if let ghost, case let expected = plan.tab(field: now_, composing: composing, ghost: ghost, unit: r.unit), !expected.isEmpty {
                 t0 = now()
                 press(48)
                 (isTab, probe) = (true, false)
@@ -210,7 +210,7 @@ final class Typist {
                 var after = field.text
                 for _ in 0..<40 where after.field == now_ { sleepMs(10); after = field.text }
                 if plan.done(field: after.field, composing: after.composing) == nil { wrongTabs += 1 }
-                else if after.field == expected { asRead += 1 }
+                else if expected.contains(after.field) { asRead += 1 }
             } else {
                 let key = plan.keys[done]
                 guard let s = stroke(key) else { throw Stop(why: "no key types \(key)") }
