@@ -254,7 +254,7 @@ enum EndToEnd {
         var glass = false
     }
     /// The README demo's surroundings: the counts so far and whether Tab is down.
-    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat, shift: Bool = false, glint: CGFloat? = nil, taken: Int = 0 }
+    struct Stage { var keys: Int, wrote: Int, letters: Int, press: CGFloat, glint: CGFloat? = nil, taken: Int = 0 }
 
     /// `--shots <dir>`: a real text view with the real ghost view over it, placed by the real layout from what AX would report.
     static func shots(to dir: String) {
@@ -339,10 +339,10 @@ enum EndToEnd {
             Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false, stage: stage, glass: true)
         }
         // Delays in hundredths; browsers play anything under 2 as 10, so nothing goes below 3.
-        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, shift: Bool = false, glint: CGFloat? = nil, taken: Int = 0, _ delay: Int) {
+        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, glint: CGFloat? = nil, taken: Int = 0, _ delay: Int) {
             frame += 1
             let name = String(format: "en-%04d", frame)
-            onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, shift: shift, glint: glint, taken: taken)), to: dir) }
+            onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, glint: glint, taken: taken)), to: dir) }
             delays += "\(name).png \(delay)\n"
         }
         func drawable(_ typed: String, _ ghost: String) -> Bool { onMain { render(shot("", typed, ghost, Stage(keys: 0, wrote: 0, letters: 0, press: 0)), to: nil) } }
@@ -358,18 +358,15 @@ enum EndToEnd {
             draw("", "", 0, 0, 30)
             while text.count < target.count {
                 let rest = target.dropFirst(text.count)
-                // Shift-Tab when all of it is what comes next, else Tab when its next word is.
-                let all = !ghost.isEmpty && rest.hasPrefix(ghost)
+                // Tab, a word at a time, rapidly: about eight a second, each word's glint still crossing as the next Tab lands.
                 let word = ghost.isEmpty ? "" : Accept.nextWord(Ghost(remainder: ghost)).text
-                if all || (!word.isEmpty && rest.hasPrefix(word)) {
-                    let take = all ? ghost : word
-                    draw(text, ghost, keys, wrote, press: 0.6, shift: all, 3)
-                    text += take; keys += 1; wrote += take.count; ghost = String(ghost.dropFirst(take.count))
+                if !word.isEmpty, rest.hasPrefix(word) {
+                    text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count))
                     if ghost.isEmpty { ghost = suggestion(text) }
-                    let taken = (take as NSString).length
-                    draw(text, ghost, keys, wrote, press: 1, shift: all, glint: 0.35, taken: taken, 4)
-                    draw(text, ghost, keys, wrote, press: 0.4, shift: all, glint: 0.75, taken: taken, 3)
-                    draw(text, ghost, keys, wrote, glint: 1, taken: taken, 3)
+                    let taken = (word as NSString).length
+                    draw(text, ghost, keys, wrote, press: 1, glint: 0.3, taken: taken, 4)
+                    draw(text, ghost, keys, wrote, press: 0.4, glint: 0.7, taken: taken, 4)
+                    draw(text, ghost, keys, wrote, glint: 0.95, taken: taken, 4)
                     continue
                 }
                 // Type the next letter; a suggestion that no longer fits goes, and the app asks again.
@@ -391,7 +388,7 @@ enum EndToEnd {
     }
 
     /// Option F of docs/design/readme-demo in the home window's glass (docs/design/home-glass): cream, the blurred arch, a frosted panel for the
-    /// field with the counts so far, and the shift and tab keys. A taken suggestion glints across its own words, as in the app.
+    /// field with the counts so far, and the tab key. A taken suggestion glints across its own words, as in the app.
     final class DemoStage: NSView {
         static let size = CGSize(width: 760, height: 360)
         static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
@@ -466,8 +463,7 @@ enum EndToEnd {
                 text.draw(at: CGPoint(x: rect.midX - text.size().width / 2, y: rect.midY - text.size().height / 2 + sink - 1))
             }
             let top = Self.panel.maxY + 26
-            key("⇧ shift", CGRect(x: bounds.midX - 112, y: top, width: 112, height: 40), stage.shift ? stage.press : 0)
-            key("tab ⇥", CGRect(x: bounds.midX + 8, y: top, width: 96, height: 40), stage.press)
+            key("tab ⇥", CGRect(x: bounds.midX - 48, y: top, width: 96, height: 40), stage.press)
         }
     }
 
