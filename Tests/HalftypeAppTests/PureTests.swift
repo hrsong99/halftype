@@ -1705,7 +1705,7 @@ final class FakeServer: URLProtocol {
         // The whole window with its ribbon, at the smallest size, the usual one and a tall one, at the field and scrolled into the settings.
         // ImageRenderer draws no ScrollView, so these are a real window, shown behind everything without taking focus.
         for (width, height) in [(640.0, 440.0), (720.0, 500.0), (900.0, 820.0)] {
-            for page in [Root.Page.field, .stats, .models] {
+            for page in [Root.Page.field, .stats, .models, .general] {
                 try onScreen("15-window-\(Int(width))x\(Int(height))-\(page.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))",
                              Root(app: app { ready($0); $0.why = .idle }, page: page), CGSize(width: width, height: height))
             }
@@ -1793,6 +1793,51 @@ final class FakeServer: URLProtocol {
         #expect(panel.isVisible)
         RunLoop.main.run(until: Date().addingTimeInterval(0.6))
         #expect(!panel.isVisible, "the display link ran it to the end and took it down")
+    }
+
+    @MainActor @Test(.enabled(if: !NSScreen.screens.isEmpty && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion))
+    func inAnotherAppTheMotionWaitsForTheHostsCaretToMove() throws {
+        let caret = CGRect(x: 200, y: 200, width: 0, height: 18)
+        let spec = GhostSpec(text: " notes", caret: caret, frame: CGRect(x: 100, y: 190, width: 400, height: 40),
+                             fontSize: 15, fontName: nil, color: nil, lineLeft: nil, previousCharacter: "e", mayWrap: false)
+        let panel = GhostPanel()
+        defer { panel.hideGhost() }
+        try #require(panel.show(spec) != nil)
+        panel.caretRead(caret.offsetBy(dx: 40, dy: 0))
+        #expect(!panel.caretMotion.isVisible, "no Tab, no motion")
+        panel.took(" notes", drawing: panel.drawing)
+        panel.caretRead(caret)
+        #expect(!panel.caretMotion.isVisible, "the host hasn't moved the caret yet")
+        panel.caretRead(caret.offsetBy(dx: 40, dy: 0))
+        #expect(panel.caretMotion.isVisible)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+        #expect(!panel.caretMotion.isVisible, "played through and gone")
+        panel.motion = .off
+        try #require(panel.show(spec) != nil)
+        panel.took(" notes", drawing: panel.drawing)
+        panel.caretRead(caret.offsetBy(dx: 40, dy: 0))
+        #expect(!panel.caretMotion.isVisible)
+    }
+
+    /// The trail runs along the line's foot between the two carets; when the words wrapped there is no line to run along, so it flashes.
+    @Test func aTrailOnOneLineAndAFlashAcrossLines() throws {
+        func paint(_ motion: AcceptMotion, to: CGRect) throws -> (foot: UInt8, caret: UInt8) {
+            let ctx = try #require(CGContext(data: nil, width: 200, height: 60, bitsPerComponent: 8, bytesPerRow: 800, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            ctx.translateBy(x: 0, y: 60); ctx.scaleBy(x: 1, y: -1)  // y down, as the view is
+            NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: true)
+            defer { NSGraphicsContext.current = nil }
+            AcceptMotion.draw(motion, from: CGRect(x: 20, y: 10, width: 0, height: 16), to: to, progress: 0.1, in: ctx)
+            let px = ctx.data!.assumingMemoryBound(to: UInt8.self)
+            func alpha(_ x: Int, _ y: Int) -> UInt8 { px[y * 800 + x * 4 + 3] }
+            return (alpha(100, 27), alpha(Int(to.midX), Int(to.midY)))
+        }
+        let sameLine = CGRect(x: 120, y: 10, width: 0, height: 16), nextLine = CGRect(x: 60, y: 30, width: 0, height: 16)
+        #expect(try paint(.trail, to: sameLine).foot > 0)
+        #expect(try paint(.flash, to: sameLine).foot == 0)
+        #expect(try paint(.flash, to: sameLine).caret > 0)
+        #expect(try paint(.trail, to: nextLine).caret > 0, "wrapped: the trail's flash")
+        #expect(try paint(.off, to: sameLine) == (0, 0))
     }
 
     @Test func quickTabsLightTheNextWordsNotTheFirstAgain() {

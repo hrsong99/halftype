@@ -190,6 +190,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var length = Length(rawValue: UserDefaults.standard.string(forKey: "length") ?? "") ?? .short {
         didSet { UserDefaults.standard.set(length.rawValue, forKey: "length"); tune() }
     }
+    @Published var motion = AcceptMotion(rawValue: UserDefaults.standard.string(forKey: "motion") ?? "") ?? .trail {
+        didSet { UserDefaults.standard.set(motion.rawValue, forKey: "motion"); panel.motion = motion }
+    }
     @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
@@ -246,6 +249,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         }
         onboarding = !defaults.bool(forKey: "onboarded")
         tune()
+        panel.motion = motion
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
         // Only a key in our own window teaches: a Tab in another app while onboarding is open isn't the lesson.

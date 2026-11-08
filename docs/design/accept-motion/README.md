@@ -8,7 +8,7 @@ Why he didn't see it: `GhostPanel.took` plays the glint only when `layout.glass`
 
 Recommendation: D, the underline sweep. It draws no letters, so a font or zoom mismatch with the host can't show doubled text. C, ink settle, is the alternative if D feels like too much.
 
-Pick: (pending)
+Pick (after round 2): John chose round 2's C and D, with D, the trail, as the default, picked in General > Taking Words with a live preview. Try It keeps its glint. Built in `AcceptMotion` (GhostPanel.swift); `built/` has the General page.
 
 ## Round 2
 

@@ -295,6 +295,7 @@ final class Watcher: @unchecked Sendable {
             return record(tap.canTake ? .unreadable : .blocked)
         }
         lost = false
+        if let caret = reading.caret { DispatchQueue.main.async { [panel] in panel.caretRead(caret) } }
         reading.field.mayCompose = mayCompose(reading)
         // One key brings several notifications; only the first of them finds anything new.
         if reading == last { return }

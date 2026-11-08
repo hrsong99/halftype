@@ -737,6 +737,29 @@ private struct ModelsPage: View {
     }
 }
 
+/// The chosen motion on a loop, drawn by the app's own code: "see you at" takes " noon" with a Tab every 1.8 s.
+private struct MotionPreview: View {
+    let motion: AcceptMotion
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { g, size in
+                let t = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8)
+                let typed = g.resolve(Text("see you at").font(.system(size: 13)).foregroundColor(.primary))
+                let taken = g.resolve(Text(" noon").font(.system(size: 13)).foregroundColor(.primary.opacity(t < 0.8 ? 0.38 : 1)))
+                let mid = size.height / 2, w = typed.measure(in: size).width, all = w + taken.measure(in: size).width
+                g.draw(typed, at: CGPoint(x: 0, y: mid), anchor: .leading)
+                g.draw(taken, at: CGPoint(x: w, y: mid), anchor: .leading)
+                let from = CGRect(x: w, y: mid - 8, width: 1.5, height: 16), to = CGRect(x: all, y: mid - 8, width: 1.5, height: 16)
+                g.fill(Path(t < 0.8 ? from : to), with: .color(Color(nsColor: .controlAccentColor)))
+                if t >= 0.8, motion != .off {
+                    g.withCGContext { AcceptMotion.draw(motion, from: from, to: to, progress: min((t - 0.8) / motion.duration, 1), in: $0) }
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 private struct AppsPage: View {
     @ObservedObject var app: App
     var body: some View {
@@ -767,6 +790,11 @@ private struct GeneralPage: View {
             Row(title: "How Often", note: "More often means more wrong ones.") {
                 Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more); Text("Always").tag(Often.always) }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 280)
+            }
+            Row(title: "Taking Words", note: "What plays at the caret as Tab takes words.") {
+                MotionPreview(motion: app.motion).frame(width: 130, height: 24)
+                Picker("", selection: $app.motion) { Text("Trail").tag(AcceptMotion.trail); Text("Flash").tag(AcceptMotion.flash); Text("Off").tag(AcceptMotion.off) }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 180)
             }
             if let path = app.activePath, App.adapterFile(for: path) != nil {
                 Row(title: "Personal Model", note: "Trained on your writing. Compare leaves it off every other day, for Stats.") {

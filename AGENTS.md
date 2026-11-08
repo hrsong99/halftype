@@ -17,7 +17,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - Always pass `--disable-keychain`: without it the first SwiftPM download of llama.cpp can hang on keychain credentials.
 - **`scripts/e2e.sh` takes the user's keyboard and cursor focus while it runs. Ask them first, every time.** A 60 s pause in typing doesn't mean they have stopped using the Mac. Unit tests and reviews don't take focus.
 - The Mac has limited memory: run one heavy build or model at a time, and don't steal focus.
-- Motion in the window: suggestions appear at once and never animate (they change on every key), and nothing resizes or moves on a Tab; the one motion is a quick glint over the words just taken (`GlintView`). John found a whole-field glint and a 0.6% breathe both bad.
+- Motion in the window: suggestions appear at once and never animate (they change on every key), and nothing resizes or moves on a Tab; the one motion is a quick glint over the words just taken (`GlintView`). John found a whole-field glint and a 0.6% breathe both bad. In other apps the host's text rarely sits exactly where the ghost was, so a Tab's motion (`AcceptMotion`, Trail or Flash in General) is drawn from the caret rects the host reports, never over letters.
 - `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh d` rebuilds `Resources/`. The window's `Mark` (Window.swift) draws `docs/icon/menubar.svg`'s paths by hand: change the logo, change it too.
 - Several sessions work in this checkout at once. Commit only your own files (`git commit -- <paths>`, never `-a`); if another session has uncommitted changes in a file you need, work in a separate worktree of `main` and leave theirs alone.
 

@@ -210,6 +210,7 @@ class GhostPanel: NSPanel {
               NSScreen.screens.contains(where: { $0.frame.contains(GhostLayout.appKitRect(spec.caret, primaryHeight: primary.frame.height).origin) })
         else { hideGhost(); return nil }
         view.layout = layout
+        caret = spec.caret
         drawing += 1
         taken = 0
         setFrame(GhostLayout.appKitRect(layout.window, primaryHeight: primary.frame.height), display: false, animate: false)
@@ -242,11 +243,26 @@ class GhostPanel: NSPanel {
         return range
     }
 
-    /// Main thread, right after a Tab took `text`: trimmed in any app, and in our own window the words glint where this ghost drew them.
+    /// Main thread, right after a Tab took `text`: trimmed in any app. In our own window the words glint where this ghost drew them; in
+    /// another app the host's text may not sit where the ghost was, so the motion waits for the caret the host reports next.
     func took(_ text: String, drawing: Int) {
-        guard let layout = view.layout, let range = trim(text, drawing: drawing), layout.glass,
-              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
-        shine.play(layout, taken: range, frame: frame)
+        guard let layout = view.layout, let range = trim(text, drawing: drawing), !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        if layout.glass { return shine.play(layout, taken: range, frame: frame) }
+        if motion != .off, let caret { leaving = (caret, CACurrentMediaTime()) }
+    }
+
+    var motion = AcceptMotion.trail
+    /// The caret this ghost was drawn at, which a Tab leaves from.
+    private var caret: CGRect?
+    private var leaving: (from: CGRect, at: CFTimeInterval)?
+    private(set) lazy var caretMotion = CaretMotionPanel()
+
+    /// Main thread, at each read of the field: once the host's caret has moved after a Tab, the motion plays from where it was to there.
+    func caretRead(_ caret: CGRect) {
+        guard let leaving, caret != leaving.from else { return }
+        self.leaving = nil
+        guard CACurrentMediaTime() - leaving.at < 0.5, let primary = NSScreen.screens.first else { return }
+        caretMotion.play(motion, from: leaving.from, to: caret, primaryHeight: primary.frame.height)
     }
 
     /// Where `text`, just taken, sits in the drawn ghost: right after what earlier Tabs took from it, or nowhere.
@@ -254,6 +270,93 @@ class GhostPanel: NSPanel {
         let range = NSRange(location: taken, length: (text as NSString).length)
         guard range.length > 0, NSMaxRange(range) <= (ghost as NSString).length, (ghost as NSString).substring(with: range) == text else { return nil }
         return range
+    }
+}
+
+/// What plays where the caret lands after a Tab in another app. Our own window keeps the glint.
+enum AcceptMotion: String, CaseIterable {
+    /// A streak along the line's foot from the caret's old place to its new one, fading from its tail; a flash when the words wrapped.
+    case trail
+    /// The caret itself in the icon's blue to peach, fading back to the host's own.
+    case flash
+    case off
+
+    var duration: CFTimeInterval { self == .trail ? 0.22 : 0.2 }
+    static let blue = NSColor(srgbRed: 0.373, green: 0.608, blue: 0.847, alpha: 1), peach = NSColor(srgbRed: 0.93, green: 0.6, blue: 0.42, alpha: 1)
+
+    /// Drawn from the two caret rects alone, never the letters, which in most hosts don't sit exactly where the ghost was. Y down.
+    /// A trail only along one line, moving right; otherwise the flash.
+    static func draw(_ motion: AcceptMotion, from: CGRect, to: CGRect, progress t: CGFloat, in context: CGContext) {
+        if motion == .trail, abs(to.midY - from.midY) < from.height / 2, to.minX > from.minX {
+            let eased = 1 - pow(1 - t, 3)
+            let span = CGRect(x: from.minX, y: to.maxY + 1, width: to.minX - from.minX, height: 2)
+            let left = span.maxX - span.width * (1 - eased)
+            guard left < span.maxX else { return }
+            context.saveGState()
+            context.setAlpha(0.9 - 0.7 * eased)
+            context.addPath(CGPath(roundedRect: CGRect(x: left, y: span.minY, width: span.maxX - left, height: span.height), cornerWidth: 1, cornerHeight: 1, transform: nil))
+            context.clip()
+            // Fixed to the whole span, so it is the faint tail that goes.
+            NSGradient(colorsAndLocations: (blue.withAlphaComponent(0), 0), (blue.withAlphaComponent(0.7), 0.6), (peach, 1))!
+                .draw(from: CGPoint(x: span.minX, y: 0), to: CGPoint(x: span.maxX, y: 0), options: [])
+            context.restoreGState()
+        } else if motion != .off {
+            let grow: CGFloat = t < 0.35 ? 1.15 - 0.15 * t / 0.35 : 1
+            let height = (to.height + 2) * grow
+            let bar = CGRect(x: to.midX - 1, y: to.midY - height / 2, width: 2, height: height)
+            context.saveGState()
+            context.setAlpha(t < 0.35 ? 1 : 1 - (t - 0.35) / 0.65)
+            context.addPath(CGPath(roundedRect: bar, cornerWidth: 1, cornerHeight: 1, transform: nil))
+            context.clip()
+            NSGradient(starting: blue, ending: peach)!.draw(from: CGPoint(x: 0, y: bar.minY), to: CGPoint(x: 0, y: bar.maxY), options: [])
+            context.restoreGState()
+        }
+    }
+}
+
+final class CaretMotionView: NSView {
+    var motion = AcceptMotion.trail, from = CGRect.zero, to = CGRect.zero
+    var progress: CGFloat = 1 { didSet { needsDisplay = true } }
+    override var isFlipped: Bool { true }
+    override func draw(_ dirtyRect: NSRect) {
+        guard progress < 1, let context = NSGraphicsContext.current?.cgContext else { return }
+        AcceptMotion.draw(motion, from: from, to: to, progress: progress, in: context)
+    }
+}
+
+/// Plays one AcceptMotion and goes, on the display's clock like the glint.
+final class CaretMotionPanel: GhostPanel {
+    private let motionView = CaretMotionView()
+    private var link: CADisplayLink?
+    private var start = CFTimeInterval(0)
+
+    override init() {
+        super.init()
+        contentView = motionView
+    }
+
+    /// The rects in AX coordinates.
+    func play(_ motion: AcceptMotion, from: CGRect, to: CGRect, primaryHeight: CGFloat) {
+        let area = from.union(to).insetBy(dx: -6, dy: -6)
+        motionView.motion = motion
+        motionView.from = from.offsetBy(dx: -area.minX, dy: -area.minY)
+        motionView.to = to.offsetBy(dx: -area.minX, dy: -area.minY)
+        motionView.progress = 0
+        setFrame(GhostLayout.appKitRect(area, primaryHeight: primaryHeight), display: false, animate: false)
+        orderFrontRegardless()
+        link?.invalidate()
+        start = CACurrentMediaTime()
+        link = motionView.displayLink(target: self, selector: #selector(step))
+        link?.add(to: .main, forMode: .common)
+    }
+
+    @objc private func step(_ link: CADisplayLink) {
+        let t = min((link.targetTimestamp - start) / motionView.motion.duration, 1)
+        motionView.progress = t
+        guard t >= 1 else { return }
+        link.invalidate()
+        self.link = nil
+        orderOut(nil)
     }
 }
 
