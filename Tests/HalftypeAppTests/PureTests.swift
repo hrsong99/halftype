@@ -1542,13 +1542,17 @@ final class FakeServer: URLProtocol {
         shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } })
     }
 
-    /// The Stats page with docs/design/stats/sample-tally.json (made-up counts but today's), with the sky blank, as the other cacheDisplay shots. Run it on 2026-11-08: the chart ends today.
+    /// The Stats page on Week, Month and All with docs/design/stats/sample-tally-2.json (made-up weeks ending 2026-11-09), in a real window behind everything.
+    /// Run it on 2026-11-09 or soon after: the page reads today from the clock.
     @Test func stats() throws {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../docs/design/stats/sample-tally.json")
+        let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../docs/design/stats/sample-tally-2.json")
         let tally = try JSONDecoder().decode(Tally.self, from: Data(contentsOf: file))
-        // ImageRenderer leaves out a ScrollView's content, so these go through cacheDisplay, with the sky blank.
-        for dark in [false, true] { shoot("16-stats\(dark ? "-dark" : "")", app { $0.tally = tally; $0.trusted = true }, page: .stats, dark: dark) }
+        defer { StatsPage.opening = .week }
+        for span in StatsPage.Span.allCases {
+            StatsPage.opening = span
+            try onScreen("16-stats-\(span.rawValue.lowercased())", Root(app: app { $0.tally = tally; $0.trusted = true }, page: .stats), CGSize(width: 720, height: 500))
+        }
     }
 
     @Test func icons() throws {

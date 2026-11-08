@@ -25,7 +25,7 @@ It keeps itself up to date, with signed and notarized releases. Turn that off un
 
 | How much it typed for you (Stats; these counts are made up) |
 |---|
-| ![The Stats page: Tabs today, letters typed for you, share of suggestions taken, and the last 14 days as bars](docs/media/window-stats.png) |
+| ![The Stats page: this week's Tabs, letters typed for you and share of typing by Tab, each against last week, with the week as bars and a Week / Month / All switch](docs/media/window-stats.png) |
 
 ## Use
 

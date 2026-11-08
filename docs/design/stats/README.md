@@ -20,4 +20,4 @@ John: "I guess today's page is okay, but adding a halftone calendar could be nic
 - `round2.png`: frozen screenshot.
 - `sample-tally-2.json` (from `make-sample2.py`): 16 made-up weeks, with Nov 8–9 from `real-2days.json`, this Mac's `stats.json` on 2026-11-09 (counts only).
 
-Recommendation: B with sidebar 3. Pick: (pending)
+Recommendation: B with sidebar 3. Pick: B with sidebar 3 (John: "sure go ahead with your suggestion"), built on the branch `stats-variants`. `built/` holds the shipped page on Week, Month and All, from `HALFTYPE_SHOTS=<dir> swift test --disable-keychain --filter WindowShots/stats` (a real window behind everything; run it on or soon after 2026-11-09). Built differences: the week starts where the user's calendar starts it, and the change sits beside each label, not the number, so it fits the smallest window.

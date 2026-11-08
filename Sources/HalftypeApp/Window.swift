@@ -32,7 +32,11 @@ struct Root: View {
         _passed = State(initialValue: Set(Page.allCases.prefix { $0 != page }).union([page]))
     }
 
-    enum Page: String, CaseIterable, Identifiable { case field = "Try It", stats = "Stats", models = "Models", apps = "Apps", general = "General"; var id: Self { self } }
+    enum Page: String, CaseIterable, Identifiable {
+        case field = "Try It", stats = "Stats", models = "Models", apps = "Apps", general = "General"
+        var id: Self { self }
+        var symbol: String { ["play", "chart.bar", "square.stack.3d.up", "square.grid.2x2", "gearshape"][Self.allCases.firstIndex(of: self)!] }
+    }
 
     /// The section being read: the last whose top is above the middle.
     private var current: Page { end ? .general : Page.allCases.last { passed.contains($0) } ?? .field }
@@ -124,7 +128,9 @@ struct Root: View {
     private func item(_ page: Page, _ go: @escaping (Page) -> Void) -> some View {
         Button { go(page) } label: {
             HStack(spacing: 7) {
-                if page != .field { Circle().fill(current == page ? Root.peach : .clear).frame(width: 5, height: 5) }
+                // The section being read: its icon turns peach, the one mark of where you are (docs/design/stats round 2).
+                Image(systemName: page.symbol).font(.system(size: 11, weight: .medium)).frame(width: 15)
+                    .foregroundStyle(page != .field && current == page ? AnyShapeStyle(Root.peach) : AnyShapeStyle(page == .field ? .primary : .secondary))
                 Text(page.rawValue).font(.system(size: page == .field ? 13 : 12.5)).foregroundStyle(page == .field || current == page ? .primary : .secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.vertical, 5).contentShape(Rectangle())
@@ -456,42 +462,132 @@ private struct Row<Trailing: View>: View {
     }
 }
 
-/// Today in three numbers, the last two weeks as bars, and all time in a line. Hovering a bar shows that day.
-private struct StatsPage: View {
+/// A week or a month as bars, paged back with arrows, or every day as a dot; the numbers follow what's showing (docs/design/stats round 2, B).
+struct StatsPage: View {
+    enum Span: String, CaseIterable { case week = "Week", month = "Month", all = "All" }
+    /// Where the page opens, for the window shots.
+    nonisolated(unsafe) static var opening = Span.week
+
     @ObservedObject var app: App
+    @State private var span = StatsPage.opening
+    /// How many weeks or months back.
+    @State private var back = 0
     @State private var picked: Date?
-    private static let days = 14
+    @State private var hovered: Date?
+    private let calendar = Calendar.current
 
     var body: some View {
-        // shortcut: a suggestion shown before midnight and taken after counts on two days, so the share is capped at 100%.
-        let today = app.tally.last(1)[0].day
-        let weeks = app.tally.last(Self.days)
+        let period = span == .all ? nil : Tally.period(span == .week ? .weekOfYear : .month, back: back, now: Date(), calendar)
+        let shown = period.map { app.tally.sum($0.elapsed, to: day($0.elapsed - 1, of: $0.start), calendar) } ?? app.tally.total
+        let before = period.flatMap { $0.previousLength == 0 ? nil : app.tally.sum($0.previousLength, to: day($0.previousLength - 1, of: $0.previousStart), calendar) }
         Plain(title: "Stats", note: "What Tab has typed for you.") {
-            HStack(alignment: .lastTextBaseline, spacing: 36) {
-                Figure(value: today.tabs.formatted(), label: today.tabs == 1 ? "Tab today" : "Tabs today", big: true)
-                Figure(value: today.characters.formatted(), label: "letters typed for you")
-                Figure(value: today.shown == 0 ? "–" : min(1, Double(today.taken) / Double(today.shown)).formatted(.percent.precision(.fractionLength(0))),
-                       label: "of suggestions taken")
+            HStack {
+                if let period {
+                    Button { back += 1; picked = nil } label: { Image(systemName: "chevron.left") }.disabled(oldest(period)).help("Earlier")
+                    Button { back -= 1; picked = nil } label: { Image(systemName: "chevron.right") }.disabled(back == 0).help("Later")
+                }
+                Text(heading(period)).font(.system(size: 13, weight: .medium))
+                Spacer()
+                Picker("Show", selection: $span) { ForEach(Span.allCases, id: \.self) { Text($0.rawValue) } }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
             }
-            .padding(.vertical, 18)
+            .buttonStyle(.borderless)
+            .padding(.top, 6)
+            .onChange(of: span) { back = 0; picked = nil; hovered = nil }
+            HStack(alignment: .lastTextBaseline, spacing: 28) {
+                Figure(value: shown.tabs.formatted(), label: shown.tabs == 1 ? "Tab" : "Tabs", big: true, change: change(shown.tabs, before?.tabs))
+                Figure(value: shown.characters.formatted(), label: "letters typed for you", change: change(shown.characters, before?.characters))
+                Figure(value: shown.byTab.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "–", label: "of your typing by Tab")
+            }
+            .padding(.vertical, 16)
             Divider()
-            Text(caption(weeks)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().padding(.top, 16).padding(.bottom, 8)
-            Chart(weeks, id: \.date) { entry in
+            Text(caption(period, before)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().padding(.top, 14).padding(.bottom, 8)
+            if let period { bars(period) } else { dots }
+            personal
+            Text("Only counts are kept, never what you type.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 20)
+        }
+    }
+
+    private func day(_ offset: Int, of start: Date) -> Date { calendar.date(byAdding: .day, value: offset, to: start) ?? start }
+
+    /// Nothing was counted before the period starts.
+    private func oldest(_ period: Tally.Period) -> Bool { app.tally.since.map { Tally.key(period.start, calendar) <= $0 } ?? true }
+
+    private func heading(_ period: Tally.Period?) -> String {
+        guard let period else { return app.tally.since.flatMap { since in Self.keyFormat.date(from: since) }.map { "Since \($0.formatted(.dateTime.month(.abbreviated).day()))" } ?? "All" }
+        if back == 0 { return span == .week ? "This week" : "This month" }
+        if span == .month { return period.start.formatted(calendar.isDate(period.start, equalTo: Date(), toGranularity: .year) ? .dateTime.month(.wide) : .dateTime.month(.wide).year()) }
+        return (period.start..<day(period.length - 1, of: period.start)).formatted(.interval.month(.abbreviated).day())
+    }
+    private static let keyFormat: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX"); return f }()
+
+    /// Up or down on the stretch before, once there was one.
+    private func change(_ now: Int, _ before: Int?) -> Int? { before.flatMap { $0 > 0 ? now - $0 : nil } }
+
+    private func caption(_ period: Tally.Period?, _ before: Tally.Day?) -> String {
+        if let hovered {
+            let day = app.tally.last(1, to: hovered, calendar)[0].day
+            return "\(hovered.formatted(.dateTime.weekday(.wide).month().day())): \(day.tabs) Tabs, \(day.characters) letters"
+        }
+        guard let period else { return "Each dot is a day, bigger for more Tabs." }
+        guard let before, before.tabs > 0 else { return "" }
+        let stretch = back > 0 ? (span == .week ? "The week before" : "The month before")
+            : period.elapsed == 1 ? "The same day last \(span == .week ? "week" : "month")" : "The same \(period.previousLength) days last \(span == .week ? "week" : "month")"
+        return "\(stretch): \(before.tabs.formatted()) Tabs"
+    }
+
+    /// The period's days as bars; hovering one shows it in a tag above.
+    private func bars(_ period: Tally.Period) -> some View {
+        let days = app.tally.last(period.length, to: day(period.length - 1, of: period.start), calendar)
+        return Chart {
+            ForEach(days, id: \.date) { entry in
                 BarMark(x: .value("Day", entry.date, unit: .day), y: .value("Tabs", entry.day.tabs), width: .ratio(0.6))
                     .clipShape(RoundedRectangle(cornerRadius: 3))
-                    .foregroundStyle(Color.primary.opacity(highlighted(entry.date) ? 0.85 : 0.18))
+                    .foregroundStyle(Color.primary.opacity(lit(entry.date) ? 0.85 : 0.18))
             }
-            .chartXSelection(value: $picked)
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .day)) { value in
-                    AxisValueLabel(format: .dateTime.weekday(.narrow), centered: true)
+            if let picked, let entry = days.first(where: { calendar.isDate($0.date, inSameDayAs: picked) }) {
+                RuleMark(x: .value("Day", entry.date, unit: .day)).foregroundStyle(.clear)
+                    .annotation(position: .top, spacing: 2, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) { Tag(date: entry.date, day: entry.day) }
+            }
+        }
+        .chartXSelection(value: $picked)
+        .chartXAxis {
+            if span == .week {
+                AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow), centered: true) }
+            } else {
+                // At noon, the middle of each day's bar: a stride of 7 days would centre each label on its whole week.
+                AxisMarks(values: [0, 7, 14, 21, 28].compactMap { calendar.date(byAdding: .hour, value: 12, to: day($0, of: period.start)) }) { _ in AxisValueLabel(format: .dateTime.day()) }
+            }
+        }
+        .chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { AxisGridLine(); AxisValueLabel() } }
+        .frame(height: 140)
+    }
+
+    private func lit(_ date: Date) -> Bool { calendar.isDate(date, inSameDayAs: picked ?? Date()) }
+
+    /// The last 26 weeks, one dot a day in the sky's halftone, bigger for more Tabs. Days before counting began are specks.
+    private var dots: some View {
+        let weeks = 26, cell: CGFloat = 18
+        let thisWeek = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? calendar.startOfDay(for: Date())
+        let first = calendar.date(byAdding: .weekOfYear, value: -(weeks - 1), to: thisWeek) ?? thisWeek
+        let all = app.tally.last(weeks * 7, to: day(weeks * 7 - 1, of: first), calendar)
+        let most = max(1, all.map(\.day.tabs).max() ?? 1), since = app.tally.since
+        return HStack(spacing: 0) {
+            ForEach(0..<weeks, id: \.self) { week in
+                VStack(spacing: 0) {
+                    ForEach(0..<7, id: \.self) { weekday in
+                        let entry = all[week * 7 + weekday], key = Tally.key(entry.date, calendar)
+                        let future = entry.date > Date(), counted = since.map { key >= $0 } ?? false, today = calendar.isDateInToday(entry.date)
+                        let radius = future ? 0 : !counted ? 0.9 : entry.day.tabs == 0 ? 1.2 : 1.4 + (cell * 0.42 - 1.4) * sqrt(Double(entry.day.tabs) / Double(most))
+                        Circle().fill(Color.primary.opacity(today ? 0.88 : counted ? 0.55 : 0.13)).frame(width: radius * 2, height: radius * 2)
+                            .frame(width: cell, height: cell)
+                            .contentShape(Rectangle())
+                            .onHover { inside in if inside, counted { hovered = entry.date } else if hovered == entry.date { hovered = nil } }
+                    }
                 }
             }
-            .chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { AxisGridLine(); AxisValueLabel() } }
-            .frame(height: 140)
-            personal
-            Text(footnote).font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 20)
         }
+        .accessibilityLabel("Tabs per day for the last 26 weeks")
     }
 
     /// Days with the personal model against days without, once there are both.
@@ -506,22 +602,21 @@ private struct StatsPage: View {
             .padding(.top, 18)
         }
     }
+}
 
-    private func highlighted(_ date: Date) -> Bool { Calendar.current.isDate(date, inSameDayAs: picked ?? Date()) }
-
-    /// The hovered day, or else the two weeks in sum.
-    private func caption(_ weeks: [(date: Date, day: Tally.Day)]) -> String {
-        if let picked, let entry = weeks.first(where: { Calendar.current.isDate($0.date, inSameDayAs: picked) }) {
-            return "\(entry.date.formatted(.dateTime.weekday(.wide).month().day())): \(entry.day.tabs) Tabs, \(entry.day.characters) letters"
+/// A hovered day, dark above its bar.
+private struct Tag: View {
+    let date: Date
+    let day: Tally.Day
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(date.formatted(.dateTime.weekday(.wide).month().day())).foregroundStyle(.white.opacity(0.6))
+            Text("\(day.tabs) Tabs · \(day.characters.formatted()) letters")
+            if let share = day.byTab { Text("\(share.formatted(.percent.precision(.fractionLength(1)))) typed by Tab") }
         }
-        let tabs = weeks.reduce(0) { $0 + $1.day.tabs }
-        return "Last \(Self.days) days: \(tabs.formatted()) Tabs"
-    }
-
-    private var footnote: String {
-        let total = app.tally.total
-        guard total.tabs > 0 else { return "Press Tab on grey text and it counts here. Only counts are kept, never what you type." }
-        return "\(total.tabs.formatted()) Tabs and \(total.characters.formatted()) letters in all. Only counts are kept, never what you type."
+        .font(.system(size: 11)).monospacedDigit().foregroundStyle(.white)
+        .padding(.horizontal, 9).padding(.vertical, 6)
+        .background(Color(white: 0.11), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -529,11 +624,21 @@ private struct Figure: View {
     let value: String
     let label: String
     var big = false
+    /// Up or down on the stretch before, beside the label, where it fits at any window width.
+    var change: Int? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value).font(.system(size: big ? 44 : 26, weight: big ? .semibold : .regular)).monospacedDigit()
                 .contentTransition(.numericText()).animation(.snappy, value: value)
-            Text(label).font(.system(size: 12)).foregroundStyle(.secondary)
+                .fixedSize()
+            HStack(spacing: 6) {
+                Text(label).foregroundStyle(.secondary)
+                if let change, change != 0 {
+                    Text((change > 0 ? "+" : "−") + abs(change).formatted()).fontWeight(.medium).monospacedDigit()
+                        .foregroundStyle(change > 0 ? Color(red: 0.18, green: 0.49, blue: 0.31) : Color(red: 0.64, green: 0.27, blue: 0.23))
+                }
+            }
+            .font(.system(size: 12))
         }
     }
 }

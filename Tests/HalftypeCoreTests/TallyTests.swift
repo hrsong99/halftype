@@ -37,3 +37,23 @@ import Testing
     tally.mark(personal: nil, on: day, calendar)  // Another model, the same.
     #expect(tally.sum(personal: true).count == 0)
 }
+
+@Test func periodsPageBackAndCompareTheSameDaysSoFar() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+    calendar.firstWeekday = 2
+    let date = { (m: Int, d: Int) in calendar.date(from: DateComponents(year: 2026, month: m, day: d))! }
+    let monday = try #require(calendar.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 23, minute: 30)))
+    // This week so far is one day, set against last Monday alone.
+    #expect(Tally.period(.weekOfYear, back: 0, now: monday, calendar) == .init(start: date(11, 9), length: 7, elapsed: 1, previousStart: date(11, 2), previousLength: 1))
+    #expect(Tally.period(.weekOfYear, back: 1, now: monday, calendar) == .init(start: date(11, 2), length: 7, elapsed: 7, previousStart: date(10, 26), previousLength: 7))
+    #expect(Tally.period(.month, back: 0, now: monday, calendar) == .init(start: date(11, 1), length: 30, elapsed: 9, previousStart: date(10, 1), previousLength: 9))
+    // March 31 against all of a shorter February, and a past February against all of January.
+    let march = try #require(calendar.date(from: DateComponents(year: 2027, month: 3, day: 31, hour: 9)))
+    #expect(Tally.period(.month, back: 0, now: march, calendar) == .init(start: calendar.date(from: DateComponents(year: 2027, month: 3, day: 1))!, length: 31, elapsed: 31,
+                                                                       previousStart: calendar.date(from: DateComponents(year: 2027, month: 2, day: 1))!, previousLength: 28))
+    #expect(Tally.period(.month, back: 1, now: march, calendar)?.previousLength == 31)
+    var tally = Tally()
+    tally.took(3, first: true, on: monday, calendar); tally.took(4, first: true, on: date(11, 2), calendar)
+    #expect(tally.sum(7, to: monday, calendar).tabs == 1 && tally.sum(8, to: monday, calendar).characters == 7)
+}
