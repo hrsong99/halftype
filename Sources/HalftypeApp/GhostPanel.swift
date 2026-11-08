@@ -231,13 +231,14 @@ class GhostPanel: NSPanel {
     /// How much of this layout's text Tabs have taken since it was drawn, so quick Tabs before a redraw light the next words, not the first again.
     private var taken = 0
     /// Main thread, after a key typed the ghost's next letter: that letter is no longer drawn, and the rest stays exactly where it was,
-    /// which is where the host is putting it. Nothing hides or moves before the host's update draws the ghost again.
-    func trim(_ text: String, drawing: Int) {
-        guard drawing == self.drawing, var layout = view.layout, let range = Self.next(text, in: layout.storage.string, after: taken) else { return }
+    /// which is where the host is putting it. Nothing hides or moves before the host's update draws the ghost again. False if it can't.
+    @discardableResult func trim(_ text: String, drawing: Int) -> Bool {
+        guard drawing == self.drawing, isVisible, var layout = view.layout, let range = Self.next(text, in: layout.storage.string, after: taken) else { return false }
         taken = NSMaxRange(range)
         let start = layout.manager.glyphIndexForCharacter(at: taken)
         layout.glyphs = NSRange(location: start, length: max(NSMaxRange(layout.glyphs) - start, 0))
         view.layout = layout
+        return true
     }
 
     /// Main thread, right after a Tab: in our own window the words just taken glint where this ghost drew them, if it still shows them.

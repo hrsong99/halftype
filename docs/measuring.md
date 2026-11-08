@@ -38,7 +38,7 @@ Typing 48 letters through a ghost in the private window of `scripts/e2e.sh --fli
 
 A native host answers in under 8 ms. **Chromium's time isn't measured**, and John saw the ghost flash on each key in T3 Code (Electron), so it is over a frame there.
 
-Since 2026-11-09 a key that types the ghost's next letter doesn't wait at all: the tap keeps the rest armed, and the panel stops drawing that letter in place (`KeyTap.typedThrough`, `GhostPanel.trim`), until the host's update draws it again. Only another key hides after the frame. A host that never shows the letter loses the ghost after `Watcher.unanswered`, 0.5 s, a guess to replace with Chromium's measured time. `docs/live-test.md` step 10 is the check by eye; the numbers above are from before this and want a rerun with `--flicker`.
+Since 2026-11-09 a key that types the ghost's next letter doesn't blank it: the panel stops drawing that letter in place and skips the frame's hide (`KeyTap.typesNext`, `GhostPanel.trim`) until the host's update draws and arms it again. Tab stays disarmed in between, as after any key, so it can only take what the host has confirmed (Codex: an armed guess let Tab insert `here` after a `t` a web editor ate). Only another key hides after the frame. A host that never shows the letter loses the ghost after `Watcher.unanswered`, 0.5 s, a guess to replace with Chromium's measured time. `docs/live-test.md` step 10 is the check by eye; the numbers above are from before this and want a rerun with `--flicker`.
 
 ## How well it predicts
 

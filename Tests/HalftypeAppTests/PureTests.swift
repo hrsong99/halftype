@@ -318,26 +318,23 @@ import Testing
         event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
         return event
     }
-    @Test func typingTheGhostsNextLetterKeepsTheRestArmed() {
+    @Test func typingTheGhostsNextLetterIsReportedForTheDrawingAndStillDisarms() {
         let through = Mutex<[String]>([])
         let tap = KeyTap()
         tap.onTypedThrough = { drawing, text, _ in through.withLock { $0.append("\(drawing):\(text)") } }
         #expect(tap.arm(.init(pid: pid, ghost: Ghost(remainder: "there friend"), typesKeys: false, committed: "hello ", before: "hello ", drawing: 3), generation: tap.generation))
+        _ = press(tap, typing("o"))  // An ordinary English letter first, which `composes` counts as a letter key.
+        #expect(through.withLock { $0 }.isEmpty)
+        #expect(tap.arm(.init(pid: pid, ghost: Ghost(remainder: "there friend"), typesKeys: false, committed: "hello ", before: "hello ", drawing: 3), generation: tap.generation))
         #expect(!press(tap, typing("t")).swallowed, "the host types it")
-        let rest = tap.state.withLock { $0.armed }
-        #expect(rest?.ghost.remainder == "here friend" && rest?.committed == "hello t" && rest?.before == "hello t" && rest?.drawing == 3)
-        #expect(press(tap, key(48)).swallowed, "Tab still takes what's drawn, before any update from the host")
-        #expect(through.withLock { $0 } == ["3:t"])
-
-        armed(tap, Ghost(remainder: "there"))
-        _ = press(tap, typing("x"))
-        #expect(tap.state.withLock { $0.armed } == nil, "any other letter disarms, as before")
+        #expect(tap.state.withLock { $0.armed } == nil, "Tab waits for the host to confirm the letter: a web editor may have eaten it")
+        #expect(!press(tap, key(48)).swallowed)
+        #expect(through.withLock { $0 } == ["3:t"], "after another letter key, still reported")
         armed(tap, Ghost(remainder: "t"))
         _ = press(tap, typing("t"))
-        #expect(tap.state.withLock { $0.armed } == nil, "the last letter leaves nothing to show")
         armed(tap, Ghost(remainder: "there"), typesKeys: true)
         _ = press(tap, typing("t"))
-        #expect(tap.state.withLock { $0.armed } == nil, "2-set letters are recomposed by the input method: not predicted")
+        #expect(through.withLock { $0 } == ["3:t"], "not the last letter, nor 2-set, which the input method recomposes")
     }
     @Test func aTabReportsTheDrawingItWasTakenFromAndTheRestKeepsIt() {
         let drawings = Mutex<[Int]>([])

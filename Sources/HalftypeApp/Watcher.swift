@@ -28,6 +28,8 @@ final class Watcher: @unchecked Sendable {
     private static let oneFrame: TimeInterval = 1.0 / 60
     /// shortcut: a guess at the slowest host's answer to a key, half a second; measure Chromium's (docs/measuring.md) and set it from that.
     private static let unanswered: TimeInterval = 0.5
+    /// The input whose letter the drawing lost in place, which the frame's hide leaves to the host's update. Main thread.
+    private var trimmed = -1
 
     let queue = DispatchQueue(label: "halftype.watcher", qos: .userInteractive)
     let tap: KeyTap
@@ -103,15 +105,17 @@ final class Watcher: @unchecked Sendable {
         tap.onInput = { [weak self] generation in
             if let self { healing.run(on: queue) { [weak self] in self?.heal() } }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.oneFrame) {
-                if self?.tap.generation == generation { self?.hideDisarmed() }
+                if self?.tap.generation == generation, self?.trimmed != generation { self?.hideDisarmed() }
             }
         }
-        // Typed through: the ghost loses the letter at once and stays armed. A host that never shows the letter can't keep it up: with no
-        // update and no other input, it goes after the time any host takes to answer.
+        // Typed through: the drawing loses the letter in place and waits for the host, disarmed, rather than hide after a frame. A host that
+        // never shows the letter can't keep it up: with no new drawing and no other input, it goes after the time any host takes to answer.
+        // Not with a Korean source, which may recompose the letter before. Queued before `onInput`'s frame, so it runs first.
         tap.onTypedThrough = { [weak self] drawing, text, generation in
+            guard let self, !koreanInput.load(ordering: .relaxed) else { return }
             DispatchQueue.main.async {
-                guard let self else { return }
-                panel.trim(text, drawing: drawing)
+                guard self.panel.trim(text, drawing: drawing) else { return }
+                self.trimmed = generation
                 DispatchQueue.main.asyncAfter(deadline: .now() + Self.unanswered) {
                     if self.tap.generation == generation, self.panel.drawing == drawing { self.hidePanel() }
                 }
