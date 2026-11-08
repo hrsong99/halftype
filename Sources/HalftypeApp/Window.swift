@@ -35,7 +35,9 @@ struct Root: View {
     enum Page: String, CaseIterable, Identifiable {
         case field = "Try It", stats = "Stats", models = "Models", apps = "Apps", general = "General"
         var id: Self { self }
-        var symbol: String { ["play", "chart.bar", "square.stack.3d.up", "square.grid.2x2", "gearshape"][Self.allCases.firstIndex(of: self)!] }
+        var symbol: String {
+            switch self { case .field: "play"; case .stats: "chart.bar"; case .models: "square.stack.3d.up"; case .apps: "square.grid.2x2"; case .general: "gearshape" }
+        }
     }
 
     /// The section being read: the last whose top is above the middle.
