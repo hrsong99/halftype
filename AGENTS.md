@@ -27,7 +27,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - `HalftypeApp`: Accessibility, key tap, panel, and the window (`Window.swift`). Swift 5 language mode, as state is confined by hand to one queue.
 - The tag `bench-1` keeps the replay harness (`itda-replay`), removed from main. Don't move it.
 - Learning from use: branch `learn`, `lab/PLAYBOOK.md`. Only a per-user LoRA moved keys saved; prompt, logit and gate methods were ~0. Judge any prompt change against the screen-context baseline there.
-- Personal model: the last `*.gguf` by name in `~/Library/Application Support/Halftype/adapters/<model file>/`, for that model only (from `lab/dogfood/train.sh` on `learn`), shows General > Personal Model. Compare leaves it off on even dates, and Stats sets the two kinds of day side by side.
+- Personal model: the last `*.gguf` by name in `~/Library/Application Support/Halftype/adapters/<model file>/`, for that model only (from `lab/dogfood/train.sh` on `learn`), shows General > Personal Model. Compare leaves it off on even dates, and Stats sets the two kinds of day side by side. `shown` in `stats.json` counted every streamed word until cf8b6bd (2026-11-09), so `lab/dogfood/ab.py`'s take rate is only good from 2026-11-10 on.
 - The local branch `bench-2` (worktree `../local-autocomplete/bench2-worktree`) replays the shipped policy; the 2026-11 numbers in `docs/measuring.md` come from it, run by `../local-autocomplete/experiments/bench2/run.sh` and scored by `report.py` there.
 
 ## Traps
