@@ -358,7 +358,13 @@ enum EndToEnd {
             Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false, stage: stage)
         }
         // Delays in hundredths; browsers play anything under 2 as 10, so nothing goes below 3.
+        // A pressed key stays on screen, up, for `linger` hundredths after it's let go, while typing goes on, so it can be read.
+        var lingerLeft = 0, lingerShift = false, linger = 0
         func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, glint: CGFloat? = nil, taken: Int = 0, shift: Bool = false, seen: CGFloat = 0, _ delay: Int) {
+            var shift = shift, seen = seen
+            // A new suggestion ends it, so a lingering Tab doesn't seem to be taking the next one.
+            if press > 0 { lingerLeft = linger; lingerShift = shift } else if !ghost.isEmpty { lingerLeft = 0 }
+            else if seen == 0, lingerLeft > 0 { seen = 1; shift = lingerShift; lingerLeft -= delay }
             frame += 1
             let name = String(format: "en-%04d", frame)
             onMain { render(shot(name, typed, ghost, Stage(keys: keys, wrote: wrote, letters: typed.count, press: press, glint: glint, taken: taken, shift: shift, seen: seen)), to: dir) }
@@ -374,12 +380,13 @@ enum EndToEnd {
         // The pace (docs/design/readme-demo rounds 2 and 3): HALFTYPE_DEMO_PACE="type=4,tab=14,…" (hundredths;
         // grey suggestions, taken at once). beat waits once a suggestion shows before the first Tab; after waits once a run of Tabs ends.
         // long=N takes a fresh suggestion of N words or more that is right to the end with Shift-Tab, after hold.
-        var pace = ["type": "4", "tab": "14", "beat": "12", "after": "8", "rest": "170", "ignore": "35", "long": "3", "hold": "40"]  // Round 3's H.
+        var pace = ["type": "4", "tab": "14", "beat": "12", "after": "8", "rest": "110", "ignore": "35", "long": "3", "hold": "40", "down": "18", "linger": "50"]  // Round 3's H, round 4's B.
         for pair in (ProcessInfo.processInfo.environment["HALFTYPE_DEMO_PACE"] ?? "").split(separator: ",") {
             let kv = pair.split(separator: "="); if kv.count == 2 { pace[String(kv[0])] = String(kv[1]) }
         }
-        let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!, restDelay = Int(pace["rest"]!)!, ignore = Int(pace["ignore"]!)!
+        let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!, restDelay = Int(pace["rest"]!)!, ignore = Int(pace["ignore"]!)!, down = Int(pace["down"]!)!
         let long = Int(pace["long"]!)!, hold = Int(pace["hold"]!)!
+        linger = Int(pace["linger"]!)!
         for target in sentences {
             var text = "", keys = 0, wrote = 0
             var ghost = "", burst = 0
@@ -393,8 +400,7 @@ enum EndToEnd {
                     let all = ghost
                     text += all; keys += 1; wrote += all.count
                     ghost = suggestion(text)
-                    draw(text, ghost, keys, wrote, press: 1, shift: true, seen: 1, 14)
-                    draw(text, ghost, keys, wrote, shift: true, seen: 1, 4)
+                    draw(text, ghost, keys, wrote, press: 1, shift: true, seen: 1, down + 6)
                     if after > 0 { draw(text, ghost, keys, wrote, after) }
                     continue
                 }
@@ -403,8 +409,8 @@ enum EndToEnd {
                     text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count))
                     if ghost.isEmpty { ghost = suggestion(text) }
                     burst += word.count
-                    draw(text, ghost, keys, wrote, press: 1, seen: 1, max(3, tabDelay - 4))
-                    draw(text, ghost, keys, wrote, seen: 1, 4)
+                    draw(text, ghost, keys, wrote, press: 1, seen: 1, down)
+                    draw(text, ghost, keys, wrote, seen: 1, max(3, tabDelay - 6))
                     continue
                 }
                 if burst > 0 {

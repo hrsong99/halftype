@@ -2,9 +2,9 @@
 
 **Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. What you type never leaves your Mac and is never saved: Halftype keeps only counts, for its Stats. You type half; it writes the rest. (It was called Itda until 2026-11.)
 
-![Typing "Happy birthday! I hope you have a great day!": two Tabs take "ppy birthday", and one Shift-Tab takes "hope you have a great day"](docs/media/demo.webp)
+![Three messages typed with Halftype: Tab takes "ppy birthday", Shift-Tab takes "hope you have a great day" and "ake a look and get back to you.", and a wrong suggestion, "ee you soon!", is typed over](docs/media/demo.webp)
 
-An illustration of the two keys, with the suggestions scripted: Tab takes the next word, Shift-Tab the whole suggestion. Real suggestions depend on the model and on what's around the field, and aren't always this good: across whole messages, at the defaults, Halftype saves about a fifth of keystrokes in English ([below](#why-its-different)). It's drawn by [`scripts/demo.sh`](scripts/demo.sh) with the app's own suggestion layout, not screen-recorded.
+An illustration of the two keys, with the suggestions scripted: Tab takes the next word, Shift-Tab the whole suggestion, and a wrong one goes as you keep typing. Real suggestions depend on the model and on what's around the field, and aren't always this good: across whole messages, at the defaults, Halftype saves about a fifth of keystrokes in English ([below](#why-its-different)). It's drawn by [`scripts/demo.sh`](scripts/demo.sh) with the app's own suggestion layout, not screen-recorded.
 
 ## Install
 

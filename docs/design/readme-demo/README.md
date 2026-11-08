@@ -47,3 +47,5 @@ John: "Okay now it feels too short. Any ideas for text we can add there? Or a ne
 - `round4.png`: one frame of each.
 
 Recommendation: B.
+
+Pick (John, round 4): B. Then: "Let's make the key press stay a bit longer so that users can see what happened tho?" Built: a key stays down 0.18 s (`down`) and, once up, on screen 0.5 s more while typing goes on (`linger`), until the next suggestion appears. `scripts/demo.sh` renders B as `docs/media/demo.webp`.
