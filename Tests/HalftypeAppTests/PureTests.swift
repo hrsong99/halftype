@@ -1534,6 +1534,14 @@ final class FakeServer: URLProtocol {
     }
 }
 
+@Suite struct SkyBandTests {
+    @Test func theBandKeepsAMarginThatShrinksButNeverUnderTheShadersFade() {
+        #expect(Root.clear(CGRect(x: 0, y: 150, width: 400, height: 200), in: 500) == 106...394)  // room: 44 each side
+        #expect(Root.clear(CGRect(x: 0, y: 60, width: 400, height: 340), in: 440) == 30...424)    // short: half the free space
+        #expect(Root.clear(CGRect(x: 0, y: 10, width: 400, height: 425), in: 440) == -14...459)   // cramped: still 24
+    }
+}
+
 @Suite struct RenameTests {
     @Test func itdasFolderAndSettingsMoveOnceWithTheirPaths() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("halftype-move-\(UUID().uuidString)")

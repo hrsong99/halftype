@@ -63,8 +63,10 @@ struct Root: View {
     }
 
     /// The band the sky's dots stay out of: the field page's content plus a margin, smaller when the window is short.
+    /// Never under 24 points: Sky.metal lets the lifted peach 24 points into the band, and that must stop short of the content.
     static func clear(_ content: CGRect, in height: CGFloat) -> ClosedRange<CGFloat> {
-        let top = content.minY - min(44, content.minY / 2), bottom = content.maxY + min(44, (height - content.maxY) / 2)
+        let margin = { (free: CGFloat) in max(24, min(44, free / 2)) }
+        let top = content.minY - margin(content.minY), bottom = content.maxY + margin(height - content.maxY)
         return top...max(top, bottom)
     }
 
