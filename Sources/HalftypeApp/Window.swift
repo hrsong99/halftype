@@ -83,16 +83,14 @@ struct Root: View {
         .ignoresSafeArea()
     }
 
-    /// Every setting in one pane, each section marking when it reaches the middle of the window.
+    /// Every setting, a white card a section with nothing drawn inside, each marking when it reaches the middle of the window (docs/design/settings-clean, C).
     private var settings: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 6) {
             StatsPage(app: app).modifier(Place(page: .stats, passed: $passed))
             ModelsPage(app: app).modifier(Place(page: .models, passed: $passed))
             AppsPage(app: app).modifier(Place(page: .apps, passed: $passed))
             GeneralPage(app: app).modifier(Place(page: .general, passed: $passed))
         }
-        .padding(EdgeInsets(top: 2, leading: 20, bottom: 20, trailing: 20))
-        .pane()
         .frame(maxWidth: 520)
         .padding(.horizontal, 28)
         .padding(.bottom, 28)
@@ -104,8 +102,8 @@ struct Root: View {
         let page: Page
         @Binding var passed: Set<Page>
         func body(content: Content) -> some View {
-            // The padding goes inside the id, so a jump leaves the title room below the title bar.
-            content.padding(.top, 16).id(page).onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).minY < ($0.bounds(of: .scrollView)?.height ?? 0) / 2 } action: { above in
+            // The space above the card goes inside the id, so a jump leaves it room below the title bar.
+            content.padding(EdgeInsets(top: 18, leading: 20, bottom: 14, trailing: 20)).pane().padding(.top, 8).id(page).onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).minY < ($0.bounds(of: .scrollView)?.height ?? 0) / 2 } action: { above in
                 if above { passed.insert(page) } else { passed.remove(page) }
             }
         }
@@ -429,7 +427,6 @@ private struct Row<Trailing: View>: View {
     @ViewBuilder let trailing: Trailing
     var body: some View {
         VStack(spacing: 0) {
-            Divider()
             HStack(spacing: 10) {
                 if let icon { tile(icon) }
                 VStack(alignment: .leading, spacing: 1) {
@@ -506,7 +503,6 @@ struct StatsPage: View {
                 Figure(value: shown.byTab.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "–", label: "of your typing by Tab")
             }
             .padding(.vertical, 16)
-            Divider()
             Text(caption(period, before)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().padding(.top, 14).padding(.bottom, 8)
             if let period { bars(period) } else { dots }
             personal
@@ -600,12 +596,11 @@ struct StatsPage: View {
     @ViewBuilder private var personal: some View {
         let with = app.tally.sum(personal: true), without = app.tally.sum(personal: false)
         if let a = with.sum.byTab, let b = without.sum.byTab {
-            Divider().padding(.top, 20)
             HStack(alignment: .lastTextBaseline, spacing: 36) {
                 Figure(value: a.formatted(.percent.precision(.fractionLength(1))), label: "typed by Tab with your model, \(with.count) \(with.count == 1 ? "day" : "days")")
                 Figure(value: b.formatted(.percent.precision(.fractionLength(1))), label: "without it, \(without.count) \(without.count == 1 ? "day" : "days")")
             }
-            .padding(.top, 18)
+            .padding(.top, 28)
         }
     }
 }
@@ -726,8 +721,7 @@ private struct AppsPage: View {
             ForEach(app.pausedApps.sorted(), id: \.self) { id in
                 Row(title: App.displayName(id), icon: App.icon(id).map(Icon.app)) { Button("Remove") { app.pausedApps.remove(id) } }
             }
-            Divider()
-            Button("Add App…", action: app.pauseAnApp).padding(.top, 12)
+            Button("Add App…", action: app.pauseAnApp).padding(.top, 8)
         }
     }
 }
@@ -760,7 +754,6 @@ private struct GeneralPage: View {
             Row(title: "Next word") { key("Tab") }
             Row(title: "Whole suggestion") { key("⇧ Tab") }
             Row(title: "Hide the suggestion") { key("Esc") }
-            Divider()
             Text("Everything runs on this Mac. Nothing you type is sent, and only counts are saved, never text.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 12)
         }
     }

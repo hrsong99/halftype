@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clean Settings</title>
+<style>
+:root{--bg:#efece6;--ink:#1d1d1f;--mut:#6e6e73;--line:#dcd8d0;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+header{max-width:1240px;margin:0 auto;padding:28px 16px 8px}
+h1{font-size:22px;margin:0 0 6px}
+.q{color:var(--mut);margin:0 0 14px}
+.rec{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:0 0 10px}
+main{max-width:1240px;margin:0 auto;padding:8px 16px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:22px}
+@media (max-width:640px){main{grid-template-columns:1fr}}
+h2.row{grid-column:1/-1;font-size:15px;margin:18px 0 -6px;color:var(--mut);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h3{margin:0 0 4px;font-size:16px}.card h3 b{display:inline-block;width:26px;height:26px;border-radius:7px;background:var(--ink);color:#fff;text-align:center;line-height:26px;margin-right:8px;font-size:14px}
+.card p{margin:4px 0 0;color:var(--mut);font-size:13px}
+.card img.shot{width:100%;border-radius:10px;margin:10px 0 8px;display:block}
+.stage{width:100%;aspect-ratio:720/500;position:relative;margin:10px 0 8px;container-type:inline-size}
+.stage>.win{position:absolute;top:0;left:0;transform-origin:0 0;transform:scale(calc(100cqw / 720px))}
+
+/* The window as it ships: cream, the white card, a milky pane */
+.win{--cream:#f6f1e9;--wt:#1d1d1f;--ws:#86868b;--hair:rgba(0,0,0,.09);--pane:rgba(255,255,255,.72);--peach:#e69470;
+  width:720px;height:500px;border-radius:12px;overflow:hidden;position:relative;background:var(--cream);color:var(--wt);
+  box-shadow:0 0 0 .5px rgba(0,0,0,.25),0 12px 30px rgba(0,0,0,.14);font:13px/1.35 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+.lights{position:absolute;top:10px;left:13px;display:flex;gap:8px;z-index:9}.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.side{position:absolute;top:36px;bottom:10px;left:10px;width:142px;padding:8px;border-radius:16px;z-index:6;display:flex;flex-direction:column;gap:1px;background:rgba(255,255,255,.75);box-shadow:0 0 0 .5px var(--hair)}
+.side a{padding:5px 10px;border-radius:7px;display:flex;gap:8px;align-items:center}.side a.on{background:rgba(0,0,0,.06)}
+.side .hd{font-size:11px;color:var(--ws);padding:8px 10px 3px;border-top:1px solid var(--hair);margin-top:6px}
+.side .sp{flex:1}.side .tog{padding:0 10px;display:flex;gap:8px;align-items:center}
+.scroll{position:absolute;top:0;bottom:0;right:0;left:160px;overflow:auto;padding:28px 28px 28px 28px;scrollbar-width:none}
+.sw{width:30px;height:18px;border-radius:9px;background:#d6d3ce;position:relative;display:inline-block;flex:none}.sw:after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.sw.on{background:var(--wt)}.sw.on:after{left:auto;right:2px}
+.btn{border:1px solid var(--hair);background:#fff;border-radius:6px;padding:2px 10px;font-size:12px;min-width:56px;text-align:center;box-shadow:0 .5px 1px rgba(0,0,0,.06)}
+.mut{color:var(--ws);font-size:12px}
+.seg{display:flex;background:rgba(0,0,0,.06);border-radius:7px;padding:2px;font-size:11.5px}.seg span{padding:2px 10px;border-radius:5px}.seg span.s{background:#fff;box-shadow:0 .5px 2px rgba(0,0,0,.15)}
+.key{font-size:11px;border:1px solid var(--hair);border-radius:4px;padding:0 6px;background:#fff}
+.use{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ws);min-width:56px}.use:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--peach)}
+.ico{width:28px;height:28px;border-radius:7px;flex:none;display:grid;place-items:center;background:#fff;box-shadow:0 0 0 .5px var(--hair)}.ico img{width:18px;height:18px}.ico img.full{width:28px;height:28px;border-radius:7px}
+.ico.sym{background:rgba(0,0,0,.05);box-shadow:none;color:var(--ws)}
+.trash{color:var(--ws);font-size:12px}
+
+/* Shared section markup */
+.sec h4{font-size:20px;font-weight:600;margin:0}.sec .sub{color:var(--ws);font-size:12px;margin:2px 0 10px}
+.r{display:flex;align-items:center;gap:10px}.r .t{flex:1;min-width:0}.r .n{display:block;font-size:11.5px;color:var(--ws)}
+.foot{font-size:11.5px;color:var(--ws)}
+
+/* A: today. One pane, a hairline over every row. */
+.A .pane{background:var(--pane);border-radius:20px;padding:2px 20px 20px}
+.A .sec{padding-top:16px}.A .sec+.sec{margin-top:20px}
+.A .r{border-top:1px solid var(--hair);padding:9px 0}
+.A .foot{border-top:1px solid var(--hair);padding-top:12px;margin-top:4px}
+
+/* B: air. No row lines; rows breathe; sections parted by space only. */
+.B .pane{background:var(--pane);border-radius:20px;padding:4px 24px 24px}
+.B .sec{padding-top:20px}.B .sec+.sec{margin-top:30px}
+.B .sec .sub{margin-bottom:14px}
+.B .r{padding:8px 0}
+.B .foot{margin-top:14px}
+
+/* C: a card per section, nothing inside drawn but the rows. */
+.C .pane{background:none;padding:0}
+.C .sec{background:var(--pane);border-radius:18px;padding:18px 20px 14px}.C .sec+.sec{margin-top:14px}
+.C .r{padding:8px 0}
+.C .foot{margin-top:10px}
+
+/* D: two columns, the title on the left, its rows on the right, no lines. */
+.D .pane{background:var(--pane);border-radius:20px;padding:6px 22px 22px}
+.D .sec{display:grid;grid-template-columns:118px 1fr;column-gap:16px;padding-top:22px}.D .sec+.sec{margin-top:16px}
+.D .sec h4{font-size:15px;grid-column:1}.D .sec .sub{grid-column:1;font-size:11px;margin:3px 0 0}
+.D .sec .body{grid-column:2;grid-row:1/span 3}
+.D .r{padding:7px 0}
+.D .foot{margin-top:10px}
+
+/* E: air, and one line a row: notes wait behind an (i), shown on hover. */
+.E .pane{background:var(--pane);border-radius:20px;padding:4px 24px 24px}
+.E .sec{padding-top:20px}.E .sec+.sec{margin-top:28px}
+.E .sec .sub{margin-bottom:12px}
+.E .r{padding:7px 0}
+.E .r .n{display:none}
+.E .r .i{display:inline-grid}
+.i{display:none;place-items:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--ws);color:var(--ws);font-size:9px;font-weight:600;margin-left:6px;vertical-align:1px;cursor:help}
+.E .foot{margin-top:14px}
+#src{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Settings without the ruled-paper look</h1>
+  <p class="q">John: “the settings pages look really cramped with so many horizontal lines; can you show me a version that looks clean?” Every window scrolls; they open on Models, where the lines are densest.</p>
+  <div class="rec"><b>Recommendation: C.</b> One soft white card per section, on the cream, with no lines inside: the white panes already say “group” the way the Try It field does, so the rows only need space between them. In code it's small: <code>Row</code> drops its <code>Divider</code>, and the one <code>.pane()</code> around all settings moves onto each section. B is the even smaller change (just the lines gone, more air) if one big pane should stay.</div>
+</header>
+<main id="m"></main>
+<main id="imgs">
+  <h2 class="row">Image ideas (Codex image tool: ideas, not builds)</h2>
+  <div class="card"><h3><b>F</b>Whitespace only, Linear-like <span style="font-weight:400;color:var(--mut);font-size:12px">· image</span></h3><img class="shot" src="images/F.jpg" alt="F"><p id="nF">Codex's take on “no lines, just air”.</p></div>
+  <div class="card"><h3><b>G</b>A card per group, keys as keycaps <span style="font-weight:400;color:var(--mut);font-size:12px">· image</span></h3><img class="shot" src="images/G.jpg" alt="G"><p id="nG">Codex's take on C, with the three keys pulled into their own small card.</p></div>
+</main>
+<div id="src">
+<img src="../settings-scroll/images/icons/qwen-color.svg">
+<img src="../settings-scroll/images/icons/gemma-color.svg">
+<img src="../settings-scroll/images/icons/kakao.png">
+<img src="../settings-scroll/images/icons/Terminal.png">
+<img src="../settings-scroll/images/icons/Xcode.png">
+</div>
+<script>
+const [Q, G, K, T, X] = [...document.querySelectorAll('#src img')].map(i => i.src);
+const logo = (src, full) => `<span class="ico">${full ? `<img class="full" src="${src}">` : `<img src="${src}">`}</span>`;
+const row = (lead, title, note, trail) => `<div class="r">${lead || ''}<span class="t">${title}${note ? `<span class="i" title="${note}">i</span><span class="n">${note}</span>` : ''}</span>${trail}</div>`;
+const sec = (title, sub, body) => `<section class="sec"><h4>${title}</h4><div class="sub">${sub}</div><div class="body">${body}</div></section>`;
+const SETTINGS = [
+ sec('Models', 'They run on this Mac. Bigger ones are better, and slower.',
+   row(logo(Q), 'Qwen 3.5 0.8B', 'The default. The smallest and quickest.', '<span class="mut">0.5 GB</span><span class="use">In use</span>') +
+   row(logo(Q), 'Qwen 3.5 2B', 'Better in Korean, and 2.4 times the size.', '<span class="trash">🗑</span><span class="mut">1.3 GB</span><span class="btn">Use</span>') +
+   row(logo(K, true), 'Kanana 1.5', 'From Kakao, and strongest in Korean.', '<span class="trash">🗑</span><span class="mut">1.4 GB</span><span class="btn">Use</span>') +
+   row(logo(G), 'Gemma 4 E2B', 'Slightly better in English, and much larger.', '<span class="trash">🗑</span><span class="mut">3.4 GB</span><span class="btn">Use</span>') +
+   row('<span class="ico sym">＋</span>', 'Add Your Own GGUF', '', '<span class="btn">Choose…</span>')),
+ sec('Paused Apps', 'Halftype stays quiet in these apps, and Tab is theirs.',
+   row(`<img src="${T}" width="30" height="30">`, 'Terminal', '', '<span class="btn">Remove</span>') +
+   row(`<img src="${X}" width="30" height="30">`, 'Xcode', '', '<span class="btn">Remove</span>') +
+   row('<span class="ico sym">＋</span>', 'Add App…', '', '')),
+ sec('General', 'How much it suggests, and how you take it.',
+   row('', 'Start at Login', '', '<span class="sw on"></span>') +
+   row('', 'Update Automatically', 'Version 0.9', '<span class="btn">Check Now</span><span class="sw on"></span>') +
+   row('', 'Length', 'Longer suggestions are wrong more often.', '<span class="seg"><span class="s">Short</span><span>Medium</span><span>Long</span></span>') +
+   row('', 'How Often', 'More often means more wrong ones.', '<span class="seg"><span>Less</span><span class="s">Normal</span><span>More</span><span>Always</span></span>') +
+   row('', 'Next word', '', '<span class="key">Tab</span>') +
+   row('', 'Whole suggestion', '', '<span class="key">⇧ Tab</span>') +
+   row('', 'Hide the suggestion', '', '<span class="key">Esc</span>') +
+   '<div class="foot">Everything runs on this Mac. Nothing you type is sent, and only counts are saved, never text.</div>'),
+].join('');
+const OPTIONS = [
+ ['A', 'Today: a hairline over every row', 'What ships: one pane, a line above each of the 15 rows.'],
+ ['B', 'Air: the lines go, the rows breathe', 'Same pane; no row lines, 16 pt between rows, 30 pt between sections. Build: Row drops its Divider, spacing up. Smallest change.'],
+ ['C', 'A card per section ★', 'Each section its own white card on the cream, nothing drawn inside. Build: Row drops its Divider; .pane() moves from the whole column onto each section. Small.'],
+ ['D', 'Two columns: title left, rows right', 'Like a printed form: the section names a column of their own, no lines. Needs a wider window to breathe; at 640 pt the rows get tight. Build: medium.'],
+ ['E', 'Air, one line a row', 'As B, but each note hides behind an (i) you hover, so every row is a single line. Calmest, but the notes stop being read. Build: small.'],
+];
+const m = document.getElementById('m');
+for (const [L, name, note] of OPTIONS) {
+  const card = document.createElement('div'); card.className = 'card';
+  card.innerHTML = `<h3><b>${L}</b>${name}</h3><div class="stage"><div class="win ${L}"><div class="lights"><i></i><i></i><i></i></div>
+    <div class="side"><a>▷ Try It</a><div class="hd">Settings</div><a>Stats</a><a class="on">Models</a><a>Apps</a><a>General</a><div class="sp"></div><div class="tog">On <span class="sw on" style="transform:scale(.8)"></span></div></div>
+    <div class="scroll"><div class="pane">${SETTINGS}</div><div style="height:20px"></div></div></div></div><p>${note}</p>`;
+  m.appendChild(card);
+}
+</script>
+</body>
+</html>
