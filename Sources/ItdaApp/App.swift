@@ -50,11 +50,15 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var personal = Personal(rawValue: UserDefaults.standard.string(forKey: "personal") ?? "") ?? .compare {
         didSet { UserDefaults.standard.set(personal.rawValue, forKey: "personal") }
     }
-    /// Counts the keys typed since the last count with the event, in one write.
-    private func count(_ event: (inout Tally) -> Void) {
+    private var engine: Engine?
+    /// Adds the keys typed since the last count, the event, and which kind of day it is, in one write. Days on another model aren't marked.
+    private func count(_ event: ((inout Tally) -> Void)? = nil) {
+        let keys = tap.takeTyped()
+        guard keys > 0 || event != nil else { return }
         var next = tally
-        next.typed(tap.takeTyped())
-        event(&next)
+        next.typed(keys)
+        event?(&next)
+        if let engine, activePath == store.path(ModelStore.models[0]).path { next.mark(personal: engine.applied.withLock { $0 }) }
         tally = next
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
@@ -95,7 +99,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var on = UserDefaults.standard.object(forKey: "on") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(on, forKey: "on")
-            _ = tap.takeTyped()  // Keys typed while off had no chance at a suggestion.
+            if on { _ = tap.takeTyped() } else { count() }  // Keys typed while off had no chance at a suggestion.
             rebind()
         }
     }
@@ -153,15 +157,13 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     func applicationDidFinishLaunching(_ note: Notification) {
         tune()
-        watcher.onShown = { [weak self] in
-            guard let self else { return }
-            let personal = activePath.flatMap(App.adapterToday) != nil
-            count { $0.shown(personal: personal) }
-        }
-        tap.onAccept = { [weak self] added, suggestion in
+        watcher.onShown = { [weak self] in self?.count { $0.shown() } }
+        // Keys land on the day, within a minute, they were typed: a whole evening's could otherwise count after midnight.
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in if self?.on == true { self?.count() } }
+        tap.onAccept = { [weak self] added, keys, suggestion in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.count { $0.took(added, first: suggestion != self.lastTaken) }
+                self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
             }
         }
@@ -210,7 +212,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     /// ggml's Metal device asserts at exit if a model is still loaded.
     func applicationWillTerminate(_ note: Notification) {
-        if on { count { _ in } }
+        if on { count() }
         watcher.queue.sync { watcher.completer }?.unload()
     }
 
@@ -312,6 +314,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                     return
                 }
                 activePath = path
+                self.engine = engine
                 if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
                 ready = true

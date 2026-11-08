@@ -58,7 +58,7 @@ final class KeyTap: @unchecked Sendable {
     var onInput: (@Sendable (Int) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
     /// Given the characters a Tab added, and which suggestion it took from. Off this thread at once.
-    var onAccept: (@Sendable (_ added: Int, _ suggestion: Int) -> Void)?
+    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int) -> Void)?
     private var port: CFMachPort?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
     private let pid: pid_t?
@@ -133,7 +133,7 @@ final class KeyTap: @unchecked Sendable {
         }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
-            onAccept?(plan.added, suggestion)
+            onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion)
         }
         if decision == .reenable, let port { CGEvent.tapEnable(tap: port, enable: true) }
         if decision == .passAndDismiss { onDismiss?() }

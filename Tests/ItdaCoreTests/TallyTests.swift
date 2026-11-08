@@ -26,8 +26,12 @@ import Testing
     let calendar = Calendar(identifier: .gregorian)
     let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 12)))
     let next = try #require(calendar.date(byAdding: .day, value: 1, to: day))
-    tally.shown(personal: true, on: day, calendar); tally.took(10, first: true, on: day, calendar); tally.typed(30, on: day, calendar)
-    tally.shown(on: next, calendar); tally.took(5, first: true, on: next, calendar); tally.typed(45, on: next, calendar)
+    tally.took(4, keys: 10, first: true, on: day, calendar); tally.typed(30, on: day, calendar); tally.mark(personal: true, on: day, calendar)
+    tally.took(5, keys: 5, first: true, on: next, calendar); tally.typed(45, on: next, calendar); tally.mark(personal: false, on: next, calendar)
+    let third = try #require(calendar.date(byAdding: .day, value: 1, to: next))  // No suggestions at all still counts, as 0%.
+    tally.typed(50, on: third, calendar); tally.mark(personal: false, on: third, calendar)
     #expect(tally.sum(personal: true).count == 1 && tally.sum(personal: true).sum.byTab == 0.25)
-    #expect(tally.sum(personal: false).count == 1 && tally.sum(personal: false).sum.byTab == 0.1)  // The old day has no keys, so it's left out.
+    #expect(tally.sum(personal: false).count == 2 && tally.sum(personal: false).sum.byTab == 0.05)  // The old day has no keys, so it's left out.
+    tally.mark(personal: true, on: next, calendar)  // A switch mid-day mixes it, and it drops out.
+    #expect(tally.sum(personal: false).count == 1 && tally.sum(personal: true).count == 1)
 }
