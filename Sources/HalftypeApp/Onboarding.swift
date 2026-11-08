@@ -194,9 +194,7 @@ private struct Welcome: View {
     }
 
     static let font = Font.system(size: 34, weight: .semibold)
-    /// GhostView.glass: pale blue to peach.
-    static let glass = LinearGradient(colors: [Color(red: 0.373, green: 0.608, blue: 0.847), Color(red: 0.6, green: 0.69, blue: 0.79), Color(red: 0.91, green: 0.561, blue: 0.369)],
-                                      startPoint: .leading, endPoint: .trailing)
+    static let glass = LinearGradient(colors: GhostView.glassColors.map(Color.init(nsColor:)), startPoint: .leading, endPoint: .trailing)
 }
 
 /// GlintView's band, crossing the words as progress goes 0 to 1.
@@ -205,8 +203,7 @@ private struct GlintBand: View {
     var body: some View {
         GeometryReader { size in
             let width = max(40, size.size.height * 2)
-            LinearGradient(colors: [.clear, Color(red: 0.45, green: 0.65, blue: 0.88), Color(red: 0.76, green: 0.83, blue: 0.91), Color(red: 0.93, green: 0.6, blue: 0.42), .clear],
-                           startPoint: .leading, endPoint: .trailing)
+            LinearGradient(colors: GlintView.lightColors.map(Color.init(nsColor:)), startPoint: .leading, endPoint: .trailing)
                 .frame(width: width)
                 .offset(x: -width + progress * (size.size.width + width))
                 .opacity(progress > 0 && progress < 1 ? 1 : 0)

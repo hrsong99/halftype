@@ -257,8 +257,9 @@ struct FieldPage: View {
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
         .pane()
         .frame(maxWidth: 500)
-        // SwiftUI's own first focus, which also lands on a field swapped in (an onboarding step, the home after it).
-        .defaultFocus($focused, true)
+        // A turn later: a field swapped in (an onboarding step, the home after it) isn't in the window yet when it appears.
+        // `.defaultFocus` left it unfocused there, so the lesson's first Tab only moved focus (tried live, 2026-11-09).
+        .onAppear { DispatchQueue.main.async { focused = true } }
         .onChange(of: draft) { picking = false }
         .onChange(of: app.ready, initial: true) { if let sentence = app.takePrefill(draft: draft) { draft = sentence } }
         .task(id: app.why) {

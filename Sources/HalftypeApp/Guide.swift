@@ -110,7 +110,7 @@ struct GuideCard: View {
         }
         .padding(14)
         // The window's cream, so it reads as Halftype's beside Settings in light or dark mode (docs/design/onboarding, H).
-        .background(Color(red: 0.965, green: 0.945, blue: 0.914), in: RoundedRectangle(cornerRadius: 16))
+        .background(Root.cream, in: RoundedRectangle(cornerRadius: 16))
         .overlay(alignment: .topTrailing) {
             Button(action: dismiss) { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).padding(8) }
                 .buttonStyle(.plain).help("Hide")
