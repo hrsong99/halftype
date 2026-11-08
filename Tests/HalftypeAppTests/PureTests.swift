@@ -312,6 +312,33 @@ import Testing
         #expect(decide(53, .maskShift) == .dismiss(swallow: true))
         #expect(decide(53, [.maskCommand, .maskAlternate]) == .dismiss(swallow: false))
     }
+    func typing(_ text: String, code: CGKeyCode = 17) -> CGEvent {
+        let event = key(code)
+        let units = Array(text.utf16)
+        event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+        return event
+    }
+    @Test func typingTheGhostsNextLetterKeepsTheRestArmed() {
+        let through = Mutex<[String]>([])
+        let tap = KeyTap()
+        tap.onTypedThrough = { drawing, text, _ in through.withLock { $0.append("\(drawing):\(text)") } }
+        #expect(tap.arm(.init(pid: pid, ghost: Ghost(remainder: "there friend"), typesKeys: false, committed: "hello ", before: "hello ", drawing: 3), generation: tap.generation))
+        #expect(!press(tap, typing("t")).swallowed, "the host types it")
+        let rest = tap.state.withLock { $0.armed }
+        #expect(rest?.ghost.remainder == "here friend" && rest?.committed == "hello t" && rest?.before == "hello t" && rest?.drawing == 3)
+        #expect(press(tap, key(48)).swallowed, "Tab still takes what's drawn, before any update from the host")
+        #expect(through.withLock { $0 } == ["3:t"])
+
+        armed(tap, Ghost(remainder: "there"))
+        _ = press(tap, typing("x"))
+        #expect(tap.state.withLock { $0.armed } == nil, "any other letter disarms, as before")
+        armed(tap, Ghost(remainder: "t"))
+        _ = press(tap, typing("t"))
+        #expect(tap.state.withLock { $0.armed } == nil, "the last letter leaves nothing to show")
+        armed(tap, Ghost(remainder: "there"), typesKeys: true)
+        _ = press(tap, typing("t"))
+        #expect(tap.state.withLock { $0.armed } == nil, "2-set letters are recomposed by the input method: not predicted")
+    }
     @Test func aTabReportsTheDrawingItWasTakenFromAndTheRestKeepsIt() {
         let drawings = Mutex<[Int]>([])
         let tap = KeyTap()
@@ -1552,6 +1579,24 @@ final class FakeServer: URLProtocol {
 }
 
 @Suite struct GlintTests {
+    @MainActor @Test(.enabled(if: !NSScreen.screens.isEmpty)) func typingThroughTrimsTheGhostInPlace() throws {
+        let panel = GhostPanel()
+        defer { panel.hideGhost() }
+        let spec = GhostSpec(text: " notes", caret: CGRect(x: 200, y: 200, width: 0, height: 18), frame: CGRect(x: 100, y: 190, width: 400, height: 40),
+                             fontSize: 15, fontName: nil, color: nil, lineLeft: nil, previousCharacter: "e", mayWrap: false)
+        try #require(panel.show(spec) != nil)
+        let drawn = try #require(panel.view.layout), frame = panel.frame
+        let second = drawn.manager.location(forGlyphAt: 2)
+        panel.trim(" ", drawing: panel.drawing)
+        panel.trim("n", drawing: panel.drawing)
+        let trimmed = try #require(panel.view.layout)
+        #expect(trimmed.glyphs.location == 2 && NSMaxRange(trimmed.glyphs) == NSMaxRange(drawn.glyphs))
+        #expect(trimmed.manager.location(forGlyphAt: 2) == second && panel.frame == frame, "the rest stays exactly where it was")
+        panel.trim("x", drawing: panel.drawing)
+        panel.trim("o", drawing: panel.drawing - 1)
+        #expect(panel.view.layout?.glyphs == trimmed.glyphs, "a letter not next, or for another drawing, changes nothing")
+    }
+
     // A display link fires only for a view on a display, so a headless run skips this.
     @MainActor @Test(.enabled(if: !NSScreen.screens.isEmpty)) func aGlintPlaysThroughAndGoes() throws {
         let spec = GhostSpec(text: " notes", caret: CGRect(x: 200, y: 200, width: 0, height: 18), frame: CGRect(x: 100, y: 190, width: 400, height: 40),

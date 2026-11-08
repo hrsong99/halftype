@@ -26,6 +26,8 @@ final class Watcher: @unchecked Sendable {
     // On the field only: app-wide AXValueChanged storms while a reply streams.
     private static let fieldNotifications = ["AXValueChanged", "AXSelectedTextChanged"]
     private static let oneFrame: TimeInterval = 1.0 / 60
+    /// shortcut: a guess at the slowest host's answer to a key, half a second; measure Chromium's (docs/measuring.md) and set it from that.
+    private static let unanswered: TimeInterval = 0.5
 
     let queue = DispatchQueue(label: "halftype.watcher", qos: .userInteractive)
     let tap: KeyTap
@@ -102,6 +104,17 @@ final class Watcher: @unchecked Sendable {
             if let self { healing.run(on: queue) { [weak self] in self?.heal() } }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.oneFrame) {
                 if self?.tap.generation == generation { self?.hideDisarmed() }
+            }
+        }
+        // Typed through: the ghost loses the letter at once and stays armed. A host that never shows the letter can't keep it up: with no
+        // update and no other input, it goes after the time any host takes to answer.
+        tap.onTypedThrough = { [weak self] drawing, text, generation in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                panel.trim(text, drawing: drawing)
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.unanswered) {
+                    if self.tap.generation == generation, self.panel.drawing == drawing { self.hidePanel() }
+                }
             }
         }
     }

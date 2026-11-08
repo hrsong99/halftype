@@ -71,6 +71,9 @@ class KeyTap: @unchecked Sendable {
     /// Given the characters a Tab added, which suggestion it took from, the text (nil when typed as strokes: an input method may recompose
     /// the letter before it, moving the text from where the ghost was), and the drawing it was taken from. Off this thread at once.
     var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int, _ text: String?, _ drawing: Int) -> Void)?
+    /// A key typed the ghost's next letter, which stays armed without it: given the drawing, the letter, and the generation it moved to.
+    /// Off this thread at once.
+    var onTypedThrough: (@Sendable (_ drawing: Int, _ text: String, _ generation: Int) -> Void)?
     /// When the tap comes up or the system refuses it, on `keeper`. Not for a tap back up within the retry.
     var onUp: (@Sendable (Bool) -> Void)?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
@@ -134,6 +137,19 @@ class KeyTap: @unchecked Sendable {
         return .accept(all: flags.contains(.maskShift))
     }
 
+    /// The ghost after a key that typed its next letter, so typing through it needn't wait for the host's update (a Chromium app may take
+    /// longer than the frame a ghost is kept): nil for any other key, for 2-set and open syllables, whose letters an input method recomposes,
+    /// and for the last letter, after which nothing is left to show.
+    static func typedThrough(_ armed: Armed, _ typed: String, composing: Bool) -> Armed? {
+        guard !armed.typesKeys, !composing, armed.ghost.composing.isEmpty, armed.ghost.keys.isEmpty, armed.ghost.remainder.count > 1,
+              let first = armed.ghost.remainder.first, String(first) == typed else { return nil }
+        var next = armed
+        next.ghost = Ghost(remainder: String(armed.ghost.remainder.dropFirst()))
+        next.committed += typed
+        next.before += typed
+        return next
+    }
+
     static func composes(after was: Bool, type: CGEventType, keyCode: Int64, flags: CGEventFlags) -> Bool {
         guard type == .keyDown, flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty else { return false }
         return keyCode == backspaceKey ? was : TwoSetLayout.letterCodes.contains(keyCode)
@@ -156,12 +172,20 @@ class KeyTap: @unchecked Sendable {
         var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)?
         var suggestion = 0, drawing = 0
         var generation = 0
+        var through: (drawing: Int, text: String)?
+        var length = 0, units = [UniChar](repeating: 0, count: 4)
+        if Self.types(type, event, flags) { event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &units) }
+        let typed = String(utf16CodeUnits: units, count: length)
         let decision = state.withLock { s -> Decision in
             let armed = s.armed.flatMap { $0.pid == target ? $0 : nil }  // A key for another app is that app's.
             let decision = Self.decide(type: type, keyCode: keyCode, flags: flags, armed: armed != nil)
             s.generation += 1
             generation = s.generation
             s.armed = nil
+            if decision == .pass, let armed, !typed.isEmpty, let next = Self.typedThrough(armed, typed, composing: s.composing) {
+                s.armed = next
+                through = (armed.drawing, typed)
+            }
             s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
             if case .accept(let all) = decision, let armed {
                 plan = s.accept(armed, all: all)
@@ -177,6 +201,7 @@ class KeyTap: @unchecked Sendable {
         }
         if decision == .reenable { reenable() }
         if case .dismiss = decision { onDismiss?() }
+        if let through { onTypedThrough?(through.drawing, through.text, generation) }
         if plan == nil, Self.types(type, event, flags) { onTyped?() }
         onInput?(generation)
         return plan != nil || decision == .dismiss(swallow: true)
