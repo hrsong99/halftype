@@ -83,25 +83,27 @@
   .ko-lines { display: grid; gap: 12px; padding: 24px; } .ko-lines .ht-field { min-height: 0; border-radius: 16px; padding: 12px 16px; } .ko-lines .ht-text { font-size: 17px; min-height: 0; }
   @media (min-width: 640px) and (max-width: 1023px) { #saved .saved-facts > div { grid-column: 1 / -1; } #saved .t-display { font-size: 88px; } #saved .saved-facts dd { font-size: var(--t-body); } }
   /* the Cotypist comparison: one scale per chart, bars from zero */
-  .vs { row-gap: var(--s-7); margin-top: var(--s-6); }
+  .vs { row-gap: var(--s-6); margin-top: var(--s-5); }
   .vs__chart { margin: 0; display: grid; gap: 14px; position: relative; }
   .vs__title { font: 500 var(--t-small)/1.3 var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .vs__bar { display: grid; grid-template-columns: 72px 1fr 64px; align-items: center; gap: 12px; padding: 4px 0; cursor: default; }
+  .vs__bar { display: grid; grid-template-columns: 72px 1fr 64px; align-items: center; gap: 12px; padding: 2px 0; cursor: default; }
   .vs__name { font: 500 15px/1 var(--font-text); color: var(--ink); }
-  .vs__track { height: 28px; display: block; }
+  .vs__track { height: 24px; display: block; }
   .vs__fill { display: block; height: 100%; width: var(--w); border-radius: 0 4px 4px 0; transform-origin: left; transition: opacity .15s; }
   .vs__fill--us { background: #24558f; } .vs__fill--them { background: #b8683a; }
   .vs__chart:hover .vs__fill { opacity: .55; } .vs__chart .vs__bar:hover .vs__fill { opacity: 1; }
   .vs__val { font: 500 15px/1 var(--font-mono); color: var(--ink); text-align: right; }
-  .vs__ko { margin-top: var(--s-7); border-collapse: collapse; width: 100%; max-width: 860px; font-size: 15px; }
+  .vs__ko { margin-top: var(--s-6); border-collapse: collapse; width: 100%; max-width: 860px; font-size: 15px; }
   .vs__ko caption { text-align: left; padding-bottom: 10px; }
-  .vs__ko th, .vs__ko td { text-align: left; padding: 10px 16px 10px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  .vs__ko th, .vs__ko td { text-align: left; padding: 7px 16px 7px 0; border-top: 1px solid var(--line); vertical-align: top; }
   .vs__ko th { font-weight: 500; white-space: nowrap; } .vs__ko td:nth-child(2) { font-family: var(--font-mono); white-space: nowrap; } .vs__ko td:last-child { color: var(--muted); }
   .vs__ko .is-yes { color: #24558f; font-weight: 600; }
   .vs__x { margin: 4px 0 0 96px; font: 400 clamp(28px, 3vw, 40px)/1.1 var(--font-display); letter-spacing: -.02em; color: var(--ink); }
   .vs__facts { list-style: none; padding: 0; margin: var(--s-7) 0 0; display: flex; flex-wrap: wrap; gap: 12px 40px; color: var(--muted); }
   .vs__facts b { font: 500 20px/1 var(--font-mono); color: var(--ink); margin-right: 6px; }
-  .vs__how { margin-top: var(--s-5); font: 400 13px/1.5 var(--font-mono); color: var(--muted); max-width: 72ch; }
+  .vs__how { margin-top: var(--s-5); font: 400 13px/1.5 var(--font-mono); color: #4d4c49; }
+  #keys .panel { --p-h: 340px; }
+  .ko-lines { padding: 40px; gap: 16px; } .ko-lines .ht-text { font-size: 20px; }
   .vs__tip { position: fixed; z-index: 50; pointer-events: none; background: var(--ink); color: var(--bg); font: 400 13px/1.4 var(--font-text); padding: 8px 10px; border-radius: 6px; max-width: 260px; }
   @media (max-width: 639px) { .vs__ko td:last-child { display: none; } .vs__bar { grid-template-columns: 72px 1fr 64px; gap: 8px; } .vs__x { margin-left: 80px; } .vs__val, .vs__name { font-size: 13px; } }
   /* the Korean keys diagram */
@@ -170,10 +172,10 @@ brew install --cask halftype</code>
           <button class="link brew__copy" type="button" data-copy="brew tap hrsong99/halftype &amp;&amp; brew trust hrsong99/halftype&#10;brew install --cask halftype">Copy</button>
         </div>
       </div>
-      <div class="hero__media sky span-6 start-7" role="img" aria-label="The Halftype window: a sentence is typed, grey text suggests its ending, and Tab turns it to ink. English and Korean sentences take turns.">
+      <div class="hero__media sky span-6 start-7">
         <canvas data-sky aria-hidden="true"></canvas>
-        <div class="ht-field" aria-hidden="true">
-          <div class="ht-text" data-replay></div>
+        <div class="ht-field" role="img" aria-label="The Halftype window: a sentence is typed, grey text suggests its ending, and Tab turns it to ink. English and Korean sentences take turns.">
+          <div class="ht-text" data-replay aria-hidden="true"></div>
           <div class="ht-bar"><span class="kc" data-tabkey>tab</span><span class="ht-pill">Qwen 3.5 0.8B</span><span class="ht-power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
         </div>
         <p class="ht-note">Real suggestions, on sentences it does well. Not always this good.</p>
@@ -227,12 +229,13 @@ brew install --cask halftype</code>
     <div class="wrap">
       <div class="statement stack-6">
         <h2 id="saved-h" class="mo-lt__type t-display">Type half. It writes the rest.</h2>
-        <p class="t-lead measure">Keystrokes saved across whole messages. Exact matches only.</p>
+        <p class="t-lead measure">Keystrokes saved across whole messages, replayed with real typing delays. Exact matches only.</p>
         <dl class="grid saved-facts">
           <div class="span-4"><dt class="t-stat">21.6%</dt><dd>English</dd></div>
-          <div class="span-4"><dt class="t-stat">4.8%</dt><dd>Korean</dd></div>
-          <div class="span-4"><dt class="t-stat">8.8%</dt><dd>Korean, with the Kanana 1.5 model</dd></div>
+          <div class="span-4"><dt class="t-stat">4.8%</dt><dd>Korean, public dialogue</dd></div>
+          <div class="span-4"><dt class="t-stat">8.8%</dt><dd>Korean, public dialogue, Kanana 1.5 model</dd></div>
         </dl>
+        <p class="vs__how">Measured before the latest change to suggestion length. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it’s measured</a>.</p>
       </div>
     </div>
   </section>
@@ -255,25 +258,25 @@ brew install --cask halftype</code>
   <section class="section ground-surface" id="cost" aria-labelledby="cost-h">
     <div class="wrap">
       <div class="section-head"><h2 id="cost-h">The smallest download. <span class="muted">And Korean that keeps up.</span></h2></div>
-      <div class="grid grid--top vs">
+      <div class="grid grid--top vs" data-visual>
         <figure class="vs__chart span-4" data-vs>
           <figcaption class="vs__title">Model to download</figcaption>
           <div class="vs__bar" data-tip="Qwen 3.5 0.8B, Halftype’s default: 0.53 GB"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:13.8%"></span></span><span class="vs__val">0.53 GB</span></div><div class="vs__bar" data-tip="Qwen 3.5 2B, KeyType 1.8’s default: 1.27 GB"><span class="vs__name">KeyType</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:33.0%"></span></span><span class="vs__val">1.27 GB</span></div><div class="vs__bar" data-tip="Gemma 4 E2B, as Cotypist 2026.5.2 downloaded it: 2.98 GB"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:77.4%"></span></span><span class="vs__val">2.98 GB</span></div><div class="vs__bar" data-tip="Gemma 4 E2B Q6, Cotabby 0.6.2’s default: 3.85 GB"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:100.0%"></span></span><span class="vs__val">3.85 GB</span></div>
         </figure>
         <figure class="vs__chart span-4" data-vs>
-          <figcaption class="vs__title">Memory at rest, 9 minutes after launch</figcaption>
+          <figcaption class="vs__title">Memory at rest</figcaption>
           <div class="vs__bar" data-tip="Halftype unloads its model after 5 idle minutes: 79 MB"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:20.6%"></span></span><span class="vs__val">79 MB</span></div><div class="vs__bar" data-tip="Cotabby keeps its model mapped: 185 MB"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:48.3%"></span></span><span class="vs__val">185 MB</span></div><div class="vs__bar" data-tip="Cotypist keeps its model mapped; 478 MB in a second run: 383 MB"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:100.0%"></span></span><span class="vs__val">383 MB</span></div>
         </figure>
         <figure class="vs__chart span-4" data-vs>
-          <figcaption class="vs__title">CPU at rest, % of one core</figcaption>
-          <div class="vs__bar" data-tip="Halftype, 0.13-0.27% over 60 s: 0.2%"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:9.1%"></span></span><span class="vs__val">0.2%</span></div><div class="vs__bar" data-tip="Cotypist, median; it rose to 13% about every 5 minutes: 0.2%"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:9.1%"></span></span><span class="vs__val">0.2%</span></div><div class="vs__bar" data-tip="Cotabby, median of 9 samples: 2.2%"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:100.0%"></span></span><span class="vs__val">2.2%</span></div>
+          <figcaption class="vs__title">CPU at rest</figcaption>
+          <div class="vs__bar" data-tip="Halftype, 0.13-0.27% over 60 s: 0.2%"><span class="vs__name">Halftype</span><span class="vs__track"><span class="vs__fill vs__fill--us" style="--w:9.1%"></span></span><span class="vs__val">0.2%</span></div><div class="vs__bar" data-tip="Cotypist, median; one sample of 13% in each 8-minute run: 0.2%"><span class="vs__name">Cotypist</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:9.1%"></span></span><span class="vs__val">0.2%</span></div><div class="vs__bar" data-tip="Cotabby, median of 9 samples: 2.2%"><span class="vs__name">Cotabby</span><span class="vs__track"><span class="vs__fill vs__fill--them" style="--w:100.0%"></span></span><span class="vs__val">2.2%</span></div>
         </figure>
       </div>
       <table class="vs__ko">
         <caption class="vs__title">Suggests mid-syllable in Korean</caption>
         <tbody><tr><th scope="row">Halftype</th><td class="is-yes">Yes</td><td>Measured: 0.69 keys saved per mid-syllable request</td></tr><tr><th scope="row">macOS predictions</th><td class="">No Korean</td><td>Apple offers inline predictions in English, French and Spanish</td></tr><tr><th scope="row">Cotabby, KeyType</th><td class="">Not found</td><td>No completion through a composing syllable in their source</td></tr><tr><th scope="row">Cotypist</th><td class="">Not tested</td><td>Closed source</td></tr></tbody>
       </table>
-      <p class="vs__how">Each app’s default model, on one M5 with 16 GB, 2026-11-09. Memory is macOS’s footprint. Halftype’s figures are from <code>scripts/e2e.sh --measure</code>, the others from <code>docs/site/compare/idle.sh</code>. KeyType is left out at rest: it starts only once it has Accessibility, then keeps its model until you quit.</p>
+      <p class="vs__how">Each app’s default model, on one M5 with 16 GB, 2026-11-09. At rest is 9 minutes after launch, with no typing; memory is macOS’s footprint. Halftype’s figures are from <code>scripts/e2e.sh --measure</code>, the others from <code>docs/site/compare/idle.sh</code>. KeyType is left out at rest: it starts only once it has Accessibility, then keeps its model until you quit. Cotabby had no Accessibility either, but had loaded its model.</p>
       <div class="vs__tip" role="tooltip" hidden></div>
     </div>
   </section>
@@ -310,7 +313,7 @@ brew install --cask halftype</code>
         <ul class="rows span-6 start-7">
           <li><span class="rows__name">사용법</span><p>Tab은 다음 단어, Shift-Tab은 전체, Esc는 닫기입니다.</p></li>
           <li><span class="rows__name">다른 점</span><p>조합 중인 글자에서도 제안합니다.</p></li>
-          <li><span class="rows__name">비용</span><p>입력 중 0.56 GB, 5분 쉬면 79 MB.</p></li>
+          <li><span class="rows__name">비용</span><p>입력 중 0.56 GB와 약 270 MB, 5분 쉬면 79 MB.</p></li>
           <li><span class="rows__name">개인정보</span><p>글은 저장하지 않습니다. 비밀번호 칸은 건너뜁니다.</p></li>
           <li><span class="rows__name">한계</span><p>macOS 26, Apple Silicon, 두벌식.</p></li>
                   </ul>
@@ -349,15 +352,18 @@ brew install --cask halftype</code>
 </footer>
 
 <script>
-// The comparison: hover or focus shows what each bar measured.
+// The comparison: hover or focus shows what each bar measured; Esc hides it.
+  let dismissed = null;  // the bar whose tip Esc closed; it stays closed until the pointer leaves or focus moves
+  addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelector('.vs__tip').hidden = true; dismissed = document.querySelector('.vs__bar:hover') || document.activeElement; } });
 (() => {
   const tip = document.querySelector('.vs__tip');
   document.querySelectorAll('[data-vs]').forEach(fig => {
     fig.querySelectorAll('.vs__bar').forEach(bar => {
       bar.tabIndex = 0; bar.setAttribute('aria-label', bar.dataset.tip);
-      const show = x => { tip.textContent = bar.dataset.tip; tip.hidden = false; const r = bar.getBoundingClientRect(); tip.style.left = Math.min(x ?? r.left + 96, innerWidth - 276) + 'px'; tip.style.top = (r.top - 44) + 'px'; };
-      bar.addEventListener('mousemove', e => show(e.clientX + 12)); bar.addEventListener('focus', () => show());
-      bar.addEventListener('mouseleave', () => tip.hidden = true); bar.addEventListener('blur', () => tip.hidden = true);
+      const show = x => { tip.textContent = bar.dataset.tip; tip.hidden = false; const r = bar.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.max(8, Math.min(x ?? r.left + 96, innerWidth - w - 8)) + 'px'; tip.style.top = (r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6) + 'px'; };
+      bar.addEventListener('mousemove', e => { if (dismissed !== bar) show(e.clientX + 12); }); bar.addEventListener('focus', () => { dismissed = null; show(); });
+      const hide = () => { tip.hidden = true; if (dismissed === bar) dismissed = null; };
+      bar.addEventListener('mouseleave', hide); bar.addEventListener('blur', hide);
     });
   });
 })();
@@ -374,7 +380,7 @@ brew install --cask halftype</code>
   function draw(s) {
     const r = s.c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
     if (!r.width) return;
-    if (s.c.width !== Math.round(r.width * dpr)) { s.c.width = Math.round(r.width * dpr); s.c.height = Math.round(r.height * dpr); }
+    if (s.c.width !== Math.round(r.width * dpr) || s.c.height !== Math.round(r.height * dpr)) { s.c.width = Math.round(r.width * dpr); s.c.height = Math.round(r.height * dpr); }
     const g = s.c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
     const cell = 7, rad = cell * 0.62, W = r.width, H = r.height;
     const inks = s.night ? ['#21384f', '#4d3024'] : ['#a9cdf0', '#f6c3a4'];
@@ -413,16 +419,28 @@ brew install --cask halftype</code>
     ['As soon as possi', 'ble,'],
     ['이번 주 금요일까지 보내주시면 감사하겠', '습니다.'],
   ];
-  const L = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
-  // 2-set composition as the screen shows it: initial consonant, then consonant and vowel, then the final.
-  const steps = ch => {
+  const L = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ', V = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
+  const T = ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+  // The jamo of each syllable, in typing order. shortcut: one key per jamo, so compound vowels and finals (none in these lines) aren't split.
+  const keysOf = text => [...text].flatMap(ch => {
     const n = ch.charCodeAt(0) - 0xAC00;
     if (n < 0 || n > 11171) return [ch];
-    const l = Math.floor(n / 588), v = Math.floor((n % 588) / 28), t = n % 28;
-    const cv = String.fromCharCode(0xAC00 + (l * 21 + v) * 28);
-    return t ? [L[l], cv, ch] : [L[l], cv];
+    const t = n % 28;
+    return t ? [L[Math.floor(n / 588)], V[Math.floor((n % 588) / 28)], T[t]] : [L[Math.floor(n / 588)], V[Math.floor((n % 588) / 28)]];
+  });
+  // 2-Set composition of a key sequence: a final consonant moves on when a vowel follows (하ㄹ shows as 할, then 하루).
+  const compose = keys => {
+    let out = '', l = '', v = '', t = '';
+    const flush = () => { out += l && v ? String.fromCharCode(0xAC00 + (L.indexOf(l) * 21 + V.indexOf(v)) * 28 + T.indexOf(t)) : l + v; l = v = t = ''; };
+    for (const k of keys) {
+      if (L.includes(k)) { if (l && v && !t && T.includes(k)) t = k; else { flush(); l = k; } }
+      else if (V.includes(k)) { if (l && !v) v = k; else if (t) { const m = t; t = ''; flush(); l = m; v = k; } else { flush(); v = k; } }
+      else { flush(); out += k; }
+    }
+    flush(); return out;
   };
-  console.assert(steps('갑').join() === 'ㄱ,가,갑' && steps('하').join() === 'ㅎ,하' && steps('a').join() === 'a', 'jamo steps');
+  const ks = keysOf('하루');
+  console.assert([1, 2, 3, 4].map(i => compose(ks.slice(0, i))).join() === 'ㅎ,하,할,하루' && compose(keysOf('감사하겠')) === '감사하겠' && compose(['a', ' ']) === 'a ', 'two-set compose');
   const out = document.querySelector('[data-replay]');
   if (!out) return;
   const key = document.querySelector('[data-tabkey]'), pauseBtn = document.querySelector('[data-replay-pause]');
@@ -439,11 +457,10 @@ brew install --cask halftype</code>
   (async () => {
     for (let i = 0; ; i = (i + 1) % lines.length) {
       const [typed, ghost] = lines[i];
-      let done = '';
-      for (const ch of typed) {
-        for (const s of steps(ch)) { show(done + s, ''); await wait(ch === ' ' ? 120 : 70 + Math.random() * 70); }
-        done += ch;
-        if (sky) { sky.progress = done.length / typed.length; window.htSky.draw(sky); }
+      const keys = keysOf(typed);
+      for (let k = 1; k <= keys.length; k++) {
+        show(compose(keys.slice(0, k)), ''); await wait(keys[k - 1] === ' ' ? 120 : 70 + Math.random() * 70);
+        if (sky) { sky.progress = k / keys.length; window.htSky.draw(sky); }
       }
       await wait(260);
       show(typed, ghost);

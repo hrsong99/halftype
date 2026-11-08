@@ -31,6 +31,11 @@ John: "no need to only mention cotypist, i think there are a few incumbents no? 
 
 Round 3 fix: KeyType's at-rest bars were removed. It had been measured switched off (no Accessibility); see compare/README.md.
 
+## Polish (2026-11-09)
+
+A2 went through TasteSkill's gate: OPEN 3 after 3 rounds. Still open: the model pill counts as a second button style (it copies the app's own UI), the comparison charts' row lines at 1440, and one Korean line flush at 390. Waivers are in `a2/.taste-skill/waivers.json` (not committed): key-card titles, the kit nav at 320, charts as the section's visual, the FAQ without a picture, and the airy statement section.
+Codex reviewed A2 and `compare/idle.sh` over four rounds until clean. It found a Korean replay that showed impossible states (하ㄹ where 2-Set shows 할), savings figures without their limits, the Korean memory line missing its 270 MB footprint, rival qualifications, canvas resizing, a pause button inside `role=img`, tooltips that clipped, and `idle.sh` leaving an app running when interrupted. All fixed.
+
 ## Pick
 
 A over B (round 1). A2 over A (round 3).
