@@ -430,7 +430,7 @@ enum EndToEnd {
         static let size = CGSize(width: 760, height: 360)
         static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
         static let blue = NSColor(srgbRed: 0.561, green: 0.733, blue: 0.91, alpha: 1), peach = NSColor(srgbRed: 0.957, green: 0.706, blue: 0.549, alpha: 1)
-        /// The window's `Backdrop` arch, on its 720 x 460 grid scaled to this stage, blurred once.
+        /// The window's `Arch`, on its 720 x 460 grid scaled to this stage, blurred once.
         static let arch: CGImage = {
             let scale: CGFloat = 2, w = size.width * scale, h = size.height * scale
             let context = CGContext(data: nil, width: Int(w), height: Int(h), bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
