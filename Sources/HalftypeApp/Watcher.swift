@@ -84,7 +84,6 @@ final class Watcher: @unchecked Sendable {
     /// Queue, so reports go out in the order they're made. A draw comes back from the main thread only for its own input and binding,
     /// and every hide comes back the same way, after it: see `display` and `hidePanel`.
     private func record(_ now: Why) {
-        trace("why \(now)")
         guard (now, binding) != reported else { return }
         reported = (now, binding)
         onWhy?(now, binding)
@@ -164,7 +163,6 @@ final class Watcher: @unchecked Sendable {
 
     /// Main run loop, no IPC here.
     private func notified(_ name: String) {
-        trace("ax \(name)")
         switch name {
         case "AXWindowMoved", "AXWindowResized":
             hideNow()

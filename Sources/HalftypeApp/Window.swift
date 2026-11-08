@@ -265,10 +265,10 @@ private struct Glint: View {
             LinearGradient(colors: [.clear, Color(red: 0.561, green: 0.733, blue: 0.91).opacity(0.35), .white.opacity(0.85), Color(red: 0.957, green: 0.706, blue: 0.549).opacity(0.35), .clear],
                            startPoint: .leading, endPoint: .trailing)
                 .frame(width: 90)
-                // From just off the left edge to just off the right, so resting at either end shows nothing.
-                .keyframeAnimator(initialValue: -90.0, trigger: tab) { band, x in band.offset(x: x) } keyframes: { _ in
-                    MoveKeyframe(-90)
-                    CubicKeyframe(geometry.size.width, duration: 0.25)
+                // Progress, not points, so the band rests off the edge of the pane at its current width, after a resize too.
+                .keyframeAnimator(initialValue: 1.0, trigger: tab) { band, p in band.offset(x: -90 + p * (geometry.size.width + 90)) } keyframes: { _ in
+                    MoveKeyframe(0)
+                    CubicKeyframe(1, duration: 0.25)
                 }
         }
         .clipShape(RoundedRectangle(cornerRadius: 20))
