@@ -34,3 +34,4 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - A delayed cleanup belongs to the input revision that scheduled it. A successful field read is not a successful display.
 - ggml asserts if a model is still loaded at exit: the app must unload on quit.
 - Automatic tests don't reach Chromium's composition or real Tab. After any change to accepting or reading, run `docs/live-test.md`.
+- An agent can run most of `docs/live-test.md` itself while the user is away: start `build/<app>/Contents/MacOS/Itda` from the shell (it inherits the terminal's Accessibility; a newly signed build's own grant needs Touch ID), bring the host app forward, type with `scripts/live-keys.swift`, and `screencapture -x` the screen. Not codex-cu: it drives apps in the background, Itda follows the frontmost one, its window shots miss the ghost panel, and a stuck `SkyComputerUseService` doubles every key (`pkill -f SkyComputerUseService`).
