@@ -248,6 +248,7 @@ class GhostPanel: NSPanel {
     /// Main thread, right after a Tab took `text` (nil when it typed 2-set keys): trimmed in any app. In our own window the words glint
     /// where this ghost drew them; in another app the host's text may not sit where the ghost was, so the motion waits for `landed`.
     func took(_ text: String?, drawing: Int) {
+        leaving = nil  // An older Tab's start mustn't meet this one's landing.
         guard drawing == self.drawing, let layout = view.layout else { return }
         let range = text.flatMap { trim($0, drawing: drawing) }
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
@@ -288,7 +289,8 @@ enum AcceptMotion: String, CaseIterable {
     case off
 
     var duration: CFTimeInterval { self == .trail ? 0.22 : 0.2 }
-    static let blue = NSColor(srgbRed: 0.373, green: 0.608, blue: 0.847, alpha: 1), peach = NSColor(srgbRed: 0.93, green: 0.6, blue: 0.42, alpha: 1)
+    /// The glass's blue and the glint's peach.
+    static let blue = GhostView.glassColors[0], peach = GlintView.lightColors[3]
 
     /// Into `context` itself, not AppKit's current one, which a SwiftUI Canvas doesn't set.
     private static func gradient(_ colors: [NSColor], _ locations: [CGFloat]) -> CGGradient {
@@ -335,11 +337,39 @@ final class CaretMotionView: NSView {
     }
 }
 
-/// Plays one AcceptMotion and goes, on the display's clock like the glint.
-final class CaretMotionPanel: GhostPanel {
-    private let motionView = CaretMotionView()
+/// Plays one short motion and goes, on the display's clock and in every run loop mode, so a drag or an open menu doesn't stall it.
+/// A ghost panel too, so Try It's observer knows its moves aren't the field's.
+class OneShotPanel: GhostPanel {
     private var link: CADisplayLink?
-    private var start = CFTimeInterval(0)
+    private var start = CFTimeInterval(0), duration = CFTimeInterval(0)
+    private var step: (CGFloat) -> Void = { _ in }
+
+    /// `step` gets the time from 0 to 1, and is let go at the end with whatever it holds.
+    func run(for duration: CFTimeInterval, in frame: NSRect, _ step: @escaping (CGFloat) -> Void) {
+        (self.duration, self.step) = (duration, step)
+        step(0)
+        setFrame(frame, display: false, animate: false)
+        orderFrontRegardless()
+        link?.invalidate()
+        start = CACurrentMediaTime()
+        link = contentView?.displayLink(target: self, selector: #selector(tick))
+        link?.add(to: .main, forMode: .common)
+    }
+
+    @objc private func tick(_ link: CADisplayLink) {
+        let t = min((link.targetTimestamp - start) / duration, 1)
+        step(t)
+        guard t >= 1 else { return }
+        link.invalidate()
+        self.link = nil
+        orderOut(nil)
+        step = { _ in }
+    }
+}
+
+/// Plays one AcceptMotion between two caret rects.
+final class CaretMotionPanel: OneShotPanel {
+    private let motionView = CaretMotionView()
 
     override init() {
         super.init()
@@ -352,32 +382,13 @@ final class CaretMotionPanel: GhostPanel {
         motionView.motion = motion
         motionView.from = from.offsetBy(dx: -area.minX, dy: -area.minY)
         motionView.to = to.offsetBy(dx: -area.minX, dy: -area.minY)
-        motionView.progress = 0
-        setFrame(GhostLayout.appKitRect(area, primaryHeight: primaryHeight), display: false, animate: false)
-        orderFrontRegardless()
-        link?.invalidate()
-        start = CACurrentMediaTime()
-        link = motionView.displayLink(target: self, selector: #selector(step))
-        link?.add(to: .main, forMode: .common)
-    }
-
-    @objc private func step(_ link: CADisplayLink) {
-        let t = min((link.targetTimestamp - start) / motionView.motion.duration, 1)
-        motionView.progress = t
-        guard t >= 1 else { return }
-        link.invalidate()
-        self.link = nil
-        orderOut(nil)
+        run(for: motion.duration, in: GhostLayout.appKitRect(area, primaryHeight: primaryHeight)) { [motionView] in motionView.progress = $0 }
     }
 }
 
-/// Plays a GlintView for a quarter of a second. A ghost panel too, so Try It's observer knows its moves aren't the field's.
-final class GlintPanel: GhostPanel {
+/// Plays a GlintView for a quarter of a second.
+final class GlintPanel: OneShotPanel {
     private let glint = GlintView()
-    private var link: CADisplayLink?
-    private var start = CFTimeInterval(0)
-    /// Held while it plays: a layout manager doesn't keep its text, and the ghost may drop this layout at once.
-    private var playing: GhostLayout?
 
     override init() {
         super.init()
@@ -385,27 +396,10 @@ final class GlintPanel: GhostPanel {
     }
 
     func play(_ layout: GhostLayout, taken: NSRange, frame: NSRect) {
-        playing = layout
         glint.manager = layout.manager
         glint.origin = layout.drawOrigin
         glint.glyphs = NSIntersectionRange(layout.manager.glyphRange(forCharacterRange: taken, actualCharacterRange: nil), layout.glyphs)
-        glint.progress = 0
-        setFrame(frame, display: false, animate: false)
-        orderFrontRegardless()
-        link?.invalidate()
-        start = CACurrentMediaTime()
-        // In step with the display, and in every run loop mode, so a drag or an open menu doesn't stall it.
-        link = glint.displayLink(target: self, selector: #selector(step))
-        link?.add(to: .main, forMode: .common)
-    }
-
-    @objc private func step(_ link: CADisplayLink) {
-        let t = min((link.targetTimestamp - start) / 0.25, 1)
-        glint.progress = t * t * (3 - 2 * t)
-        guard t >= 1 else { return }
-        link.invalidate()
-        self.link = nil
-        orderOut(nil)
-        playing = nil
+        // Holds the layout while it plays: a layout manager doesn't keep its text, and the ghost may drop this layout at once.
+        run(for: 0.25, in: frame) { [glint] t in withExtendedLifetime(layout) { glint.progress = t * t * (3 - 2 * t) } }
     }
 }
