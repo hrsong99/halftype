@@ -4,7 +4,7 @@
 
 ![Typing "Happy birthday! I hope you have a great day!": two Tabs take "ppy birthday", and one Shift-Tab takes "hope you have a great day"](docs/media/demo.webp)
 
-An illustration of the two keys, with the suggestions scripted: Tab takes the next word, Shift-Tab the whole suggestion. Real suggestions depend on the model and on what's around the field, and aren't always this good: across whole messages, at the defaults, Halftype saves about a fifth of keystrokes in English ([below](#why-its-different)). It's drawn by [`scripts/demo.sh`](scripts/demo.sh) with the app's own suggestion layout and glint, not screen-recorded.
+An illustration of the two keys, with the suggestions scripted: Tab takes the next word, Shift-Tab the whole suggestion. Real suggestions depend on the model and on what's around the field, and aren't always this good: across whole messages, at the defaults, Halftype saves about a fifth of keystrokes in English ([below](#why-its-different)). It's drawn by [`scripts/demo.sh`](scripts/demo.sh) with the app's own suggestion layout, not screen-recorded.
 
 ## Install
 

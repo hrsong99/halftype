@@ -355,7 +355,7 @@ enum EndToEnd {
         }
         var frame = 0, delays = ""
         func shot(_ name: String, _ typed: String, _ ghost: String, _ stage: Stage) -> Shot {
-            Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false, stage: stage, glass: true)
+            Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false, stage: stage)
         }
         // Delays in hundredths; browsers play anything under 2 as 10, so nothing goes below 3.
         func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, press: CGFloat = 0, glint: CGFloat? = nil, taken: Int = 0, shift: Bool = false, seen: CGFloat = 0, _ delay: Int) {
@@ -372,13 +372,13 @@ enum EndToEnd {
         }
         // No pauses of its own: each frame shows the letter and, at once, what the app suggests after it; Tab comes at the typing rhythm.
         // The pace (docs/design/readme-demo rounds 2 and 3): HALFTYPE_DEMO_PACE="type=4,tab=14,…" (hundredths;
-        // glint word, burst or none). beat waits once a suggestion shows before the first Tab; after waits once a run of Tabs ends.
-        // Round 3: long=N takes a fresh suggestion of N words or more that is right to the end with Shift-Tab, after hold.
-        var pace = ["type": "4", "tab": "14", "beat": "12", "after": "8", "glint": "burst", "long": "3", "hold": "40"]  // Round 3's H.
+        // grey suggestions, taken at once). beat waits once a suggestion shows before the first Tab; after waits once a run of Tabs ends.
+        // long=N takes a fresh suggestion of N words or more that is right to the end with Shift-Tab, after hold.
+        var pace = ["type": "4", "tab": "14", "beat": "12", "after": "8", "long": "3", "hold": "40"]  // Round 3's H.
         for pair in (ProcessInfo.processInfo.environment["HALFTYPE_DEMO_PACE"] ?? "").split(separator: ",") {
             let kv = pair.split(separator: "="); if kv.count == 2 { pace[String(kv[0])] = String(kv[1]) }
         }
-        let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!, glintMode = pace["glint"]!
+        let typeDelay = Int(pace["type"]!)!, tabDelay = Int(pace["tab"]!)!, beat = Int(pace["beat"]!)!, after = Int(pace["after"]!)!
         let long = Int(pace["long"]!)!, hold = Int(pace["hold"]!)!
         for target in sentences {
             var text = "", keys = 0, wrote = 0
@@ -388,17 +388,13 @@ enum EndToEnd {
                 let rest = target.dropFirst(text.count)
                 let word = ghost.isEmpty ? "" : Accept.nextWord(Ghost(remainder: ghost)).text
                 if long > 0, burst == 0, !ghost.isEmpty, rest.hasPrefix(ghost), ghost.split(separator: " ").count >= long {
-                    // A long suggestion, all of it right: a moment to read it, then Shift-Tab takes the lot, and one glint crosses it.
+                    // A long suggestion, all of it right: a moment to read it, then Shift-Tab takes the lot at once.
                     draw(text, ghost, keys, wrote, hold)
                     let all = ghost
-                    draw(text, ghost, keys, wrote, press: 0.5, shift: true, seen: 1, 3)
                     text += all; keys += 1; wrote += all.count
                     ghost = suggestion(text)
-                    let taken = (all as NSString).length
-                    draw(text, ghost, keys, wrote, press: 1, glint: 0.15, taken: taken, shift: true, seen: 1, 4)
-                    draw(text, ghost, keys, wrote, press: 0.4, glint: 0.4, taken: taken, shift: true, seen: 1, 4)
-                    draw(text, ghost, keys, wrote, glint: 0.65, taken: taken, shift: true, seen: 0.4, 4)
-                    draw(text, ghost, keys, wrote, glint: 0.9, taken: taken, 4)
+                    draw(text, ghost, keys, wrote, press: 1, shift: true, seen: 1, 14)
+                    draw(text, ghost, keys, wrote, shift: true, seen: 1, 4)
                     if after > 0 { draw(text, ghost, keys, wrote, after) }
                     continue
                 }
@@ -406,17 +402,13 @@ enum EndToEnd {
                     if burst == 0, beat > 0 { draw(text, ghost, keys, wrote, beat) }
                     text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count))
                     if ghost.isEmpty { ghost = suggestion(text) }
-                    let taken = (word as NSString).length
-                    burst += taken
-                    let third = max(3, tabDelay / 3), lit = glintMode == "word"
-                    draw(text, ghost, keys, wrote, press: 1, glint: lit ? 0.3 : nil, taken: taken, seen: 1, third)
-                    draw(text, ghost, keys, wrote, press: 0.4, glint: lit ? 0.7 : nil, taken: taken, seen: 1, third)
-                    draw(text, ghost, keys, wrote, glint: lit ? 0.95 : nil, taken: taken, seen: 0.4, max(3, tabDelay - 2 * third))
+                    burst += word.count
+                    draw(text, ghost, keys, wrote, press: 1, seen: 1, max(3, tabDelay - 4))
+                    draw(text, ghost, keys, wrote, seen: 1, 4)
                     continue
                 }
                 if burst > 0 {
-                    // A run of Tabs just ended: one sweep over all it took, then the pause.
-                    if glintMode == "burst" { for p in [0.25, 0.5, 0.75] { draw(text, ghost, keys, wrote, glint: p, taken: burst, 4) } }
+                    // A run of Tabs just ended: the pause.
                     if after > 0 { draw(text, ghost, keys, wrote, after) }
                     burst = 0
                 }
@@ -426,7 +418,6 @@ enum EndToEnd {
                 ghost = ghost.first == letter && ghost.count > 1 ? String(ghost.dropFirst()) : suggestion(text)
                 draw(text, ghost, keys, wrote, typeDelay + Int(hash(keys, text.count) * 3))  // Unevenly, like hands.
             }
-            if burst > 0, glintMode == "burst" { for p in [0.25, 0.5, 0.75] { draw(text, ghost, keys, wrote, glint: p, taken: burst, 4) } }
             let saved = 100 * (target.count - keys) / max(target.count, 1)
             print("      \(target.count) letters, \(keys) keys, \(wrote) by Tab: \(saved)% saved | \(target)")
             draw(text, "", keys, wrote, 170)
@@ -441,7 +432,7 @@ enum EndToEnd {
     }
 
     /// Option F of docs/design/readme-demo in the home window's glass (docs/design/home-glass): cream, the blurred arch, a frosted panel for the
-    /// field with the counts so far, and the tab key. A taken suggestion glints across its own words, as in the app.
+    /// field with the counts so far, and tab (or shift and tab) while pressed. The demo draws grey suggestions, taken at once: in-between frames of a glint or fade looked choppy.
     final class DemoStage: NSView {
         static let size = CGSize(width: 760, height: 360)
         static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
