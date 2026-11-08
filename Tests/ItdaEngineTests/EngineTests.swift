@@ -171,7 +171,7 @@ private let long = String(repeating: "The river runs past the old mill and on to
     let plain = try Engine(modelPath: modelPath!)
     let text = run(plain, "Hello my", " fr")?.text
     plain.unload()
-    let engine = try Engine(modelPath: modelPath!, adapter: { "/nonexistent.gguf" })
+    let engine = try Engine(modelPath: modelPath!, adapter: { _ in "/nonexistent.gguf" })
     defer { engine.unload() }
     #expect(run(engine, "Hello my", " fr")?.text == text)
 }

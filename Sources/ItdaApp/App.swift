@@ -33,9 +33,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     nonisolated(unsafe) static var tallyFile: URL? = support.appendingPathComponent("stats.json")
 
     /// Hidden, for trying a personal LoRA (lab/dogfood on the `learn` branch): `defaults write app.itda.Itda adapterPath <gguf>`.
-    /// Applied on odd dates only, so stats.json's days compare with and without it. Read at each model load.
-    @Sendable static func adapterToday() -> String? {
-        guard Calendar.current.component(.day, from: Date()) % 2 == 1 else { return nil }
+    /// Applied on odd dates only, so stats.json's days compare with and without it, and only to the default model it was trained on.
+    @Sendable static func adapterToday(model: String) -> String? {
+        guard URL(fileURLWithPath: model).lastPathComponent == ModelStore.models[0].file,
+              Calendar.current.component(.day, from: Date()) % 2 == 1 else { return nil }
         return UserDefaults.standard.string(forKey: "adapterPath")
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
@@ -278,7 +279,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         latestOpen += 1
         let id = latestOpen
         loading.async { [self] in
-            let engine = try? Engine(modelPath: path, adapter: App.adapterToday)
+            let engine = try? Engine(modelPath: path, adapter: App.adapterToday(model:))
             DispatchQueue.main.async { [self] in
                 guard id == latestOpen else { return }
                 loadingPath = nil

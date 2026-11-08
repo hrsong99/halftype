@@ -28,8 +28,10 @@ public final class Engine: @unchecked Sendable {
     static let checkpointTail = 4
 
     private let path: String
-    /// Read at each load: a LoRA adapter to apply, or nil. One that doesn't fit the model is left out, not an error.
-    private let adapter: @Sendable () -> String?
+    /// Given the model's path, a LoRA adapter to apply, or nil. Read at each request: a change reloads the model. One that
+    /// doesn't fit the model is left out, not an error.
+    private let adapter: @Sendable (String) -> String?
+    private var loadedAdapter: String?
     private let queue = DispatchQueue(label: "itda.engine", qos: .userInteractive)
     private let latest = Atomic<Int>(0)
     private var model: OpaquePointer?
@@ -44,12 +46,12 @@ public final class Engine: @unchecked Sendable {
     /// The recurrent state a few tokens before the last prompt's end, and how many tokens that is.
     private var checkpoint: (count: Int, state: [UInt8])?
 
-    public convenience init(modelPath: String, adapter: @escaping @Sendable () -> String? = { nil }) throws {
+    public convenience init(modelPath: String, adapter: @escaping @Sendable (String) -> String? = { _ in nil }) throws {
         self.init(unloaded: modelPath, adapter: adapter)
         try queue.sync { try load() }
     }
 
-    init(unloaded modelPath: String, adapter: @escaping @Sendable () -> String? = { nil }) {
+    init(unloaded modelPath: String, adapter: @escaping @Sendable (String) -> String? = { _ in nil }) {
         path = modelPath
         self.adapter = adapter
         // Metal wires the whole model (1.5 GB here) for as long as this lasts, 3 minutes by default, which no one sees in Activity Monitor.
@@ -110,7 +112,8 @@ public final class Engine: @unchecked Sendable {
             throw EngineError.load(path)
         }
         // Freed with the model.
-        if let file = adapter(), let lora = llama_adapter_lora_init(model, file) {
+        loadedAdapter = adapter(path)
+        if let file = loadedAdapter, let lora = llama_adapter_lora_init(model, file) {
             var adapters: [OpaquePointer?] = [lora], scales: [Float] = [1]
             _ = llama_set_adapters_lora(ctx, &adapters, 1, &scales)
         }
@@ -121,6 +124,7 @@ public final class Engine: @unchecked Sendable {
 
     private func run(_ id: Int, _ prefix: String, _ fragment: String, _ composing: String, _ onResult: (Suggestion?) -> Void) {
         guard !isStale(id) else { return }
+        if ctx != nil, adapter(path) != loadedAdapter { release() }
         if ctx == nil { try? load() }
         guard let ctx, let vocab, !prefix.isEmpty else { return onResult(nil) }
 
