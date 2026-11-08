@@ -1534,7 +1534,8 @@ final class FakeServer: URLProtocol {
 }
 
 @Suite struct GlintTests {
-    @MainActor @Test func aGlintPlaysThroughAndGoes() throws {
+    // A display link fires only for a view on a display, so a headless run skips this.
+    @MainActor @Test(.enabled(if: !NSScreen.screens.isEmpty)) func aGlintPlaysThroughAndGoes() throws {
         let spec = GhostSpec(text: " notes", caret: CGRect(x: 200, y: 200, width: 0, height: 18), frame: CGRect(x: 100, y: 190, width: 400, height: 40),
                              fontSize: 15, fontName: nil, color: nil, lineLeft: nil, previousCharacter: "e", mayWrap: false, glass: true)
         let layout = try #require(GhostLayout.make(spec))
