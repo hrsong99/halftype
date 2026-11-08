@@ -1,4 +1,4 @@
-# Pricing and licence (decided 2026-11-09, nothing built yet)
+# Pricing and licence (decided 2026-11-09)
 
 ## Now
 - The app stays free, under MIT. Published source is how users check the privacy promise, and the MIT commits can't be taken back anyway.
@@ -12,7 +12,7 @@
 - **Store:** Lemon Squeezy (merchant of record, built-in licence keys, bank payouts to Korea, 5% + 50¢). Check Polar and Paddle for Korea again when it's time.
 - **The licence check works offline** (a signed key checked locally), so no new network use.
 - **Retraining cadence:** when someone's history has grown by about half, not every week. The gain was ~+1.1 points per tripling of history (`lab/PLAYBOOK.md` on `learn`), so weekly retrains add almost nothing.
-- **Fake door first:** a "Personal Model: $4/mo" row in the window, with clicks counted against active users, before building the trainer or billing.
+- **Fake door first:** a "Personal Model: $4/mo" row in the window, that opens the early-bird form in the browser: the app can't count clicks without new network use, so form sign-ups against running installs (`scripts/usage.sh`) are the measure, before building the trainer or billing.
 
 ## Early birds
 - Anyone who installs before Pro launches gets Personal Model free for good. The promise covers features that run on their Mac, never future cloud ones.
