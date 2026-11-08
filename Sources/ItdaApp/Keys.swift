@@ -12,7 +12,7 @@ class KeyTap: @unchecked Sendable {
 
     /// Why Tab wouldn't reach us, in the menu's words.
     enum Obstacle: String {
-        case tapOff = "Tab isn't reaching Itda right now."
+        case tapOff = "Tab isn't reaching Halftype right now."
         case secureInput = "Secure Input is on in another app, so no suggestions until it ends."
     }
 

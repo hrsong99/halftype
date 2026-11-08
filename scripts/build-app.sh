@@ -1,7 +1,9 @@
 #!/bin/zsh
-# Builds Itda.app from `swift build`: bundle, embedded framework, Info.plist, stable signature.
+# Builds Halftype.app from `swift build`: bundle, embedded framework, Info.plist, stable signature.
 # A stable identity keeps Accessibility grants across rebuilds. With none on this Mac it signs ad hoc, and each build
-# then needs granting again. Output: build/Itda.app
+# then needs granting again. Output: build/Halftype.app
+# The app was called Itda: the executable, bundle ID and Application Support folder keep that name, so Accessibility
+# grants, settings, downloaded models and Sparkle updates carry over.
 # Set ITDA_VERSION for a release, which gets the update feed. Without it the build is a local one, and never updates itself.
 # Signs with a Developer ID if this Mac has one, with hardened runtime and a timestamp, as notarizing needs. See scripts/release.sh.
 set -euo pipefail
@@ -9,7 +11,7 @@ cd "${0:A:h}/.."
 
 swift build -c release --disable-keychain --product Itda
 bin=$(swift build -c release --disable-keychain --show-bin-path)
-app=build/Itda.app
+app=build/Halftype.app
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks" "$app/Contents/Resources"
 cp "$bin/Itda" "$app/Contents/MacOS/Itda"
@@ -32,7 +34,8 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>CFBundleIdentifier</key><string>app.itda.Itda</string>
-  <key>CFBundleName</key><string>Itda</string>
+  <key>CFBundleName</key><string>Halftype</string>
+  <key>CFBundleDisplayName</key><string>Halftype</string>
   <key>CFBundleExecutable</key><string>Itda</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>

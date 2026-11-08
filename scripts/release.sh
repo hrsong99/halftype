@@ -13,9 +13,9 @@ security find-identity -v -p codesigning | grep -q "Developer ID Application" ||
 
 ITDA_VERSION=$version scripts/build-app.sh
 out=build/release; rm -rf "$out"; mkdir -p "$out"
-staging=$(mktemp -d); cp -R build/Itda.app "$staging/"; ln -s /Applications "$staging/Applications"
-dmg="$out/Itda.dmg"
-hdiutil create -quiet -volname Itda -srcfolder "$staging" -ov -fs APFS -format ULFO "$dmg"
+staging=$(mktemp -d); cp -R build/Halftype.app "$staging/"; ln -s /Applications "$staging/Applications"
+dmg="$out/Halftype.dmg"
+hdiutil create -quiet -volname Halftype -srcfolder "$staging" -ov -fs APFS -format ULFO "$dmg"
 identity=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application[^"]*\)".*/\1/p' | head -1)
 codesign --force --timestamp --sign "$identity" "$dmg"
 xcrun notarytool submit "$dmg" --key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
@@ -32,14 +32,14 @@ gh repo clone hrsong99/homebrew-itda "$tap" -- --quiet
 mkdir -p "$tap/Casks"
 sed -e "s/@VERSION@/$version/" -e "s/@SHA@/$sha/" scripts/itda.cask.rb > "$tap/Casks/itda.rb"
 git -C "$tap" add -A
-git -C "$tap" diff --cached --quiet || git -C "$tap" commit -qm "Itda $version"
+git -C "$tap" diff --cached --quiet || git -C "$tap" commit -qm "Halftype $version"
 
 # The tag has to name what was just built.
 git push -q origin HEAD
 if gh release view "v$version" >/dev/null 2>&1; then
   gh release upload "v$version" "$dmg" "$out/appcast.xml" --clobber
 else
-  gh release create "v$version" "$dmg" "$out/appcast.xml" --target "$(git rev-parse HEAD)" --title "Itda $version" --generate-notes
+  gh release create "v$version" "$dmg" "$out/appcast.xml" --target "$(git rev-parse HEAD)" --title "Halftype $version" --generate-notes
 fi
 git -C "$tap" push -q
 echo "Released $version"

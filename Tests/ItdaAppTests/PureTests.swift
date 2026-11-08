@@ -1308,7 +1308,7 @@ final class FakeServer: URLProtocol {
         #expect(line(.noFont) == "This field doesn't report its font, so no suggestion here.")
         #expect(line(.textAfter) == "Text after the cursor, so no suggestion here.")
         // What comes first: the permission, then off or paused, then Tab's way to us, then the model.
-        #expect(line(trusted: false, active: false, obstacle: .tapOff, .unsure) == "Itda needs Accessibility permission.")
+        #expect(line(trusted: false, active: false, obstacle: .tapOff, .unsure) == "Halftype needs Accessibility permission.")
         #expect(line(active: false, obstacle: .secureInput, .unsure) == nil)
         #expect(line(obstacle: .secureInput, ready: false, .unsure) == KeyTap.Obstacle.secureInput.rawValue)
         #expect(line(ready: false, .shown) == "The model isn't ready yet.")
@@ -1365,8 +1365,8 @@ final class FakeServer: URLProtocol {
         let menu = NSMenu()
         app.menuNeedsUpdate(menu)
         var titles = menu.items.map(\.title)
-        #expect(titles.contains("Suggestions") && titles.contains("Kanana 1.5") && titles.contains("Itda needs Accessibility permission."))
-        #expect(!titles.contains { $0.contains(".gguf") || $0 == "Itda" })
+        #expect(titles.contains("Suggestions") && titles.contains("Kanana 1.5") && titles.contains("Halftype needs Accessibility permission."))
+        #expect(!titles.contains { $0.contains(".gguf") || $0 == "Halftype" })
         #expect(!titles.contains("Turn Off macOS Predictions…"))
         app.readPredictions = { true }
         app.menuNeedsUpdate(menu)

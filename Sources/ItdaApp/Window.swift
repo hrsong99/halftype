@@ -110,7 +110,7 @@ private struct FieldPage: View {
 
     private var allow: some View {
         VStack(spacing: 12) {
-            Text("Itda needs to see what you type. It stays on this Mac.").foregroundStyle(.secondary)
+            Text("Halftype needs to see what you type. It stays on this Mac.").foregroundStyle(.secondary)
             Button("Allow Accessibility", action: app.askForAccessibility).buttonStyle(.borderedProminent).tint(.primary).buttonBorderShape(.capsule)
         }
     }
@@ -119,7 +119,7 @@ private struct FieldPage: View {
         VStack(alignment: .trailing, spacing: 4) {
             ZStack(alignment: .topLeading) {
                 if draft.isEmpty {
-                    Text(!app.on ? "Itda is off" : app.ready ? "Type here, then press Tab on the grey text" : "Type here once the model is ready")
+                    Text(!app.on ? "Halftype is off" : app.ready ? "Type here, then press Tab on the grey text" : "Type here once the model is ready")
                         .foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
                 }
                 TextEditor(text: $draft).focused($focused).scrollContentBackground(.hidden).scrollIndicators(.never).frame(height: 44)
@@ -147,8 +147,8 @@ private struct FieldPage: View {
                         .background(app.on ? Color.primary : Color.secondary.opacity(0.4), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .help(app.on ? "Itda is on. Click to turn it off." : "Itda is off. Click to turn it on.")
-                .accessibilityLabel(app.on ? "Turn Itda off" : "Turn Itda on")
+                .help(app.on ? "Halftype is on. Click to turn it off." : "Halftype is off. Click to turn it on.")
+                .accessibilityLabel(app.on ? "Turn Halftype off" : "Turn Halftype on")
             }
         }
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
@@ -350,7 +350,7 @@ private struct AppsPage: View {
     @ObservedObject var app: App
     var body: some View {
         Plain(title: "Paused Apps") {
-            Text("Itda stays quiet in these apps, and Tab is theirs.").foregroundStyle(.secondary).padding(.bottom, 12)
+            Text("Halftype stays quiet in these apps, and Tab is theirs.").foregroundStyle(.secondary).padding(.bottom, 12)
             ForEach(app.pausedApps.sorted(), id: \.self) { id in
                 Row(title: App.displayName(id)) { Button("Remove") { app.pausedApps.remove(id) } }
             }
@@ -392,7 +392,7 @@ extension App {
             made.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             made.titlebarAppearsTransparent = true
             made.titleVisibility = .hidden
-            made.title = "Itda"
+            made.title = "Halftype"
             made.isReleasedWhenClosed = false
             made.delegate = self
             made.setContentSize(CGSize(width: 720, height: 500))
@@ -419,7 +419,7 @@ extension App {
             return holder
         }
         let main = NSMenu()
-        main.addItem(menu("Itda", [("Quit Itda", #selector(NSApplication.terminate(_:)), "q")]))
+        main.addItem(menu("Halftype", [("Quit Halftype", #selector(NSApplication.terminate(_:)), "q")]))
         main.addItem(menu("Edit", [("Undo", Selector(("undo:")), "z"), ("Redo", Selector(("redo:")), "Z"), ("Cut", #selector(NSText.cut(_:)), "x"), ("Copy", #selector(NSText.copy(_:)), "c"),
                                    ("Paste", #selector(NSText.paste(_:)), "v"), ("Select All", #selector(NSText.selectAll(_:)), "a")]))
         main.addItem(menu("Window", [("Close", #selector(NSWindow.performClose(_:)), "w"), ("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m")]))

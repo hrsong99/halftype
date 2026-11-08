@@ -19,6 +19,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The menu bar's glyph, plain and with a problem's dot. Nil until launch, so tests make no status item.
     private var glyphs: (plain: NSImage, marked: NSImage)?
     private var shownIcon: Icon?
+    // Still "Itda", the app's old name: renaming it would strand the models people already downloaded.
     let store = ModelStore(directory: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Itda"))
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     var ready: Bool { activePath != nil }
@@ -111,9 +112,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     func applicationDidFinishLaunching(_ note: Notification) {
         // The symbol is for a binary run outside the bundle, as the e2e checks do.
-        let glyph = Bundle.main.image(forResource: "MenuBarTemplate") ?? NSImage(systemSymbolName: "text.cursor", accessibilityDescription: "Itda")!
+        let glyph = Bundle.main.image(forResource: "MenuBarTemplate") ?? NSImage(systemSymbolName: "text.cursor", accessibilityDescription: "Halftype")!
         glyph.isTemplate = true
-        glyph.accessibilityDescription = "Itda"
+        glyph.accessibilityDescription = "Halftype"
         glyphs = (glyph, App.marked(glyph))
         status.button?.imagePosition = .imageLeading
         updateIcon()
@@ -338,14 +339,14 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The one line saying why there's no suggestion here, for the menu and under the field. Nil when off or paused, which the menu's
     /// own items show. Not sure is a normal state, and reads as working.
     static func line(trusted: Bool, active: Bool, obstacle: KeyTap.Obstacle?, ready: Bool, why: Watcher.Why) -> String? {
-        guard trusted else { return "Itda needs Accessibility permission." }
+        guard trusted else { return "Halftype needs Accessibility permission." }
         guard active else { return nil }
         if let obstacle { return obstacle.rawValue }
         guard ready else { return "The model isn't ready yet." }
         switch why {
         case .shown, .idle, .blocked: return "Working."  // Blocked with no obstacle now: it has just ended.
         case .unsure: return "Working. Not sure enough to suggest yet."
-        case .unreadable: return "No field here that Itda can read."
+        case .unreadable: return "No field here that Halftype can read."
         case .textAfter: return "Text after the cursor, so no suggestion here."
         case .notTwoSet: return "Korean suggestions need Apple's 2-Set Korean layout."
         case .noModel: return "The model isn't ready yet."
@@ -369,7 +370,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
     static let lesson = "Tab takes a word. Shift-Tab takes it all. Esc hides it."
-    static let success = "That's it. Itda works like this in almost any app."
+    static let success = "That's it. Halftype works like this in almost any app."
 
     /// Under the field: the menu's line, or while nothing is in the way, that the first accept worked or how to take the ghost showing.
     /// Nothing while off, paused or without the permission.
@@ -417,7 +418,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = "Itda, needs attention"
+        image.accessibilityDescription = "Halftype, needs attention"
         return image
     }
 
@@ -425,7 +426,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        menu.addItem(withTitle: "Open Itda", action: #selector(openWindow), keyEquivalent: "")
+        menu.addItem(withTitle: "Open Halftype", action: #selector(openWindow), keyEquivalent: "")
         menu.addItem(.separator())
         let toggle = menu.addItem(withTitle: "Suggestions", action: #selector(toggleOn), keyEquivalent: "")
         toggle.state = on ? .on : .off
