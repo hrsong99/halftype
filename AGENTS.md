@@ -22,6 +22,8 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - `ItdaEngine`: llama.cpp, pinned by URL and checksum in `Package.swift`.
 - `ItdaApp`: Accessibility, key tap, panel, and the window (`Window.swift`). Swift 5 language mode, as state is confined by hand to one queue.
 - The tag `bench-1` keeps the replay harness (`itda-replay`), removed from main. Don't move it.
+- Learning from use: branch `learn`, `lab/PLAYBOOK.md`. Only a per-user LoRA moved keys saved; prompt, logit and gate methods were ~0. Judge any prompt change against the screen-context baseline there.
+- Personal model: the last `*.gguf` by name in `~/Library/Application Support/Itda/adapters/` (from `lab/dogfood/train.sh` on `learn`) shows General > Personal Model. Compare leaves it off on even dates, and Stats sets the two kinds of day side by side.
 
 ## Traps
 - Accessibility grants are pinned to the signing certificate. The Developer ID build can't use a grant made for an Apple Development build, and a relaunch silently loses it. To keep one, re-sign that copy with the granted certificate and check it with `codesign -v -R <csreq from TCC.db>`.
