@@ -5,3 +5,4 @@
 - [settings-scroll/](settings-scroll/): the sidebar under the sky, and one scrolling settings page (round 1).
 - [sky-edges/](sky-edges/): the halftone sky, with softer edges or a fuller middle (round 1).
 - [home-glass/](home-glass/): the home window in the new icon's ink-and-glass look (round 1).
+- [stats/](stats/): the Stats page, after a sleep-dashboard shot (round 1).

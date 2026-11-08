@@ -1,0 +1,144 @@
+{
+ "days": {
+  "2026-10-26": {
+   "shown": 1451,
+   "taken": 64,
+   "tabs": 118,
+   "characters": 484,
+   "typed": 2478,
+   "saved": 300,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-27": {
+   "shown": 1747,
+   "taken": 77,
+   "tabs": 142,
+   "characters": 582,
+   "typed": 2550,
+   "saved": 361,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-28": {
+   "shown": 1181,
+   "taken": 52,
+   "tabs": 96,
+   "characters": 394,
+   "typed": 2015,
+   "saved": 244,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-29": {
+   "shown": 2005,
+   "taken": 88,
+   "tabs": 163,
+   "characters": 668,
+   "typed": 2925,
+   "saved": 414,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-30": {
+   "shown": 1611,
+   "taken": 71,
+   "tabs": 131,
+   "characters": 537,
+   "typed": 2750,
+   "saved": 333,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-31": {
+   "shown": 295,
+   "taken": 13,
+   "tabs": 24,
+   "characters": 98,
+   "typed": 431,
+   "saved": 61,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-01": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-02": {
+   "shown": 1857,
+   "taken": 82,
+   "tabs": 151,
+   "characters": 619,
+   "typed": 3172,
+   "saved": 384,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-11-03": {
+   "shown": 2165,
+   "taken": 95,
+   "tabs": 176,
+   "characters": 722,
+   "typed": 3165,
+   "saved": 448,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-04": {
+   "shown": 1476,
+   "taken": 65,
+   "tabs": 120,
+   "characters": 492,
+   "typed": 2519,
+   "saved": 305,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-11-05": {
+   "shown": 2509,
+   "taken": 110,
+   "tabs": 204,
+   "characters": 836,
+   "typed": 3659,
+   "saved": 518,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-06": {
+   "shown": 1943,
+   "taken": 85,
+   "tabs": 158,
+   "characters": 648,
+   "typed": 3320,
+   "saved": 402,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-11-07": {
+   "shown": 578,
+   "taken": 25,
+   "tabs": 47,
+   "characters": 193,
+   "typed": 848,
+   "saved": 120,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-08": {
+   "typed": 3848,
+   "withoutModel": true,
+   "tabs": 189,
+   "withModel": false,
+   "taken": 102,
+   "saved": 481,
+   "characters": 770,
+   "shown": 2328
+  }
+ }
+}
