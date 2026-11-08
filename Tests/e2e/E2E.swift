@@ -250,7 +250,10 @@ enum EndToEnd {
 
     struct Shot {
         var name: String, typed: String, ghost: String, font: CGFloat, size: CGSize, dark: Bool
+        var stage: Stage? = nil
     }
+    /// The README demo's surroundings: the counts so far and whether Tab is down.
+    struct Stage { var keys: Int, wrote: Int, letters: Int, down: Bool }
 
     /// `--shots <dir>`: a real text view with the real ghost view over it, placed by the real layout from what AX would report.
     static func shots(to dir: String) {
@@ -305,55 +308,150 @@ enum EndToEnd {
         }
     }
 
-    /// `--demo <gguf> <dir>`: the frames of the README's GIF. The sentence is invented, and each ghost is what the real model and
-    /// the real gate said at that point, drawn by the real layout. Tab takes the next word, as in the app. A delay per frame goes in delays.txt.
-    static func demo(model: String, to dir: String) {
+    /// `--demo <gguf> <dir> [sentence…]`: the frames of the README's GIF. Each sentence is invented and typed one key at a time; wherever the
+    /// real model and the real gate suggest what comes next, Tab takes it a word at a time, as in the app, and the counts are kept. A wrong
+    /// suggestion shows and is typed over. Each ghost is drawn by the real layout. A delay per frame (hundredths) goes in en-delays.txt.
+    static func demo(model: String, to dir: String, sentences: [String]) {
         guard let engine = try? Engine(modelPath: model) else { return check(false, "engine loads") }
         defer { engine.unload() }
-        func ask(_ before: String) -> String? {
+        func ask(_ before: String) -> String {
             let prompt = Prompt.make(context: "", before: before)
             let latest = Mutex<Suggestion?>(nil)
             engine.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: "") { suggestion in latest.withLock { $0 = suggestion } }
             engine.finish()
-            guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= Gate.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return nil }
+            guard let s = latest.withLock({ $0 }), let gate = s.gate, gate >= Gate.threshold, !s.text.isEmpty, Gate.worthShowing(Ghost(remainder: s.text)) else { return "" }
             return s.text
         }
         var frame = 0, delays = ""
-        func draw(_ name: String, _ typed: String, _ ghost: String, _ delay: Int) {
+        func draw(_ typed: String, _ ghost: String, _ keys: Int, _ wrote: Int, down: Bool = false, _ delay: Int) {
             frame += 1
-            onMain { render(Shot(name: String(format: "\(name)-%04d", frame), typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 17, size: CGSize(width: 560, height: 46), dark: false), to: dir) }
-            delays += "\(String(format: "\(name)-%04d", frame)).png \(delay)\n"
+            let name = String(format: "en-%04d", frame)
+            onMain { render(Shot(name: name, typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false,
+                                 stage: Stage(keys: keys, wrote: wrote, letters: typed.count, down: down)), to: dir) }
+            delays += "\(name).png \(delay)\n"
         }
-        // Chosen as ones where the model does well, which the README says.
-        for (name, sentences) in [("en", ["Let me know if you have any quest", "See you tomor", "As soon as possi"]), ("ko", ["안녕하세요. 만나서 반갑", "감사합니다. 좋은 하루 보내", "이번 주 금요일까지 보내주시면 감사하겠"])] {
-            frame = 0; delays = ""
-            for sentence in sentences {
-                var text = ""
-                for c in sentence {
-                    text.append(c)
-                    draw(name, text, "", 7)
+        // Where the app couldn't draw it (no room at the line's end), there is no suggestion to take.
+        func drawable(_ typed: String, _ ghost: String) -> Bool {
+            onMain { render(Shot(name: "", typed: typed.isEmpty ? " " : typed, ghost: ghost, font: 19, size: CGSize(width: 560, height: 60), dark: false,
+                                 stage: Stage(keys: 0, wrote: 0, letters: 0, down: false)), to: nil) }
+        }
+        for target in sentences {
+            var text = "", keys = 0, wrote = 0
+            draw("", "", 0, 0, 60)
+            while text.count < target.count {
+                var ghost = ask(text)
+                if !ghost.isEmpty, !drawable(text, ghost) { ghost = "" }
+                // Tab while the next word is what comes next; then the app asks again.
+                var took = false
+                while !ghost.isEmpty {
+                    let word = Accept.nextWord(Ghost(remainder: ghost)).text
+                    guard !word.isEmpty, target.dropFirst(text.count).hasPrefix(word) else { break }
+                    draw(text, ghost, keys, wrote, took ? 35 : 55)
+                    draw(text, ghost, keys, wrote, down: true, 9)
+                    text += word; keys += 1; wrote += word.count; ghost = String(ghost.dropFirst(word.count)); took = true
                 }
-                guard let ghost = ask(text) else { check(false, "\(sentence): the model no longer suggests here"); continue }
-                draw(name, text, ghost, 120)
-                draw(name, text + ghost, "", 140)
+                if took { draw(text, ghost, keys, wrote, 25); continue }
+                if !ghost.isEmpty { draw(text, ghost, keys, wrote, 18) }  // Shown, wrong, and typed over.
+                text.append(target[target.index(target.startIndex, offsetBy: text.count)]); keys += 1
+                draw(text, "", keys, wrote, 7)
             }
-            try! delays.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name)-delays.txt"), atomically: true, encoding: .utf8)
+            let saved = 100 * (target.count - keys) / max(target.count, 1)
+            print("      \(target.count) letters, \(keys) keys, \(wrote) by Tab: \(saved)% saved | \(target)")
+            draw(text, "", keys, wrote, 220)
+        }
+        try! delays.write(to: URL(fileURLWithPath: dir).appendingPathComponent("en-delays.txt"), atomically: true, encoding: .utf8)
+    }
+
+    /// Option F of docs/design/readme-demo: the app's dot sky, a white panel for the field, the counts so far, and a Tab keycap.
+    final class DemoStage: NSView {
+        static let size = CGSize(width: 760, height: 360)
+        static let panel = CGRect(x: 80, y: 56, width: 600, height: 150)
+        let stage: Stage
+        init(frame: CGRect, stage: Stage) { self.stage = stage; super.init(frame: frame) }
+        required init?(coder: NSCoder) { nil }
+        override var isFlipped: Bool { true }
+
+        override func draw(_ dirty: NSRect) {
+            let c = NSGraphicsContext.current!.cgContext
+            NSColor(srgbRed: 0.988, green: 0.98, blue: 0.965, alpha: 1).setFill()
+            bounds.fill()
+            // Halftone, as in Sky.metal: dot area is ink, blue fading down from the top, peach up from the bottom on the offset grid.
+            let cell: CGFloat = 7, h = bounds.height
+            func dots(_ color: NSColor, offset: CGFloat, ink: (CGFloat) -> CGFloat) {
+                color.setFill()
+                var y = offset
+                while y < h {
+                    let d = ink(y)
+                    if d > 0.04 {
+                        let r = cell * 0.5 * d.squareRoot()
+                        var x = offset
+                        while x < bounds.width { c.fillEllipse(in: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r)); x += cell }
+                    }
+                    y += cell
+                }
+            }
+            dots(NSColor(srgbRed: 0.56, green: 0.73, blue: 0.91, alpha: 1), offset: 0) { y in pow(max(0, 1 - y / (h * 0.34)), 1.2) }
+            dots(NSColor(srgbRed: 0.95, green: 0.68, blue: 0.53, alpha: 1), offset: cell / 2) { y in pow(max(0, (y - h * 0.62) / (h * 0.38)), 1.1) }
+
+            let panel = NSBezierPath(roundedRect: Self.panel, xRadius: 14, yRadius: 14)
+            c.saveGState()
+            c.setShadow(offset: CGSize(width: 0, height: 8), blur: 26, color: NSColor(white: 0.2, alpha: 0.16).cgColor)
+            NSColor.white.setFill(); panel.fill()
+            c.restoreGState()
+            let divider = Self.panel.maxY - 42
+            NSColor(white: 0.93, alpha: 1).setFill()
+            NSRect(x: Self.panel.minX + 20, y: divider, width: Self.panel.width - 40, height: 1).fill()
+
+            let label: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor(white: 0.42, alpha: 1)]
+            func number(_ n: Int, _ color: NSColor) -> NSAttributedString {
+                NSAttributedString(string: "\(n)", attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .semibold), .foregroundColor: color])
+            }
+            func pair(_ title: String, _ value: NSAttributedString) -> NSAttributedString {
+                let out = NSMutableAttributedString(string: title + "  ", attributes: label); out.append(value); return out
+            }
+            let y = divider + 13, ink = NSColor(white: 0.1, alpha: 1)
+            pair("Keys you pressed", number(stage.keys, NSColor(srgbRed: 0.29, green: 0.55, blue: 0.84, alpha: 1))).draw(at: CGPoint(x: Self.panel.minX + 20, y: y))
+            pair("Letters Tab wrote", number(stage.wrote, ink)).draw(at: CGPoint(x: Self.panel.minX + 200, y: y))
+            if stage.letters > 0, stage.wrote > 0 {
+                let saved = NSAttributedString(string: "\(100 * (stage.letters - stage.keys) / stage.letters)% fewer keys",
+                                               attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: NSColor(srgbRed: 0.82, green: 0.48, blue: 0.29, alpha: 1)])
+                saved.draw(at: CGPoint(x: Self.panel.maxX - 20 - saved.size().width, y: y))
+            }
+
+            // The keycap: a rounded key on its own darker edge, which it sinks into while down.
+            let key = CGRect(x: bounds.midX - 48, y: Self.panel.maxY + 26, width: 96, height: 40)
+            let sink: CGFloat = stage.down ? 3 : 0
+            NSColor(srgbRed: 0.8, green: 0.78, blue: 0.74, alpha: 1).setFill()
+            NSBezierPath(roundedRect: key.offsetBy(dx: 0, dy: 3), xRadius: 9, yRadius: 9).fill()
+            let top = NSBezierPath(roundedRect: key.offsetBy(dx: 0, dy: sink), xRadius: 9, yRadius: 9)
+            (stage.down ? NSColor(srgbRed: 0.89, green: 0.93, blue: 0.98, alpha: 1) : .white).setFill(); top.fill()
+            NSColor(srgbRed: 0.85, green: 0.83, blue: 0.79, alpha: 1).setStroke(); top.lineWidth = 1; top.stroke()
+            let tab = NSAttributedString(string: "tab ⇥", attributes: [.font: NSFont.systemFont(ofSize: 15, weight: .semibold), .foregroundColor: NSColor(white: 0.24, alpha: 1)])
+            tab.draw(at: CGPoint(x: key.midX - tab.size().width / 2, y: key.midY - tab.size().height / 2 + sink - 1))
         }
     }
 
-    static func render(_ shot: Shot, to dir: String) {
+    /// With no `dir`, only says whether the ghost can be drawn there, as the app would.
+    @discardableResult static func render(_ shot: Shot, to dir: String?) -> Bool {
         let appearance = NSAppearance(named: shot.dark ? .darkAqua : .aqua)!
         final class Flipped: NSView { override var isFlipped: Bool { true } }
-        let scene = Flipped(frame: CGRect(x: 0, y: 0, width: shot.size.width + 40, height: shot.size.height + 40))
+        let scene: NSView, frame: CGRect
+        if let stage = shot.stage {
+            scene = DemoStage(frame: CGRect(origin: .zero, size: DemoStage.size), stage: stage)
+            frame = CGRect(x: DemoStage.panel.minX + 20, y: DemoStage.panel.minY + 18, width: shot.size.width, height: shot.size.height)
+        } else {
+            scene = Flipped(frame: CGRect(x: 0, y: 0, width: shot.size.width + 40, height: shot.size.height + 40))
+            scene.wantsLayer = true
+            scene.layer?.backgroundColor = appearance.performAsCurrentDrawingAppearance2 { NSColor.windowBackgroundColor.cgColor }
+            frame = CGRect(x: 20, y: 20, width: shot.size.width, height: shot.size.height)
+        }
         scene.appearance = appearance
-        scene.wantsLayer = true
-        scene.layer?.backgroundColor = appearance.performAsCurrentDrawingAppearance2 { NSColor.windowBackgroundColor.cgColor }
-        let frame = CGRect(x: 20, y: 20, width: shot.size.width, height: shot.size.height)
         let text = NSTextView(frame: frame)
         text.appearance = appearance
         text.font = .systemFont(ofSize: shot.font)
         text.textColor = .textColor
         text.backgroundColor = .textBackgroundColor
+        text.drawsBackground = shot.stage == nil
         text.textContainerInset = CGSize(width: 8, height: 6)
         text.string = shot.typed
         text.setSelectedRange(NSRange(location: (shot.typed as NSString).length, length: 0))
@@ -371,7 +469,8 @@ enum EndToEnd {
                              color: appearance.performAsCurrentDrawingAppearance2 { NSColor.textColor.usingColorSpace(.sRGB)!.cgColor },
                              lineLeft: frame.minX + origin.x + container.lineFragmentPadding, previousCharacter: String(shot.typed.last!), mayWrap: true)
         if !shot.ghost.isEmpty {
-            guard let layout = GhostLayout.make(spec) else { return check(false, "\(shot.name): no ghost") }
+            guard let layout = GhostLayout.make(spec) else { if dir != nil { check(false, "\(shot.name): no ghost") }; return false }
+            if dir == nil { return true }
             let ghost = GhostView(frame: layout.window)
             ghost.layout = layout
             scene.addSubview(ghost)
@@ -389,7 +488,9 @@ enum EndToEnd {
             NSGraphicsContext.restoreGraphicsState()
         }
         scene.cacheDisplay(in: scene.bounds, to: rep)
+        guard let dir else { return true }
         try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir).appendingPathComponent(shot.name + ".png"))
+        return true
     }
 
     static func run() {
@@ -398,7 +499,7 @@ enum EndToEnd {
         if let i = CommandLine.arguments.firstIndex(of: "--measure") { return measure(path: CommandLine.arguments[i + 1]) }
         if CommandLine.arguments.contains("--own-window") { return ownWindow() }
         if let i = CommandLine.arguments.firstIndex(of: "--demo") {
-            return demo(model: CommandLine.arguments[i + 1], to: CommandLine.arguments[i + 2])
+            return demo(model: CommandLine.arguments[i + 1], to: CommandLine.arguments[i + 2], sentences: Array(CommandLine.arguments.dropFirst(i + 3)))
         }
         if let i = CommandLine.arguments.firstIndex(of: "--window-shots") {
             return onMain { windowShots(to: CommandLine.arguments[i + 1]) }

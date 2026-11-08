@@ -10,4 +10,4 @@ Competitors looked at: Cotabby (open source) records real apps and puts a small 
 
 Recommendation: B (a compose window on the app's dot sky, with a keycap that dips on each Tab), with C's chip as a hint on the first sentence. Built from the same real-model frames `scripts/demo.sh` makes today.
 
-Pick: (pending)
+Pick: John picked F, English only for now, and asked for a stronger example than finishing the last word of a long sentence. Built in `scripts/demo.sh` and `--demo` in Tests/e2e: a real replay with the default model, Tab wherever the grey text is what comes next, so each sentence shows about half its keys saved. Output: `docs/media/demo.gif`.

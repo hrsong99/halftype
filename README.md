@@ -2,11 +2,9 @@
 
 **Inline typing suggestions for your whole Mac, in Korean and English, from a model that runs on your machine.** Grey text appears as you type, in almost any app. Press Tab to take it. What you type never leaves your Mac and is never saved: Halftype keeps only counts, for its Stats page. You type half; it writes the rest. (It was called Itda until 2026-11.)
 
-![Typing in English, with Tab taking each suggested word](docs/media/en.gif)
+![Typing two sentences: grey suggestions appear, Tab takes them a word at a time, and the counts show about half the keys saved](docs/media/demo.gif)
 
-![Typing in Korean, with Tab taking each suggested word](docs/media/ko.gif)
-
-These sentences are ones it does well on, and suggestions aren't always this good. They're drawn from the real model and the real ghost text by [`scripts/demo.sh`](scripts/demo.sh), not screen-recorded.
+These two sentences are ones it does well on, and suggestions aren't always this good: across whole messages it saves about a fifth of keystrokes in English ([below](#why-its-different)). Every suggestion and count is real: [`scripts/demo.sh`](scripts/demo.sh) types each sentence with the default model and its default settings, and presses Tab wherever the grey text is what comes next. It isn't screen-recorded.
 
 ## Install
 
