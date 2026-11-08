@@ -83,7 +83,10 @@ public enum Stop {
             let next = Word.firstEnd(text[wordEnd..<end])
             guard next > wordEnd, text[wordEnd..<next].contains(where: Word.isPart) else { break }
             if free.prefix(maxTokens).logprob(through: next, of: text) < floor {
-                end = wordEnd
+                // A closing bracket or quote right after the last kept word stays if it holds the floor itself: `this)`, not `this`.
+                var closed = wordEnd
+                while closed < end, text[closed].unicodeScalars.first.map(closes) == true { closed = text.index(after: closed) }
+                end = closed > wordEnd && free.prefix(maxTokens).logprob(through: closed, of: text) >= floor ? closed : wordEnd
                 done = true
                 break
             }
@@ -92,6 +95,10 @@ public enum Stop {
         let cut = text[..<end]
         guard cut.contains(where: Word.isPart) else { return ("", done) }
         return (String(cut[...(cut.lastIndex { !$0.isWhitespace } ?? cut.startIndex)]), done)
+    }
+
+    private static func closes(_ s: Unicode.Scalar) -> Bool {
+        s.properties.generalCategory == .closePunctuation || s.properties.generalCategory == .finalPunctuation
     }
 
     /// Unicode's own Terminal_Punctuation covers Latin and CJK. `~` and `…` end casual Korean sentences and have no such property.
