@@ -379,6 +379,24 @@ import Testing
         _ = press(tap, key(53))
         #expect(heard.withLock { $0 } == [.tab, .shiftTab, .esc])
     }
+    @Test func aLessonsGhostAnswersOnlyItsKeyInOurWindow() {
+        let heard = Mutex<[KeyTap.Taught]>([]), refused = Mutex<[KeyTap.Taught]>([])
+        let tap = KeyTap()
+        tap.onTaught = { key in heard.withLock { $0.append(key) } }
+        tap.onRefused = { key in refused.withLock { $0.append(key) } }
+        tap.state.withLock { $0.only = .shiftTab }
+        let ours = getpid()
+        armed(tap, Ghost(remainder: " there now"), pid: ours)
+        #expect(press(tap, key(48, pid: ours)).swallowed, "Tab does nothing, not even a tab")
+        #expect(press(tap, key(53, pid: ours)).swallowed)
+        #expect(tap.state.withLock { $0.armed != nil }, "the ghost stays up")
+        _ = press(tap, key(48, pid: ours, flags: .maskShift))
+        #expect(heard.withLock { $0 } == [.shiftTab] && refused.withLock { $0 } == [.tab, .esc])
+        // Another app's ghost is untouched by the lesson.
+        armed(tap, Ghost(remainder: " there now"))
+        _ = press(tap, key(48))
+        #expect(heard.withLock { $0 } == [.shiftTab, .tab])
+    }
     @Test func escAimedAtAnotherAppIsThatApps() {
         let tap = KeyTap()
         armed(tap, Ghost(remainder: " there"))
@@ -411,8 +429,8 @@ import Testing
         event.setIntegerValueField(.eventTargetUnixProcessID, value: Int64(target))
         return event
     }
-    func armed(_ tap: KeyTap, _ ghost: Ghost, typesKeys: Bool = false, committed: String = "hello") {
-        #expect(tap.arm(.init(pid: pid, ghost: ghost, typesKeys: typesKeys, committed: committed, before: committed), generation: tap.generation))
+    func armed(_ tap: KeyTap, _ ghost: Ghost, typesKeys: Bool = false, committed: String = "hello", pid target: pid_t? = nil) {
+        #expect(tap.arm(.init(pid: target ?? pid, ghost: ghost, typesKeys: typesKeys, committed: committed, before: committed), generation: tap.generation))
     }
     /// Text of Unicode events, jamo by key code.
     func press(_ tap: KeyTap, _ event: CGEvent, type: CGEventType = .keyDown) -> (swallowed: Bool, posted: [CGEvent]) {
@@ -1459,6 +1477,20 @@ final class FakeServer: URLProtocol {
         app.menuNeedsUpdate(menu)
         #expect(menu.items.contains { $0.title == "Halftype 0.1.9 is available: Update…" && $0.action == #selector(App.checkForUpdates) })
     }
+    @Test func practiceAnswersItsSentencesAndLeavesTheRestToTheModel() async {
+        final class Model: Completer, @unchecked Sendable {
+            var asked = 0
+            func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) { asked += 1; onResult(Suggestion(text: " model", gate: 0)) }
+            func cancel() {}
+            func unload() {}
+        }
+        let model = Model(), practice = Practice(over: model)
+        let ours = Mutex<String?>(nil), other = Mutex<String?>(nil)
+        practice.suggest(prefix: "Thanks so much for the", fragment: "", composing: " ") { r in ours.withLock { $0 = r?.text } }
+        practice.suggest(prefix: "Something else", fragment: "", composing: " ") { r in other.withLock { $0 = r?.text } }
+        #expect(ours.withLock { $0 } == " birthday wishes, it made my day." && other.withLock { $0 } == " model" && model.asked == 1)
+    }
+
     @Test func eachLessonStartsOnAPracticeSentence() {
         for step in Onboarding.Step.allCases {
             guard let lesson = Lesson.of(step) else { continue }

@@ -2,9 +2,12 @@ import AppKit
 import HalftypeEngine
 import SwiftUI
 
-/// Answers before any model is ready, during onboarding, so Try It's first Tab needs no 3 GB wait: it finishes only its own sentences,
-/// so anywhere else it says nothing. A real model replaces it the moment one loads.
+/// Onboarding's suggestions: its own sentences always get the suggestion each lesson was written for (a model may offer one word where
+/// Shift-Tab needs several), and anything else goes to the model, or gets nothing before one is ready, so no lesson waits on 3 GB.
 final class Practice: Completer {
+    let model: Completer?
+    init(over model: Completer? = nil) { self.model = model }
+
     /// Onboarding's three lessons, which start with these sentences' first halves.
     static let sentences = ["Please let me know if you have any questions or concerns.", "Thanks so much for the birthday wishes, it made my day.",
                             "Can we move the meeting to Thursday afternoon?"]
@@ -20,10 +23,13 @@ final class Practice: Completer {
     }
 
     func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
-        onResult(Practice.rest(after: prefix + fragment).map { Suggestion(text: $0, gate: 0) })
+        if let rest = Practice.rest(after: prefix + fragment) { return onResult(Suggestion(text: rest, gate: 0)) }
+        guard let model else { return onResult(nil) }
+        model.suggest(prefix: prefix, fragment: fragment, composing: composing, onResult: onResult)
     }
-    func cancel() {}
-    func unload() {}
+    func cancel() { model?.cancel() }
+    func unload() { model?.unload() }
+    func close() { model?.close() }
 }
 
 /// A card docked beside System Settings while it's open on our account, saying which switch to flip (docs/design/onboarding, H).

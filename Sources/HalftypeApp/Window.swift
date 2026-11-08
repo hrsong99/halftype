@@ -196,14 +196,17 @@ struct FieldPage: View {
     let showAll: () -> Void
     /// The mark above, the room below and the line that teaches the keys, which onboarding's lessons draw their own way.
     var chrome = true
+    /// A lesson's keys, drawn in the field where the model and the switch go.
+    var keycaps: [String] = []
     @FocusState private var focused: Bool
     @State private var picking: Bool
     /// The watcher's reason once it has held for a moment, so typing doesn't flicker the line.
     @State private var settled: Watcher.Why
 
-    init(app: App, draft: Binding<String>, picking: Bool = false, chrome: Bool = true, showAll: @escaping () -> Void) {
+    init(app: App, draft: Binding<String>, picking: Bool = false, chrome: Bool = true, keycaps: [String] = [], showAll: @escaping () -> Void) {
         self.app = app
         self.chrome = chrome
+        self.keycaps = keycaps
         self.showAll = showAll
         _draft = draft
         _picking = State(initialValue: picking)
@@ -214,9 +217,9 @@ struct FieldPage: View {
         VStack(spacing: 16) {
             if chrome { Mark() }
             if app.trusted { field.zIndex(1) } else { allow }  // The list hangs over what's below the field.
-            status
+            if chrome { status }
         }
-        .padding(24)
+        .padding(.horizontal, 24).padding(.vertical, chrome ? 24 : 12)
         .padding(.bottom, chrome ? 40 : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // A click anywhere else only closes the list.
@@ -245,30 +248,8 @@ struct FieldPage: View {
                     }
             }
             .font(.system(size: 15))
-            HStack(spacing: 8) {
-                Button { picking.toggle() } label: {
-                    HStack(spacing: 6) {
-                        // While practice answers, the model on its way, not "No Model".
-                        if app.loadingName != nil || app.practicing { ProgressView().controlSize(.mini) }
-                        Text(app.loadingName ?? (app.practicing ? app.store.current.name : app.activeName))
-                    }
-                    .font(.system(size: 12)).padding(.horizontal, 10).padding(.vertical, 4).background(Color(nsColor: .textBackgroundColor), in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(app.loadingName.map { "Loading model: \($0)" } ?? "Model: \(app.activeName)")
-                .overlay(alignment: .topTrailing) {
-                    if picking {
-                        ModelList(app: app) { picking = false } showAll: { picking = false; showAll() }.offset(y: 32)
-                    }
-                }
-                Button { app.on.toggle() } label: {
-                    Image(systemName: "power").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(nsColor: .textBackgroundColor))
-                        .frame(width: 24, height: 24)
-                        .background(app.on ? Color.primary : Color.secondary.opacity(0.4), in: Circle())
-                }
-                .buttonStyle(.plain)
-                .help(app.on ? "Halftype is on. Click to turn it off." : "Halftype is off. Click to turn it on.")
-                .accessibilityLabel(app.on ? "Turn Halftype off" : "Turn Halftype on")
+            if keycaps.isEmpty { controls } else {
+                HStack(spacing: 4) { ForEach(keycaps, id: \.self) { Keycap(label: $0) } }.frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
@@ -281,6 +262,35 @@ struct FieldPage: View {
         .task(id: app.why) {
             try? await Task.sleep(for: .milliseconds(400))
             if !Task.isCancelled { settled = app.why }
+        }
+    }
+
+    /// The model and the on switch, at the field's foot.
+    private var controls: some View {
+        HStack(spacing: 8) {
+            Button { picking.toggle() } label: {
+                HStack(spacing: 6) {
+                    // While practice answers, the model on its way, not "No Model".
+                    if app.loadingName != nil || app.practicing { ProgressView().controlSize(.mini) }
+                    Text(app.loadingName ?? (app.practicing ? app.store.current.name : app.activeName))
+                }
+                .font(.system(size: 12)).padding(.horizontal, 10).padding(.vertical, 4).background(Color(nsColor: .textBackgroundColor), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(app.loadingName.map { "Loading model: \($0)" } ?? "Model: \(app.activeName)")
+            .overlay(alignment: .topTrailing) {
+                if picking {
+                    ModelList(app: app) { picking = false } showAll: { picking = false; showAll() }.offset(y: 32)
+                }
+            }
+            Button { app.on.toggle() } label: {
+                Image(systemName: "power").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(nsColor: .textBackgroundColor))
+                    .frame(width: 24, height: 24)
+                    .background(app.on ? Color.primary : Color.secondary.opacity(0.4), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .help(app.on ? "Halftype is on. Click to turn it off." : "Halftype is off. Click to turn it on.")
+            .accessibilityLabel(app.on ? "Turn Halftype off" : "Turn Halftype on")
         }
     }
 

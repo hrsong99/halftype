@@ -35,6 +35,7 @@ struct Onboarding: View {
         .animation(.easeInOut(duration: 0.35), value: step)
         // The grant brings the window back in front (App.tapChanged); the step moves on with it.
         .onChange(of: app.trusted) { if app.trusted, step == .allow { go(.tab) } }
+        .onAppear { app.lessonKey = Lesson.of(step)?.key }
         .onChange(of: app.taught) {
             guard let lesson = Lesson.of(step), app.taught == lesson.key, !did else { return }
             did = true
@@ -56,6 +57,8 @@ struct Onboarding: View {
     private func go(_ to: Step) {
         did = false
         app.taught = nil
+        app.refused = nil
+        app.lessonKey = Lesson.of(to)?.key
         if let lesson = Lesson.of(to) { draft = lesson.prefill }
         step = to
     }
@@ -92,19 +95,24 @@ struct Onboarding: View {
         .padding(.horizontal, 40)
     }
 
-    /// One key: what to press, in words and as keycaps, the field with a suggestion waiting, and what it did.
+    /// One key: what to press, the field with a suggestion waiting and the key drawn in it, then what the key does, which becomes
+    /// what it did. Any other key on the suggestion does nothing, and the line says which one to press.
     private func lesson(_ lesson: Lesson) -> some View {
         VStack(spacing: 0) {
             Spacer()
-            Text("\(lesson.number) of 3").font(.system(size: 12)).foregroundStyle(.secondary).padding(.bottom, 6)
-            HStack(spacing: 12) {
-                Text(lesson.title).font(.system(size: 24, weight: .semibold))
-                HStack(spacing: 4) { ForEach(lesson.keycaps, id: \.self) { Keycap(label: $0) } }
+            Text("\(lesson.number) of 3").font(.system(size: 12)).foregroundStyle(.secondary)
+            Text(lesson.title).font(.system(size: 24, weight: .semibold)).padding(.top, 4)
+            FieldPage(app: app, draft: $draft, chrome: false, keycaps: lesson.keycaps) {}.fixedSize(horizontal: false, vertical: true)
+            Group {
+                if did {
+                    Label(lesson.done, systemImage: "checkmark.circle.fill").foregroundStyle(Color.primary)
+                } else if let refused = app.refused {
+                    Text("That was \(Lesson.name(refused)). This one is \(Lesson.name(lesson.key)).").foregroundStyle(Root.peach)
+                } else {
+                    Text(lesson.how).foregroundStyle(.secondary)
+                }
             }
-            Text(lesson.how).font(.system(size: 13)).foregroundStyle(.secondary).padding(.top, 6)
-            FieldPage(app: app, draft: $draft, chrome: false) {}.fixedSize(horizontal: false, vertical: true)
-            Label(lesson.done, systemImage: "checkmark.circle.fill").font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.primary).opacity(did ? 1 : 0)
+            .font(.system(size: 13, weight: did ? .medium : .regular)).frame(height: 18)
             Spacer()
             Button(did ? "Next" : "Skip") { next() }.buttonStyle(Ink(quiet: !did)).padding(.bottom, 40)
         }
@@ -213,7 +221,7 @@ struct Ink: ButtonStyle {
 }
 
 /// A key drawn as a key, for the lessons.
-private struct Keycap: View {
+struct Keycap: View {
     let label: String
     var body: some View {
         Text(label).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
@@ -236,5 +244,8 @@ struct Lesson {
                           prefill: "Can we move the meeting to", done: "Hidden. Type on, and a new one comes.")
         default: nil
         }
+    }
+    static func name(_ key: KeyTap.Taught) -> String {
+        switch key { case .tab: "Tab"; case .shiftTab: "Shift-Tab"; case .esc: "Esc" }
     }
 }

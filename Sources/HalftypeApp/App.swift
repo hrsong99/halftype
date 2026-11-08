@@ -161,6 +161,13 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var practicing = false
     /// The last key that took or hid a suggestion, which onboarding's lessons wait for. Onboarding sets it back to nil.
     @Published var taught: KeyTap.Taught?
+    /// A key the lesson didn't ask for, so it can say which one it wants. Onboarding sets it back to nil.
+    @Published var refused: KeyTap.Taught?
+    /// The key onboarding's lesson teaches, the only one our window's ghost answers meanwhile. Nil outside the lessons.
+    var lessonKey: KeyTap.Taught? {
+        get { tap.state.withLock { $0.only } }
+        set { tap.state.withLock { $0.only = newValue } }
+    }
     let guide = SettingsGuide()
     private let loading = DispatchQueue(label: "halftype.load", qos: .userInitiated)
     private var latestOpen = 0
@@ -240,6 +247,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tap.onTaught = { [weak self] key in
             DispatchQueue.main.async { if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid() { self?.taught = key } }
         }
+        tap.onRefused = { [weak self] key in DispatchQueue.main.async { self?.refused = key } }
         tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
         tap.onAccept = { [weak self] added, keys, suggestion, text, drawing in
             DispatchQueue.main.async {
@@ -422,6 +430,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Every model opened that something still holds, so quit can close each without waiting on the watcher. Loading queue: an engine
     /// is in here before anything else can hold it.
     private let engines = NSHashTable<AnyObject>.weakObjects()
+    /// The model installed last, which onboarding's practice wraps until it ends. Main thread.
+    private var answering: Completer?
     private let quitting = Atomic<Bool>(false)
 
     private func open(_ path: String, remember: Bool = false) {
@@ -447,7 +457,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                 if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
                 installed = id
-                watcher.install(engine)
+                answering = engine
+                watcher.install(onboarding ? Practice(over: engine) : engine)
             }
         }
     }
@@ -455,7 +466,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The model answering couldn't load again after an idle unload: its file moved or broke. Nothing answers until another is chosen.
     private func lost(_ id: Int) {
         guard id == installed, let path = activePath else { return }
-        (installed, activePath) = (0, nil)
+        (installed, activePath, answering) = (0, nil, nil)
         notice = "Could not load " + URL(fileURLWithPath: path).lastPathComponent
         watcher.install(nil)
     }
@@ -493,6 +504,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func finishOnboarding() {
         UserDefaults.standard.set(true, forKey: "onboarded")
         onboarding = false
+        lessonKey = nil
+        if let answering { watcher.install(answering) }
         guide.close()
     }
 
