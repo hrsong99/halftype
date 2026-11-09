@@ -124,16 +124,16 @@ struct PeekCard: View {
             label("Its words · chance, and running")
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
                 ForEach(Array(peek.steps.enumerated()), id: \.offset) { _, step in
-                    let taken = peek.isTaken(step)
+                    let taken = peek.isTaken(step), live = step.kept && !taken
                     GridRow {
                         Text((taken ? "✓ " : "") + step.text.trimmingCharacters(in: .whitespaces)).strikethrough(!step.kept).lineLimit(1)
                             .frame(width: 92, alignment: .leading)
                         Text(Self.percent(step.logprob)).foregroundStyle(.secondary).frame(width: 34, alignment: .trailing)
-                        bar(step.running).opacity(step.kept && !taken ? 1 : 0.35)
+                        bar(step.running).opacity(live ? 1 : 0.35)
                         Text(Self.percent(step.running)).frame(width: 34, alignment: .trailing)
                     }
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(step.kept && !taken ? .primary : .secondary)
+                    .foregroundStyle(live ? .primary : .secondary)
                 }
             }
             Text(verdict(peek)).font(.system(size: 11)).foregroundStyle(.secondary).padding(.top, 8)
