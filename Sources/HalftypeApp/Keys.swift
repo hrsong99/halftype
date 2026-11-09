@@ -93,7 +93,7 @@ class KeyTap: @unchecked Sendable {
     var onRefused: (@Sendable (Taught) -> Void)?
     /// Given the characters a Tab added, which suggestion it took from, the text (nil when typed as strokes: an input method may recompose
     /// the letter before it, moving the text from where the ghost was), and the drawing it was taken from. Off this thread at once.
-    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int, _ text: String?, _ drawing: Int) -> Void)?
+    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ words: Int, _ suggestion: Int, _ text: String?, _ drawing: Int) -> Void)?
     /// A key typed the ghost's next letter, so the drawing can lose it in place while the host catches up. Tab is disarmed as after any
     /// key, until the host's update arms it again. Given the drawing, the letter, and the generation it moved to. Off this thread at once.
     var onTypedThrough: (@Sendable (_ drawing: Int, _ text: String, _ generation: Int) -> Void)?
@@ -234,7 +234,7 @@ class KeyTap: @unchecked Sendable {
         }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
-            onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion, plan.strokes == nil ? plan.text : nil, drawing)
+            onAccept?(plan.added, plan.strokes?.count ?? plan.added, Tally.words(in: plan.text), suggestion, plan.strokes == nil ? plan.text : nil, drawing)
             onTaught?(whole ? .shiftTab : .tab)
         }
         if decision == .reenable { reenable() }

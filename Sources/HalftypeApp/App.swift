@@ -71,6 +71,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Nil in the window pictures, whose made-up counts must not reach the real file. Set before any App exists.
     /// Main thread only: the suggestion the last Tab took from.
     private var lastTaken = -1
+    /// When the last key was typed, in seconds of uptime, to time the user's typing speed.
+    private var lastKey: TimeInterval?
     /// Only in the app itself: unit tests and the e2e runner make an App too, and once wrote their counts into the real file.
     nonisolated(unsafe) static var tallyFile: URL? = Bundle.main.bundleIdentifier == "app.halftype.Halftype" ? support.appendingPathComponent("stats.json") : nil
 
@@ -297,12 +299,21 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             DispatchQueue.main.async { if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid() { self?.taught = key } }
         }
         tap.onRefused = { [weak self] key in DispatchQueue.main.async { self?.refused = key } }
-        tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
-        tap.onAccept = { [weak self] added, keys, suggestion, text, drawing in
+        tap.onTyped = { [weak self] in
+            let now = ProcessInfo.processInfo.systemUptime  // Read on the tap's thread, before the hop, so the gap is the user's.
+            DispatchQueue.main.async {
+                guard let self, self.on else { return }
+                let gap = self.lastKey.map { now - $0 }
+                self.lastKey = now
+                self.count { $0.typed(1, after: gap) }
+            }
+        }
+        tap.onAccept = { [weak self] added, keys, words, suggestion, text, drawing in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.panel.took(text, drawing: drawing)
-                self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
+                self.count { $0.took(added, keys: keys, words: words, first: suggestion != self.lastTaken) }
+                self.lastKey = nil  // The pause to read and take a suggestion isn't typing.
                 self.lastTaken = suggestion
                 if !self.accepted { self.accepted = true }
             }

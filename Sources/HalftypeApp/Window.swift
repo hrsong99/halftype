@@ -525,8 +525,7 @@ struct StatsPage: View {
             .onChange(of: span) { back = 0; picked = nil; hovered = nil }
             headline(shown, period).padding(.top, 18)
             HStack(spacing: 8) {
-                Chip(value: shown.words.formatted(), label: shown.words == 1 ? "word" : "words",
-                     help: "\(shown.characters.formatted()) letters Tab typed for you, in five-letter words, as typing tests count them.")
+                Chip(value: shown.wordCount.formatted(), label: shown.wordCount == 1 ? "word" : "words", help: "Words Tab typed for you, whole or in part.")
                 if let n = shown.oneIn { Chip(value: "1 in \(n)", label: "keys by Tab", help: "Of all the keys you typed, Tab typed one in \(n) for you.") }
                 Chip(value: shown.tabs.formatted(), label: shown.tabs == 1 ? "Tab" : "Tabs", help: "How many times you pressed Tab to take a suggestion.")
             }
@@ -554,10 +553,11 @@ struct StatsPage: View {
     /// "Halftype saved you 21 minutes of typing this week.", the time in the icon's glass.
     private func headline(_ day: Tally.Day, _ period: Tally.Period?) -> some View {
         let end = period == nil ? " so far." : back > 0 ? "." : span == .week ? " this week." : " this month."
-        let time = Text(Self.time(day.minutesSaved) + " of typing").fontWeight(.semibold).foregroundStyle(StatsPage.glass)
+        let time = Text(Self.time(app.tally.minutes(day)) + " of typing").fontWeight(.semibold).foregroundStyle(StatsPage.glass)
         let sentence = day.tabs == 0 ? Text("Nothing typed by Tab" + end) : Text("Halftype saved you \(time)\(end)")
         return sentence.foregroundStyle(.secondary).font(.system(size: 22)).fixedSize(horizontal: false, vertical: true)
-            .help("Keys Tab typed for you, at 40 words a minute (200 keys).")
+            .help(app.tally.speed.map { "Keys Tab typed for you, at your typing speed: \(Int($0.rounded())) keys a minute." }
+                  ?? "Keys Tab typed for you, at 40 words a minute (200 keys), until Halftype has timed a minute of your typing.")
     }
 
     /// The icon's glass, pale blue to peach, darkened to read on cream.
@@ -573,13 +573,13 @@ struct StatsPage: View {
     private func caption(_ period: Tally.Period?, _ before: Tally.Day?) -> String {
         if let hovered {
             let day = app.tally.last(1, to: hovered, calendar)[0].day
-            return "\(hovered.formatted(.dateTime.weekday(.wide).month().day())): \(Self.time(day.minutesSaved)) saved, \(day.words.formatted()) words"
+            return "\(hovered.formatted(.dateTime.weekday(.wide).month().day())): \(Self.time(app.tally.minutes(day))) saved, \(day.wordCount.formatted()) words"
         }
         guard let period else { return "Each dot is a day, bigger for more time saved." }
         guard let before else { return "" }
         let stretch = back > 0 ? (span == .week ? "The week before" : "The month before")
             : period.elapsed == 1 ? "The same day last \(span == .week ? "week" : "month")" : "The same \(period.previousLength) days last \(span == .week ? "week" : "month")"
-        return "\(stretch): \(Self.time(before.minutesSaved))"
+        return "\(stretch): \(Self.time(app.tally.minutes(before)))"
     }
 
     /// The period's days as bars; hovering one shows it in a tag above.
@@ -587,13 +587,13 @@ struct StatsPage: View {
         let days = app.tally.last(period.length, to: day(period.length - 1, of: period.start), calendar)
         return Chart {
             ForEach(days, id: \.date) { entry in
-                BarMark(x: .value("Day", entry.date, unit: .day), y: .value("Minutes", entry.day.minutesSaved), width: .ratio(0.6))
+                BarMark(x: .value("Day", entry.date, unit: .day), y: .value("Minutes", app.tally.minutes(entry.day)), width: .ratio(0.6))
                     .clipShape(RoundedRectangle(cornerRadius: 3))
                     .foregroundStyle(Color.primary.opacity(lit(entry.date) ? 0.85 : 0.18))
             }
             if let picked, let entry = days.first(where: { calendar.isDate($0.date, inSameDayAs: picked) }) {
                 RuleMark(x: .value("Day", entry.date, unit: .day)).foregroundStyle(.clear)
-                    .annotation(position: .top, spacing: 2, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) { Tag(date: entry.date, day: entry.day) }
+                    .annotation(position: .top, spacing: 2, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) { Tag(date: entry.date, day: entry.day, minutes: app.tally.minutes(entry.day)) }
             }
         }
         .chartXSelection(value: $picked)
@@ -736,10 +736,11 @@ private struct ProSignup: View {
 private struct Tag: View {
     let date: Date
     let day: Tally.Day
+    let minutes: Double
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(date.formatted(.dateTime.weekday(.wide).month().day())).foregroundStyle(.white.opacity(0.6))
-            Text("\(StatsPage.time(day.minutesSaved)) saved · \(day.words.formatted()) words")
+            Text("\(StatsPage.time(minutes)) saved · \(day.wordCount.formatted()) words")
             Text("\(day.tabs.formatted()) Tabs" + (day.oneIn.map { " · 1 in \($0) keys by Tab" } ?? ""))
         }
         .font(.system(size: 11)).monospacedDigit().foregroundStyle(.white)
