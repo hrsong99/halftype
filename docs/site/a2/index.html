@@ -59,7 +59,7 @@
       <div class="wrap">
         <div class="field hero__field" role="img" aria-label="Halftype's field: three messages are typed; a suggestion finishes each, Tab takes the next word and Shift-Tab the whole suggestion.">
           <div class="text" id="hero-text" aria-hidden="true"></div>
-          <div class="bar" aria-hidden="true"><span class="kc" id="hero-key">tab</span><span class="grow"></span><span class="pill">Qwen 3.5 0.8B</span><span class="power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
+          <div class="bar" aria-hidden="true"><span class="kc" id="hero-key">tab</span><span class="grow"></span><span class="pill">Gemma 4 E2B</span><span class="power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
         </div>
       </div>
     </div>
@@ -175,31 +175,44 @@
   <!-- 7. Compare -->
   <section class="section" id="compare" aria-labelledby="compare-h">
     <div class="wrap">
-      <div class="head"><h2 id="compare-h">Small download. Light at rest.</h2></div>
+      <div class="head"><h2 id="compare-h">Right more often. Quiet when it isn't sure.</h2></div>
       <div class="charts">
         <figure class="chart">
-          <figcaption>Model to download</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:13.8%"></span></span><b>0.53 GB</b></div>
-          <div class="row"><span>KeyType</span><span class="track"><span style="--w:33%"></span></span><b>1.27 GB</b></div>
-          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:77.4%"></span></span><b>2.98 GB</b></div>
-          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:100%"></span></span><b>3.85 GB</b></div>
-          <p class="note">Defaults: Qwen 3.5 0.8B, Qwen 3.5 2B (KeyType 1.8), Gemma 4 E2B Q4_C as Cotypist 2026.5.2 downloaded it, Gemma 4 E2B Q6 (Cotabby 0.6.2).</p>
+          <figcaption>First word right</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:100%"></span></span><b>59.0%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:40.7%"></span></span><b>24.0%</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:4.7%"></span></span><b>2.8%</b></div>
+          <p class="note">Of the suggestions shown, the first word was the next word typed.</p>
         </figure>
         <figure class="chart">
-          <figcaption>Memory at rest</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:20.6%"></span></span><b>79 MB</b></div>
-          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:48.3%"></span></span><b>185 MB</b></div>
-          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:100%"></span></span><b>383 MB</b></div>
-          <p class="note">Halftype unloads its model after 5 idle minutes. Cotabby and Cotypist keep theirs mapped; Cotypist was 478 MB in a first run.</p>
+          <figcaption>Grey text on screen</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:21.7%"></span></span><b>15.1%</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:57.6%"></span></span><b>40.0%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>69.5%</b></div>
+          <p class="note">Share of keys with a suggestion showing. Halftype shows one only when it's fairly sure.</p>
         </figure>
         <figure class="chart">
-          <figcaption>CPU at rest</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:9.1%"></span></span><b>0.2%</b></div>
-          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:9.1%"></span></span><b>0.2%</b></div>
-          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:100%"></span></span><b>2.2%</b></div>
-          <p class="note">Halftype 0.13–0.27% over 60 s. Cotypist median, with one 13% sample in each of two 8&#8209;minute runs. Cotabby median of 9 samples.</p>
+          <figcaption>Keys saved</figcaption>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>26.8%</b></div>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:65.3%"></span></span><b>17.5%</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:17.5%"></span></span><b>4.7%</b></div>
+          <p class="note">KeyType saves the most: 9.3 points more than Halftype (95% CI 5.4&ndash;14.5), ahead in 15 of 16 sentences. The score doesn't charge for reading a wrong suggestion.</p>
         </figure>
       </div>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Every measurement">
+      <table class="cmp">
+        <caption>Everything measured</caption>
+        <thead><tr><th scope="col">App</th><th scope="col">Keys saved (95% CI)</th><th scope="col">Suggestion showing</th><th scope="col">First word right</th><th scope="col">Delay p50 / p90</th><th scope="col">Memory typing</th><th scope="col">Model in RAM</th><th scope="col">CPU typing</th><th scope="col">Download</th><th scope="col">Memory at rest</th></tr></thead>
+        <tbody>
+          <tr class="us"><th scope="row">Halftype 0.1.12</th><td>17.5% (12.1&ndash;23.0)</td><td>15.1%</td><td>59.0%</td><td>220 / 268 ms</td><td>350 MB</td><td>2.36 GB</td><td>23%</td><td>3.4 GB</td><td>79 MB</td></tr>
+          <tr><th scope="row">KeyType 1.8</th><td>26.8% (19.8&ndash;34.4)</td><td>69.5%</td><td>24.0%</td><td>185 / 275 ms</td><td>664 MB</td><td>1.23 GB</td><td>13%</td><td>1.27 GB</td><td>&ndash;</td></tr>
+          <tr><th scope="row">Cotabby 0.6.2</th><td>4.7% (0.9&ndash;9.5)</td><td>40.0%</td><td>2.8%</td><td>226 / 407 ms</td><td>285 MB</td><td>3.58 GB</td><td>15%</td><td>3.85 GB</td><td>185 MB</td></tr>
+          <tr><th scope="row">Cotypist 2026.5.2</th><td colspan="7">Not measured: it showed no suggestion in the test window</td><td>2.98 GB</td><td>383 MB</td></tr>
+          <tr><th scope="row">macOS predictions</th><td colspan="9">Not measured: they showed no suggestion in the test window</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="how">16 public English sentences (Taskmaster-1), the same for every app, typed at a human pace on one M5 with 16 GB, 2026-11-09, each app at its defaults (Halftype: Gemma 4 E2B). An ideal typist presses Tab only when the suggestion is right. Delay is a key to a new suggestion. Memory typing is macOS's footprint, which leaves out the model's pages (next column). At rest is 9 minutes after launch with no typing, when Halftype has unloaded its model; KeyType is left out there, as it was measured before it had Accessibility. Korean wasn't run. <a href="https://github.com/hrsong99/halftype/blob/main/bench/compare/README.md">How it's measured</a></p>
       <table class="ko-table">
         <caption>Suggests mid-syllable in Korean</caption>
         <tbody>
@@ -209,17 +222,6 @@
           <tr><th scope="row">Cotypist</th><td>Not tested</td><td>Closed source</td></tr>
         </tbody>
       </table>
-      <p class="how">Each app's default model, on one M5 with 16 GB, 2026-11-09. At rest is 9 minutes after launch, with no typing; memory is macOS's footprint. Halftype's figures are from <code>scripts/e2e.sh --measure</code>, the others from <code>docs/site/compare/idle.sh</code>. KeyType is left out at rest: it starts only once it has Accessibility, then keeps its model until you quit. Cotabby had no Accessibility either, but had loaded its model. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a></p>
-      <div class="figures">
-        <h3>And what it does for you</h3>
-        <dl class="figs">
-          <div><dt>21.6%</dt><dd>of keystrokes saved, across whole English messages</dd></div>
-          <div><dt>81.5%</dt><dd>of suggestions shown were right on the first word</dd></div>
-          <div><dt>53 ms</dt><dd>to the first word (median)</dd></div>
-        </dl>
-        <p class="how">English, default model and settings, from replayed typing: 21.6% with real typing delays, before the latest change to how much a suggestion shows; 81.5% over 2,400 held-out requests; 53 ms the median of requests that reached a first word.</p>
-        <a class="more" href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a>
-      </div>
     </div>
   </section>
 
