@@ -13,4 +13,5 @@ text=~/halftype-lab-private/compare/text
 args=(-c release -Xswiftc -enable-testing --disable-keychain --scratch-path .build/compare --product halftype-compare
       -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker bench/compare/Info.plist)
 swift build "${args[@]}" 2>&1 | { grep -E "error|Build complete" || true; }
-exec "$(swift build "${args[@]}" --show-bin-path)/halftype-compare" --text $text "$@"
+# caffeinate: an idle Mac that sleeps or dims mid-run stops the screen reads.
+exec caffeinate -dimsu "$(swift build "${args[@]}" --show-bin-path)/halftype-compare" --text $text "$@"
