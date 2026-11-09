@@ -46,6 +46,13 @@ import Testing
         #expect(tap.flags([]) == nil)
         _ = tap.flags([.control])
         #expect(tap.flags([]) == nil)
+        // ⌃ kept down after a tap: ⌃X then ⌥ is no second tap.
+        _ = tap.flags([.control, .option])
+        #expect(tap.flags([.control]) == false)
+        tap.key()
+        _ = tap.flags([.control, .option])
+        #expect(tap.flags([.control]) == nil)
+        #expect(tap.flags([]) == nil)
         // ⌃ then ⌥, never together, under a held ⇧.
         for held: NSEvent.ModifierFlags in [[.shift], [.shift, .control], [.shift], [.shift, .option], [.shift]] { #expect(tap.flags(held) == nil) }
         #expect(tap.flags([]) == nil)

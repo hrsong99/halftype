@@ -63,7 +63,7 @@ struct PeekTap {
         chord.formUnion(held)
         if held.isSuperset(of: [.control, .option]) { together = true; return nil }
         guard together || held.isEmpty else { return nil }
-        defer { (chord, together, spoiled) = ([], false, false) }
+        defer { (chord, together, spoiled) = (held, false, false) }  // What is still down still spoils a next tap.
         return together && !spoiled && !chord.contains(.command) ? chord.contains(.shift) : nil
     }
 
