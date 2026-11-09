@@ -154,6 +154,8 @@ public struct Peek: Equatable, Sendable {
         public var running: Double
         /// False for the word the ghost stopped before.
         public var kept: Bool
+        /// Where the word ends, in characters of the suggestion: taken once that much of it is typed or accepted.
+        public var end: Int
     }
 
     /// The whole prompt: the screen text the model was given, then the field's text up to the held word.
@@ -169,6 +171,12 @@ public struct Peek: Equatable, Sendable {
     public var end: End
     public var floor: Double
     public var threshold: Double
+    /// How long the suggestion was, and how much of it has since been typed or accepted: the model isn't asked again until you leave it.
+    public var shown: Int
+    public var taken = 0
+
+    /// Words already typed or accepted.
+    public func isTaken(_ step: Step) -> Bool { step.end <= taken }
 
     /// The ghost's words with their numbers, then the first word it stopped before, if the model got that far. Nil with no word.
     public static func make(_ tokens: [Token], prompt: Prompt, context: Int, shown: String, tuning: Tuning) -> Peek? {
@@ -184,7 +192,7 @@ public struct Peek: Equatable, Sendable {
             let running = sum.logprob(through: end, of: text)
             let kept = text[..<end].count <= shown.count
             // The first word whole, with the fragment it continues: "tomo" + "rrow" reads as "tomorrow", but " tomorrow" + " at" as "at".
-            steps.append(Step(text: (steps.isEmpty && text.first.map(Word.isPart) == true ? prompt.fragment : "") + text[start..<end], logprob: running - before, running: running, kept: kept))
+            steps.append(Step(text: (steps.isEmpty && text.first.map(Word.isPart) == true ? prompt.fragment : "") + text[start..<end], logprob: running - before, running: running, kept: kept, end: text[..<end].count))
             if !kept { break }
             (start, before) = (end, running)
         }
@@ -194,6 +202,6 @@ public struct Peek: Equatable, Sendable {
             ?? (tokens.contains(where: \.special) ? .model : free.count >= Stop.maxTokens ? .limit : .writing)
         let screen = prompt.prefix.prefix(prompt.screenChars)  // its blank line dropped below
         return Peek(screen: String(screen.dropLast(min(2, screen.count))), field: String(prompt.prefix.dropFirst(screen.count)), held: prompt.fragment + prompt.composing, context: context,
-                    steps: steps, end: end, floor: tuning.floor, threshold: tuning.threshold)
+                    steps: steps, end: end, floor: tuning.floor, threshold: tuning.threshold, shown: shown.count)
     }
 }

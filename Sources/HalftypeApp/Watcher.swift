@@ -464,7 +464,8 @@ final class Watcher: @unchecked Sendable {
         }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
-                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid(), peek: peek)
+                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid(),
+                             peek: peek.map { var peek = $0; peek.taken = peek.shown - ghost.composing.count - ghost.remainder.count; return peek })
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before, suggestion: suggestionNumber)
         let binding = binding
         /// Back on the queue, and only for the binding and input this draw was made under: input during the draw has queued a newer report.

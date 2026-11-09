@@ -14,6 +14,12 @@ private func token(_ text: String, _ logprob: Double = 0) -> Token { Token(bytes
     #expect(peek.field == "Sounds good, see you")
     #expect(peek.steps.map(\.text) == [" tomorrow", " at", " the", " station"])
     #expect(peek.steps.map(\.kept) == [true, true, true, false])
+    #expect(peek.steps.map(\.end) == [4, 7, 11, 19])
+    // Typed through "tomorrow": the ghost follows without asking again, and the card marks the word taken, as the app does.
+    var later = peek
+    let ghost = try #require(Follow.check(anchor: "Sounds good, see you tomo", suggestion: shown, field: Field(before: "Sounds good, see you tomorrow")))
+    later.taken = later.shown - ghost.composing.count - ghost.remainder.count
+    #expect(later.steps.map(later.isTaken) == [true, false, false, false])
     #expect(abs(peek.steps[1].logprob - -0.41) < 1e-9)
     #expect(abs(peek.steps[3].running - -1.05) < 1e-9)
     // The first word's number is the gate's.

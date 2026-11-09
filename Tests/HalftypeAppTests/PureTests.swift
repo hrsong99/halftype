@@ -1757,7 +1757,8 @@ final class FakeServer: URLProtocol {
         let prompt = Prompt.make(context: context, before: "Perfect, thanks for sorting it all out.\n\nSounds good, see you tomo")
         let tokens = [Token(bytes: Array(" tomorrow".utf8), logprob: -0.12), Token(bytes: Array(" at".utf8), logprob: -0.41),
                       Token(bytes: Array(" the".utf8), logprob: -0.22), Token(bytes: Array(" station".utf8), logprob: -0.3)]
-        let peek = try #require(Peek.make(tokens, prompt: prompt, context: context.count, shown: "rrow at the", tuning: Tuning()))
+        var peek = try #require(Peek.make(tokens, prompt: prompt, context: context.count, shown: "rrow at the", tuning: Tuning()))
+        peek.taken = 4  // "tomorrow" typed through
         for (name, look, whole) in [("light", NSAppearance.Name.aqua, false), ("dark", .darkAqua, false), ("whole-dark", .darkAqua, true)] {
             let host = NSHostingView(rootView: PeekCard(peek: peek, whole: whole))
             let window = NSWindow(contentRect: CGRect(origin: .zero, size: host.fittingSize), styleMask: [.borderless], backing: .buffered, defer: false)
@@ -1768,7 +1769,7 @@ final class FakeServer: URLProtocol {
             window.orderBack(nil)
             defer { window.orderOut(nil) }
             RunLoop.main.run(until: Date().addingTimeInterval(0.8))
-            let file = dir.appendingPathComponent("18-peek-\(name).png"), shot = Process()
+            let file = dir.appendingPathComponent("19-peek-\(name).png"), shot = Process()
             try? FileManager.default.removeItem(at: file)
             shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
             shot.arguments = ["-x", "-o", "-l\(window.windowNumber)", file.path]

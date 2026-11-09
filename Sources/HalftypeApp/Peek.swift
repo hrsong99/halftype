@@ -119,20 +119,21 @@ struct PeekCard: View {
             }
             label(peek.screen.isEmpty ? "From the screen · nothing" : "From the screen · \(count(peek.screen.count, of: peek.context))")
             if !peek.screen.isEmpty { prompt(Text(end(peek.screen, lines: 2))).foregroundStyle(.secondary) }
-            label("In the field · \(peek.field.count + peek.held.count) characters")
+            label("In the field when suggested · \(peek.field.count + peek.held.count) characters")
             prompt(Text(end(peek.field, lines: 3)) + Text(field(peek.held)))
             label("Its words · chance, and running")
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
                 ForEach(Array(peek.steps.enumerated()), id: \.offset) { _, step in
+                    let taken = peek.isTaken(step)
                     GridRow {
-                        Text(step.text.trimmingCharacters(in: .whitespaces)).strikethrough(!step.kept).lineLimit(1)
+                        Text((taken ? "✓ " : "") + step.text.trimmingCharacters(in: .whitespaces)).strikethrough(!step.kept).lineLimit(1)
                             .frame(width: 92, alignment: .leading)
                         Text(Self.percent(step.logprob)).foregroundStyle(.secondary).frame(width: 34, alignment: .trailing)
-                        bar(step.running).opacity(step.kept ? 1 : 0.35)
+                        bar(step.running).opacity(step.kept && !taken ? 1 : 0.35)
                         Text(Self.percent(step.running)).frame(width: 34, alignment: .trailing)
                     }
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(step.kept ? .primary : .secondary)
+                    .foregroundStyle(step.kept && !taken ? .primary : .secondary)
                 }
             }
             Text(verdict(peek)).font(.system(size: 11)).foregroundStyle(.secondary).padding(.top, 8)
