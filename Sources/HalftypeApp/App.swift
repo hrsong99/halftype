@@ -74,7 +74,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Only in the app itself: unit tests and the e2e runner make an App too, and once wrote their counts into the real file.
     nonisolated(unsafe) static var tallyFile: URL? = Bundle.main.bundleIdentifier == "app.halftype.Halftype" ? support.appendingPathComponent("stats.json") : nil
 
-    /// Personal LoRAs trained on the user's own text for this model (lab/dogfood on the `learn` branch), in `adapters/<model file>/`,
+    /// Personal LoRAs trained on the user's own text for this model (lab/dogfood in the private halftype-train repo), in `adapters/<model file>/`,
     /// by name, which train.sh dates. An adapter fits only the model it was trained on, so each model has its own folder.
     static func adapters(for model: String) -> [String] {
         let folder = support.appendingPathComponent("adapters").appendingPathComponent(URL(fileURLWithPath: model).lastPathComponent).path

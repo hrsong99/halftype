@@ -1,6 +1,6 @@
 import Foundation
 
-/// What a training run writes beside its adapter as `<name>.json` (lab/dogfood/train.sh on `learn`): counts, dates and settings, never text.
+/// What a training run writes beside its adapter as `<name>.json` (lab/dogfood/train.sh in halftype-train): counts, dates and settings, never text.
 /// The app shows what it learned from; where and how it trained stay in the file for the lab.
 public struct AdapterInfo: Codable, Equatable, Sendable {
     /// Messages it learned from, and the first and last of their days (`yyyy-MM-dd`).
