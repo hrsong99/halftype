@@ -611,6 +611,27 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// macOS's own grey inline predictions, which would show beside ours. Read, never written.
     var predictions: Bool { readPredictions() }
     var readPredictions = { NSSpellChecker.isAutomaticInlinePredictionEnabled }
+    /// Pro's page, with its three plans (docs/site/a2/pro).
+    static let proPage = URL(string: "https://halftype.app/pro")!
+    /// The early-bird list (docs/pricing.md), a Google Form the page posts to as well.
+    static let signupForm = URL(string: "https://docs.google.com/forms/d/e/1FAIpQLSeIekyjCphdrP9pZ9zaj5P90plPghgLAJ3zYof6PEji1uo9UQ/formResponse")!
+    /// Sends the address to the early-bird list: besides models and updates, the one thing the app sends, and only on Notify Me.
+    func notifyMe(_ email: String, done: @escaping (Bool) -> Void) {
+        let field = { (s: String) in s.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "" }
+        var request = URLRequest(url: App.signupForm, timeoutInterval: 20)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = "entry.1594900331=\(field(email))&entry.605839130=app".data(using: .utf8)
+        URLSession.shared.dataTask(with: request) { _, response, _ in
+            let ok = (response as? HTTPURLResponse)?.statusCode == 200
+            DispatchQueue.main.async {
+                if ok { UserDefaults.standard.set(true, forKey: "signedUp"); self.signedUp = true }
+                done(ok)
+            }
+        }.resume()
+    }
+    /// On the list, so General says so after a relaunch. A flag only: the address itself is never saved.
+    @Published var signedUp = UserDefaults.standard.bool(forKey: "signedUp")
     @objc func openKeyboardSettings() { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!) }
 
     struct Icon: Equatable {

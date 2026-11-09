@@ -690,6 +690,48 @@ private struct Meter: View {
     }
 }
 
+/// Pro's fake door (docs/pricing.md): the prices, and an email for the early-bird list. No "free": a sign-up should mean they'd pay.
+private struct ProSignup: View {
+    @ObservedObject var app: App
+    @State private var email = ""
+    @State private var sending = false
+    @State private var failed = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Personal Model")
+                Spacer()
+                Text("$4 a month · $36 a year · $99 once").font(.system(size: 11.5)).foregroundStyle(.secondary)
+            }
+            Text("Coming soon: a model trained on your own typing, and retrained routinely as you type, so suggestions get more accurate and more like you.")
+                .font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if app.signedUp {
+                Label("You're on the list. We'll email you when it's ready.", systemImage: "checkmark").font(.system(size: 12)).padding(.top, 4)
+            } else {
+                HStack {
+                    TextField("you@example.com", text: $email).textFieldStyle(.roundedBorder).onSubmit(send)
+                    Button("Notify Me", action: send).disabled(sending || address == nil)
+                    Button("See Plans") { NSWorkspace.shared.open(App.proPage) }
+                }
+                .controlSize(.small).padding(.top, 4)
+                Text(failed ? "Couldn't send. Check your connection and try again." : "Halftype sends only this address, and only when you press Notify Me.")
+                    .font(.system(size: 11)).foregroundStyle(failed ? .red : .secondary)
+            }
+        }
+        .padding(.vertical, 9)
+    }
+    /// shortcut: one @ and a dot after it, enough to catch a slip; the list's first email shows a wrong one.
+    private var address: String? {
+        let e = email.trimmingCharacters(in: .whitespaces), parts = e.split(separator: "@", omittingEmptySubsequences: false)
+        return parts.count == 2 && !parts[0].isEmpty && parts[1].contains(".") && !e.contains(" ") ? e : nil
+    }
+    private func send() {
+        guard let address, !sending else { return }
+        (sending, failed) = (true, false)
+        app.notifyMe(address) { ok in (sending, failed) = (false, !ok) }
+    }
+}
+
 /// A hovered day, dark above its bar.
 private struct Tag: View {
     let date: Date
@@ -903,6 +945,8 @@ private struct GeneralPage: View {
                     }
                     .padding(.leading, 16)
                 }
+            } else {
+                ProSignup(app: app)
             }
             Row(title: "Show What the Model Sees", note: "Press ⌃⌥ to show it over suggestions, again to hide. On screen only, never saved.") {
                 Toggle("", isOn: $app.peeking).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
