@@ -5,13 +5,13 @@ import ServiceManagement
 import SwiftUI
 
 /// The one window, in the manner of Ollama's app: a field to type in, and below it, one scroll down, every setting.
-/// A floating card lists the sections. It comes with the settings and leaves with the field, unless its button pins it open or shut. It exists only while open.
+/// A floating card lists the sections. Only its button opens or shuts it; scrolling never does (John didn't like it following the scroll). It exists only while open.
 struct Root: View {
     @ObservedObject var app: App
     /// Stays in memory, and goes when the window closes.
     @State private var draft = ""
-    /// nil: the card follows the scroll. The toggle pins it either way until the window closes.
-    @State private var pinned: Bool?
+    /// Shut until the toggle opens it, until the window closes.
+    @State private var open: Bool
     /// The sections whose top has passed the middle of the window.
     @State private var passed: Set<Page>
     /// Scrolled to the end, where the last section may never reach the middle.
@@ -21,13 +21,13 @@ struct Root: View {
     private let start: Page
     private let onboardingStep: Onboarding.Step
 
-    /// `page` is where the window opens scrolled to, and `sidebar` pins the card, for the window shots.
-    init(app: App, page: Page = .field, sidebar: Bool? = nil, picking: Bool = false, onboardingStep: Onboarding.Step = .welcome) {
+    /// `page` is where the window opens scrolled to, and `sidebar` opens the card, for the window shots.
+    init(app: App, page: Page = .field, sidebar: Bool = false, picking: Bool = false, onboardingStep: Onboarding.Step = .welcome) {
         self.app = app
         self.onboardingStep = onboardingStep
         self.picking = picking
         start = page
-        _pinned = State(initialValue: sidebar)
+        _open = State(initialValue: sidebar)
         _passed = State(initialValue: Set(Page.allCases.prefix { $0 != page }).union([page]))
     }
 
@@ -41,7 +41,6 @@ struct Root: View {
 
     /// The section being read: the last whose top is above the middle.
     private var current: Page { end ? .general : Page.allCases.last { passed.contains($0) } ?? .field }
-    private var open: Bool { pinned ?? (current != .field) }
 
     var body: some View {
         Group {
@@ -82,7 +81,7 @@ struct Root: View {
         }
         .animation(.easeOut(duration: 0.25), value: open)
         .overlay(alignment: .topLeading) {
-            Button { pinned = !open } label: { Image(systemName: "sidebar.left") }
+            Button { open.toggle() } label: { Image(systemName: "sidebar.left") }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
                 .help(open ? "Hide sidebar" : "Show sidebar")

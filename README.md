@@ -39,7 +39,7 @@ It keeps itself up to date, with signed and notarized releases. Turn off Update 
 
 Or keep typing: the suggestion follows along while you match it. With no suggestion showing, these keys do what they always do.
 
-The window opens on that field alone, with the model and an on/off button inside it. Scroll down for the rest, in one page: stats, models to download, switch between or delete, paused apps, and Start at Login. A card at the side jumps between them; it comes with the settings, and the sidebar icon pins it open or shut. Close the window and Halftype stays in the menu bar, whose icon also pauses it for the current app. Open Halftype again to get the window back.
+The window opens on that field alone, with the model and an on/off button inside it. Scroll down for the rest, in one page: stats, models to download, switch between or delete, paused apps, and Start at Login. A card at the side jumps between them; the sidebar icon opens or shuts it. Close the window and Halftype stays in the menu bar, whose icon also pauses it for the current app. Open Halftype again to get the window back.
 
 The menu-bar icon dims when Halftype is off or paused for the app in front, shows a dot when something needs you, and a percentage while the model downloads. Its menu says in one line why there's no suggestion where you are. Most often that's "Working. Not sure enough to suggest yet.": Halftype stays quiet until it's sure. The same line shows under the window's field. If macOS's own grey predictions are on, the window says so and links to the setting; Halftype never changes it.
 
