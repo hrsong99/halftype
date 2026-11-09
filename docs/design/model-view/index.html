@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Model view</title>
+<style>
+:root{--ink:#141416;--ghost:rgba(20,20,22,.38);--field:#fff;--line:rgba(20,20,22,.12);--muted:rgba(20,20,22,.55);--page:#f6f1e9;--card:#fffdf9;--app:#fbfbfc;--glass:rgba(255,255,255,.78);--held:#ffe3cf;--mono:ui-monospace,"SF Mono",Menlo,monospace}
+:root[data-mode=dark]{--ink:#ececee;--ghost:rgba(236,236,238,.38);--field:#1e1e21;--line:rgba(255,255,255,.12);--muted:rgba(236,236,238,.55);--page:#121214;--card:#1a1a1d;--app:#222226;--glass:rgba(44,44,48,.82);--held:#5a3a26}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--page);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+h1{font-size:19px;margin:0 0 6px}
+h3{font-size:14px;margin:22px 0 8px}
+.q{color:var(--muted);margin:0 0 10px;max-width:900px}
+.rec{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px;max-width:900px}
+.bar{display:flex;gap:8px;margin:0 0 14px}
+button{font:inherit;padding:5px 11px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.card h2{font-size:14px;margin:0 0 8px;display:flex;gap:8px;align-items:baseline}
+.card h2 b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--ink);color:var(--page);font-size:12px;flex:none}
+.note{color:var(--muted);font-size:12.5px;margin:8px 0 0}
+.note i{color:var(--ink);font-style:normal;font-weight:600}
+/* A small Mac screen: menu bar + a chat app */
+.screen{position:relative;border-radius:8px;overflow:hidden;background:linear-gradient(160deg,#c9d6e6,#ecd9c8);height:300px;font-size:12px}
+:root[data-mode=dark] .screen{background:linear-gradient(160deg,#27303d,#3a2e27)}
+.menubar{height:20px;background:rgba(255,255,255,.55);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:0 10px;font-size:11px}
+:root[data-mode=dark] .menubar{background:rgba(30,30,32,.6)}
+.mark{width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#5f9bd8,#ee9a6b);display:inline-block;vertical-align:-2px}
+.mark.on{box-shadow:0 0 0 2px rgba(95,155,216,.45)}
+.app{position:absolute;left:14px;right:14px;top:32px;bottom:12px;background:var(--app);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:10px 12px;display:flex;flex-direction:column}
+.msg{margin:0 0 6px;color:var(--ink)}
+.msg b{font-weight:600}
+.compose{margin-top:auto;background:var(--field);border:1px solid var(--line);border-radius:7px;padding:8px 9px;font-size:12.5px;position:relative}
+.ghost{color:var(--ghost)}
+.caret{display:inline-block;width:1.5px;height:14px;background:#3478f6;vertical-align:-2px;margin:0 -.75px}
+/* inspector bits */
+.pop{position:absolute;background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:9px 10px;font-size:11px;color:var(--ink)}
+.lbl{font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:6px 0 2px}
+.lbl:first-child{margin-top:0}
+.mono{font-family:var(--mono);font-size:10.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.held{background:var(--held);border-radius:3px;padding:0 2px}
+.fade{color:var(--muted)}
+.tok{display:grid;grid-template-columns:62px 34px 1fr 40px;gap:6px;align-items:center;font-family:var(--mono);font-size:10.5px;margin:1px 0}
+.tok .b{height:5px;border-radius:3px;background:linear-gradient(90deg,#5f9bd8,#ee9a6b)}
+.tok.cut{color:var(--muted);text-decoration:line-through}
+.tok.cut .b{opacity:.35}
+.ok{color:#2f9e5b;font-weight:600}
+.kbd{display:inline-block;font:600 10px -apple-system,sans-serif;padding:1px 5px;border-radius:4px;border:1px solid var(--line);background:var(--field)}
+.menu{position:absolute;right:8px;top:22px;width:250px;background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:5px;font-size:12px}
+.menu .it{padding:3px 8px;border-radius:4px}
+.menu .it.sel{background:#3478f6;color:#fff}
+.menu hr{border:0;border-top:1px solid var(--line);margin:4px 6px}
+.menu .sub{padding:2px 8px 2px 18px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.xr .app>*{opacity:.18}
+.xr .app>.lit{opacity:1;position:relative;outline:1.5px solid #5f9bd8;outline-offset:2px;border-radius:3px;box-shadow:0 0 0 4px rgba(238,154,107,.18)}
+.xr .app>.compose{opacity:1}
+.tag{position:absolute;font-size:9.5px;padding:1px 6px;border-radius:4px;background:#5f9bd8;color:#fff}
+.u1{text-decoration:underline;text-decoration-thickness:3px;text-decoration-color:rgba(95,155,216,.9);text-underline-offset:3px}
+.u2{text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:rgba(95,155,216,.6);text-underline-offset:3px}
+.u3{text-decoration:underline;text-decoration-thickness:1px;text-decoration-color:rgba(238,154,107,.7);text-underline-offset:3px}
+.imgs .card img{width:100%;border-radius:8px;display:block}
+</style></head><body>
+<h1>Model view: how to see what the model sees when it suggests</h1>
+<p class="q">John: <i>"I'm kind of curious what kind of context is in the model when it's suggesting… a toggle where I can see the information hovering over the suggestion, or a keyboard shortcut that I can press to see what it's seeing and why it's predicting its next tokens."</i> Every mock shows the same invented moment: a chat, you've typed <code>Sounds good, see you tomo</code>, and the ghost reads <code>rrow at the</code>. The numbers are real for this rule set. The first word is 89%, which clears the Gate's 50%. The running total drops to 37% at "station", just under the e^-1 floor, so the ghost stops at "the".</p>
+<div class="rec"><b>Recommendation: B, the inspector panel, opened from the menu bar.</b> Everything it shows (context, prompt, the held-back word, each token's probability, why it stopped) already exists in the code, so the engine doesn't change. It never covers the text you're typing, and it can't be opened by accident. C (hold a key to peek) is the more fun option if you want it right at the caret, but it needs a key combination that never clashes with typing. D is the cheapest way to see "why" without the context. F looks the coolest but costs the most. Whichever you pick, it stays display-only: nothing is logged or saved, and it's off until you open it.</div>
+<div class="bar"><button id="mode">Dark</button></div>
+<div class="grid" id="grid"></div>
+<h3 class="imgs-h">Image ideas (Codex's image tool, not mockups of a build)</h3>
+<div class="grid imgs" id="imgs"></div>
+<script>
+const CHAT=`<p class="msg"><b>Mina</b> are we still on for tomorrow?</p><p class="msg"><b>Mina</b> I can meet at the station at 6</p><p class="msg"><b>You</b> yes! just finishing up here</p>`;
+const COMPOSE=(ghost='<span class="ghost">rrow at the</span>')=>`<div class="compose">Sounds good, see you tomo<span class="caret"></span>${ghost}</div>`;
+const screen=(inner,extra='',cls='',menuOn=false)=>`<div class="screen ${cls}"><div class="menubar"><span>Wi-Fi</span><span class="mark ${menuOn?'on':''}"></span><span>Mon 9:41</span></div><div class="app">${inner}</div>${extra}</div>`;
+const PROMPT=`<span class="fade">…are we still on for tomorrow?\nI can meet at the station at 6\nyes! just finishing up here</span>\n\nSounds good, see you<span class="held"> tomo</span>`;
+const TOKS=`<div class="tok"><span>rrow</span><span>89%</span><span class="b" style="width:89%"></span><span>89%</span></div>
+<div class="tok"><span>&nbsp;at</span><span>66%</span><span class="b" style="width:59%"></span><span>59%</span></div>
+<div class="tok"><span>&nbsp;the</span><span>80%</span><span class="b" style="width:47%"></span><span>47%</span></div>
+<div class="tok cut"><span>&nbsp;station</span><span>78%</span><span class="b" style="width:37%"></span><span>37%</span></div>`;
+const DECIDE=`<div class="mono">first word 89% ≥ 50% <span class="ok">shown</span>\nstopped: running 36.7% &lt; 36.8% floor</div>`;
+const OPTIONS=[
+ ["A","Today: nothing",screen(CHAT+COMPOSE()),
+  "Only the ghost. You can't tell what was read or why. Free."],
+ ["B","Inspector panel, from the menu bar",screen(CHAT+COMPOSE(),`<div class="pop" style="right:8px;top:26px;width:230px;bottom:8px;overflow:hidden"><div class="lbl">Context · 812 chars from screen</div><div class="mono">${PROMPT}</div><div class="lbl">Output · token, its %, running</div>${TOKS}<div class="lbl">Decision</div>${DECIDE}</div>`,'',true),
+  "<i>Recommended.</i> Halftype menu › <span class='kbd'>Show What the Model Sees</span> opens a small floating window that takes no focus and updates on every suggestion. Closing it turns it off. About one new view (~150 lines). The data already exists, so the engine doesn't change. The catch: it sits beside the app, so your eyes leave the caret."],
+ ["C","Hold a key to peek at the caret",screen(CHAT+COMPOSE(),`<div class="pop" style="left:24px;right:24px;bottom:58px"><div class="lbl">Held back <span class="kbd">⌃⌥</span> held</div><div class="mono">…see you<span class="held"> tomo</span> → rrow at the</div><div class="lbl">Why</div>${TOKS}<div class="mono fade" style="margin-top:4px">812 chars of screen context · release to hide</div></div>`),
+  "While a ghost shows, holding <span class='kbd'>⌃⌥</span> shows a card above it. Letting go hides it. It's right where you're looking, and it's the 'hover' you asked for without a hover (the ghost panel takes no clicks, so a hover can't reach it). Cost: the B view plus a hold in KeyTap (~200 lines). Risk: ⌃⌥ is a shortcut in some apps. A hold alone types nothing, but it must never swallow a ⌃⌥ shortcut. There's no room for the full context, only its size."],
+ ["D","Confidence on the ghost itself",screen(CHAT+COMPOSE('<span class="ghost"><span class="u1">rrow</span><span class="u2"> at</span><span class="u3"> the</span></span>')),
+  "A setting (General › Show Confidence) underlines each ghost word with a line that thins as the running probability falls. Thick: the model is sure. Thin and peach: it barely made it. ~40 lines in GhostPanel. It shows the 'why', but not the context. It's also always on while enabled, which adds noise over every app."],
+ ["E","Last suggestion, in the menu",screen(CHAT+COMPOSE(),`<div class="menu"><div class="it">Halftype is on</div><hr><div class="it" style="color:var(--muted);font-size:11px">Last suggestion</div><div class="sub">read 812 chars from Slack</div><div class="sub">…see you⟨ tomo⟩</div><div class="sub">rrow 89 · at 59 · the 47 · ✗station 37</div><hr><div class="it sel">Settings…</div><div class="it">Quit Halftype</div></div>`,'',true),
+  "The menu bar's dropdown gains three grey lines about the last suggestion. The cheapest option (~30 lines, no new window). It isn't live: you open the menu after the fact, and the ghost is gone by then because the menu takes focus. Fine for a quick look, bad for watching it think."],
+ ["F","X-ray: hold a key to see what was read",screen(`<p class="msg">Channel header · 3 members</p><p class="msg lit"><b>Mina</b> are we still on for tomorrow?</p><p class="msg lit"><b>Mina</b> I can meet at the station at 6</p><p class="msg lit"><b>You</b> yes! just finishing up here</p>`+COMPOSE('<span class="ghost"><span class="u1">rrow</span><span class="u2"> at</span><span class="u3"> the</span></span>'),`<div class="tag" style="right:30px;top:46px">read as context · 812 chars</div>`,'xr'),
+  "Holding <span class='kbd'>⌃⌥</span> dims the screen except the text Halftype actually read, outlined on the app itself, with D's confidence lines on the ghost. It answers 'what is it seeing' best, especially when it read the wrong thing. Cost: the most by far (~400 lines). It needs the screen rect of every piece of text read, which Chromium gives through markers and native apps one element at a time. It's a full-screen overlay too."],
+];
+const grid=document.getElementById('grid');
+OPTIONS.forEach(([l,n,s,t])=>grid.insertAdjacentHTML('beforeend',`<div class="card"><h2><b>${l}</b>${n}</h2>${s}<p class="note">${t}</p></div>`));
+const IMGS=[["G","Glass popover at the caret","images/G.jpg","A take on C as a glass card pointing at the ghost. Worth taking: the 'held back' chip on the half-typed word, and pills that read faster than a table. It would cover the chat it quotes, so it needs C's hold to show."],
+ ["H","X-ray in a mail app","images/H.jpg","A take on F. Worth taking: the glowing outline on the app's own text, and the hint pill at the bottom. Wrong in one place: the typed text isn't 'context', it's the prompt's last line."],
+ ["I","Docked inspector, Web Inspector style","images/I.jpg","A take on B as a docked window. Worth taking: Live dots and a one-line Decision. Its runner-up list (interrupting 10%, invasive 0.7%) is the best answer to 'why', but it needs the engine to keep the top few logits per step. That's the change I said to add only if B leaves you wanting it."]];
+const imgs=document.getElementById('imgs');
+IMGS.forEach(([l,n,src,t])=>imgs.insertAdjacentHTML('beforeend',`<div class="card"><h2><b>${l}</b>${n}</h2><img src="${src}" alt="${n}" onerror="this.closest('.card').remove()"><p class="note">${t}</p></div>`));
+document.getElementById('mode').onclick=e=>{const d=document.documentElement;const on=d.dataset.mode!=='dark';d.dataset.mode=on?'dark':'';e.target.textContent=on?'Light':'Dark'};
+if(matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.dataset.mode='dark';document.getElementById('mode').textContent='Light'}
+</script>
+</body></html>
