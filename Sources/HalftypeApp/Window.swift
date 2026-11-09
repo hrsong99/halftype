@@ -835,7 +835,7 @@ private struct GeneralPage: View {
                         .pickerStyle(.segmented).labelsHidden().frame(width: 220)
                 }
             }
-            Row(title: "Show What the Model Sees", note: "Hold ⌃⌥ over a suggestion. On screen only, never saved.") {
+            Row(title: "Show What the Model Sees", note: "Press ⌃⌥ to show it over suggestions, again to hide. On screen only, never saved.") {
                 Toggle("", isOn: $app.peeking).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
             }
             Row(title: "Next word") { key("Tab") }

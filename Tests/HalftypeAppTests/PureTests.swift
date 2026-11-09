@@ -25,6 +25,27 @@ import Testing
     }
 }
 
+@Suite struct PeekTapTests {
+    @Test func aTapOfCtrlOptTogglesButAShortcutOrTypingDoesnt() {
+        var tap = PeekTap()
+        tap.key()  // typing before the tap
+        #expect(tap.flags([.control]) == nil)
+        #expect(tap.flags([.control, .option]) == nil)
+        #expect(tap.flags([.option]) == nil)
+        #expect(tap.flags([]) == false)
+        // ⌃⌥←: a shortcut, not a tap.
+        _ = tap.flags([.control, .option]); tap.key()
+        #expect(tap.flags([]) == nil)
+        // ⇧ too asks for the whole prompt; Caps Lock changes nothing; ⌘ spoils it.
+        _ = tap.flags([.control, .option, .shift, .capsLock])
+        #expect(tap.flags([.capsLock]) == true)
+        _ = tap.flags([.control, .option, .command])
+        #expect(tap.flags([]) == nil)
+        _ = tap.flags([.control])
+        #expect(tap.flags([]) == nil)
+    }
+}
+
 @Suite struct CaretTests {
     let frame = CGRect(x: 100, y: 100, width: 500, height: 100)
     @Test func markerThenPreviousEachOnlyWithHeight() {

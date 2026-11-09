@@ -2,12 +2,12 @@ import AppKit
 import HalftypeCore
 import SwiftUI
 
-/// General's Show What the Model Sees: while ⌃⌥ is held over a ghost, a card above it with the prompt's end, the word held back, and
-/// each word's chance; with ⇧ too, the whole prompt. The modifiers are only watched, never taken, so every ⌃⌥ shortcut still works. Main thread. What it shows lives
-/// in memory with the ghost and goes with it.
+/// General's Show What the Model Sees: a tap of ⌃⌥ turns on a card above every ghost with the prompt's end, the word held back, and
+/// each word's chance; ⌃⌥⇧ the whole prompt; the same tap again turns it off. The keys are only watched, never taken, so every ⌃⌥
+/// shortcut still works. Main thread. What it shows lives in memory with the ghost and goes with it.
 final class PeekWatch {
     private var monitors: [Any] = []
-    private var holding = false, whole = false
+    private var tap = PeekTap(), showing = false, whole = false
     private var shown: (peek: Peek, caret: CGRect, ghost: NSRect)?
     private var card: PeekPanel?
 
@@ -16,11 +16,12 @@ final class PeekWatch {
             guard on != oldValue else { return }
             monitors.forEach(NSEvent.removeMonitor)
             monitors = []
-            holding = false
+            (tap, showing) = (PeekTap(), false)
             if on {
-                // Global for other apps, local for our own window (Try It).
-                monitors.append(NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] in self?.flags($0.modifierFlags) } as Any)
-                monitors.append(NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] in self?.flags($0.modifierFlags); return $0 } as Any)
+                // Global for other apps, local for our own window (Try It). Key presses only spoil a tap; nothing of them is kept.
+                let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
+                monitors.append(NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] in self?.event($0) } as Any)
+                monitors.append(NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] in self?.event($0); return $0 } as Any)
             }
             update()
         }
@@ -37,17 +38,35 @@ final class PeekWatch {
         update()
     }
 
-    private func flags(_ flags: NSEvent.ModifierFlags) {
-        let held = flags.intersection([.control, .option, .command, .shift])  // Caps Lock or Fn may be on too.
-        (holding, whole) = (held.subtracting(.shift) == [.control, .option], held.contains(.shift))
+    private func event(_ event: NSEvent) {
+        guard event.type == .flagsChanged else { return tap.key() }
+        guard let wantsWhole = tap.flags(event.modifierFlags) else { return }
+        (showing, whole) = showing && whole == wantsWhole ? (false, whole) : (true, wantsWhole)
         update()
     }
 
     private func update() {
-        guard on, holding, let shown else { return card?.clear() ?? () }
+        guard on, showing, let shown else { return card?.clear() ?? () }
         if card == nil { card = PeekPanel() }
         card?.show(shown.peek, whole: whole, caret: shown.caret, ghost: shown.ghost)
     }
+}
+
+/// A tap of ⌃⌥, ⇧ optional: pressed and let go with no other key or modifier between, so ⌃⌥← and the like aren't one.
+struct PeekTap {
+    private var chord: NSEvent.ModifierFlags = [], spoiled = false
+
+    /// On letting go of a tap: whether it had ⇧. Caps Lock and Fn don't count.
+    mutating func flags(_ flags: NSEvent.ModifierFlags) -> Bool? {
+        let held = flags.intersection([.control, .option, .command, .shift])
+        chord.formUnion(held)
+        guard held.isEmpty else { return nil }
+        defer { (chord, spoiled) = ([], false) }
+        return !spoiled && chord.subtracting(.shift) == [.control, .option] ? chord.contains(.shift) : nil
+    }
+
+    /// A key pressed with modifiers down; typing between taps doesn't count.
+    mutating func key() { if !chord.isEmpty { spoiled = true } }
 }
 
 /// A ghost panel too, so Try It's observer knows its moves aren't the field's.
@@ -115,7 +134,7 @@ struct PeekCard: View {
                 }
             }
             Text(verdict(peek)).font(.system(size: 11)).foregroundStyle(.secondary).padding(.top, 8)
-            if !whole { Text("Add ⇧ for the whole prompt.").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 3) }
+            if !whole { Text("⌃⌥⇧ for the whole prompt, ⌃⌥ again to hide.").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 3) }
         }
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
