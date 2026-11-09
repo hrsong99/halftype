@@ -51,3 +51,5 @@ John: "C looks good but there's so many horizontal lines everywhere? Show me som
 - `round5/options.png`: frozen screenshot.
 
 Recommendation: C (the quiet line). Pick: E (John: "E visually does differentiate everything, which i appreciate"), with two fixes: the chips are faint white glass with a hairline so they don't read as the Week / Month / All control, and each explains itself on hover. Time saved uses a fixed 40 wpm (200 keys a minute) and words are letters ÷ 5 for now: measuring each user's speed and counting Korean words are open. The chart and the All dots now show time saved, not Tabs. `built/round5-stats-week.png`, `-month`, `-all`: the shipped page, from `HALFTYPE_SHOTS=<dir> swift test --disable-keychain --filter WindowShots/stats` on 2026-11-10 (sample data).
+
+Then the personal model comparison got a heading ("Your personal model", John: "what is this?") and one bar per row from zero, glass for with it and grey without: `built/round5-personal-model.png`.

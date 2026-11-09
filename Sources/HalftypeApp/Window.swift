@@ -554,14 +554,14 @@ struct StatsPage: View {
     /// "Halftype saved you 21 minutes of typing this week.", the time in the icon's glass.
     private func headline(_ day: Tally.Day, _ period: Tally.Period?) -> some View {
         let end = period == nil ? " so far." : back > 0 ? "." : span == .week ? " this week." : " this month."
-        let sentence = day.tabs == 0 ? Text("Nothing typed by Tab" + end).foregroundStyle(.secondary)
-            : Text("Halftype saved you ").foregroundStyle(.secondary)
-            + Text(Self.time(day.minutesSaved) + " of typing").fontWeight(.semibold)
-                .foregroundStyle(LinearGradient(colors: [Color(red: 0.36, green: 0.58, blue: 0.84), Color(red: 0.88, green: 0.50, blue: 0.32)], startPoint: .leading, endPoint: .trailing))
-            + Text(end).foregroundStyle(.secondary)
-        return sentence.font(.system(size: 22)).fixedSize(horizontal: false, vertical: true)
+        let time = Text(Self.time(day.minutesSaved) + " of typing").fontWeight(.semibold).foregroundStyle(StatsPage.glass)
+        let sentence = day.tabs == 0 ? Text("Nothing typed by Tab" + end) : Text("Halftype saved you \(time)\(end)")
+        return sentence.foregroundStyle(.secondary).font(.system(size: 22)).fixedSize(horizontal: false, vertical: true)
             .help("Keys Tab typed for you, at 40 words a minute (200 keys).")
     }
+
+    /// The icon's glass, pale blue to peach, darkened to read on cream.
+    static let glass = LinearGradient(colors: [Color(red: 0.36, green: 0.58, blue: 0.84), Color(red: 0.88, green: 0.50, blue: 0.32)], startPoint: .leading, endPoint: .trailing)
 
     /// "21 minutes", "1 hour, 12 minutes", or under a minute.
     static func time(_ minutes: Double) -> String {
@@ -637,28 +637,54 @@ struct StatsPage: View {
         .accessibilityLabel("Time saved per day for the last 26 weeks")
     }
 
-    /// Days with the personal model against days without, once there are both.
+    /// Days with the personal model against days without, once there are both, and each version's days once more than one has run a whole
+    /// day (which checkpoint to keep; with Personal Model On there are no days without). One bar each, from zero, so the gap is true to size.
     @ViewBuilder private var personal: some View {
         let with = app.tally.sum(personal: true), without = app.tally.sum(personal: false)
-        if let a = with.sum.byTab, let b = without.sum.byTab {
-            HStack(alignment: .lastTextBaseline, spacing: 36) {
-                Figure(value: a.formatted(.percent.precision(.fractionLength(1))), label: "typed by Tab with your model, \(with.count) \(with.count == 1 ? "day" : "days")")
-                Figure(value: b.formatted(.percent.precision(.fractionLength(1))), label: "without it, \(without.count) \(without.count == 1 ? "day" : "days")")
-            }
-            .padding(.top, 28)
+        let both = with.sum.byTab.flatMap { a in without.sum.byTab.map { b in [Meter(label: "With it", share: a, days: with.count, glass: true), Meter(label: "Without", share: b, days: without.count, glass: false)] } } ?? []
+        let versions = app.tally.adapters.count < 2 ? [] : app.tally.adapters.compactMap { name -> Meter? in
+            let one = app.tally.sum(personal: true, adapter: name)
+            return one.sum.byTab.map { Meter(label: "\(AdapterInfo.title(name: name)) version", share: $0, days: one.count, glass: true) }
         }
-        // Each version's days, once more than one has run a whole day: which checkpoint to keep. With Personal Model On there are no days without.
-        if app.tally.adapters.count > 1 {
-            HStack(alignment: .lastTextBaseline, spacing: 36) {
-                ForEach(app.tally.adapters, id: \.self) { name in
-                    let one = app.tally.sum(personal: true, adapter: name)
-                    if let share = one.sum.byTab {
-                        Figure(value: share.formatted(.percent.precision(.fractionLength(1))), label: "\(AdapterInfo.title(name: name)) version, \(one.count) \(one.count == 1 ? "day" : "days")")
-                    }
+        let rows = both + versions
+        if let most = rows.map(\.share).max() {
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Your personal model").font(.system(size: 13, weight: .semibold))
+                    Text("Of your typing, how much Tab typed on whole days with it and without.").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 2)
+                ForEach(rows, id: \.label) { $0.scaled(to: most) }
+            }
+            .padding(.top, 32)
+        }
+    }
+}
+
+/// One row of the personal model's comparison: its share of typing by Tab as a bar, the icon's glass for the model, grey without it.
+private struct Meter: View {
+    let label: String
+    let share: Double
+    let days: Int
+    let glass: Bool
+    var most = 1.0
+    func scaled(to most: Double) -> Meter { var meter = self; meter.most = most; return meter }
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(label).font(.system(size: 12)).foregroundStyle(.secondary).frame(width: 96, alignment: .leading)
+            GeometryReader { space in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.05))
+                    Capsule().fill(glass ? AnyShapeStyle(StatsPage.glass)
+                                         : AnyShapeStyle(Color.primary.opacity(0.22)))
+                        .frame(width: max(8, space.size.width * share / max(most, 0.0001)))
                 }
             }
-            .padding(.top, 16)
+            .frame(height: 8)
+            Text(share.formatted(.percent.precision(.fractionLength(1)))).font(.system(size: 13, weight: .semibold)).monospacedDigit().frame(width: 48, alignment: .trailing)
+            Text("\(days) \(days == 1 ? "day" : "days")").font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().frame(width: 56, alignment: .leading)
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -675,17 +701,6 @@ private struct Tag: View {
         .font(.system(size: 11)).monospacedDigit().foregroundStyle(.white)
         .padding(.horizontal, 9).padding(.vertical, 6)
         .background(Color(white: 0.11), in: RoundedRectangle(cornerRadius: 8))
-    }
-}
-
-private struct Figure: View {
-    let value: String
-    let label: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.system(size: 26)).monospacedDigit().fixedSize()
-            Text(label).font(.system(size: 12)).foregroundStyle(.secondary)
-        }
     }
 }
 
