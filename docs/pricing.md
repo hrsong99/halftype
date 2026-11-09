@@ -3,7 +3,7 @@
 ## Now
 - The app stays free, under MIT. Published source is how users check the privacy promise, and the MIT commits can't be taken back anyway.
 - **Early-bird list (live 2026-11-09):** a Google Form, [viewform](https://docs.google.com/forms/d/e/1FAIpQLSeIekyjCphdrP9pZ9zaj5P90plPghgLAJ3zYof6PEji1uo9UQ/viewform), owned by hrsong99@gmail.com ("Halftype early birds (waitlist)" in Drive; read with `gws forms forms responses list`). Linked from the README; not from the app, so the network promise holds. Move the emails to Kit (free to 10,000) once there's something to send: sending needs a postal address in each email.
-- **Donations:** GitHub Sponsors (South Korea is a supported region, no fee on personal sponsorships). Applied 2026-11-09 (country and bank country Korea); pending John's Stripe Connect account (bank and ID) at github.com/sponsors/hrsong99/signup, then Publish, tiers and `.github/FUNDING.yml` with `github: hrsong99`.
+- **Donations:** GitHub Sponsors, live 2026-11-09 at https://github.com/sponsors/hrsong99 (South Korea, no fee on personal sponsorships). Stripe pays out in KRW to John's 토스뱅크 통장. The repo's Sponsor button is `.github/FUNDING.yml`.
 - **Usage numbers, with no analytics in the app:** `scripts/usage.sh`, from GitHub's download counts. New installs = `Halftype.dmg`, updates = `Halftype-update.dmg` (the appcast's file, from the release after 0.1.8 on), roughly running installs = appcast fetches per day.
 
 ## Pro, later: only if the fake door shows demand
