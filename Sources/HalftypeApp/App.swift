@@ -90,10 +90,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     static func info(ofAdapter path: String) -> AdapterInfo? {
         (try? Data(contentsOf: URL(fileURLWithPath: path).deletingPathExtension().appendingPathExtension("json"))).flatMap { try? JSONDecoder().decode(AdapterInfo.self, from: $0) }
     }
-    /// Makes this one the personal model, until another is chosen or it's deleted. Choosing the one in use changes nothing.
+    /// Makes this one the personal model. An older one stays until another is chosen or it's deleted; the newest means always the newest,
+    /// so the next trained one takes over again. Choosing the one in use changes nothing.
     func use(adapter path: String) {
         guard let activePath, App.adapterFile(for: activePath) != path else { return }
-        adapterChoice = App.name(ofAdapter: path)
+        adapterChoice = App.adapters(for: activePath).last == path ? "" : App.name(ofAdapter: path)
     }
     /// The adapter and its `.json`, off the disk. Deleting the chosen one goes back to the newest left.
     func delete(adapter path: String) {

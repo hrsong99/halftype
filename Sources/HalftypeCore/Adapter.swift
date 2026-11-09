@@ -16,12 +16,14 @@ public struct AdapterInfo: Codable, Equatable, Sendable {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    /// "Nov 9" from the date in a name like `john-2026-11-09-cloud`, "Nov 9 (2)" for `…-cloud-2`, or the name itself.
+    /// "Nov 8" from the date in a name like `john-2026-11-08`, "Nov 9, cloud" for `…-09-cloud`, "Nov 9, cloud (2)" for `…-cloud-2`,
+    /// or the name itself: what follows the date tells same-day runs apart.
     public static func title(name: String) -> String {
         guard let r = name.range(of: #"\d{4}-\d{2}-\d{2}"#, options: .regularExpression), let day = day(String(name[r])) else { return name }
-        let rest = name[r.upperBound...]
-        if let n = rest.range(of: #"-(\d+)$"#, options: .regularExpression) { return "\(day) (\(rest[n].dropFirst()))" }
-        return day
+        var rest = String(name[r.upperBound...]), count = ""
+        if let n = rest.range(of: #"-\d+$"#, options: .regularExpression) { count = " (\(rest[n].dropFirst()))"; rest.removeSubrange(n) }
+        rest = String(rest.drop { $0 == "-" })
+        return day + (rest.isEmpty ? "" : ", " + rest) + count
     }
 
     private static let locale = Locale(identifier: "en_US_POSIX")
