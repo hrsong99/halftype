@@ -219,7 +219,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             rebind()
         }
     }
-    @Published var length = Length(rawValue: UserDefaults.standard.string(forKey: "length") ?? "") ?? .short {
+    @Published var length = Length(rawValue: UserDefaults.standard.string(forKey: "length") ?? "") ?? .long {
         didSet { UserDefaults.standard.set(length.rawValue, forKey: "length"); tune() }
     }
     @Published var motion = AcceptMotion(rawValue: UserDefaults.standard.string(forKey: "motion") ?? "") ?? .trail {
@@ -234,7 +234,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.peeking.store(peeking, ordering: .relaxed)
         watcher.retune()  // A ghost already up has no card yet, or keeps one it no longer should.
     }
-    @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
+    @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .always {  // Long and Always: the most keys saved, English and Korean (docs/measuring.md, 2026-11-10)
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
     /// Try It is where people judge Halftype first, so there it shows a suggestion whenever it can, as long as it can, whatever the settings say.

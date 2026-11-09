@@ -123,13 +123,13 @@ public enum Gate {
     /// Fitted on dev threads for 80% precision on English: -0.7, -0.7, -0.6 and -0.6 on Kanana 1.5 2.1B, Qwen 3.5 2B, Qwen 3.5 0.8B and Gemma 4 E2B.
     public static let threshold = -0.7
 
-    /// A ghost that saves one or two keystrokes saves nothing, and showing it only interrupts. Judged on all of it, as Tab
-    /// repeated or Shift-Tab takes the lot: `to the` shows although `to` alone is short. By the keys it stands in for, as a
-    /// Hangul syllable is two or three, including any that finish the composing syllable. Against the first word alone, replay
-    /// saved 18.2% of keystrokes, not 17.1%, for 0.6 more wrong ghosts per 100 requests: docs/measuring.md.
+    /// A ghost of one keystroke saves nothing, as Tab is a key too; two saves one. Judged on all of it, as Tab repeated or
+    /// Shift-Tab takes the lot. By the keys it stands in for, as a Hangul syllable is two or three, including any that finish
+    /// the composing syllable. Two, not three, saved 2.2-2.5 points more of English keystrokes at the old defaults and 0.4-0.6
+    /// more at Long and Always, Korean too, for about 0.05 more wrong ghosts per request: docs/measuring.md (2026-11-10).
     public static func worthShowing(_ ghost: Ghost) -> Bool {
         let all = Accept.all(ghost)
-        return all.keys.count + Hangul.keys(all.text).count >= 3
+        return all.keys.count + Hangul.keys(all.text).count >= 2
     }
 
     /// Log P(first word | it fits the fragment): the sum of `Token.logprob` from the token that first crosses the end

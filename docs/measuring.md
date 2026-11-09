@@ -31,7 +31,7 @@ CPU: the shipped app, idle, 0.13% to 0.27% of a core over 60 s, loaded or unload
 ## Against other apps (landing page, 2026-11-09)
 
 Cotypist, Cotabby and KeyType at rest, each with its default model: the method, the numbers and the traps are in [site/compare/README.md](site/compare/README.md), with the script that measured them. While typing (speed from the screen, keys saved, first word right, memory, CPU, Korean mid-syllable), with macOS's predictions too: [bench/compare/README.md](../bench/compare/README.md), not run yet.
-- **To do, if we want it:** profile where Halftype's CPU goes while typing. In the 2026-11-09 typing run (`~/halftype-lab-private/compare/2026-11-09T135219Z/`) it used 23% of a core, against Cotabby's 15% on the same Gemma 4 E2B. Probably the extra suggestions it finishes (96% shown after a 1.5 s pause, against 44%), but not measured. Run `sample <pid> 30` on Halftype while `scripts/live-keys.swift` types (this takes the keyboard: ask John), and split the time between llama.cpp/Metal and our Swift. The suspect is `Vocab.pick` (Engine.swift), which checks Gemma's whole ~262k-token vocabulary on every token. Fix it only if it is a real share.
+- **To do, if we want it:** profile where Halftype's CPU goes while typing. In the 2026-11-09 typing run (`~/halftype-lab-private/compare/2026-11-09T135219Z/`) it used 23% of a core, against Cotabby's 15% on the same Gemma 4 E2B. Not the pause probe: there Halftype showed nothing after 96% of 1.5 s pauses, against Cotabby's 44% (the column is the share with no ghost). Not measured. Run `sample <pid> 30` on Halftype while `scripts/live-keys.swift` types (this takes the keyboard: ask John), and split the time between llama.cpp/Metal and our Swift. The suspect is `Vocab.pick` (Engine.swift), which checks Gemma's whole ~262k-token vocabulary on every token. Fix it only if it is a real share.
 - System-wide wired memory is useless while other agents run: it swung 4.9-7.1 GB with one app idle. Use `footprint -p`.
 - Before measuring Halftype the same way, check `pgrep -lf Halftype.app`: another session's dev build may already be running. Check `defaults read app.halftype.Halftype modelPath` too, as it may not be the default.
 
@@ -149,9 +149,24 @@ November 2026, the same replay (`itda-replay` at tag `bench-1`, threshold -0.7) 
 - Gemma 4 E2B became the default on 2026-11-09, John's call: the most right when shown after Kanana among the full-precision models, and the most saved on whole messages of those that don't show more wrong ones (Granite does). It costs 6.5 times Qwen 3.5 0.8B's file, and its Korean is a little weaker (0.54 against 0.60). Its Korean whole messages and coverage haven't been measured; its memory is at the top of this file; `scripts/e2e.sh --measure <gguf>` and the replay above would give them.
 - Not tried: models of 3.5 GB or more, community fine-tunes, and Ternary Bonsai's smaller packings, which need a fork of llama.cpp. Gemma 4's tokenizer fix of 3 November 2026 changed no weights and came after these files.
 
+## The defaults since 2026-11-10: Long, Always, and a two-key minimum
+
+John's priority: more right suggestions beat fewer wrong ones, as a wrong ghost is easy to ignore. Against KeyType in the typing benchmark ([bench/compare/results/2026-11-09.md](../bench/compare/results/2026-11-09.md), 16 public English sentences) Halftype at Short and Normal saved 17.5%, KeyType 24.7%, and Halftype at Long and Always 23.8%. So the defaults moved to Long and Always (no gate), and a ghost now needs to stand for two keys, not three: with Tab costing a key, two saves one.
+
+Walk replay (`halftype-replay --mode walk --stride 1`, Gemma 4 E2B, `halftype-train` branch `replay-floor-minkeys`, which adds `--floor` and `--min-keys`; run on Modal by `lab/cloud/walk.py`, traces in `~/halftype-lab-private/traces/sweep-2026-11-10/`, scored by `lab/score.py`). Keys saved, and the change against Short, Normal and three keys, paired by thread, 95% CI:
+
+| Set | Old defaults | Two-key minimum only | Long, More, two keys | Long, Always, two keys |
+|---|---|---|---|---|
+| English dev, 120 messages | 26.5% | +2.5 (+2.2 to +2.8) | +9.4 (+8.6 to +10.2) | **+11.4** (+10.6 to +12.2) |
+| English test, 120 messages | 25.4% | +2.2 (+1.9 to +2.5) | +8.3 (+7.6 to +9.0) | **+10.2** (+9.3 to +10.9) |
+| Public Korean dev, 70 messages | 11.4% | +0.6 (+0.3 to +0.8) | +7.0 (+5.3 to +8.7) | **+10.2** (+8.2 to +12.1) |
+| Public Korean test, 70 messages | 9.6% | not run | +6.0 (+4.7 to +7.5) | **+9.8** (+7.9 to +11.9) |
+
+The cost, English test: shown ghosts right 70.6% to 35.0%, wrong shown ghosts per request 0.07 to 0.60, ghosts per request 0.22 to 0.92; Korean test, right 54.3% to 11.0%. Per request the model costs about 5 ms more (CUDA timings, so only relative). Timed replay on the Mac, 1,200 keys of John's English (`bench2-worktree` `itda-replay` with an added `--floor`, `experiments/bench2/timed.sh`): 19.6% at the old defaults, 26.1% at Long and Always (+6.5, CI +4.8 to +8.2), **28.6%** with two keys (+2.5 more, +1.7 to +3.5); first displayable p50 72-74 ms in all three. Remeasure the typing benchmark with the new build before quoting it against KeyType.
+
 ## Length and How Often
 
-The window's two settings move the two numbers above: Length the floor that ends a suggestion (-1, -2, -3), How Often the gate's threshold (-0.3, -0.7, -1.2, and Always with no gate, not replayed here; the no-gate figure in the README is the nearest). Defaults are Short and Normal, the fitted values. The Try It window ignores both and always runs with no floor and no gate, so a first try shows a suggestion at every pause. Offline replay, Qwen 3.5 0.8B, English test threads, 2,400 requests, Tab one word, the first word at least 3 keys (`reviews/audit-2026-11/quality-aggregates/length_freq.py` in the bench repo):
+The window's two settings move the two numbers above: Length the floor that ends a suggestion (-1, -2, -3), How Often the gate's threshold (-0.3, -0.7, -1.2, and Always with no gate, not replayed here; the no-gate figure in the README is the nearest). Defaults were Short and Normal, the values fitted for 80% precision, until 2026-11-10; now Long and Always (above). The Try It window ignores both and always runs with no floor and no gate, so a first try shows a suggestion at every pause. Offline replay, Qwen 3.5 0.8B, English test threads, 2,400 requests, Tab one word, the first word at least 3 keys (`reviews/audit-2026-11/quality-aggregates/length_freq.py` in the bench repo):
 
 | Setting | Shown, of requests | First word right | Wrong and shown, per request | Grey characters per ghost | Grey characters right | Characters saved per request |
 |---|---|---|---|---|---|---|
