@@ -78,3 +78,9 @@ import Testing
     tally.took(3, first: true, on: monday, calendar); tally.took(4, first: true, on: date(11, 2), calendar)
     #expect(tally.sum(7, to: monday, calendar).tabs == 1 && tally.sum(8, to: monday, calendar).characters == 7)
 }
+
+@Test func tallyDaySaysTimeWordsAndOneKeyInN() {
+    let day = Tally.Day(tabs: 936, characters: 4_143, typed: 27_095, saved: 4_154)
+    #expect(day.words == 828 && abs(day.minutesSaved - 20.77) < 0.01 && day.oneIn == 8)
+    #expect(Tally.Day(characters: 9).oneIn == nil && Tally.Day(typed: 50).oneIn == nil)  // Before keys were counted, and nothing saved.
+}

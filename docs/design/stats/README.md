@@ -50,4 +50,4 @@ John: "C looks good but there's so many horizontal lines everywhere? Show me som
 - `round5/index.html`: A round 4's C; B the same figures with no dividers; C the stats as one quiet grey line under the sentence; D labels above numbers; E soft chips; F the stats under the chart; G chart and stats in one white panel. Every option but A keeps only the chart's baseline (G: none).
 - `round5/options.png`: frozen screenshot.
 
-Recommendation: C (the quiet line). Pick: pending.
+Recommendation: C (the quiet line). Pick: E (John: "E visually does differentiate everything, which i appreciate"), with two fixes: the chips are faint white glass with a hairline so they don't read as the Week / Month / All control, and each explains itself on hover. Time saved uses a fixed 40 wpm (200 keys a minute) and words are letters ÷ 5 for now: measuring each user's speed and counting Korean words are open. The chart and the All dots now show time saved, not Tabs. `built/round5-stats-week.png`, `-month`, `-all`: the shipped page, from `HALFTYPE_SHOTS=<dir> swift test --disable-keychain --filter WindowShots/stats` on 2026-11-10 (sample data).

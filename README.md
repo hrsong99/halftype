@@ -27,7 +27,7 @@ It keeps itself up to date, with signed and notarized releases. Turn off Update 
 
 | How much it typed for you (Stats; these counts are made up) |
 |---|
-| ![The Stats page: this week's Tabs, letters typed for you and share of typing by Tab, each against last week, with the week as bars and a Week / Month / All switch](docs/media/window-stats.png) |
+| ![The Stats page: "Halftype saved you 7 minutes of typing this week", then words, 1 in 5 keys by Tab and Tabs as chips, the week as bars of minutes, and a Week / Month / All switch](docs/media/window-stats.png) |
 
 ## Use
 

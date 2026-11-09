@@ -28,6 +28,14 @@ public struct Tally: Codable, Equatable, Sendable {
         }
         /// Of everything typed, the share Tab typed: what the replay bench calls keys saved. Nil before keys were counted.
         public var byTab: Double? { typed == 0 ? nil : Double(saved) / Double(saved + typed) }
+        /// Tab typed one key in this many, by `byTab`: nil before keys were counted or with none saved.
+        public var oneIn: Int? { saved == 0 || typed == 0 ? nil : Int((Double(saved + typed) / Double(saved)).rounded()) }
+        /// The keys Tab typed, at 40 words a minute (200 keys).
+        /// shortcut: one speed for everyone; measure each user's typing seconds per day if the Stats page should say "at your speed".
+        public var minutesSaved: Double { Double(saved) / 200 }
+        /// Letters ÷ 5, the typing-test word.
+        /// shortcut: a Hangul letter is a syllable, so Korean comes out about 3× high; count finished words at each Tab to fix it.
+        public var words: Int { characters / 5 }
     }
 
     /// Keyed `yyyy-MM-dd` in the user's calendar, as Cotypist's stats are, so the two compare day for day.

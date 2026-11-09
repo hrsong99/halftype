@@ -486,6 +486,7 @@ private struct Row<Trailing: View>: View {
 }
 
 /// A week or a month as bars, paged back with arrows, or every day as a dot; the numbers follow what's showing (docs/design/stats round 2, B).
+/// Time saved leads, in one sentence, with the other counts as chips below (round 5, E).
 struct StatsPage: View {
     enum Span: String, CaseIterable { case week = "Week", month = "Month", all = "All" }
     /// Where the page opens, for the window shots.
@@ -522,13 +523,15 @@ struct StatsPage: View {
             .buttonStyle(.borderless)
             .padding(.top, 6)
             .onChange(of: span) { back = 0; picked = nil; hovered = nil }
-            HStack(alignment: .lastTextBaseline, spacing: 28) {
-                Figure(value: shown.tabs.formatted(), label: shown.tabs == 1 ? "Tab" : "Tabs", big: true, change: change(shown.tabs, before?.tabs))
-                Figure(value: shown.characters.formatted(), label: "letters typed for you", change: change(shown.characters, before?.characters))
-                Figure(value: shown.byTab.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "–", label: "of your typing by Tab")
+            headline(shown, period).padding(.top, 18)
+            HStack(spacing: 8) {
+                Chip(value: shown.words.formatted(), label: shown.words == 1 ? "word" : "words",
+                     help: "\(shown.characters.formatted()) letters Tab typed for you, in five-letter words, as typing tests count them.")
+                if let n = shown.oneIn { Chip(value: "1 in \(n)", label: "keys by Tab", help: "Of all the keys you typed, Tab typed one in \(n) for you.") }
+                Chip(value: shown.tabs.formatted(), label: shown.tabs == 1 ? "Tab" : "Tabs", help: "How many times you pressed Tab to take a suggestion.")
             }
-            .padding(.vertical, 16)
-            Text(caption(period, before)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().padding(.top, 14).padding(.bottom, 8)
+            .padding(.top, 12)
+            Text(caption(period, before)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().padding(.top, 24).padding(.bottom, 8)
             if let period { bars(period) } else { dots }
             personal
             Text("Only counts are kept, never what you type.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 20)
@@ -548,19 +551,35 @@ struct StatsPage: View {
     }
     private static let keyFormat: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX"); return f }()
 
-    /// Up or down on the stretch before, once there was one.
-    private func change(_ now: Int, _ before: Int?) -> Int? { before.map { now - $0 } }
+    /// "Halftype saved you 21 minutes of typing this week.", the time in the icon's glass.
+    private func headline(_ day: Tally.Day, _ period: Tally.Period?) -> some View {
+        let end = period == nil ? " so far." : back > 0 ? "." : span == .week ? " this week." : " this month."
+        let sentence = day.saved == 0 ? Text("Nothing typed by Tab" + end).foregroundStyle(.secondary)
+            : Text("Halftype saved you ").foregroundStyle(.secondary)
+            + Text(Self.time(day.minutesSaved) + " of typing").fontWeight(.semibold)
+                .foregroundStyle(LinearGradient(colors: [Color(red: 0.36, green: 0.58, blue: 0.84), Color(red: 0.88, green: 0.50, blue: 0.32)], startPoint: .leading, endPoint: .trailing))
+            + Text(end).foregroundStyle(.secondary)
+        return sentence.font(.system(size: 22)).fixedSize(horizontal: false, vertical: true)
+            .help("Keys Tab typed for you, \(day.saved.formatted()), at 40 words a minute.")
+    }
+
+    /// "21 minutes", "1 hour, 12 minutes", or under a minute.
+    static func time(_ minutes: Double) -> String {
+        let whole = Int(minutes.rounded())
+        if whole == 0 { return "under a minute" }
+        return Duration.seconds(whole * 60).formatted(.units(allowed: [.hours, .minutes], width: .wide))
+    }
 
     private func caption(_ period: Tally.Period?, _ before: Tally.Day?) -> String {
         if let hovered {
             let day = app.tally.last(1, to: hovered, calendar)[0].day
-            return "\(hovered.formatted(.dateTime.weekday(.wide).month().day())): \(day.tabs) Tabs, \(day.characters) letters"
+            return "\(hovered.formatted(.dateTime.weekday(.wide).month().day())): \(Self.time(day.minutesSaved)) saved, \(day.words.formatted()) words"
         }
-        guard let period else { return "Each dot is a day, bigger for more Tabs." }
+        guard let period else { return "Each dot is a day, bigger for more time saved." }
         guard let before else { return "" }
         let stretch = back > 0 ? (span == .week ? "The week before" : "The month before")
             : period.elapsed == 1 ? "The same day last \(span == .week ? "week" : "month")" : "The same \(period.previousLength) days last \(span == .week ? "week" : "month")"
-        return "\(stretch): \(before.tabs.formatted()) Tabs"
+        return "\(stretch): \(Self.time(before.minutesSaved))"
     }
 
     /// The period's days as bars; hovering one shows it in a tag above.
@@ -568,7 +587,7 @@ struct StatsPage: View {
         let days = app.tally.last(period.length, to: day(period.length - 1, of: period.start), calendar)
         return Chart {
             ForEach(days, id: \.date) { entry in
-                BarMark(x: .value("Day", entry.date, unit: .day), y: .value("Tabs", entry.day.tabs), width: .ratio(0.6))
+                BarMark(x: .value("Day", entry.date, unit: .day), y: .value("Minutes", entry.day.minutesSaved), width: .ratio(0.6))
                     .clipShape(RoundedRectangle(cornerRadius: 3))
                     .foregroundStyle(Color.primary.opacity(lit(entry.date) ? 0.85 : 0.18))
             }
@@ -586,26 +605,27 @@ struct StatsPage: View {
                 AxisMarks(values: [0, 7, 14, 21, 28].compactMap { calendar.date(byAdding: .hour, value: 12, to: day($0, of: period.start)) }) { _ in AxisValueLabel(format: .dateTime.day()) }
             }
         }
-        .chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { AxisGridLine(); AxisValueLabel() } }
+        // Only the baseline: a day's number is in its tag (round 5).
+        .chartYAxis { AxisMarks(values: [0]) { _ in AxisGridLine() } }
         .frame(height: 140)
     }
 
     private func lit(_ date: Date) -> Bool { calendar.isDate(date, inSameDayAs: picked ?? Date()) }
 
-    /// The last 26 weeks, one dot a day in the sky's halftone, bigger for more Tabs. Days before counting began are specks.
+    /// The last 26 weeks, one dot a day in the sky's halftone, bigger for more time saved. Days before counting began are specks.
     private var dots: some View {
         let weeks = 26, cell: CGFloat = 18
         let thisWeek = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? calendar.startOfDay(for: Date())
         let first = calendar.date(byAdding: .weekOfYear, value: -(weeks - 1), to: thisWeek) ?? thisWeek
         let all = app.tally.last(weeks * 7, to: day(weeks * 7 - 1, of: first), calendar)
-        let most = max(1, all.map(\.day.tabs).max() ?? 1), since = app.tally.since
+        let most = max(1, all.map(\.day.saved).max() ?? 1), since = app.tally.since
         return HStack(spacing: 0) {
             ForEach(0..<weeks, id: \.self) { week in
                 VStack(spacing: 0) {
                     ForEach(0..<7, id: \.self) { weekday in
                         let entry = all[week * 7 + weekday], key = Tally.key(entry.date, calendar)
                         let future = entry.date > Date(), counted = since.map { key >= $0 } ?? false, today = calendar.isDateInToday(entry.date)
-                        let radius = future ? 0 : !counted ? 0.9 : entry.day.tabs == 0 ? 1.2 : 1.4 + (cell * 0.42 - 1.4) * sqrt(Double(entry.day.tabs) / Double(most))
+                        let radius = future ? 0 : !counted ? 0.9 : entry.day.saved == 0 ? 1.2 : 1.4 + (cell * 0.42 - 1.4) * sqrt(Double(entry.day.saved) / Double(most))
                         Circle().fill(Color.primary.opacity(today ? 0.88 : counted ? 0.55 : 0.13)).frame(width: radius * 2, height: radius * 2)
                             .frame(width: cell, height: cell)
                             .contentShape(Rectangle())
@@ -614,7 +634,7 @@ struct StatsPage: View {
                 }
             }
         }
-        .accessibilityLabel("Tabs per day for the last 26 weeks")
+        .accessibilityLabel("Time saved per day for the last 26 weeks")
     }
 
     /// Days with the personal model against days without, once there are both.
@@ -649,8 +669,8 @@ private struct Tag: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(date.formatted(.dateTime.weekday(.wide).month().day())).foregroundStyle(.white.opacity(0.6))
-            Text("\(day.tabs) Tabs · \(day.characters.formatted()) letters")
-            if let share = day.byTab { Text("\(share.formatted(.percent.precision(.fractionLength(1)))) typed by Tab") }
+            Text("\(StatsPage.time(day.minutesSaved)) saved · \(day.words.formatted()) words")
+            Text("\(day.tabs.formatted()) Tabs" + (day.oneIn.map { " · 1 in \($0) keys by Tab" } ?? ""))
         }
         .font(.system(size: 11)).monospacedDigit().foregroundStyle(.white)
         .padding(.horizontal, 9).padding(.vertical, 6)
@@ -661,23 +681,28 @@ private struct Tag: View {
 private struct Figure: View {
     let value: String
     let label: String
-    var big = false
-    /// Up or down on the stretch before, beside the label, where it fits at any window width.
-    var change: Int? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.system(size: big ? 44 : 26, weight: big ? .semibold : .regular)).monospacedDigit()
-                .contentTransition(.numericText()).animation(.snappy, value: value)
-                .fixedSize()
-            HStack(spacing: 6) {
-                Text(label).foregroundStyle(.secondary)
-                if let change, change != 0 {
-                    Text((change > 0 ? "+" : "−") + abs(change).formatted()).fontWeight(.medium).monospacedDigit()
-                        .foregroundStyle(change > 0 ? Color(red: 0.18, green: 0.49, blue: 0.31) : Color(red: 0.64, green: 0.27, blue: 0.23))
-                }
-            }
-            .font(.system(size: 12))
+            Text(value).font(.system(size: 26)).monospacedDigit().fixedSize()
+            Text(label).font(.system(size: 12)).foregroundStyle(.secondary)
         }
+    }
+}
+
+/// One count under the sentence, in faint glass so it doesn't read as a button; hovering says what it means.
+private struct Chip: View {
+    let value: String
+    let label: String
+    let help: String
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text(value).font(.system(size: 13, weight: .semibold)).monospacedDigit()
+            Text(label).font(.system(size: 12)).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 5)
+        .background(.white.opacity(0.6), in: Capsule())
+        .overlay(Capsule().strokeBorder(.primary.opacity(0.09), lineWidth: 0.5))
+        .help(help)
     }
 }
 
