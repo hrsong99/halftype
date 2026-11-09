@@ -254,3 +254,4 @@ h1 { font-size: var(--t-display); line-height: .98; margin-top: var(--s3); }
 .brew-lines { margin: 0; font: var(--t-small)/1.6 var(--mono); color: var(--ink); white-space: pre-wrap; user-select: all; -webkit-user-select: all; text-align: left; max-width: 100%; }
 @media (prefers-reduced-motion: reduce) { .taken { animation: none; background-position: 0 0; } }
 .rows dd, .faq dd, .note, .how, .ko-table td { text-wrap: pretty; }
+.charts-h { margin: var(--s5) 0 var(--s3); }

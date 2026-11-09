@@ -176,7 +176,37 @@
   <!-- 7. Compare -->
   <section class="section" id="compare" aria-labelledby="compare-h">
     <div class="wrap">
-      <div class="head"><h2 id="compare-h">Light when you&rsquo;re not typing.</h2></div>
+      <!-- DRAFT, deploy only with John's go: numbers from bench/compare/results/2026-11-10-en64.md (main 88d9399, the code in 0.1.14). -->
+      <div class="head"><h2 id="compare-h">Level on keys saved. Lighter on CPU.</h2></div>
+      <h3 class="charts-h">While you type, against KeyType</h3>
+      <div class="charts">
+        <figure class="chart">
+          <figcaption>Keys saved</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:100%"></span></span><b>25.1%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:98%"></span></span><b>24.6%</b></div>
+          <p class="note">A tie: Halftype +0.5 points, paired 95% CI &minus;1.5 to +2.4, ahead in 31 of 64 sentences.</p>
+        </figure>
+        <figure class="chart">
+          <figcaption>Right suggestions per 100 keys</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:100%"></span></span><b>16</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:93.8%"></span></span><b>15</b></div>
+          <p class="note">Wrong ones: 58 against 52. Keep typing and a wrong one goes.</p>
+        </figure>
+        <figure class="chart">
+          <figcaption>CPU while typing</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:76.9%"></span></span><b>10%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>13%</b></div>
+          <p class="note">Of one core, every process of the app.</p>
+        </figure>
+        <figure class="chart">
+          <figcaption>Memory while typing</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:51.8%"></span></span><b>295 MB</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>569 MB</b></div>
+          <p class="note">macOS&rsquo;s footprint (median). The model&rsquo;s pages come on top: 1.5 GB for Halftype, 1.2 GB for KeyType.</p>
+        </figure>
+      </div>
+      <p class="how">64 public English sentences (Taskmaster-1), the same for both, typed at a human pace on one M5 with 16 GB, 2026-11-09; an ideal typist presses Tab only when the suggestion is right. Each app at its defaults: Halftype as shipped in 0.1.14 (Gemma 4 E2B, Suggestions: Always, Length: Long), KeyType 1.8 with its writing history cleared. Cotypist and macOS&rsquo;s predictions showed no suggestion in the test window, so they aren&rsquo;t measured. Cotabby wasn&rsquo;t in this run, and Korean wasn&rsquo;t run. <a href="https://github.com/hrsong99/halftype/blob/main/bench/compare/results/2026-11-10-en64.md">The run</a></p>
+      <h3 class="charts-h">At rest</h3>
       <div class="charts">
         <figure class="chart">
           <figcaption>Memory at rest</figcaption>
