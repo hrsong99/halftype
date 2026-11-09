@@ -46,6 +46,9 @@ import Testing
         #expect(tap.flags([]) == nil)
         _ = tap.flags([.control])
         #expect(tap.flags([]) == nil)
+        // ⌃ then ⌥, never together, under a held ⇧.
+        for held: NSEvent.ModifierFlags in [[.shift], [.shift, .control], [.shift], [.shift, .option], [.shift]] { #expect(tap.flags(held) == nil) }
+        #expect(tap.flags([]) == nil)
     }
 }
 
