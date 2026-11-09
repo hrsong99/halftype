@@ -3,12 +3,12 @@
 What the automatic checks can't reach: the real Tab in real apps, and Korean in Chromium. Most important first; each step is what to do, then **what should happen**. Stop when your 10 minutes are up: what's left matters least.
 Any wrong character: tell me what you typed and what came out. Use a new, empty T3 thread, as step 11 sends a message.
 
-## Before you start (the first time, wait for a 0.5 GB download; it isn't part of the 10 minutes)
+## Before you start (the first time, wait for a 3.4 GB download; it isn't part of the 10 minutes)
 A. Quit Cotypist, which also takes Tab, and any other app that reads your screen through Accessibility, such as Raycast or Wispr Flow. Then quit and reopen T3 and ego lite, so the accessibility switches they turned on are off.
    **Cotypist's icon is gone from the menu bar, and both apps are back.**
-B. Open `build/Halftype.app`; its window asks for Accessibility. Press the button and grant it.
-   **No system dialog before you press the button. Before the grant the download already shows under the button, with its size and "You can close this window." Within 2 s of the grant Halftype comes back in front of System Settings and shows its field, with no restart. Never a prompt for Input Monitoring.**
-   Once the model is ready, don't type: **the field holds "Please let me know if you have any" (or a Korean sentence, if a Korean source is on) with a ghost after it, and under it "Tab takes a word. Shift-Tab takes it all. Esc hides it."** Press Tab: **the word goes in, and the line becomes "That's it. Halftype works like this in almost any app." with a Start at Login button.** Press it: **the button goes, and General shows Start at Login on.** Turn it back off there if you don't want it.
+B. First launch: `tccutil reset Accessibility app.halftype.Halftype`, then `open -a build/Halftype.app --args -onboarded NO`. Get Started, then Open System Settings, then macOS's own Open System Settings; flip Halftype's switch.
+   **The welcome writes itself and the download shows at the top from the start. No system dialog before the button. System Settings comes to the front with the card docked beside it. Within 2 s of the grant Halftype comes back in front on lesson 1, its suggestion already showing, with no click and no restart. Never a prompt for Input Monitoring.**
+   In each lesson press the wrong key first, then the right one: **the wrong key does nothing and the line names the right one; the right one takes (Tab a word, Shift-Tab all of it, Esc hides it), a check shows, and the next lesson comes by itself.** On the last page, Start Writing with Start at login on: **General shows Start at Login on.** Turn it back off there if you don't want it.
 C. Once the model is ready, and before anything else touches ego lite: click its address bar or a search box, type `Can you take a look at`, pause, and keep typing slowly for a few seconds if nothing shows.
    **A ghost within about 3 s, with nothing else running that could have woken ego lite's accessibility.** Then in Terminal, `osascript -e 'tell application "System Events" to get value of attribute "AXEnhancedUserInterface" of application process "Finder"'`: **false**, as Halftype leaves native apps alone. If ego lite never shows a ghost, say so: that's the case this step is for.
 
@@ -77,9 +77,9 @@ T5. With a ghost up, lock with Ctrl-Cmd-Q and unlock; then close the lid and ope
 ## The window: about 2 minutes
 W1. Type in its field, and Tab on the grey text. Paste with Cmd-V.
     **The same as in any app.**
-W2. Press the power button, type, press it again. Then scroll down: the card slides in with the settings. Click Apps in it, add an app, remove it; General, Start at Login on, then off. The sidebar icon hides the card, and again shows it, at any scroll.
+W2. Press the power button, type, press it again. Then scroll down: the card stays shut. The sidebar icon shows it; click Apps in it, add an app, remove it; General, Start at Login on, then off. The sidebar icon hides the card again, at any scroll.
     **No ghost while off. The login switch keeps what you set, and System Settings shows Halftype under Login Items only while it's on.**
-W3. Models: Get Kanana 1.5, stop it with ✕, Get it again, wait, Use it, type, then Use Qwen 3.5 0.8B.
+W3. Models: Get Kanana 1.5, stop it with ✕, Get it again, wait, Use it, type, then Use Gemma 4 E2B.
     **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.** Click the pill: **the list opens at once, marks the model in use, and closes on a click outside or Esc.**
 W4. Close the window, then open Halftype from Finder or the menu.
     **The Dock icon goes with the window. The same window comes back, and Halftype kept working between.**

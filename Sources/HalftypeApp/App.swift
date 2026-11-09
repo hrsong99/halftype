@@ -101,12 +101,17 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         var next = tally
         event(&next)
         if let activePath {
-            if App.adapterFile(for: activePath) == nil { next.mark(personal: nil) }  // A model with no adapter compares nothing.
-            // Only once the engine has caught up with today: unloaded, just past midnight, or an adapter that won't load says nothing.
-            // shortcut: a broken adapter's hours, then a working one's the same day, count as a personal day; track failed loads if adapters ship.
-            else if let applied = engine?.applied.withLock({ $0 }), applied == (App.adapterToday(model: activePath) != nil) { next.mark(personal: applied) }
+            App.markPersonal(&next, hasAdapter: App.adapterFile(for: activePath) != nil, applied: engine?.applied.withLock { $0 },
+                             wanted: App.adapterToday(model: activePath) != nil)
         }
         tally = next
+    }
+    /// A model with no adapter compares nothing, so its day is mixed. Otherwise only once the engine has caught up with today:
+    /// unloaded (nil), just past midnight, or an adapter that won't load says nothing.
+    /// shortcut: a broken adapter's hours, then a working one's the same day, count as a personal day; track failed loads if adapters ship.
+    static func markPersonal(_ tally: inout Tally, hasAdapter: Bool, applied: Bool?, wanted: @autoclosure () -> Bool) {
+        if !hasAdapter { tally.mark(personal: nil) }
+        else if let applied, applied == wanted() { tally.mark(personal: applied) }
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     var ready: Bool { activePath != nil }
@@ -154,7 +159,21 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         return "No model loaded"
     }
     var isRelease: Bool { Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil }
-    var askedForAccessibility = false
+    @Published var askedForAccessibility = false
+    /// First launch's steps show instead of the home window, until Start Writing (Onboarding.swift).
+    @Published var onboarding = false
+    /// No model yet, so `Practice` answers Try It's own sentences in the meantime.
+    @Published var practicing = false
+    /// The last key that took or hid a suggestion, which onboarding's lessons wait for. Onboarding sets it back to nil.
+    @Published var taught: KeyTap.Taught?
+    /// A key the lesson didn't ask for, so it can say which one it wants. Onboarding sets it back to nil.
+    @Published var refused: KeyTap.Taught?
+    /// The key onboarding's lesson teaches, the only one our window's ghost answers meanwhile. Nil outside the lessons.
+    var lessonKey: KeyTap.Taught? {
+        get { tap.state.withLock { $0.only } }
+        set { tap.state.withLock { $0.only = newValue } }
+    }
+    let guide = SettingsGuide()
     private let loading = DispatchQueue(label: "halftype.load", qos: .userInitiated)
     private var latestOpen = 0
     /// The open whose model is installed, so a failure from one it replaced, even at the same path, is ignored. Main thread.
@@ -170,6 +189,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
     @Published var length = Length(rawValue: UserDefaults.standard.string(forKey: "length") ?? "") ?? .short {
         didSet { UserDefaults.standard.set(length.rawValue, forKey: "length"); tune() }
+    }
+    @Published var motion = AcceptMotion(rawValue: UserDefaults.standard.string(forKey: "motion") ?? "") ?? .trail {
+        didSet { UserDefaults.standard.set(motion.rawValue, forKey: "motion"); panel.motion = motion }
     }
     @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
@@ -220,14 +242,26 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func isLoading(path: String) -> Bool { loadingPath == path }
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        // Before anything makes the folder. Every install before onboarding has it (a model, or the move from Itda), or chose its own model.
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "onboarded") == nil {
+            defaults.set(FileManager.default.fileExists(atPath: App.support.path) || defaults.string(forKey: "modelPath") != nil, forKey: "onboarded")
+        }
+        onboarding = !defaults.bool(forKey: "onboarded")
         tune()
+        panel.motion = motion
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
+        // Only a key in our own window teaches: a Tab in another app while onboarding is open isn't the lesson.
+        tap.onTaught = { [weak self] key in
+            DispatchQueue.main.async { if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid() { self?.taught = key } }
+        }
+        tap.onRefused = { [weak self] key in DispatchQueue.main.async { self?.refused = key } }
         tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
         tap.onAccept = { [weak self] added, keys, suggestion, text, drawing in
             DispatchQueue.main.async {
                 guard let self else { return }
-                if let text { self.panel.took(text, drawing: drawing) }
+                self.panel.took(text, drawing: drawing)
                 self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
                 self.lastTaken = suggestion
                 if !self.accepted { self.accepted = true }
@@ -267,6 +301,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tap.onUp = { [weak self] up in DispatchQueue.main.async { self?.tapChanged(up: up) } }
         trusted = tap.hold()
         if !trusted { fresh = true }
+        // A model opening now installs after this, and replaces it.
+        if onboarding, !ready {
+            practicing = true
+            watcher.install(Practice())
+        }
         // Started by the system at login, it stays out of the way. Started by you, it answers. Without the permission it has to ask.
         let launch = NSAppleEventManager.shared().currentAppleEvent
         let atLogin = launch?.eventID == kAEOpenApplication && launch?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
@@ -315,11 +354,16 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private func tapChanged(up: Bool) {
         let granted = up && !trusted
         trusted = up
+        if granted { guide.close() }
         rebind()
         // Back in front of System Settings, where the grant was given.
         if granted, let window {
             showWindow()
             window.orderFrontRegardless()
+            // `activate()` is only a request since macOS 14, and Settings, active, keeps the front: the window showed but stayed
+            // inactive, so the watcher kept watching Settings and the first lesson's suggestion waited for a click (John: "takes a few
+            // seconds"). The deprecated form still takes the front (tried on macOS 27), and here the user has just asked to come back.
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
@@ -346,6 +390,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if let path = customModel, FileManager.default.fileExists(atPath: path) { return open(path) }
         let first = ModelStore.models[0]
         if store.has(first) { return open(store.path(first).path) }
+        // An install from before Gemma was the default keeps the model it has, rather than fetching 3.4 GB unasked.
+        if let had = ModelStore.models.first(where: store.has) { return open(store.path(had).path) }
         afterFetch = .load
         fresh = true
         store.fetch(first)
@@ -397,6 +443,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Every model opened that something still holds, so quit can close each without waiting on the watcher. Loading queue: an engine
     /// is in here before anything else can hold it.
     private let engines = NSHashTable<AnyObject>.weakObjects()
+    /// The model installed last, which onboarding's practice wraps until it ends. Main thread.
+    private var answering: Completer?
     private let quitting = Atomic<Bool>(false)
 
     private func open(_ path: String, remember: Bool = false) {
@@ -417,11 +465,13 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                     return
                 }
                 activePath = path
+                practicing = false
                 self.engine = engine as? Engine
                 if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
                 installed = id
-                watcher.install(engine)
+                answering = engine
+                watcher.install(onboarding ? Practice(over: engine) : engine)
             }
         }
     }
@@ -429,7 +479,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The model answering couldn't load again after an idle unload: its file moved or broke. Nothing answers until another is chosen.
     private func lost(_ id: Int) {
         guard id == installed, let path = activePath else { return }
-        (installed, activePath) = (0, nil)
+        (installed, activePath, answering) = (0, nil, nil)
         notice = "Could not load " + URL(fileURLWithPath: path).lastPathComponent
         watcher.install(nil)
     }
@@ -456,10 +506,20 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     /// The prefill, taken once. The field is asked again, as a model installed in the same moment may have read it still empty.
     func takePrefill(draft: String) -> String? {
-        guard let sentence = App.prefill(fresh: fresh, ready: ready, draft: draft, korean: watcher.koreanInput.load(ordering: .relaxed)) else { return nil }
+        // Practice knows English only.
+        // Practice finishes only its own sentence, so a field opened again (the window closed mid-step) needs it again too.
+        guard let sentence = App.prefill(fresh: fresh || practicing, ready: ready || practicing, draft: draft, korean: ready && watcher.koreanInput.load(ordering: .relaxed)) else { return nil }
         fresh = false
         DispatchQueue.main.async { [self] in watcher.redraw() }
         return sentence
+    }
+
+    func finishOnboarding() {
+        UserDefaults.standard.set(true, forKey: "onboarded")
+        onboarding = false
+        lessonKey = nil
+        if let answering { watcher.install(answering) }
+        guide.close()
     }
 
     // MARK: Why, and the icon
@@ -494,7 +554,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
     func line(for why: Watcher.Why) -> String? {
-        App.line(trusted: trusted, active: activeHere, obstacle: tap.obstacle, ready: ready, why: why)
+        App.line(trusted: trusted, active: activeHere, obstacle: tap.obstacle, ready: ready || practicing, why: why)
     }
 
     static let lesson = "Tab takes a word. Shift-Tab takes it all. Esc hides it."
@@ -504,7 +564,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Nothing while off, paused or without the permission.
     func fieldLine(_ why: Watcher.Why) -> String? {
         guard let line = line(for: why) else { return nil }
-        guard why.working, ready, tap.obstacle == nil else { return line }
+        guard why.working, ready || practicing, tap.obstacle == nil else { return line }
         return accepted ? App.success : why == .shown ? App.lesson : line
     }
 

@@ -601,6 +601,7 @@ enum EndToEnd {
         if let i = CommandLine.arguments.firstIndex(of: "--engine") { return engine(path: CommandLine.arguments[i + 1]) }
         if let i = CommandLine.arguments.firstIndex(of: "--measure") { return measure(path: CommandLine.arguments[i + 1]) }
         if CommandLine.arguments.contains("--own-window") { return ownWindow() }
+        if CommandLine.arguments.contains("--onboarding") { return onboardingLesson() }
         if let i = CommandLine.arguments.firstIndex(of: "--demo") {
             return demo(model: CommandLine.arguments[i + 1], to: CommandLine.arguments[i + 2], sentences: Array(CommandLine.arguments.dropFirst(i + 3)))
         }
@@ -660,6 +661,33 @@ enum EndToEnd {
         check(eventually { h.visible }, "own window: ghost appears")
         tabKey()
         check(eventually { onMain { field.string } == "hello there" }, "own window: Tab accepts the next word: '\(onMain { field.string })'")
+    }
+
+    /// Onboarding's first lesson, swapped in by the grant as on a first launch: how long until its suggestion shows, with no key typed.
+    /// John saw it take seconds (2026-11-09), though practice answers at once.
+    static func onboardingLesson() {
+        let h = Harness(completer: Practice())
+        defer { h.close() }
+        let (window, app): (NSPanel, HalftypeApp.App) = onMain {
+            h.window.orderOut(nil)
+            let app = HalftypeApp.App()
+            app.onboarding = true
+            app.practicing = true
+            let window = NSPanel(contentRect: CGRect(x: 80, y: 80, width: 720, height: 500), styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+            window.contentView = NSHostingView(rootView: Root(app: app, onboardingStep: .allow))
+            window.orderFrontRegardless()
+            window.makeKey()
+            return (window, app)
+        }
+        defer { onMain { window.orderOut(nil) } }
+        h.watcher.bind(pid: getpid())
+        usleep(300_000)
+        let granted = Date()
+        onMain { app.trusted = true }  // As the grant does: the lesson's field fades in and takes focus.
+        let shown = eventually(5) { h.visible }
+        let after = Date().timeIntervalSince(granted)
+        print(String(format: "      lesson ghost after %.2f s", after))
+        check(shown && after < 1, "onboarding: the first lesson's suggestion shows within 1 s of the field, with no key: \(String(format: "%.2f", after)) s")
     }
 
     static func ghostAtCaret() {

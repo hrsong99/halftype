@@ -108,6 +108,14 @@ func stop(c: StopCase) {
     #expect(cut.done)
 }
 
+@Test func aClosingBracketStaysWithItsWordWhenTheNextWordIsCut() {
+    let tokens = [token(" this", -0.2), token(")", -0.1), token(" and", -2)]
+    #expect(Stop.cut(tokens, fragment: "").text == " this)")
+    #expect(Stop.cut([token(" \"this", -0.2), token("\"", -0.1), token(" and", -2)], fragment: "").text == " \"this\"")
+    #expect(Stop.cut([token(" this", -0.2), token(")", -2), token(" and", -0.1)], fragment: "").text == " this")
+    #expect(Stop.cut([token(" this", -0.2), token("-", -0.1), token("and", -2)], fragment: "").text == " this")
+}
+
 @Test func aLowerFloorKeepsLessLikelyWords() {
     let tokens = [token(" take", -0.2), token(" a", -0.1), token(" look", -0.3), token(" around", -0.5), token(" here", -0.1)]
     #expect(Stop.cut(tokens, fragment: "", floor: -2).text == " take a look around here")

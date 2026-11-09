@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accept motion</title>
+<style>
+:root{--ink:#141416;--ghost:rgba(20,20,22,.38);--field:#fff;--line:rgba(20,20,22,.12);--muted:rgba(20,20,22,.55);--page:#f6f1e9;--card:#fffdf9}
+:root[data-mode=dark]{--ink:#ececee;--ghost:rgba(236,236,238,.38);--field:#1e1e21;--line:rgba(255,255,255,.12);--muted:rgba(236,236,238,.55);--page:#121214;--card:#1a1a1d}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--page);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+h1{font-size:19px;margin:0 0 6px}
+.q{color:var(--muted);margin:0 0 10px}
+.rec{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+button{font:inherit;padding:5px 11px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.on{background:var(--ink);color:var(--page)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.card h2{font-size:14px;margin:0 0 8px;display:flex;gap:8px;align-items:baseline}
+.card h2 b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--ink);color:var(--page);font-size:12px}
+.note{color:var(--muted);font-size:12.5px;margin:8px 0 0}
+.field{position:relative;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:11px 12px;font:15px/22px -apple-system,BlinkMacSystemFont,sans-serif;min-height:46px;white-space:pre-wrap}
+.ghost{color:var(--ghost)}
+.caret{display:inline-block;width:1.5px;height:18px;background:#3478f6;vertical-align:-3px;margin:0 -0.75px}
+.key{position:absolute;right:8px;top:-9px;font:600 10.5px -apple-system,sans-serif;padding:2px 6px;border-radius:5px;background:var(--ink);color:var(--page);opacity:0;transition:opacity .08s}
+.key.on{opacity:.9}
+.w{position:relative;display:inline}
+.fx{position:absolute;left:0;top:0;pointer-events:none;white-space:pre}
+.fxa{position:absolute;pointer-events:none}
+</style></head><body>
+<h1>Accept motion, round 2: anchored to the caret only</h1>
+<p class="q">John: <i>"not every app has perfectly aligned text and suggestions (most don't I guess), so a lot of these won't look good right? Can you show me variations that can still look good? Maybe those that deal with the caret?"</i> Every option here uses only the caret position the app reports through Accessibility: the same position the ghost is already placed from, before and after the Tab. None draws letters or outlines words, so a font or zoom mismatch can't show. In the app the "after" caret comes from the app's next update, a frame or two after the Tab.</p>
+<div class="rec"><b>Recommendation: C, the caret flash.</b> It colours the caret itself in the icon's blue-to-peach for 200 ms. That's the one spot the app gives us exactly, it reads as "taken" without decoration, and it's the cheapest to build (a 2 px bar in the panel we already have). D, the trail, says the most about what happened, but it's busier. If C feels too small, B's soft glow is the step up.</div>
+<div class="bar">
+  <button id="replay">Replay</button>
+  <button data-speed="1" class="on">1×</button><button data-speed="0.4">0.4×</button><button data-speed="0.15">0.15×</button>
+  <button id="mode">Dark</button>
+</div>
+<div class="grid" id="grid"></div>
+<script>
+const OPTIONS=[
+ ["A","Spark (round 1's G)","A small dot pops at the new caret and fades, 200 ms. Robust and tiny, but easy to miss."],
+ ["B","Soft glow","A blurred blue-to-peach halo, about twice the line height, swells at the new caret and fades in 240 ms. Visible without covering letters, since it's faint and centred on the caret."],
+ ["C","Caret flash","The caret itself turns blue-to-peach and fades back to the app's own caret in 200 ms. We draw a 2 px bar exactly over it, nothing else. The most native-feeling option, and about 20 lines."],
+ ["D","Trail","A faint gradient streak runs along the bottom of the line from where the caret was to where it lands, and fades from its tail, 220 ms. Uses only the two caret positions. It shows that the words were taken, but it's the busiest."],
+ ["E","Ripple","A thin ring opens from the new caret and fades, 260 ms, like a tap. Clear, but a bit 'touchscreen'."],
+ ["F","Halftone puff","Five or six of the icon's halftone dots drift a few pixels off the caret and fade, 260 ms. On brand. In the app, the dots are drawn at fixed offsets, not random ones."],
+];
+let speed=1,timers=[];
+const grid=document.getElementById('grid');
+OPTIONS.forEach(([l,n,t])=>{grid.insertAdjacentHTML('beforeend',`<div class="card"><h2><b>${l}</b>${n}</h2><div class="field" data-k="${l}"><span class="typed"></span><span class="caret"></span><span class="ghost"></span><span class="key">tab</span></div><p class="note">${t}</p></div>`)});
+const TYPED="Sounds good, see you",GHOST=[" at"," the"," station"," at 6"];
+const S=ms=>ms/speed;
+function at(ms,f){timers.push(setTimeout(f,S(ms)))}
+const GR='linear-gradient(180deg,#5f9bd8,#ee9a6b)';
+function add(field,css){const e=document.createElement('span');e.className='fxa';e.style.cssText+=css;field.appendChild(e);return e}
+function anim(el,k,d,e='ease-out'){el.animate(k,{duration:S(d),easing:e,fill:'forwards'}).onfinish=()=>el.remove()}
+function fx(kind,field,from){
+  const fr=field.getBoundingClientRect(),c=field.querySelector('.caret').getBoundingClientRect();
+  const x=c.left-fr.left,y=c.top-fr.top,h=c.height,cx=x+.75,cy=y+h/2;
+  if(kind==='A'){const d=add(field,`width:8px;height:8px;border-radius:50%;left:${cx-4}px;top:${cy-4}px;background:radial-gradient(circle,#5f9bd8,#ee9a6b)`);anim(d,[{transform:'scale(.7)',opacity:1},{transform:'scale(1.4)',opacity:1,offset:.4},{transform:'scale(2)',opacity:0}],220)}
+  if(kind==='B'){const s=h*2.2,d=add(field,`width:${s}px;height:${s}px;border-radius:50%;left:${cx-s/2}px;top:${cy-s/2}px;background:radial-gradient(circle,rgba(95,155,216,.55),rgba(238,154,107,.25) 45%,transparent 70%);filter:blur(2px)`);anim(d,[{transform:'scale(.4)',opacity:0},{transform:'scale(1)',opacity:1,offset:.3},{transform:'scale(1.1)',opacity:0}],240)}
+  if(kind==='C'){const d=add(field,`width:2px;height:${h+2}px;left:${cx-1}px;top:${y-1}px;border-radius:1px;background:${GR}`);anim(d,[{opacity:1,transform:'scaleY(1.15)'},{opacity:1,transform:'scaleY(1)',offset:.35},{opacity:0,transform:'scaleY(1)'}],200)}
+  if(kind==='D'){const x0=from-fr.left,w=Math.max(cx-x0,4),d=add(field,`height:2px;left:${x0}px;width:${w}px;top:${y+h+1}px;border-radius:1px;background:linear-gradient(90deg,transparent,rgba(95,155,216,.7) 60%,#ee9a6b);transform-origin:right`);anim(d,[{transform:'scaleX(1)',opacity:.9},{transform:'scaleX(0)',opacity:.2}],220,'cubic-bezier(.3,0,.2,1)')}
+  if(kind==='E'){const s=h*1.6,d=add(field,`width:${s}px;height:${s}px;border-radius:50%;left:${cx-s/2}px;top:${cy-s/2}px;border:2px solid #5f9bd8`);anim(d,[{transform:'scale(.2)',opacity:1},{transform:'scale(.7)',opacity:.8,offset:.45},{transform:'scale(1)',opacity:0}],260)}
+  if(kind==='F'){[[-9,-8],[8,-10],[11,2],[-11,4],[2,11],[-3,-13]].forEach(([dx,dy],i)=>{const r=i%2?4:5,d=add(field,`width:${r}px;height:${r}px;border-radius:50%;left:${cx-r/2}px;top:${cy-r/2}px;background:${i%3?'#5f9bd8':'#ee9a6b'}`);anim(d,[{transform:'translate(0,0)',opacity:1},{transform:`translate(${dx*.6}px,${dy*.6}px)`,opacity:.9,offset:.45},{transform:`translate(${dx}px,${dy}px)`,opacity:0}],260,'cubic-bezier(.2,.7,.3,1)')})}
+}
+function take(field,k,text){
+  const typed=field.querySelector('.typed'),ghost=field.querySelector('.ghost'),key=field.querySelector('.key');
+  const from=field.querySelector('.caret').getBoundingClientRect().left;
+  const w=document.createElement('span');w.textContent=text;typed.appendChild(w);
+  ghost.textContent=ghost.textContent.slice(text.length);
+  key.classList.add('on');setTimeout(()=>key.classList.remove('on'),S(120));
+  fx(k,field,from);
+}
+function run(){
+  timers.forEach(clearTimeout);timers=[];
+  const fields=[...document.querySelectorAll('.field')];
+  fields.forEach(f=>{f.querySelector('.typed').textContent='';f.querySelector('.ghost').textContent='';f.querySelector('.key').textContent='tab'});
+  let t=300;
+  for(let i=1;i<=TYPED.length;i++){const s=TYPED.slice(0,i);at(t,()=>fields.forEach(f=>f.querySelector('.typed').textContent=s));t+=55}
+  at(t+120,()=>fields.forEach(f=>f.querySelector('.ghost').textContent=GHOST.join('')));
+  t+=900;
+  [[" at",0],[" the",380],[" station",380],[" at 6",900]].forEach(([w,d])=>{t+=d;at(t,()=>fields.forEach(f=>{if(w===' at 6')f.querySelector('.key').textContent='⇧ tab';take(f,f.dataset.k,w)}))});
+  at(t+1800,run);
+}
+document.getElementById('replay').onclick=run;
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=+b.dataset.speed;document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('on',x===b));run()});
+document.getElementById('mode').onclick=e=>{const d=document.documentElement.dataset.mode==='dark';document.documentElement.dataset.mode=d?'':'dark';e.target.textContent=d?'Dark':'Light'};
+run();
+</script></body></html>

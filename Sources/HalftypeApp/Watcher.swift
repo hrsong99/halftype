@@ -48,7 +48,7 @@ final class Watcher: @unchecked Sendable {
     private var lastGeneration = 0
     private var request = 0
     private var unloadWork: DispatchWorkItem?
-    /// Numbers the model's suggestions, for the counts: following one as you type keeps its number.
+    /// Numbers the model's suggestions by their request, for the counts: streaming or following one as you type keeps its number.
     private var suggestionNumber = 0
     /// Main thread only: the last suggestion counted as shown.
     private var counted = 0
@@ -127,25 +127,34 @@ final class Watcher: @unchecked Sendable {
 
     /// Which app to watch: the frontmost, or in tests a private window's own process.
     func bind(pid: pid_t, binding: Int = 0) {
-        queue.async { [self] in
-            self.binding = binding
-            detach()
-            let app = AXUIElementCreateApplication(pid)
-            var created: AXObserver?
-            let callback: AXObserverCallback = { _, element, name, refcon in
-                Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String, element)
-            }
-            guard AXObserverCreate(pid, callback, &created) == .success, let observer = created else { return }
-            self.app = app
-            self.observer = observer
-            self.pid = pid
-            process = Priming.Process(pid: pid, launched: launchDate(pid))
-            priming.bound(process)
-            AX.own(app) { for name in Self.appNotifications { AXObserverAddNotification(observer, app, name as CFString, refcon) } }
-            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
-            refocus()
-            update()
+        queue.async { [self] in attach(pid: pid, binding: binding) }
+    }
+
+    /// Queue.
+    private func attach(pid: pid_t, binding: Int) {
+        self.binding = binding
+        detach()
+        let app = AXUIElementCreateApplication(pid)
+        var created: AXObserver?
+        let callback: AXObserverCallback = { _, element, name, refcon in
+            Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String, element)
         }
+        // Just after the grant the tap is up but AX still refuses for a moment (apiDisabled): an observer made then hears nothing,
+        // ever, and the first lesson's field sat without its suggestion until a click rebound (seen live, 2026-11-09). Again shortly.
+        // Checked in the same block that attaches: a newer bind queued meanwhile has moved `binding`, and wins.
+        let again = { [self] in queue.asyncAfter(deadline: .now() + 0.5) { [self] in if self.binding == binding { attach(pid: pid, binding: binding) } } }
+        let made = AXObserverCreate(pid, callback, &created)
+        guard made == .success, let observer = created else { return made == .apiDisabled ? again() : () }
+        self.app = app
+        self.observer = observer
+        self.pid = pid
+        process = Priming.Process(pid: pid, launched: launchDate(pid))
+        priming.bound(process)
+        let added = AX.own(app) { Self.appNotifications.map { AXObserverAddNotification(observer, app, $0 as CFString, refcon) } }
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
+        refocus()
+        update()
+        if added.contains(.apiDisabled) { again() }
     }
 
     func unbind(binding: Int = 0) {
@@ -301,6 +310,10 @@ final class Watcher: @unchecked Sendable {
         // A key during the read may be in it, and its notification must not then find nothing new.
         last = tap.generation == generation ? reading : nil
         lastGeneration = generation
+        // The read where our last accept has fully landed, which `settled` then lets go: its caret is where a Tab's motion ends.
+        if tap.state.withLock({ $0.pending?.to == reading.field.before }), let caret = reading.caret {
+            DispatchQueue.main.async { [panel] in panel.landed(at: caret) }
+        }
         let field = settled(reading.field)
         if field.before.isEmpty {
             // A message was sent, so what's above has changed. It is read again with the first character typed, not now: the
@@ -414,7 +427,7 @@ final class Watcher: @unchecked Sendable {
         guard let last else { return }
         let text = result.text
         suggestion = (anchor, text)
-        suggestionNumber += 1
+        suggestionNumber = id  // One request is one suggestion, however many times it streams.
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
         if let ghost = Follow.check(anchor: anchor, suggestion: text, field: field) { display(ghost, field, last, lastGeneration) }

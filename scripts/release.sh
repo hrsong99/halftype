@@ -6,6 +6,8 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 version=$1
+notes=docs/releases/$version.md  # what changed, for users: shown in the update window and on the GitHub release
+[[ -s $notes ]] || { echo "Write $notes first."; exit 1; }
 [[ -z "$(git status --porcelain)" ]] || { echo "Commit first: a release is one commit."; exit 1; }
 source ~/.config/halftype-signing/env
 security unlock-keychain -p "$KEYCHAIN_PASSWORD" halftype-signing.keychain
@@ -14,7 +16,7 @@ security find-identity -v -p codesigning | grep -q "Developer ID Application" ||
 HALFTYPE_VERSION=$version scripts/build-app.sh
 out=build/release; rm -rf "$out"; mkdir -p "$out"
 staging=$(mktemp -d); cp -R build/Halftype.app "$staging/"; ln -s /Applications "$staging/Applications"
-dmg="$out/Halftype.dmg"
+dmg=build/Halftype.dmg  # outside $out, so generate_appcast sees only the update copy
 hdiutil create -quiet -volname Halftype -srcfolder "$staging" -ov -fs APFS -format ULFO "$dmg"
 identity=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application[^"]*\)".*/\1/p' | head -1)
 codesign --force --timestamp --sign "$identity" "$dmg"
@@ -24,7 +26,10 @@ spctl -a -t open --context context:primary-signature "$dmg"
 
 bin=.build/artifacts/sparkle/Sparkle/bin
 sha=$(shasum -a 256 "$dmg" | cut -d' ' -f1)
-"$bin/generate_appcast" --ed-key-file "$SPARKLE_KEY" --download-url-prefix "https://github.com/hrsong99/halftype/releases/download/v$version/" "$out"
+# The same DMG under a second name for Sparkle, so GitHub's counts tell new installs from updates (scripts/usage.sh).
+cp "$dmg" "$out/Halftype-update.dmg"
+cp "$notes" "$out/Halftype-update.md"  # generate_appcast takes notes named after the archive
+"$bin/generate_appcast" --embed-release-notes --ed-key-file "$SPARKLE_KEY" --download-url-prefix "https://github.com/hrsong99/halftype/releases/download/v$version/" "$out"
 
 # Everything that can fail goes first. Running it again after a failure past here replaces the assets and carries on.
 tap=$(mktemp -d)
@@ -37,9 +42,9 @@ git -C "$tap" diff --cached --quiet || git -C "$tap" commit -qm "Halftype $versi
 # The tag has to name what was just built.
 git push -q origin HEAD
 if gh release view "v$version" >/dev/null 2>&1; then
-  gh release upload "v$version" "$dmg" "$out/appcast.xml" --clobber
+  gh release upload "v$version" "$dmg" "$out/Halftype-update.dmg" "$out/appcast.xml" --clobber
 else
-  gh release create "v$version" "$dmg" "$out/appcast.xml" --target "$(git rev-parse HEAD)" --title "Halftype $version" --generate-notes
+  gh release create "v$version" "$dmg" "$out/Halftype-update.dmg" "$out/appcast.xml" --target "$(git rev-parse HEAD)" --title "Halftype $version" --notes-file "$notes"
 fi
 git -C "$tap" push -q
 echo "Released $version"

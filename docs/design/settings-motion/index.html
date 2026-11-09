@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tab Motion setting</title>
+<style>
+:root{--ink:#1d1d1f;--muted:#86868b;--page:#f5ede3;--pane:#fbf9f6;--seg:#e9e7e4;--segOn:#d2d0cd;--field:#fff;--line:rgba(0,0,0,.08);--accent:#3478f6}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--page);color:var(--ink);font:13px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}
+h1{font-size:19px;margin:0 0 6px}
+.q{color:#6e6e73;margin:0 0 10px;max-width:900px}
+.rec{background:var(--pane);border-radius:12px;padding:12px 14px;margin:0 0 12px;max-width:900px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+button.ctl{font:inherit;padding:5px 11px;border-radius:7px;border:1px solid var(--line);background:var(--pane);color:var(--ink);cursor:pointer}
+button.ctl.on{background:var(--ink);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,470px),1fr));gap:14px}
+.card h2{font-size:14px;margin:0 0 8px;display:flex;gap:8px;align-items:baseline}
+.card h2 b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--ink);color:#fff;font-size:12px;flex:none}
+.note{color:#6e6e73;font-size:12.5px;margin:8px 2px 0}
+/* The app's pane */
+.pane{background:var(--pane);border-radius:18px;padding:16px 18px 10px}
+.pane .t{font-size:18px;font-weight:600}
+.pane .s{color:var(--muted);font-size:11.5px;margin:1px 0 8px}
+.row{display:flex;align-items:center;gap:10px;padding:7px 0}
+.row .l{flex:1;min-width:0}.row .l div:nth-child(2){color:var(--muted);font-size:11px}
+.dim{opacity:.45}
+.segs{display:inline-flex;background:var(--seg);border-radius:7px;padding:2px;flex:none}
+.segs>span{padding:3px 11px;border-radius:5px;font-size:12px;cursor:pointer;white-space:nowrap}
+.segs>span.on{background:var(--segOn)}
+/* the sample */
+.sample{position:relative;display:inline-block;white-space:pre;font-size:13px;line-height:18px}
+.sample .b{color:rgba(29,29,31,.38)}
+.sample .caret{position:absolute;top:1px;width:1.5px;height:16px;background:var(--accent)}
+.sample .fx{position:absolute;pointer-events:none;border-radius:1px}
+.inset{background:var(--field);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+.tiles{display:flex;gap:10px}
+.tile{flex:1;text-align:center;cursor:pointer}
+.tile .box{background:var(--field);border:1px solid var(--line);border-radius:9px;height:52px;display:grid;place-items:center;outline:3px solid transparent;outline-offset:1px}
+.tile.on .box{outline-color:var(--accent)}
+.tile .cap{font-size:11.5px;margin-top:5px}
+.tile.on .cap{font-weight:600}
+.sub{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 6px}
+.img{width:100%;border-radius:12px;display:block}
+.tag{font-size:10.5px;font-weight:600;background:#ee9a6b;color:#fff;border-radius:4px;padding:1px 5px}
+</style></head><body>
+<h1>Where the Tab motion setting lives in General</h1>
+<p class="q">John: <i>"I don't like how it's part of a line and pushes the text on the left (and also the left text is too long); shouldn't it be in its own section or box or something?"</i> Each card is the General pane as drawn by the app (same sizes and greys), with only this setting changed. Click the segments or tiles to switch motions. Every preview plays on one shared clock.</p>
+<div class="rec"><b>Recommendation: C, three picture tiles, laid out the way image G does it: tiles to the right of the title, so the label column lines up with every other row.</b> It's the pattern macOS itself uses for a visual choice (System Settings › Appearance). You see all three motions at once, so the label needs no explanation, and nothing squeezes the row. It's also cheap: three copies of the preview we already have, each drawn in its own motion, in an HStack. B is the smallest change from today if you'd rather keep a segmented control. D is too heavy for one setting.</div>
+<div class="bar">
+  <button class="ctl" id="replay">Replay</button>
+  <button class="ctl on" data-speed="1">1×</button><button class="ctl" data-speed="0.4">0.4×</button><button class="ctl" data-speed="0.15">0.15×</button>
+</div>
+<div class="grid" id="grid"></div>
+<h2 style="font-size:15px;margin:22px 0 8px">Image ideas <span class="tag">images</span></h2>
+<p class="q">Codex's image tool's own takes, given today's pane and one direction each. They're pictures, not builds: the note says what's worth taking.</p>
+<div class="grid" id="imgs"></div>
+<script>
+const CHOICES=['trail','flash','off'];
+const others=`<div class="row dim"><div class="l"><div>Length</div></div><div class="segs"><span class="on">Short</span><span>Medium</span><span>Long</span></div></div>
+<div class="row dim"><div class="l"><div>How Often</div></div><div class="segs"><span>Less</span><span class="on">Normal</span><span>More</span><span>Always</span></div></div>`;
+const after=`<div class="row dim"><div class="l"><div>Next word</div></div><div>Tab</div></div>`;
+const sample=(m,cls='')=>`<span class="sample ${cls}" data-m="${m}"><span class="a">see you at</span><span class="b"> noon</span><i class="caret"></i><i class="fx"></i></span>`;
+const segs=(sel)=>`<div class="segs pick">${CHOICES.map(c=>`<span data-c="${c}" class="${c===sel?'on':''}">${c[0].toUpperCase()+c.slice(1)}</span>`).join('')}</div>`;
+const pane=(inner,title='General')=>`<div class="pane"><div class="t">${title}</div><div class="s">How much it suggests, and how you take it.</div>${inner}</div>`;
+const OPTIONS=[
+ ["A","Today: squeezed into the row",
+  pane(others+`<div class="row"><div class="l"><div>Taking Words</div><div>What plays at the caret as Tab takes words.</div></div>${sample('trail','live')}${segs('trail')}</div>`+after),
+  "What ships now. The preview pushes the label into three lines and fights the control for room."],
+ ["B","Preview under the row",
+  pane(others+`<div class="row"><div class="l"><div>Tab Motion</div></div>${segs('trail')}</div><div class="inset" style="margin:0 0 8px">${sample('trail','live')}</div>`+after),
+  "A short title and the control, as every other row has, and a full-width sample field under it. No note: the sample says it. Smallest change: move the preview out of the HStack."],
+ ["C","Picture tiles, like Appearance",
+  pane(others+`<div class="row" style="padding-bottom:4px"><div class="l"><div>Tab Motion</div></div></div><div class="tiles pick">${CHOICES.map(c=>`<div class="tile ${c==='trail'?'on':''}" data-c="${c}"><div class="box">${sample(c)}</div><div class="cap">${c[0].toUpperCase()+c.slice(1)}</div></div>`).join('')}</div><div style="height:8px"></div>`+after),
+  "Each choice is its own little field playing its own motion; the chosen one is ringed. No segmented control and no note. It's macOS's own pattern for a visual choice. About 30 lines: three MotionPreviews, which we have."],
+ ["D","Its own pane",
+  pane(others+after)+`<div style="height:12px"></div>`+pane(`<div class="inset" style="padding:16px;text-align:center;margin-bottom:10px">${sample('trail','live')}</div><div style="text-align:center;padding-bottom:8px">${segs('trail')}</div>`,'Tab Motion').replace('How much it suggests, and how you take it.','What plays at the caret when you take words.'),
+  "A section of its own in the sidebar's list, with a large sample. The most room, but a whole pane for one three-way choice is heavy, and it adds a sidebar item."],
+ ["E","Motion inside the control",
+  pane(others+`<div class="row"><div class="l"><div>Tab Motion</div></div><div class="segs pick">${CHOICES.map(c=>`<span data-c="${c}" class="${c==='trail'?'on':''}" style="display:inline-flex;align-items:center;gap:6px">${c==='off'?'':`<span class="sample mini" data-m="${c}" style="font-size:10px;line-height:12px;padding:0"><span class="a">ab</span><span class="b">c</span><i class="caret" style="height:11px;top:1px"></i><i class="fx"></i></span>`}${c[0].toUpperCase()+c.slice(1)}</span>`).join('')}</div></div>`+after),
+  "Each segment carries a tiny looping version of its motion beside its name. The row stays a normal row. The previews are very small, under 12 px, so this works as a hint, not a real preview."],
+ ["F","Plays once when you choose",
+  pane(others+`<div class="row"><div class="l"><div>Tab Motion</div></div>${segs('trail')}</div><div class="inset once" style="margin:0 0 8px">${sample('trail','live once')}</div>`+after),
+  "Like B, but the sample sits still with the words already taken, and plays only when you click a segment (or press Replay here). The calmest page: nothing loops while you read the other settings."],
+];
+const grid=document.getElementById('grid');
+OPTIONS.forEach(([l,n,html,t])=>grid.insertAdjacentHTML('beforeend',`<div class="card" data-k="${l}"><h2><b>${l}</b>${n}</h2>${html}<p class="note">${t}</p></div>`));
+const IMGS=[["G","Tiles beside the title (Codex)","Worth taking: the tiles sit to the right of the title, so the label column stays aligned with the other rows and the setting costs one taller row, not a block. A good way to lay out C."],
+["H","A tinted group of its own (Codex)","Worth taking: a softly tinted box inside General, at the bottom, with a centred sample and control. A middle ground between B and D: it reads as its own section without a sidebar item. Its one-line explanation is the longest text on the page, though."],
+["I","Strip under the row, captioned (Codex)","Much the same as B. Its one idea: a small 'Preview' caption under the field, so the sample isn't mistaken for a real field you can type in."]];
+document.getElementById('imgs').innerHTML=IMGS.map(([l,n,t])=>`<div class="card"><h2><b>${l}</b>${n}</h2><img class="img" src="images/${l}-s.jpg" alt="${n}" onerror="this.replaceWith(Object.assign(document.createElement('p'),{className:'note',textContent:'(image still generating)'}))"><p class="note">${t}</p></div>`).join('');
+// pickers: switching sets every sample in the card that is 'live'
+document.querySelectorAll('.card').forEach(card=>card.querySelectorAll('.pick [data-c]').forEach(el=>el.addEventListener('click',()=>{
+  card.querySelectorAll('.pick [data-c]').forEach(x=>x.classList.toggle('on',x===el));
+  card.querySelectorAll('.sample.live').forEach(s=>s.dataset.m=el.dataset.c);
+  card.querySelectorAll('.sample.once').forEach(s=>s.dataset.start=now());
+})));
+let speed=1,t0=performance.now();
+const now=()=>(performance.now()-t0)/1000*speed;
+const CYCLE=1.8,TAKE=0.8,DUR={trail:.22,flash:.2,off:.2};
+function draw(s,t){
+  const a=s.querySelector('.a'),b=s.querySelector('.b'),c=s.querySelector('.caret'),fx=s.querySelector('.fx');
+  const wa=a.offsetWidth,wb=b.offsetWidth,h=c.offsetHeight,m=s.dataset.m;
+  const taken=t>=TAKE;
+  b.style.color=taken?'var(--ink)':'';
+  c.style.left=(taken?wa+wb:wa)+'px';
+  fx.style.opacity=0;
+  if(!taken||m==='off')return;
+  const p=Math.min((t-TAKE)/DUR[m],1);if(p>=1)return;
+  if(m==='trail'){const e=1-Math.pow(1-p,3),w=wb*(1-e);
+    Object.assign(fx.style,{left:(wa+wb-w)+'px',width:w+'px',top:(c.offsetTop+h+1)+'px',height:'2px',opacity:.9-.7*e,
+      background:`linear-gradient(90deg,rgba(95,155,216,0),rgba(95,155,216,.7) 60%,#ee9a6b)`,backgroundSize:wb+'px 2px',backgroundPosition:'right'})}
+  else{const g=p<.35?1.15-.15*p/.35:1,hh=(h+2)*g;
+    Object.assign(fx.style,{left:(wa+wb-.25)+'px',width:'2px',height:hh+'px',top:(c.offsetTop+h/2-hh/2)+'px',opacity:p<.35?1:1-(p-.35)/.65,
+      background:'linear-gradient(180deg,#5f9bd8,#ee9a6b)',backgroundSize:'auto'})}
+}
+function frame(){
+  const n=now();
+  document.querySelectorAll('.sample').forEach(s=>{
+    if(s.classList.contains('once')){const st=+s.dataset.start;draw(s,isNaN(st)||n-st>CYCLE?CYCLE:n-st)}
+    else draw(s,n%CYCLE);
+  });
+  requestAnimationFrame(frame);
+}
+document.getElementById('replay').onclick=()=>{t0=performance.now();document.querySelectorAll('.sample.once').forEach(s=>s.dataset.start=0)};
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=+b.dataset.speed;t0=performance.now();document.querySelectorAll('.sample.once').forEach(s=>s.dataset.start=0);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('on',x===b))});
+frame();
+</script></body></html>

@@ -8,7 +8,17 @@ import notify
 /// and its text, and any other key or click disarms first, which leaves Tab the app's. Input means any event not marked as ours:
 /// another program's synthetic key counts too, which errs towards disarming.
 class KeyTap: @unchecked Sendable {
-    enum Decision: Equatable { case pass, dismiss(swallow: Bool), accept(all: Bool), reenable }
+    enum Decision: Equatable {
+        case pass, dismiss(swallow: Bool), accept(all: Bool), reenable
+        /// The lesson this key would answer, on a ghost.
+        var taught: Taught? {
+            switch self {
+            case .accept(let all): all ? .shiftTab : .tab
+            case .dismiss(swallow: true): .esc
+            default: nil
+            }
+        }
+    }
 
     /// Why Tab wouldn't reach us, in the menu's words.
     enum Obstacle: String {
@@ -38,6 +48,8 @@ class KeyTap: @unchecked Sendable {
         /// A syllable may be open, for hosts that don't report marked text: the last physical key was a letter, or a Backspace with one
         /// open. A click, an arrow, Return or a shortcut commits it. Wrong towards true would type a stray jamo after a committed syllable.
         var composing = false
+        /// Onboarding's lesson: in our own window, a ghost answers only this key, and the others do nothing at all.
+        var only: Taught?
         /// What the field will hold once our last accept lands; Tab-Tab can beat the host's update. Any other input ends it, as the
         /// field then holds something else: Tab, Backspace, and `hello ther` would otherwise read as on its way to `hello there`.
         var pending: (from: String, to: String)?
@@ -74,6 +86,11 @@ class KeyTap: @unchecked Sendable {
     /// Off this thread at once. Given the generation this input moved to.
     var onInput: (@Sendable (Int) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
+    /// Which key just took or hid a suggestion, for onboarding's lessons. Off this thread at once.
+    enum Taught: Sendable { case tab, shiftTab, esc }
+    var onTaught: (@Sendable (Taught) -> Void)?
+    /// A key the lesson didn't ask for, swallowed with the ghost left up. Off this thread at once.
+    var onRefused: (@Sendable (Taught) -> Void)?
     /// Given the characters a Tab added, which suggestion it took from, the text (nil when typed as strokes: an input method may recompose
     /// the letter before it, moving the text from where the ghost was), and the drawing it was taken from. Off this thread at once.
     var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int, _ text: String?, _ drawing: Int) -> Void)?
@@ -176,6 +193,8 @@ class KeyTap: @unchecked Sendable {
         var suggestion = 0, drawing = 0
         var generation = 0
         var held = false
+        var refused: Taught?
+        var whole = false
         var through: (drawing: Int, text: String)?
         var length = 0, units = [UniChar](repeating: 0, count: 4)
         if Self.types(type, event, flags) { event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &units) }
@@ -183,6 +202,10 @@ class KeyTap: @unchecked Sendable {
         let decision = state.withLock { s -> Decision in
             let armed = s.armed.flatMap { $0.pid == target ? $0 : nil }  // A key for another app is that app's.
             let decision = Self.decide(type: type, keyCode: keyCode, flags: flags, armed: armed != nil)
+            if let only = s.only, armed != nil, target == getpid(), let key = decision.taught, key != only {
+                refused = key
+                return .pass
+            }
             // A held Tab changes nothing, so it is no input: the draw already on its way still arms.
             // Not Shift-Tab, which goes back a field.
             if armed == nil, type == .keyDown, keyCode == Self.tabKey, flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift]).isEmpty,
@@ -198,18 +221,27 @@ class KeyTap: @unchecked Sendable {
             s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
             if case .accept(let all) = decision, let armed {
                 plan = s.accept(armed, all: all)
+                whole = all
                 suggestion = armed.suggestion
                 drawing = armed.drawing
             }
             if plan == nil { s.pending = nil }
             return decision
         }
+        if let refused {
+            onRefused?(refused)
+            return true
+        }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
             onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion, plan.strokes == nil ? plan.text : nil, drawing)
+            onTaught?(whole ? .shiftTab : .tab)
         }
         if decision == .reenable { reenable() }
-        if case .dismiss = decision { onDismiss?() }
+        if case .dismiss(let swallow) = decision {
+            onDismiss?()
+            if swallow { onTaught?(.esc) }  // Swallowed: a ghost was up, so this Esc hid it.
+        }
         if held { return true }
         if let through { onTypedThrough?(through.drawing, through.text, generation) }
         if plan == nil, Self.types(type, event, flags) { onTyped?() }

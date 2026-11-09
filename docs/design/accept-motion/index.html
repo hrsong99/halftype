@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accept motion</title>
+<style>
+:root{--ink:#141416;--ghost:rgba(20,20,22,.38);--field:#fff;--line:rgba(20,20,22,.12);--muted:rgba(20,20,22,.55);--page:#f6f1e9;--card:#fffdf9}
+:root[data-mode=dark]{--ink:#ececee;--ghost:rgba(236,236,238,.38);--field:#1e1e21;--line:rgba(255,255,255,.12);--muted:rgba(236,236,238,.55);--page:#121214;--card:#1a1a1d}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--page);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+h1{font-size:19px;margin:0 0 6px}
+.q{color:var(--muted);margin:0 0 10px}
+.rec{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+button{font:inherit;padding:5px 11px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.on{background:var(--ink);color:var(--page)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.card h2{font-size:14px;margin:0 0 8px;display:flex;gap:8px;align-items:baseline}
+.card h2 b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--ink);color:var(--page);font-size:12px}
+.note{color:var(--muted);font-size:12.5px;margin:8px 0 0}
+.field{position:relative;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:11px 12px;font:15px/22px -apple-system,BlinkMacSystemFont,sans-serif;min-height:46px;white-space:pre-wrap}
+.ghost{color:var(--ghost)}
+.caret{display:inline-block;width:1.5px;height:18px;background:#3478f6;vertical-align:-3px;margin:0 -0.75px}
+.key{position:absolute;right:8px;top:-9px;font:600 10.5px -apple-system,sans-serif;padding:2px 6px;border-radius:5px;background:var(--ink);color:var(--page);opacity:0;transition:opacity .08s}
+.key.on{opacity:.9}
+.w{position:relative;display:inline}
+.fx{position:absolute;left:0;top:0;pointer-events:none;white-space:pre}
+.dot{position:absolute;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle,#5f9bd8,#ee9a6b);pointer-events:none}
+</style></head><body>
+<h1>Accept motion: what happens when Tab takes words, in other apps</h1>
+<p class="q">John: <i>"I don't see [the glint]… I want to see the realistic animations we could have for when we accept a suggestion in most apps."</i> Today the glint plays only in our own window (Try It). In Slack, Mail, Notes and the rest nothing moves. Every option here can be drawn by our click-through panel on top of the host's own text, at the spot where the ghost text was. We can't recolour the host's text. All we can do is paint over it.</p>
+<div class="rec"><b>Recommendation: D, the underline sweep, or C, ink settle, if you want something quieter.</b> D never redraws letters, so it can't look doubled when the host's font or zoom is slightly off from ours. That mismatch is the likely reason the glint was kept to our own window. C is the most "native" feel, since the grey just firms up into ink, but it draws our copy of the letters and needs the same alignment care as B. B (today's glint, turned on everywhere) is the one-line change, but it has that same alignment risk. Every option stays at 250 ms or less, so rapid Tabs never pile up, and none of them move or resize anything.</div>
+<div class="bar">
+  <button id="replay">Replay</button>
+  <button data-speed="1" class="on">1×</button><button data-speed="0.4">0.4×</button><button data-speed="0.15">0.15×</button>
+  <button id="mode">Dark</button>
+</div>
+<div class="grid" id="grid"></div>
+<script>
+const OPTIONS=[
+ ["A","Today: nothing","Ghost words become the host's ink with no motion. Free, and it already ships."],
+ ["B","Glint, everywhere","Try It's 0.25 s blue-to-peach band, painted only on the taken letters. Change: drop the `layout.glass` check (1 line). Risk: it redraws our copy of the letters, so a host whose font or zoom differs from ours shows a doubled edge for a quarter second."],
+ ["C","Ink settle","The taken words start in ghost grey on top of the ink and fade out in 180 ms, so the suggestion seems to firm up into your text. The quietest option. Same letter-alignment risk as B, about 30 lines (a variant of GlintView)."],
+ ["D","Underline sweep","A 2 px blue-to-peach line runs under the taken words, then fades, in 220 ms. It draws no letters, so it's robust to font or zoom mismatch. About 30 lines."],
+ ["E","Highlighter wash","A pale blue tint over the taken words fades out in 250 ms, like a selection that lets go. No letters drawn. It may read as 'selected' at a glance."],
+ ["F","Halftone dissolve","Grey ghost letters break into the icon's halftone dots and fade in 240 ms. On brand, but the busiest, and it draws letters. More code: a dot mask."],
+ ["G","Caret spark","One small dot pops at the new caret position and fades in 200 ms. Nothing on the words. Tiny and robust, but easy to miss."],
+];
+let speed=1,timers=[];
+const grid=document.getElementById('grid');
+OPTIONS.forEach(([l,n,t])=>{grid.insertAdjacentHTML('beforeend',`<div class="card"><h2><b>${l}</b>${n}</h2><div class="field" data-k="${l}"><span class="typed"></span><span class="caret"></span><span class="ghost"></span><span class="key">tab</span></div><p class="note">${t}</p></div>`)});
+const TYPED="Sounds good, see you",GHOST=[" at"," the"," station"," at 6"];
+const S=ms=>ms/speed;
+function at(ms,f){timers.push(setTimeout(f,S(ms)))}
+function fx(kind,word,field){
+  const r=word.getBoundingClientRect(),fr=field.getBoundingClientRect();
+  const txt=word.textContent;
+  const o=document.createElement('span');o.className='fx';
+  const anim=(el,k,d,e='ease-out')=>el.animate(k,{duration:S(d),easing:e,fill:'forwards'}).onfinish=()=>el.remove();
+  if(kind==='B'){o.textContent=txt;o.style.cssText+=`color:transparent;background:linear-gradient(90deg,transparent 0,#73a6e0 35%,#c2d4e8 50%,#ee9a6b 65%,transparent 100%) no-repeat;background-size:60% 100%;-webkit-background-clip:text;background-clip:text`;word.appendChild(o);
+    anim(o,[{backgroundPosition:'-150% 0'},{backgroundPosition:'250% 0'}],250,'cubic-bezier(.45,0,.55,1)')}
+  if(kind==='C'){o.textContent=txt;o.style.color=getComputedStyle(document.documentElement).getPropertyValue('--field');word.appendChild(o);
+    const g=document.createElement('span');g.className='fx';g.textContent=txt;g.style.color='var(--ghost)';word.appendChild(g);
+    anim(o,[{opacity:1},{opacity:0}],180);anim(g,[{opacity:1},{opacity:0}],180)}
+  if(kind==='D'){const lead=txt.match(/^\s*/)[0].length;const sp=document.createElement('span');sp.style.cssText='position:absolute;height:2px;border-radius:1px;top:21px;background:linear-gradient(90deg,#5f9bd8,#ee9a6b);transform-origin:left';
+    const m=document.createElement('canvas').getContext('2d');m.font=getComputedStyle(field).font;const x0=m.measureText(txt.slice(0,lead)).width;sp.style.left=x0+'px';sp.style.width=(m.measureText(txt).width-x0)+'px';word.appendChild(sp);
+    anim(sp,[{transform:'scaleX(0)',opacity:1},{transform:'scaleX(1)',opacity:1,offset:.55},{transform:'scaleX(1)',opacity:0}],220)}
+  if(kind==='E'){o.textContent=txt;o.style.cssText+='color:transparent;background:rgba(95,155,216,.28);border-radius:3px';word.appendChild(o);anim(o,[{opacity:1},{opacity:0}],250,'ease-in')}
+  if(kind==='F'){o.textContent=txt;o.style.cssText+=`color:var(--ink);opacity:.7;-webkit-mask:radial-gradient(circle,#000 38%,transparent 42%) 0 0/4px 4px;mask:radial-gradient(circle,#000 38%,transparent 42%) 0 0/4px 4px`;
+    const c=document.createElement('span');c.className='fx';c.textContent=txt;c.style.color=getComputedStyle(document.documentElement).getPropertyValue('--field');word.append(c,o);
+    anim(c,[{opacity:1},{opacity:0}],90,'linear');anim(o,[{opacity:1,filter:'blur(0)'},{opacity:0,filter:'blur(.6px)'}],240)}
+  if(kind==='G'){const caret=field.querySelector('.caret').getBoundingClientRect();const d=document.createElement('span');d.className='dot';d.style.left=(caret.left-fr.left-3)+'px';d.style.top=(caret.top-fr.top+6)+'px';field.appendChild(d);
+    anim(d,[{transform:'scale(.5)',opacity:1},{transform:'scale(2.2)',opacity:0}],200)}
+}
+function take(field,k,text){
+  const typed=field.querySelector('.typed'),ghost=field.querySelector('.ghost'),key=field.querySelector('.key');
+  const w=document.createElement('span');w.className='w';w.textContent=text;typed.appendChild(w);
+  ghost.textContent=ghost.textContent.slice(text.length);
+  key.classList.add('on');setTimeout(()=>key.classList.remove('on'),S(120));
+  if(k!=='A')fx(k,w,field);
+}
+function run(){
+  timers.forEach(clearTimeout);timers=[];
+  const fields=[...document.querySelectorAll('.field')];
+  fields.forEach(f=>{f.querySelector('.typed').textContent='';f.querySelector('.ghost').textContent='';f.querySelectorAll('.dot').forEach(d=>d.remove())});
+  let t=300;
+  for(let i=1;i<=TYPED.length;i++){const s=TYPED.slice(0,i);at(t,()=>fields.forEach(f=>f.querySelector('.typed').textContent=s));t+=55}
+  at(t+120,()=>fields.forEach(f=>f.querySelector('.ghost').textContent=GHOST.join('')));
+  t+=900;
+  [[" at",0],[" the",380],[" station",380],[" at 6",900]].forEach(([w,d])=>{t+=d;at(t,()=>fields.forEach(f=>{take(f,f.dataset.k,w);if(w===' at 6')f.querySelector('.key').textContent='⇧ tab'}))});
+  at(t-1000,()=>fields.forEach(f=>f.querySelector('.key').textContent='tab'));
+  at(t+1800,run);
+}
+document.getElementById('replay').onclick=run;
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=+b.dataset.speed;document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('on',x===b));run()});
+document.getElementById('mode').onclick=e=>{const d=document.documentElement.dataset.mode==='dark';document.documentElement.dataset.mode=d?'':'dark';e.target.textContent=d?'Dark':'Light'};
+run();
+</script></body></html>

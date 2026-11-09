@@ -17,14 +17,14 @@ final class ModelStore: NSObject, URLSessionDownloadDelegate, @unchecked Sendabl
 
     /// First is the default. Notes come from the measurements in docs/measuring.md.
     static let models = [
-        Model(name: "Qwen 3.5 0.8B", note: "The default. The smallest and quickest.", file: "Qwen3.5-0.8B-Q4_K_M.gguf",
+        Model(name: "Gemma 4 E2B", note: "The default. Best in English, and the largest.", file: "gemma-4-E2B.Q4_K_M.gguf",
+              sha256: "389c868898bffed97fd178646f88562cafecc6f60983a636bac53b131fd068a2", repo: "mradermacher/gemma-4-E2B-GGUF", size: 3_427_861_984, logo: "gemma.pdf"),
+        Model(name: "Qwen 3.5 0.8B", note: "The smallest and quickest, a sixth of the size.", file: "Qwen3.5-0.8B-Q4_K_M.gguf",
               sha256: "bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517", repo: "unsloth/Qwen3.5-0.8B-GGUF", size: 532_517_120, logo: "qwen.pdf"),
         Model(name: "Qwen 3.5 2B", note: "Better in Korean, and 2.4 times the size.", file: "Qwen3.5-2B-Q4_K_M.gguf",
               sha256: "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223", repo: "unsloth/Qwen3.5-2B-GGUF", size: 1_280_835_840, logo: "qwen.pdf"),
         Model(name: "Kanana 1.5", note: "From Kakao, and strongest in Korean.", file: "kanana-1.5-2.1b-base.Q4_K_M.gguf",
               sha256: "e5ac9254ca38cab1a8c0821d7b67e4b4bb0fe6e901c10569e77125b252b14ff1", repo: "mradermacher/kanana-1.5-2.1b-base-GGUF", size: 1_393_493_632, logo: "kakao.png"),
-        Model(name: "Gemma 4 E2B", note: "Slightly better in English, and much larger.", file: "gemma-4-E2B.Q4_K_M.gguf",
-              sha256: "389c868898bffed97fd178646f88562cafecc6f60983a636bac53b131fd068a2", repo: "mradermacher/gemma-4-E2B-GGUF", size: 3_427_861_984, logo: "gemma.pdf"),
     ]
 
     enum State: Equatable { case waiting, downloading(Double), verifying, ready, failed(String), cancelled }

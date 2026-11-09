@@ -5,13 +5,13 @@ import ServiceManagement
 import SwiftUI
 
 /// The one window, in the manner of Ollama's app: a field to type in, and below it, one scroll down, every setting.
-/// A floating card lists the sections. It comes with the settings and leaves with the field, unless its button pins it open or shut. It exists only while open.
+/// A floating card lists the sections. Only its button opens or shuts it; scrolling never does (John didn't like it following the scroll). It exists only while open.
 struct Root: View {
     @ObservedObject var app: App
     /// Stays in memory, and goes when the window closes.
     @State private var draft = ""
-    /// nil: the card follows the scroll. The toggle pins it either way until the window closes.
-    @State private var pinned: Bool?
+    /// Starts shut; only the toggle changes it, and it resets when the window closes.
+    @State private var open: Bool
     /// The sections whose top has passed the middle of the window.
     @State private var passed: Set<Page>
     /// Scrolled to the end, where the last section may never reach the middle.
@@ -19,13 +19,15 @@ struct Root: View {
 
     private let picking: Bool
     private let start: Page
+    private let onboardingStep: Onboarding.Step
 
-    /// `page` is where the window opens scrolled to, and `sidebar` pins the card, for the window shots.
-    init(app: App, page: Page = .field, sidebar: Bool? = nil, picking: Bool = false) {
+    /// `page` is where the window opens scrolled to, and `sidebar` opens the card, for the window shots.
+    init(app: App, page: Page = .field, sidebar: Bool = false, picking: Bool = false, onboardingStep: Onboarding.Step = .welcome) {
         self.app = app
+        self.onboardingStep = onboardingStep
         self.picking = picking
         start = page
-        _pinned = State(initialValue: sidebar)
+        _open = State(initialValue: sidebar)
         _passed = State(initialValue: Set(Page.allCases.prefix { $0 != page }).union([page]))
     }
 
@@ -39,9 +41,20 @@ struct Root: View {
 
     /// The section being read: the last whose top is above the middle.
     private var current: Page { end ? .general : Page.allCases.last { passed.contains($0) } ?? .field }
-    private var open: Bool { pinned ?? (current != .field) }
 
     var body: some View {
+        Group {
+            if app.onboarding { Onboarding(app: app, step: onboardingStep) } else { home }
+        }
+        .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
+        // The icon's cream tile.
+        .background(Root.cream)
+        // Cream in dark mode too (docs/design/home-glass).
+        .preferredColorScheme(.light)
+        .ignoresSafeArea()
+    }
+
+    private var home: some View {
         ScrollViewReader { proxy in
             let go = { (page: Page) in withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(page, anchor: .top) } }
             ScrollView {
@@ -68,19 +81,13 @@ struct Root: View {
         }
         .animation(.easeOut(duration: 0.25), value: open)
         .overlay(alignment: .topLeading) {
-            Button { pinned = !open } label: { Image(systemName: "sidebar.left") }
+            Button { open.toggle() } label: { Image(systemName: "sidebar.left") }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
                 .help(open ? "Hide sidebar" : "Show sidebar")
                 .padding(.leading, 84)
                 .padding(.top, 9)
         }
-        .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
-        // The icon's cream tile.
-        .background(Color(red: 0.965, green: 0.945, blue: 0.914))
-        // Cream in dark mode too (docs/design/home-glass).
-        .preferredColorScheme(.light)
-        .ignoresSafeArea()
     }
 
     /// Every setting, a card a section, each marking when it reaches the middle of the window.
@@ -158,10 +165,12 @@ struct Root: View {
 
     /// The ribbon's peach, deeper, for small marks on cream.
     static let peach = Color(red: 0.9, green: 0.58, blue: 0.42)
+    /// The icon's cream tile, the window's ground and the Settings card's.
+    static let cream = Color(red: 0.965, green: 0.945, blue: 0.914)
 }
 
 /// The app icon's cursive h (docs/icon/menubar.svg, on an 18-point grid): an inked stem, then an arch that thins into the icon's blue and peach.
-private struct Mark: View {
+struct Mark: View {
     var body: some View {
         Canvas { context, size in
             let s = size.width / 18
@@ -182,17 +191,23 @@ private struct Mark: View {
     }
 }
 
-private struct FieldPage: View {
+struct FieldPage: View {
     @ObservedObject var app: App
     @Binding var draft: String
     let showAll: () -> Void
+    /// The mark above, the room below and the line that teaches the keys, which onboarding's lessons draw their own way.
+    var chrome = true
+    /// A lesson's keys, drawn in the field where the model and the switch go.
+    var keycaps: [String] = []
     @FocusState private var focused: Bool
     @State private var picking: Bool
     /// The watcher's reason once it has held for a moment, so typing doesn't flicker the line.
     @State private var settled: Watcher.Why
 
-    init(app: App, draft: Binding<String>, picking: Bool = false, showAll: @escaping () -> Void) {
+    init(app: App, draft: Binding<String>, picking: Bool = false, chrome: Bool = true, keycaps: [String] = [], showAll: @escaping () -> Void) {
         self.app = app
+        self.chrome = chrome
+        self.keycaps = keycaps
         self.showAll = showAll
         _draft = draft
         _picking = State(initialValue: picking)
@@ -201,12 +216,12 @@ private struct FieldPage: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Mark()
+            if chrome { Mark() }
             if app.trusted { field.zIndex(1) } else { allow }  // The list hangs over what's below the field.
-            status
+            if chrome { status }
         }
-        .padding(24)
-        .padding(.bottom, 40)
+        .padding(.horizontal, 24).padding(.vertical, chrome ? 24 : 12)
+        .padding(.bottom, chrome ? 40 : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // A click anywhere else only closes the list.
         .background { if picking { Color.black.opacity(0.001).onTapGesture { picking = false } } }
@@ -215,7 +230,7 @@ private struct FieldPage: View {
     private var allow: some View {
         VStack(spacing: 12) {
             Text("Halftype needs to see what you type. It stays on this Mac.").foregroundStyle(.secondary)
-            Button("Allow Accessibility", action: app.askForAccessibility).buttonStyle(.borderedProminent).tint(.primary).buttonBorderShape(.capsule)
+            Button("Allow Accessibility", action: app.askForAccessibility).buttonStyle(Ink())
         }
     }
 
@@ -223,7 +238,7 @@ private struct FieldPage: View {
         VStack(alignment: .trailing, spacing: 4) {
             ZStack(alignment: .topLeading) {
                 if draft.isEmpty {
-                    Text(!app.on ? "Halftype is off" : app.ready ? "Type here, then press Tab on the grey text" : "Type here once the model is ready")
+                    Text(!app.on ? "Halftype is off" : app.ready || app.practicing ? "Type here, then press Tab on the grey text" : "Type here once the model is ready")
                         .foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
                 }
                 TextEditor(text: $draft).focused($focused).scrollContentBackground(.hidden).scrollIndicators(.never).frame(height: 44)
@@ -234,35 +249,16 @@ private struct FieldPage: View {
                     }
             }
             .font(.system(size: 15))
-            HStack(spacing: 8) {
-                Button { picking.toggle() } label: {
-                    HStack(spacing: 6) {
-                        if app.loadingName != nil { ProgressView().controlSize(.mini) }
-                        Text(app.loadingName ?? app.activeName)
-                    }
-                    .font(.system(size: 12)).padding(.horizontal, 10).padding(.vertical, 4).background(Color(nsColor: .textBackgroundColor), in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(app.loadingName.map { "Loading model: \($0)" } ?? "Model: \(app.activeName)")
-                .overlay(alignment: .topTrailing) {
-                    if picking {
-                        ModelList(app: app) { picking = false } showAll: { picking = false; showAll() }.offset(y: 32)
-                    }
-                }
-                Button { app.on.toggle() } label: {
-                    Image(systemName: "power").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(nsColor: .textBackgroundColor))
-                        .frame(width: 24, height: 24)
-                        .background(app.on ? Color.primary : Color.secondary.opacity(0.4), in: Circle())
-                }
-                .buttonStyle(.plain)
-                .help(app.on ? "Halftype is on. Click to turn it off." : "Halftype is off. Click to turn it on.")
-                .accessibilityLabel(app.on ? "Turn Halftype off" : "Turn Halftype on")
+            if keycaps.isEmpty { controls } else {
+                HStack(spacing: 4) { ForEach(keycaps, id: \.self) { Keycap(label: $0) } }.frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 9, trailing: 10))
         .pane()
         .frame(maxWidth: 500)
-        .onAppear { focused = true }
+        // A turn later: a field swapped in (an onboarding step, the home after it) isn't in the window yet when it appears.
+        // `.defaultFocus` left it unfocused there, so the lesson's first Tab only moved focus (tried live, 2026-11-09).
+        .onAppear { DispatchQueue.main.async { focused = true } }
         .onChange(of: draft) { picking = false }
         .onChange(of: app.ready, initial: true) { if let sentence = app.takePrefill(draft: draft) { draft = sentence } }
         .task(id: app.why) {
@@ -271,16 +267,45 @@ private struct FieldPage: View {
         }
     }
 
+    /// The model and the on switch, at the field's foot.
+    private var controls: some View {
+        HStack(spacing: 8) {
+            Button { picking.toggle() } label: {
+                HStack(spacing: 6) {
+                    // While practice answers, the model on its way, not "No Model".
+                    if app.loadingName != nil || app.practicing { ProgressView().controlSize(.mini) }
+                    Text(app.loadingName ?? (app.practicing ? app.store.current.name : app.activeName))
+                }
+                .font(.system(size: 12)).padding(.horizontal, 10).padding(.vertical, 4).background(Color(nsColor: .textBackgroundColor), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(app.loadingName.map { "Loading model: \($0)" } ?? "Model: \(app.activeName)")
+            .overlay(alignment: .topTrailing) {
+                if picking {
+                    ModelList(app: app) { picking = false } showAll: { picking = false; showAll() }.offset(y: 32)
+                }
+            }
+            Button { app.on.toggle() } label: {
+                Image(systemName: "power").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(nsColor: .textBackgroundColor))
+                    .frame(width: 24, height: 24)
+                    .background(app.on ? Color.primary : Color.secondary.opacity(0.4), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .help(app.on ? "Halftype is on. Click to turn it off." : "Halftype is off. Click to turn it on.")
+            .accessibilityLabel(app.on ? "Turn Halftype off" : "Turn Halftype on")
+        }
+    }
+
     /// The model until it's ready, then what the menu says about this field: how to take a ghost, that it worked, or why there's none.
     @ViewBuilder private var status: some View {
         VStack(spacing: 6) {
-            if !app.ready || app.notice != nil {
+            if (!app.ready && !app.practicing) || app.notice != nil {
                 NoticeLine(app: app, text: app.notice ?? app.modelLine)
                 if !app.ready, app.downloading != nil {
                     ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary)
                     Line(text: "You can close this window.")
                 }
-            } else if let line = app.fieldLine(settled) {
+            } else if chrome, let line = app.fieldLine(settled) {
                 HStack(spacing: 8) {
                     Line(text: line)
                     if line == App.success, !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }
@@ -304,7 +329,7 @@ extension View {
 }
 
 /// The icon's arch drawn large and out of focus, blue to peach, behind the field (docs/design/home-glass).
-private struct Arch: View {
+struct Arch: View {
     var body: some View {
         Canvas { context, size in
             // The arch on a 720 x 460 window, scaled to this one.
@@ -323,7 +348,7 @@ private struct Arch: View {
     }
 }
 
-private struct Line: View {
+struct Line: View {
     let text: String
     var body: some View { Text(text).font(.system(size: 12)).foregroundStyle(.secondary) }
 }
@@ -714,6 +739,59 @@ private struct ModelsPage: View {
     }
 }
 
+/// One choice of Tab Motion, as System Settings shows Appearance: a little field playing it, its name under, a ring when chosen.
+private struct MotionTile: View {
+    let motion: AcceptMotion
+    @Binding var chosen: AcceptMotion
+    private var name: String { motion.rawValue.capitalized }
+    var body: some View {
+        let on = chosen == motion
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        Button { chosen = motion } label: {
+            VStack(spacing: 6) {
+                MotionPreview(motion: motion)
+                    .frame(maxWidth: .infinity).frame(height: 44)
+                    .background(Color(nsColor: .textBackgroundColor), in: shape)
+                    .overlay(shape.strokeBorder(.primary.opacity(0.09)))
+                    .shadow(color: .black.opacity(0.06), radius: 1.5, y: 1)
+                    .padding(3)
+                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.accentColor, lineWidth: 2).opacity(on ? 1 : 0))
+                Text(verbatim: name).font(.system(size: 11.5, weight: on ? .medium : .regular)).foregroundStyle(on ? .primary : .secondary).fixedSize()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(name)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// The chosen motion on a loop, drawn by the app's own code: "see you at" takes " noon" with a Tab every 1.8 s.
+private struct MotionPreview: View {
+    let motion: AcceptMotion
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        TimelineView(.animation(paused: reduceMotion)) { timeline in
+            Canvas { g, size in
+                // Reduce Motion: the words already taken, as the app then plays nothing.
+                let t = reduceMotion ? 1.79 : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8)
+                let typed = g.resolve(Text("see you at").font(.system(size: 12)).foregroundColor(.primary))
+                let taken = g.resolve(Text(" noon").font(.system(size: 12)).foregroundColor(.primary.opacity(t < 0.8 ? 0.38 : 1)))
+                let tw = typed.measure(in: size).width, nw = taken.measure(in: size).width
+                let mid = size.height / 2, left = ((size.width - tw - nw) / 2).rounded(), w = left + tw, all = w + nw
+                g.draw(typed, at: CGPoint(x: left, y: mid), anchor: .leading)
+                g.draw(taken, at: CGPoint(x: w, y: mid), anchor: .leading)
+                let from = CGRect(x: w, y: mid - 7.5, width: 1.5, height: 15), to = CGRect(x: all, y: mid - 7.5, width: 1.5, height: 15)
+                g.fill(Path(t < 0.8 ? from : to), with: .color(Color(nsColor: .controlAccentColor)))
+                if t >= 0.8, motion != .off {
+                    g.withCGContext { AcceptMotion.draw(motion, from: from, to: to, progress: min((t - 0.8) / motion.duration, 1), in: $0) }
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 private struct AppsPage: View {
     @ObservedObject var app: App
     var body: some View {
@@ -745,6 +823,12 @@ private struct GeneralPage: View {
                 Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more); Text("Always").tag(Often.always) }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 280)
             }
+            // Under its title at full width, as System Settings' Appearance: beside it, three tiles crush the title in a small window.
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Tab Motion")
+                HStack(spacing: 12) { ForEach(AcceptMotion.allCases, id: \.self) { MotionTile(motion: $0, chosen: $app.motion) } }
+            }
+            .padding(.vertical, 9)
             if let path = app.activePath, App.adapterFile(for: path) != nil {
                 Row(title: "Personal Model", note: "Trained on your writing. Compare leaves it off every other day, for Stats.") {
                     Picker("", selection: $app.personal) { Text("Off").tag(Personal.off); Text("Compare").tag(Personal.compare); Text("On").tag(Personal.on) }
@@ -823,6 +907,7 @@ extension App {
 
     /// The system's prompt comes once a launch, and a second click goes where it would have sent you.
     func askForAccessibility() {
+        guide.show()
         if askedForAccessibility {
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
         } else {

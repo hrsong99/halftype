@@ -366,6 +366,37 @@ import Testing
         #expect(tap.state.withLock { $0.armed == nil } && dismissed.load(ordering: .relaxed) == 1)
         #expect(!press(tap, key(53)).swallowed)
     }
+    @Test func theLessonsHearWhichKeyTookOrHidTheGhost() {
+        let heard = Mutex<[KeyTap.Taught]>([])
+        let tap = KeyTap()
+        tap.onTaught = { key in heard.withLock { $0.append(key) } }
+        _ = press(tap, key(53))  // No ghost: the app's Esc, no lesson.
+        armed(tap, Ghost(remainder: " there now"))
+        _ = press(tap, key(48))
+        armed(tap, Ghost(remainder: " there now"))
+        _ = press(tap, key(48, flags: .maskShift))
+        armed(tap, Ghost(remainder: " there now"))
+        _ = press(tap, key(53))
+        #expect(heard.withLock { $0 } == [.tab, .shiftTab, .esc])
+    }
+    @Test func aLessonsGhostAnswersOnlyItsKeyInOurWindow() {
+        let heard = Mutex<[KeyTap.Taught]>([]), refused = Mutex<[KeyTap.Taught]>([])
+        let tap = KeyTap()
+        tap.onTaught = { key in heard.withLock { $0.append(key) } }
+        tap.onRefused = { key in refused.withLock { $0.append(key) } }
+        tap.state.withLock { $0.only = .shiftTab }
+        let ours = getpid()
+        armed(tap, Ghost(remainder: " there now"), pid: ours)
+        #expect(press(tap, key(48, pid: ours)).swallowed, "Tab does nothing, not even a tab")
+        #expect(press(tap, key(53, pid: ours)).swallowed)
+        #expect(tap.state.withLock { $0.armed != nil }, "the ghost stays up")
+        _ = press(tap, key(48, pid: ours, flags: .maskShift))
+        #expect(heard.withLock { $0 } == [.shiftTab] && refused.withLock { $0 } == [.tab, .esc])
+        // Another app's ghost is untouched by the lesson.
+        armed(tap, Ghost(remainder: " there now"))
+        _ = press(tap, key(48))
+        #expect(heard.withLock { $0 } == [.shiftTab, .tab])
+    }
     @Test func escAimedAtAnotherAppIsThatApps() {
         let tap = KeyTap()
         armed(tap, Ghost(remainder: " there"))
@@ -398,8 +429,8 @@ import Testing
         event.setIntegerValueField(.eventTargetUnixProcessID, value: Int64(target))
         return event
     }
-    func armed(_ tap: KeyTap, _ ghost: Ghost, typesKeys: Bool = false, committed: String = "hello") {
-        #expect(tap.arm(.init(pid: pid, ghost: ghost, typesKeys: typesKeys, committed: committed, before: committed), generation: tap.generation))
+    func armed(_ tap: KeyTap, _ ghost: Ghost, typesKeys: Bool = false, committed: String = "hello", pid target: pid_t? = nil) {
+        #expect(tap.arm(.init(pid: target ?? pid, ghost: ghost, typesKeys: typesKeys, committed: committed, before: committed), generation: tap.generation))
     }
     /// Text of Unicode events, jamo by key code.
     func press(_ tap: KeyTap, _ event: CGEvent, type: CGEventType = .keyDown) -> (swallowed: Bool, posted: [CGEvent]) {
@@ -631,11 +662,16 @@ final class CountingCompleter: Completer, @unchecked Sendable {
     var answers = true
     /// True answers, then stops short with nil, as a decode failure after streaming does.
     var stopsShort = false
+    /// True answers word by word, as the engine streams once the first word has passed the gate.
+    var streams = false
     init(_ text: String) { self.text = text }
     func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) {
         asks.add(1, ordering: .relaxed)
         onAsk?()
-        onResult(answers ? Suggestion(text: text, gate: gate) : nil)
+        if answers, streams {
+            var so = ""
+            for word in text.split(separator: " ") { so += " " + word; onResult(Suggestion(text: so, gate: gate)) }
+        } else { onResult(answers ? Suggestion(text: text, gate: gate) : nil) }
         if stopsShort { onResult(nil) }
     }
     func cancel() {}
@@ -953,6 +989,32 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         #expect(await soon { seen.withLock { $0 } == .shown })
         #expect(!keys.press(tap, keys.key(8, pid: 0, flags: .maskCommand)).swallowed)  // Cmd-C: the field doesn't change.
         #expect(await soon { seen.withLock { $0 } == .idle && !panel.isVisibleGhost })
+    }
+    @Test func aDayIsMarkedPersonalOnlyOnceTheEngineMatchesToday() {
+        func marked(_ hasAdapter: Bool, _ applied: Bool?, _ wanted: Bool) -> (with: Bool, without: Bool) {
+            var tally = Tally()
+            App.markPersonal(&tally, hasAdapter: hasAdapter, applied: applied, wanted: wanted)
+            let day = tally.days.values.first ?? Tally.Day()
+            return (day.withModel, day.withoutModel)
+        }
+        #expect(marked(false, true, true) == (true, true), "no adapter: mixed, so out of the comparison")
+        #expect(marked(true, true, true) == (true, false))
+        #expect(marked(true, false, false) == (false, true))
+        #expect(marked(true, false, true) == (false, false), "the engine hasn't caught up with today")
+        #expect(marked(true, nil, true) == (false, false), "unloaded")
+    }
+    @Test func aStreamedSuggestionIsShownOnce() async {
+        let model = CountingCompleter(" there my friend")
+        model.streams = true
+        let watcher = watcher(Field(before: "hello"), completer: model)
+        host.now.withLock { $0.caretX = 130 }  // Room for all three words.
+        let shown = Atomic<Int>(0)
+        watcher.onShown = { shown.add(1, ordering: .relaxed) }
+        watcher.scheduleUpdate()
+        #expect(await soon { armed()?.ghost.remainder == " there my friend" })
+        await watcher.settle()
+        #expect(shown.load(ordering: .relaxed) == 1)
+        watcher.hideNow()
     }
     @Test func aModelThatStopsShortTakesBackWhatItStreamed() async {
         let model = CountingCompleter(" there friend")
@@ -1446,6 +1508,52 @@ final class FakeServer: URLProtocol {
         app.menuNeedsUpdate(menu)
         #expect(menu.items.contains { $0.title == "Halftype 0.1.9 is available: Update…" && $0.action == #selector(App.checkForUpdates) })
     }
+    @Test func practiceAnswersItsSentencesAndLeavesTheRestToTheModel() async {
+        final class Model: Completer, @unchecked Sendable {
+            var asked = 0
+            func suggest(prefix: String, fragment: String, composing: String, onResult: @escaping @Sendable (Suggestion?) -> Void) { asked += 1; onResult(Suggestion(text: " model", gate: 0)) }
+            func cancel() {}
+            func unload() {}
+        }
+        let model = Model(), practice = Practice(over: model)
+        let ours = Mutex<String?>(nil), other = Mutex<String?>(nil)
+        practice.suggest(prefix: "Thanks so much for the", fragment: "", composing: " ") { r in ours.withLock { $0 = r?.text } }
+        practice.suggest(prefix: "Something else", fragment: "", composing: " ") { r in other.withLock { $0 = r?.text } }
+        #expect(ours.withLock { $0 } == " birthday wishes, it made my day." && other.withLock { $0 } == " model" && model.asked == 1)
+    }
+
+    @Test func eachLessonStartsOnAPracticeSentence() {
+        for step in Onboarding.Step.allCases {
+            guard let lesson = Lesson.of(step) else { continue }
+            #expect(Practice.rest(after: lesson.prefill) != nil, "\(step) would wait for the model")
+        }
+    }
+
+    @Test func practiceFinishesOnlyItsOwnSentence() {
+        #expect(Practice.rest(after: "Please let me know if you have any") == " questions or concerns.")
+        #expect(Practice.rest(after: "Context.\nPlease let me know if you have any qu") == "estions or concerns.")
+        #expect(Practice.rest(after: "Please let me know if you have any questions or concerns.") == nil, "nothing past the end")
+        #expect(Practice.rest(after: "Running a little late") == nil)
+        #expect(Practice.rest(after: "Please") == nil, "too little to be sure it's the practice")
+        // Before a model, the prefill comes for practice, in English.
+        let app = App()
+        app.practicing = true
+        app.fresh = true
+        #expect(app.takePrefill(draft: "") == "Please let me know if you have any")
+        #expect(app.takePrefill(draft: "") != nil, "again in a field opened again, as practice knows only this sentence")
+        #expect(app.takePrefill(draft: "mine") == nil)
+    }
+
+    @Test func theGuideSitsBesideSettingsAndStaysOnScreen() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 900), card = CGSize(width: 200, height: 180)
+        let (left, onLeft) = SettingsGuide.place(beside: CGRect(x: 600, y: 200, width: 700, height: 600), size: card, in: screen)
+        #expect(onLeft && left.x == 600 - 14 - 200 && left.y == 800 - 120 - 180)
+        let (right, onRight) = SettingsGuide.place(beside: CGRect(x: 50, y: 200, width: 700, height: 600), size: card, in: screen)
+        #expect(!onRight && right.x == 750 + 14)
+        let (inside, _) = SettingsGuide.place(beside: CGRect(x: 50, y: 0, width: 1340, height: 900), size: card, in: screen)
+        #expect(inside.x == 64 && inside.y >= 0 && inside.y + card.height <= 900)
+    }
+
     @Test func theFieldIsPrefilledOnlyOnAFreshLaunchOnceReady() {
         #expect(App.prefill(fresh: true, ready: true, draft: "", korean: false) == "Please let me know if you have any")
         #expect(App.prefill(fresh: true, ready: true, draft: "", korean: true) == "안녕하세요. 만나서 반갑")
@@ -1460,7 +1568,7 @@ final class FakeServer: URLProtocol {
     }
     @Test func onlyAModelNotInUseCanBeDeleted() throws {
         let app = App()
-        let (kanana, qwen) = (ModelStore.models[0], ModelStore.models[1])
+        let (kanana, qwen) = (ModelStore.models[0], ModelStore.models[1])  // Any two of ours.
         app.activePath = app.store.path(kanana).path
         #expect(!app.canDelete(kanana) && app.canDelete(qwen))
         app.downloading = qwen.id
@@ -1510,6 +1618,27 @@ final class FakeServer: URLProtocol {
     }
 }
 
+/// The Settings card for real: opens System Settings at Accessibility and docks the card beside it, then a screenshot. It takes focus,
+/// so ask first. Reaches the one onboarding step a Mac that already has the grant can't: `HALFTYPE_GUIDE=<png> swift test --filter GuideLive`.
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["HALFTYPE_GUIDE"] != nil)) @MainActor struct GuideLive {
+    @Test func theCardDocksBesideSettings() throws {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+        let guide = SettingsGuide()
+        guide.show()
+        RunLoop.main.run(until: Date().addingTimeInterval(4))
+        let settings = try #require(SettingsGuide.settingsFrame(), "System Settings has no window")
+        let card = try #require(guide.panel, "no card")
+        #expect(card.isVisible && (abs(card.frame.maxX + 14 - settings.minX) < 1 || abs(card.frame.minX - 14 - settings.maxX) < 1 || settings.contains(card.frame.origin)))
+        let shot = Process()
+        shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        shot.arguments = ["-x", ProcessInfo.processInfo.environment["HALFTYPE_GUIDE"]!]
+        try shot.run()
+        shot.waitUntilExit()
+        guide.close()
+        #expect(guide.panel == nil)
+    }
+}
+
 /// The window's states as PNGs, drawn off screen, so nothing takes focus. `HALFTYPE_SHOTS=<dir> swift test --filter WindowShots`. cacheDisplay leaves out SwiftUI's Canvas, so the ribbon shows only in 15.
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] != nil)) @MainActor struct WindowShots {
     let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["HALFTYPE_SHOTS"] ?? "")
@@ -1536,12 +1665,12 @@ final class FakeServer: URLProtocol {
     }
 
     /// A window ordered in at the back, never key, captured by its ID: the only picture with both the ribbon and a ScrollView.
-    func onScreen(_ name: String, _ root: Root, _ size: CGSize) throws {
+    func onScreen(_ name: String, _ root: Root, _ size: CGSize, wait: TimeInterval = 1.2) throws {
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = NSHostingView(rootView: root)
         window.orderBack(nil)
         defer { window.orderOut(nil) }
-        RunLoop.main.run(until: Date().addingTimeInterval(1.2))
+        RunLoop.main.run(until: Date().addingTimeInterval(wait))
         let file = dir.appendingPathComponent("\(name).png"), shot = Process()
         try? FileManager.default.removeItem(at: file)  // An old PNG must not pass for this run's.
         shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
@@ -1557,6 +1686,11 @@ final class FakeServer: URLProtocol {
         let ready: (App) -> Void = { $0.trusted = true; $0.activePath = $0.store.path(ModelStore.models[0]).path }
         shoot("1-allow-downloading", app { $0.modelChanged(.downloading(0.37)) })
         shoot("2-field-downloading", app { $0.trusted = true; $0.modelChanged(.downloading(0.37)) })
+        // The welcome at its offer (glass), then played out; the others as they open.
+        for (step, wait, name) in [(Onboarding.Step.welcome, 2.3, "0-welcome-offer"), (.welcome, 4.5, "0-welcome"), (.allow, 1.2, "1-allow"), (.tab, 1.2, "2-tab"), (.shiftTab, 1.2, "3-shift-tab"), (.esc, 1.2, "4-esc"), (.done, 1.2, "5-done")] {
+            try onScreen("17-onboarding-\(name)", Root(app: app { $0.onboarding = true; $0.trusted = step.rawValue > 1; $0.practicing = true; $0.fresh = true
+                $0.modelChanged(.downloading(0.41)) }, onboardingStep: step), CGSize(width: 720, height: 500), wait: wait)
+        }
         let host = shoot("3-prefilled-teach", app { ready($0); $0.fresh = true; $0.why = .shown })
         let field = try #require(textView(in: host))
         #expect(field.string == "Please let me know if you have any")
@@ -1571,7 +1705,7 @@ final class FakeServer: URLProtocol {
         // The whole window with its ribbon, at the smallest size, the usual one and a tall one, at the field and scrolled into the settings.
         // ImageRenderer draws no ScrollView, so these are a real window, shown behind everything without taking focus.
         for (width, height) in [(640.0, 440.0), (720.0, 500.0), (900.0, 820.0)] {
-            for page in [Root.Page.field, .stats, .models] {
+            for page in [Root.Page.field, .stats, .models, .general] {
                 try onScreen("15-window-\(Int(width))x\(Int(height))-\(page.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))",
                              Root(app: app { ready($0); $0.why = .idle }, page: page), CGSize(width: width, height: height))
             }
@@ -1659,6 +1793,59 @@ final class FakeServer: URLProtocol {
         #expect(panel.isVisible)
         RunLoop.main.run(until: Date().addingTimeInterval(0.6))
         #expect(!panel.isVisible, "the display link ran it to the end and took it down")
+    }
+
+    @MainActor @Test(.enabled(if: !NSScreen.screens.isEmpty && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion))
+    func inAnotherAppTheMotionWaitsForTheAcceptToLand() throws {
+        let caret = CGRect(x: 200, y: 200, width: 0, height: 18), there = caret.offsetBy(dx: 40, dy: 0)
+        let spec = GhostSpec(text: " notes", caret: caret, frame: CGRect(x: 100, y: 190, width: 400, height: 40),
+                             fontSize: 15, fontName: nil, color: nil, lineLeft: nil, previousCharacter: "e", mayWrap: false)
+        let panel = GhostPanel()
+        defer { panel.hideGhost() }
+        try #require(panel.show(spec) != nil)
+        panel.landed(at: there)
+        #expect(!panel.caretMotion.isVisible, "no Tab, no motion")
+        panel.took(" notes", drawing: panel.drawing - 1)
+        panel.landed(at: there)
+        #expect(!panel.caretMotion.isVisible, "a Tab armed on an earlier drawing")
+        panel.took(" notes", drawing: panel.drawing)
+        panel.landed(at: caret)
+        #expect(!panel.caretMotion.isVisible, "the caret hasn't moved")
+        panel.took(" notes", drawing: panel.drawing)
+        panel.landed(at: there)
+        #expect(panel.caretMotion.isVisible)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+        #expect(!panel.caretMotion.isVisible, "played through and gone")
+        try #require(panel.show(spec) != nil)
+        panel.took(nil, drawing: panel.drawing)
+        panel.landed(at: there)
+        #expect(panel.caretMotion.isVisible, "a 2-set Tab, which types keys and so has no text to trim, plays it too")
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+        panel.motion = .off
+        try #require(panel.show(spec) != nil)
+        panel.took(" notes", drawing: panel.drawing)
+        panel.landed(at: there)
+        #expect(!panel.caretMotion.isVisible)
+    }
+
+    /// The trail runs along the line's foot between the two carets; when the words wrapped there is no line to run along, so it flashes.
+    @Test func aTrailOnOneLineAndAFlashAcrossLines() throws {
+        func paint(_ motion: AcceptMotion, to: CGRect) throws -> (foot: UInt8, caret: UInt8) {
+            let ctx = try #require(CGContext(data: nil, width: 200, height: 60, bitsPerComponent: 8, bytesPerRow: 800, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            ctx.translateBy(x: 0, y: 60); ctx.scaleBy(x: 1, y: -1)  // y down, as the view is
+            // No NSGraphicsContext.current, as in the Settings preview's Canvas: the motion must draw into the context it is given.
+            AcceptMotion.draw(motion, from: CGRect(x: 20, y: 10, width: 0, height: 16), to: to, progress: 0.1, in: ctx)
+            let px = ctx.data!.assumingMemoryBound(to: UInt8.self)
+            func alpha(_ x: Int, _ y: Int) -> UInt8 { px[y * 800 + x * 4 + 3] }
+            return (alpha(100, 27), alpha(Int(to.midX), Int(to.midY)))
+        }
+        let sameLine = CGRect(x: 120, y: 10, width: 0, height: 16), nextLine = CGRect(x: 60, y: 30, width: 0, height: 16)
+        #expect(try paint(.trail, to: sameLine).foot > 0)
+        #expect(try paint(.flash, to: sameLine).foot == 0)
+        #expect(try paint(.flash, to: sameLine).caret > 0)
+        #expect(try paint(.trail, to: nextLine).caret > 0, "wrapped: the trail's flash")
+        #expect(try paint(.off, to: sameLine) == (0, 0))
     }
 
     @Test func quickTabsLightTheNextWordsNotTheFirstAgain() {
