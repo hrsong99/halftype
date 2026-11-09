@@ -78,7 +78,7 @@ running at all** (KeyType starts its engine only with Accessibility), which is w
 - **GPU memory per process isn't read**: nothing outside a process reports what Metal wired for it fairly across apps (Halftype's own
   `MTLDevice.currentAllocatedSize` in measuring.md is from inside). The resident `.gguf` pages stand in for the weights. macOS's
   predictions run in system processes, so they get no memory or CPU numbers at all.
-- Small samples: 16 English and 10 Korean sentences per app (about 650 and 550 keys), to fit an hour. The CIs say how much that matters.
+- Small samples by default: 16 English and 10 Korean sentences per app (about 650 and 550 keys), to fit an hour. Two runs of KeyType 1.8 differed by 2 points (24.7% and 22.9%), as wide as the gap between two apps, so a claim needs `--en 64` (all 64 scored English sentences, about 16 minutes an app): CI width goes with 1/sqrt(n), so half of 16's.
 - **English**: Taskmaster-1 self-dialogs, the user side: people writing to a booking assistant, typed by crowd workers. Not chat
   between friends, and some words are rare. Sentences were kept only if every word is in the system dictionary. **Korean**: SmileStyle,
   other people's style-transfer dialogue (as in measuring.md), not how anyone writes messages.
