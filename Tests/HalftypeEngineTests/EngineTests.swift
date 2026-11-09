@@ -1,5 +1,6 @@
 import Foundation
 import HalftypeCore
+import llama
 import Synchronization
 import Testing
 @testable import HalftypeEngine
@@ -210,4 +211,31 @@ private final class Flag: @unchecked Sendable { var set = false }
     engine.suggest(prefix: "Hello", fragment: "", composing: "", onResult: { box.last = $0 })
     engine.finish()
     #expect(failed.set && box.last == nil)
+}
+
+/// The index of each token's unfinished bytes, and `canBegin` remembered per step, must let through exactly what decoding every
+/// piece again did, for every token, mid-syllable and not. Also prints how long a step takes each way.
+@Test(needsModel) func theIndexedCheckLetsThroughWhatDecodingDid() throws {
+    llama_backend_init()
+    var params = llama_model_default_params()
+    params.vocab_only = true
+    let model = try #require(llama_model_load_from_file(modelPath!, params))
+    defer { llama_model_free(model) }
+    let vocab = Vocab(llama_model_get_vocab(model))
+    var needs = ["ㅎ", "하", "한", "가", "값", "ㄱ", "안", "녕"].map { Constraint(fragment: "", composing: $0) }
+    needs.append(Constraint(fragment: " h", composing: ""))
+    var held = Constraint(fragment: "", composing: "한")
+    held.consume([0xED][...])  // A token that ended inside 한's first byte.
+    needs.append(held)
+    for need in needs {
+        var begins: [Int: Bool] = [:], wrong = 0
+        let t0 = Date()
+        let fast = (0..<vocab.count).map { vocab.allows($0, need, &begins) }
+        let t1 = Date()
+        let slow = (0..<vocab.count).map { vocab.allowsByDecoding($0, need) }
+        let t2 = Date()
+        for t in 0..<vocab.count where fast[t] != slow[t] { wrong += 1 }
+        #expect(wrong == 0, "\(wrong) tokens differ for keys \(Array(need.keys)), held \(need.held)")
+        print(String(format: "keys %@: %.1f ms indexed, %.1f ms decoding, %d allowed", "\(Array(need.keys))", t1.timeIntervalSince(t0) * 1000, t2.timeIntervalSince(t1) * 1000, fast.filter { $0 }.count))
+    }
 }

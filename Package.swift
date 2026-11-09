@@ -24,6 +24,6 @@ let package = Package(
         .testTarget(name: "CompareKitTests", dependencies: ["CompareKit"], path: "bench/compare/Tests"),
         .testTarget(name: "HalftypeAppTests", dependencies: ["HalftypeApp", "HalftypeCore", "HalftypeEngine"], swiftSettings: [.swiftLanguageMode(.v5)]),
         .testTarget(name: "HalftypeCoreTests", dependencies: ["HalftypeCore"]),
-        .testTarget(name: "HalftypeEngineTests", dependencies: ["HalftypeEngine", "HalftypeCore"]),
+        .testTarget(name: "HalftypeEngineTests", dependencies: ["HalftypeEngine", "HalftypeCore", "llama"]),
     ]
 )
