@@ -239,3 +239,21 @@ private final class Flag: @unchecked Sendable { var set = false }
         print(String(format: "keys %@: %.1f ms indexed, %.1f ms decoding, %d allowed", "\(Array(need.keys))", t1.timeIntervalSince(t0) * 1000, t2.timeIntervalSince(t1) * 1000, fast.filter { $0 }.count))
     }
 }
+
+extension Vocab {
+    /// The check as it was before the index of rests: decoding each piece again.
+    func allowsByDecoding(_ t: Int, _ need: Constraint) -> Bool {
+        guard allowed[t] else { return false }
+        if need.isDone { return true }
+        let s = Int(starts[t]), e = Int(starts[t + 1])
+        guard s < e else { return false }
+        if let wanted = need.bytes.first {
+            guard bytes[s] == wanted, Vocab.agrees(bytes[s..<e], need.bytes) else { return false }
+            return e - s <= need.bytes.count || need.agrees(tail: bytes[(s + need.bytes.count)..<e])
+        }
+        if !need.held.isEmpty { return need.agrees(tail: bytes[s..<e]) }
+        let codes = Constraint.keyCodes(bytes[s..<e]).codes
+        guard codes.prefix(need.keys.count).elementsEqual(need.keys.prefix(codes.count)) else { return false }
+        return bytes[e - 1] < 0x80 || need.agrees(tail: bytes[s..<e])
+    }
+}

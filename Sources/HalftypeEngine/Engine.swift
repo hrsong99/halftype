@@ -242,9 +242,10 @@ public final class Engine: @unchecked Sendable {
 final class Vocab {
     let raw: OpaquePointer
     let count: Int
-    private let bytes: [UInt8]
-    private let starts: [Int32]
-    private let allowed: [Bool]
+    // Read by tests too (EngineTests: the check by decoding, to compare `allows` with).
+    let bytes: [UInt8]
+    let starts: [Int32]
+    let allowed: [Bool]
     private let ends: [Bool]
     private var keyStarts: [Int32] = [], keyCodes: [UInt16] = []
     /// Each token's bytes at its end that don't decode yet, from the same pass as its keystrokes.
@@ -289,7 +290,6 @@ final class Vocab {
 
     /// Greedy over the allowed tokens, those that `need` lets through.
     func pick(_ logits: UnsafeBufferPointer<Float>, need: Constraint) -> Pick? {
-        if !need.keys.isEmpty, keyStarts.isEmpty { indexKeys() }
         var begins: [Int: Bool] = [:]
         return Pick.best(logits, allowed: { [self] t in allows(t, need, &begins) }, isEnd: { [self] in ends[$0] })
     }
@@ -320,22 +320,6 @@ final class Vocab {
         let ok = Constraint.canBegin(bytes[(e - rest)..<e], keys: need.keys.dropFirst(codes.count))
         begins[key] = ok
         return ok
-    }
-
-    /// The check as it was before the index of rests, decoding each piece again, for tests to compare `allows` with.
-    func allowsByDecoding(_ t: Int, _ need: Constraint) -> Bool {
-        guard allowed[t] else { return false }
-        if need.isDone { return true }
-        let s = Int(starts[t]), e = Int(starts[t + 1])
-        guard s < e else { return false }
-        if let wanted = need.bytes.first {
-            guard bytes[s] == wanted, Vocab.agrees(bytes[s..<e], need.bytes) else { return false }
-            return e - s <= need.bytes.count || need.agrees(tail: bytes[(s + need.bytes.count)..<e])
-        }
-        if !need.held.isEmpty { return need.agrees(tail: bytes[s..<e]) }
-        let codes = Constraint.keyCodes(bytes[s..<e]).codes
-        guard codes.prefix(need.keys.count).elementsEqual(need.keys.prefix(codes.count)) else { return false }
-        return bytes[e - 1] < 0x80 || need.agrees(tail: bytes[s..<e])
     }
 
     /// In bytes, as a token can end inside a Hangul character.
