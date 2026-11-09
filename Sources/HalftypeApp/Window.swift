@@ -749,13 +749,13 @@ private struct ModelsPage: View {
     }
 }
 
-/// One choice of Tab Motion, as System Settings shows Appearance: a little field playing it, its name under, a ring when chosen.
 private struct InUse: View {
     var body: some View {
         HStack(spacing: 5) { Circle().fill(Root.peach).frame(width: 6, height: 6); Text("In use").foregroundStyle(.secondary).font(.system(size: 12)) }
     }
 }
 
+/// One choice of Tab Motion, as System Settings shows Appearance: a little field playing it, its name under, a ring when chosen.
 private struct MotionTile: View {
     let motion: AcceptMotion
     @Binding var chosen: AcceptMotion

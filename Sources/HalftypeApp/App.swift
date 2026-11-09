@@ -118,12 +118,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             count { $0.mark(personal: nil) }  // A day the setting changed on is mixed, whatever was sampled.
         }
     }
-    /// Empty: the newest. Read by `adapterFile` on each request, so the engine reloads with it on the next suggestion.
+    /// Empty: the newest. Read by `adapterFile` on each request, so the engine reloads with it on the next suggestion. A switch leaves the day
+    /// a with-model day: it names both versions, which keeps it out of each one's figures (`markPersonal` names only the loaded one).
     @Published var adapterChoice = UserDefaults.standard.string(forKey: "adapter") ?? "" {
-        didSet {
-            UserDefaults.standard.set(adapterChoice, forKey: "adapter")
-            count { $0.mark(personal: nil) }
-        }
+        didSet { UserDefaults.standard.set(adapterChoice, forKey: "adapter") }
     }
     private var engine: Engine?
     /// Counts the event, and marks today with the model's state as it is now, in one change.
