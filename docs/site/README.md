@@ -1,41 +1,8 @@
-# Landing-page drafts (round 1, 2026-11-08)
+# halftype.app
 
-The question: which direction for Halftype's first landing page? John: "why don't you try making a landing page or two for our app (it's called halftype now)". Nothing is deployed, and the GitHub homepage field still points at the releases. That is John's call once he picks one.
-
-- `index.html`: the variants page. It shows A and B live side by side, plus image ideas C and D. Shared at https://share.hrsong99.xyz/o01ct9f75y5orO6q/ (unlisted, noindex; remove it with `ssh js rm -r share-site/html/o01ct9f75y5orO6q`).
-- `a/`: "Sky", a light page. The hero is the Halftype field over a canvas copy of the app's halftone sky (`Sky.metal`).
-- `b/`: "Ink", a dark page. The headline completes itself with Tab.
-- `ideas/`: C (a Korean risograph poster) and D (the whole Mac as the hero), from Codex's image tool. `gen.sh` and the `*.prompt.txt` files made them. Their copy is the image model's, and some of it is wrong.
-- `shots/`: frozen full-page screenshots of A and B at 1440 and 390 px wide.
-
-How A and B were made: each by one agent with TasteSkill's `design-taste-frontend` skill ([leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill) at `f6b7657`, from a scratch clone, never installed). The agents ran its deal scripts and its checker and gate, three rounds at most. Each folder's `.taste-skill/` (gate state, waivers) and `shots/` are gitignored. The kit files the pages load are copied into each `assets/`, under MIT.
-
-Both pages replay the six suggestions in `docs/media/{en,ko}.gif`, which `scripts/demo.sh` drew from the real model and gate. Korean is typed key by key, as 2-set composes it. No other ghost text is invented. Each page says the sentences are ones the model does well on, which overrides the skill's no-caption rule. Every fact comes from the README. A README change that touches a privacy claim or a number must change these pages too, until one of them replaces the other.
-
-Preview locally: `python3 -m http.server -d docs/site` and open `http://127.0.0.1:8000/`.
-
-## Round 2 (2026-11-09)
-
-John: "A looks best but it has some overly long ux writing and i want to see a version of the "resource" section comparing it to incuments, showing graphically/visually why we're much better".
-
-- `round2.html`: A2 next to A.
-- `a2/`: A with every section's copy cut, and the Cost section rebuilt as two bar charts against Cotypist. The method is in `docs/measuring.md`, "Against Cotypist".
-- Copy rule for these pages, from that feedback: a hero lead of 20 words or fewer, a card title with no sentence under it, an FAQ answer in one short line. Detail goes to the README.
-
-## Round 3 (2026-11-09)
-
-John: "no need to only mention cotypist, i think there are a few incumbents no? And are there other metrics that measure speed and accuracy and resource use? I do like A2 more though". He agreed to: macOS predictions, Cotypist, Cotabby, KeyType, with Grammarly as a privacy row; and to showing every result, losses included.
-
-- `round3.html`: A2's comparison, full width.
-- `compare/`: the measurements, their method and `idle.sh`.
-
-Round 3 fix: KeyType's at-rest bars were removed. It had been measured switched off (no Accessibility); see compare/README.md.
-
-## Polish (2026-11-09)
-
-A2 went through TasteSkill's gate: OPEN 3 after 3 rounds. Still open: the model pill counts as a second button style (it copies the app's own UI), the comparison charts' row lines at 1440, and one Korean line flush at 390. Waivers are in `a2/.taste-skill/waivers.json` (not committed): key-card titles, the kit nav at 320, charts as the section's visual, the FAQ without a picture, and the airy statement section.
-Codex reviewed A2 and `compare/idle.sh` over four rounds until clean. It found a Korean replay that showed impossible states (하ㄹ where 2-Set shows 할), savings figures without their limits, the Korean memory line missing its 270 MB footprint, rival qualifications, canvas resizing, a pause button inside `role=img`, tooltips that clipped, and `idle.sh` leaving an app running when interrupted. All fixed.
-
-## Pick
-
-A over B (round 1). A2 over A (round 3).
+- `a2/`: the live page at https://halftype.app. Hand-built on the app's tokens (cream, the icon's blurred arch, glass suggestions with the Tab glint); it won the landing-polish round at 8.5 (`docs/design/landing-polish/`: playbook, reviews, `builds/H` with its notes and screenshots). Change a claim or number here and in the README together.
+- `deploy.sh`: publishes `a2/` and `nginx.conf` to js, where the Dokploy compose `halftype-site` (composeId `IftjGPskKJyG74nM4i5Vv`, Side Projects) serves them with nginx; `www` redirects to the apex. DNS: A `@` and `www` → 152.69.228.186 at Spaceship.
+- `compare/`: the measurements against other apps behind the page's comparison, their method and `idle.sh`.
+- The page's suggestion gradient uses darker stops (`#45709d → #606e7e → #995e3e`) than the app's, for 4.5:1 contrast.
+- Earlier drafts (A, B, the kit-built A2, rounds 1-4) are in git before 2026-11-09's switch; `git log -- docs/site/a` finds them. Some still sit on the share link in `share-link.txt` (remove with `ssh js rm -r share-site/html/o01ct9f75y5orO6q`).
+- Domains, 2026-11-09: halftype.app $8.28 the first year, then $14.49 a year (bought).

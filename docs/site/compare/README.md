@@ -8,7 +8,7 @@ Every app runs with its default model on one M5 with 16 GB. Memory is `footprint
 |---|---|---|---|---|---|
 | Halftype 0.1.5 | Qwen 3.5 0.8B Q4_K_M | 0.53 GB | 79 MB (README, `e2e.sh --measure`, unloaded after 5 idle min) | 0.13-0.27% (README) | no |
 | KeyType 1.8 | Qwen 3.5 2B Q4_K_M (`ModelContainer.defaultModelFilename`) | 1.27 GB | 37 MB, **but switched off**: no Accessibility, so it never started | 0.1%, switched off | no |
-| Cotypist 2026.5.2 | Gemma 4 E2B Q4_C (as it downloaded it here) | 2.98 GB | 383 MB (478 MB in a first run) | 0.2%, 13% about every 5 min | yes |
+| Cotypist 2026.5.2 | Gemma 4 E2B Q4_C (as it downloaded it here) | 2.98 GB | 383 MB (478 MB in a first run) | 0.2%, one 13% sample in each of two 8-minute runs | yes |
 | Cotabby 0.6.2-beta | Gemma 4 E2B Q6_K ("Everyday", first in `preferredModelNames`) | 3.85 GB | 185 MB | 2.2%, steady | yes |
 
 - `idle.sh <app> <process name>` made the `*-idle.txt` files. It takes no keys or focus. Sizes are from the Hugging Face API.

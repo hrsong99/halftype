@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home in glass</title>
+<style>
+:root { --bg:#0e0f11; --fg:#e8e8ea; --mute:#8a8b90; --card:#18191c; --line:#2a2b2f;
+  --cream:#f6f1e9; --ink:#121214; --gblue:#a9cdf0; --gpeach:#f6c3a4; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+main { max-width:1500px; margin:0 auto; padding:24px 16px 60px; }
+h1 { font-size:20px; margin:0 0 6px; } h2 { font-size:15px; margin:30px 0 12px; }
+.q { color:var(--mute); margin:0 0 14px; }
+.rec { background:#1d2430; border:1px solid #2f3b4d; border-radius:10px; padding:12px 14px; margin:0 0 18px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 560px), 1fr)); gap:18px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.meta { padding:10px 14px 14px; }
+b.l { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:6px; background:#e8e8ea; color:#111; margin-right:8px; }
+.name { font-weight:600; } .meta p { margin:6px 0 0; color:var(--mute); }
+.img img { width:100%; display:block; }
+
+/* The window, 720 x 460 points; 1em = 1 point. */
+.shot { padding:4%; background:#2b2d31; }
+.win { position:relative; aspect-ratio:720/460; container-type:inline-size; border-radius:1.4cqw; overflow:hidden; box-shadow:0 2cqw 5cqw rgba(0,0,0,.45); }
+.win > * { font-size:calc(100cqw / 720); }
+.layer { position:absolute; inset:0; width:100%; height:100%; }
+.lights { position:absolute; left:14em; top:12em; display:flex; gap:8em; z-index:3; }
+.lights i { width:12em; height:12em; border-radius:50%; background:#ff5f57; } .lights i:nth-child(2){background:#febc2e} .lights i:nth-child(3){background:#28c840}
+.col { position:absolute; left:0; right:0; top:96em; display:flex; flex-direction:column; align-items:center; gap:16em; z-index:2; }
+.field { position:relative; width:500em; height:92em; border-radius:20em; box-sizing:border-box; padding:12em 14em; }
+.field .t { font-size:15em; letter-spacing:-.01em; }
+.field .ghost { color:rgba(127,127,127,.75); }
+.row { position:absolute; right:10em; bottom:9em; display:flex; gap:8em; align-items:center; font-size:1em; }
+.chip { font-size:12em; padding:.33em .83em; border-radius:99em; }
+.pw { width:24em; height:24em; border-radius:50%; display:grid; place-items:center; }
+.pw svg { width:11em; height:11em; }
+.status { font-size:12em; }
+.mark { width:36em; height:36em; }
+.mark svg { width:100%; height:100%; overflow:visible; }
+.icon-crop { width:56em; height:56em; overflow:hidden; position:relative; }
+.icon-crop img { position:absolute; width:100em; left:-22em; top:-18em; mix-blend-mode:multiply; }
+</style>
+</head>
+<body>
+<main>
+<h1>The home window, in the icon's materials</h1>
+<p class="q">John: “we recently came up with a new, glassy icon for halftype right? Can you show me some variants of the home page that takes inspiration from the icon style?” Yes: 5A, a cursive h with a glossy ink stem and an arch that turns to frosted glass, pale blue to peach, on cream. A is today. B–G borrow from it. H–J are Codex image ideas.</p>
+<div class="rec"><b>Recommendation: C, half ink and half glass.</b> The icon's idea is the app's job: what you wrote is ink, and what Halftype offers is glass until you take it. C makes the window say that, with the suggestion drawn in the icon's glass and your words in its ink, on the icon's cream. It's a SwiftUI gradient on the ghost text in this window, plus the colours. B is the same window without the glass words, if C feels like too much. Drawn suggestions in other apps stay grey either way: the ghost panel has to read on any background.</div>
+<div class="grid" id="grid"></div>
+<h2>Image ideas (Codex, not built: what to take from each)</h2>
+<div class="grid" id="imgs"></div>
+</main>
+<script>
+// Sky edges round 2 C (the picked sky): soft taper plus a 30 pt arc. Window 720 x 460 with content 96..300.
+const W = 720, H = 460, CELL = 6, R = CELL * 0.62;
+const sat = x => Math.min(1, Math.max(0, x));
+const CX = 96 - 44, CY = 300 + 44;
+function sky(x, y) {
+  const a = 30 * Math.pow(2 * x / W - 1, 2), cx = CX + a + 30, cy = CY - a - 30;
+  const vb = y * 0.413 / cx, vp = 0.56 + 0.44 * (y - cy) / (H - cy);
+  const blue = sat(0.62 - vb * 1.5), peach = sat((vp - 0.56) * 1.45);
+  return { blue: 0.62 * Math.pow(blue / 0.62, 1.8), peach: 0.64 * Math.pow(peach / 0.64, 1.8) };
+}
+function drawSky(cv, dark) {
+  const dpr = devicePixelRatio || 1, s = cv.clientWidth / W;
+  cv.width = Math.round(cv.clientWidth * dpr); cv.height = Math.round(cv.clientHeight * dpr);
+  const g = cv.getContext('2d'); g.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
+  const c = dark ? { paper: '#121317', blue: [33, 56, 79], peach: [77, 48, 36] } : { paper: '#f8f4ec', blue: [169, 205, 240], peach: [246, 195, 164] };
+  g.fillStyle = c.paper; g.fillRect(0, 0, W, H); g.globalCompositeOperation = dark ? 'lighter' : 'multiply';
+  for (const [ink, off, rgb] of [['blue', 0, c.blue], ['peach', CELL / 2, c.peach]]) {
+    g.fillStyle = `rgb(${rgb})`;
+    for (let y = off; y <= H + CELL; y += CELL) for (let x = off; x <= W + CELL; x += CELL) {
+      const d = sky(x, y)[ink]; if (d < 0.006) continue;
+      g.beginPath(); g.arc(x, y, Math.max(R * Math.sqrt(d), 0.45), 0, 7); g.fill();
+    }
+  }
+}
+
+const STEM = 'M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6', ARCH = 'M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9';
+let gid = 0;
+// The window's mark: flat (today), or glossy ink and glass like the icon.
+function mark(kind, ink) {
+  const id = 'g' + (gid++);
+  if (kind === 'flat') return `<div class="mark"><svg viewBox="0 0 18 18" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="${id}" x1="5.5" x2="15.2" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${ink}"/><stop offset=".5" stop-color="#a9cdf0"/><stop offset="1" stop-color="#f6c3a4" stop-opacity=".7"/></linearGradient></defs><path stroke="url(#${id})" d="${ARCH}"/><path stroke="${ink}" d="${STEM}"/></svg></div>`;
+  return `<div class="mark" style="width:${kind}em;height:${kind}em"><svg viewBox="0 0 18 18" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <defs><linearGradient id="${id}a" x1="7" x2="15.2" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${ink}"/><stop offset=".22" stop-color="#9cc4ec" stop-opacity=".85"/><stop offset=".6" stop-color="#dfe6ee" stop-opacity=".6"/><stop offset="1" stop-color="#f6b994" stop-opacity=".75"/></linearGradient>
+    <filter id="${id}s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy=".6" stdDeviation=".5" flood-color="#000" flood-opacity=".22"/></filter></defs>
+    <g filter="url(#${id}s)"><path stroke="url(#${id}a)" stroke-width="2.3" d="${ARCH}"/><path stroke="${ink}" stroke-width="2.3" d="${STEM}"/></g>
+    <path stroke="#fff" stroke-opacity=".55" stroke-width=".45" d="M8 3.1 C7.3 2 5.5 2.1 5.4 4.4 C5.3 6.4 5.25 8.5 5.2 10"/>
+    <path stroke="#fff" stroke-opacity=".7" stroke-width=".4" d="M10.4 8.1 C11.5 8.5 11.3 10.4 11.4 12"/></svg></div>`;
+}
+const POWER = c => `<svg viewBox="0 0 12 12" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round"><path d="M6 1.2v4.3"/><path d="M3.3 3.1a4 4 0 1 0 5.4 0"/></svg>`;
+const TYPED = 'See you at four, I’ll bring the', GHOST = ' notes from Monday';
+
+// Each option: its window background, field, mark, and colours.
+const V = [
+  { l: 'A', name: 'Today (with sky C)', note: 'Dark halftone sky with the soft, arched edges you picked, a milky pane, the flat drawn h, grey suggestion.',
+    bg: () => `<canvas class="layer" data-sky="dark"></canvas>`, fg: '#e9e9eb', sub: '#8d8e93',
+    mark: () => mark('flat', '#eee'), field: 'background:rgba(30,31,34,.6)', chip: 'background:#1e1f22;color:#ddd', pw: '#e3e3e5', pwi: '#1e1f22' },
+  { l: 'B', name: 'Cream and ink', note: 'The icon’s tile becomes the window: warm cream, no sky, a white frosted field with a soft shadow, black ink text and buttons, and a glossy h. Colours and the mark only. The quietest.',
+    bg: () => `<div class="layer" style="background:#f6f1e9"></div>`, fg: '#141416', sub: '#86827b',
+    mark: () => mark(54, '#111'), field: 'background:rgba(255,255,255,.72);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 10px 30px rgba(80,60,30,.10),0 0 0 .5px rgba(0,0,0,.06)', chip: 'background:#f2ede5;color:#333', pw: '#141416', pwi: '#f6f1e9' },
+  { l: 'C', name: 'Half ink, half glass', note: 'B, and the suggestion is drawn in the icon’s glass: pale blue to peach, translucent, with a highlight. Your words are ink. The icon’s idea becomes how the window teaches Tab. A gradient on the ghost text in this window.',
+    bg: () => `<div class="layer" style="background:#f6f1e9"></div>`, fg: '#141416', sub: '#86827b', glass: true,
+    mark: () => mark(54, '#111'), field: 'background:rgba(255,255,255,.72);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 10px 30px rgba(80,60,30,.10),0 0 0 .5px rgba(0,0,0,.06)', chip: 'background:#f2ede5;color:#333', pw: '#141416', pwi: '#f6f1e9' },
+  { l: 'D', name: 'A glass ribbon behind', note: 'Cream, and the h’s arch drawn huge and blurred behind the field, blue to peach, instead of the halftone sky. The field frosts it. One shape and a blur; it could drift a little as you type.',
+    bg: () => `<div class="layer" style="background:#f6f1e9"></div><svg class="layer" viewBox="0 0 720 460" style="filter:blur(26px)"><defs><linearGradient id="rb" x1="60" x2="680" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8fbbe8"/><stop offset=".55" stop-color="#d9e4ee"/><stop offset="1" stop-color="#f4b48c"/></linearGradient></defs><path d="M40 400 C160 200 300 120 400 150 C500 180 470 330 520 370 C570 410 640 380 700 320" fill="none" stroke="url(#rb)" stroke-width="90" stroke-linecap="round" opacity=".75"/></svg>`,
+    fg: '#141416', sub: '#7d786f', mark: () => mark(54, '#111'),
+    field: 'background:rgba(255,255,255,.55);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 12px 34px rgba(60,50,40,.12),0 0 0 .5px rgba(255,255,255,.7)', chip: 'background:rgba(255,255,255,.7);color:#333', pw: '#141416', pwi: '#fff' },
+  { l: 'E', name: 'Ink window, glass field', note: 'The stem’s glossy black as the window, and the field as a slab of glass lit blue at one end and peach at the other, with a bright rim. Dramatic; the sky goes. Gradients and a stroke in SwiftUI.',
+    bg: () => `<div class="layer" style="background:radial-gradient(120% 90% at 50% 0%,#1d1e22,#0a0a0b 70%)"></div>`, fg: '#f1f1f3', sub: '#8b8c92', glass: true,
+    mark: () => mark(54, '#f4f4f6'),
+    field: 'background:linear-gradient(100deg,rgba(150,195,240,.20),rgba(255,255,255,.06) 45%,rgba(246,180,140,.20));box-shadow:0 0 0 1px rgba(255,255,255,.14) inset,0 1px 0 rgba(255,255,255,.35) inset,0 18px 40px rgba(0,0,0,.55),0 0 60px rgba(160,190,230,.08)', chip: 'background:rgba(255,255,255,.08);color:#eee', pw: '#f1f1f3', pwi: '#0e0e10' },
+  { l: 'F', name: 'Sky on cream, glass field', note: 'Keeps the halftone sky (C’s edges) but on the icon’s cream, with the glossy h and a field of real glass: a blur and a thin blue-to-peach rim. The smallest step from today that still looks like the icon.',
+    bg: () => `<canvas class="layer" data-sky="light"></canvas>`, fg: '#141416', sub: '#86827b',
+    mark: () => mark(54, '#111'),
+    field: 'background:rgba(255,255,255,.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 0 0 1px rgba(255,255,255,.9) inset,0 10px 30px rgba(60,50,40,.10);border:1px solid transparent;background-clip:padding-box;outline:1px solid rgba(169,205,240,.0)', rim: true, chip: 'background:rgba(255,255,255,.8);color:#333', pw: '#141416', pwi: '#fff' },
+  { l: 'G', name: 'The icon itself as hero', note: 'Today’s dark window and sky, but the real icon art (its h, cut from the tile) sits large on a small cream card at the top, so the window opens on the same object as the Dock. An image in the bundle; nothing else changes.',
+    bg: () => `<canvas class="layer" data-sky="dark"></canvas>`, fg: '#e9e9eb', sub: '#8d8e93',
+    mark: () => `<div style="width:64em;height:64em;border-radius:15em;background:#f6f1e9;display:grid;place-items:center;box-shadow:0 8em 24em rgba(0,0,0,.45)"><div class="icon-crop"><img src="images/icon.png" alt=""></div></div>`,
+    field: 'background:rgba(30,31,34,.6)', chip: 'background:#1e1f22;color:#ddd', pw: '#e3e3e5', pwi: '#1e1f22', top: 80 },
+];
+const glassText = dark => `background:linear-gradient(90deg,#7fb0e2,#c9d9ea 48%,#f2a97f);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 .5px 0 ${dark ? 'rgba(255,255,255,.25)' : 'rgba(255,255,255,.9)'})`;
+
+const grid = document.getElementById('grid');
+for (const v of V) {
+  const dark = v.l === 'A' || v.l === 'E' || v.l === 'G';
+  const rim = v.rim ? `<div style="position:absolute;inset:-1em;border-radius:21em;padding:1.2em;background:linear-gradient(100deg,#a9cdf0,rgba(255,255,255,.4) 50%,#f6c3a4);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none"></div>` : '';
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `<div class="shot"><div class="win">${v.bg()}<div class="lights"><i></i><i></i><i></i></div>
+    <div class="col" style="${v.top ? `top:${v.top}em` : ''}">${v.mark()}
+      <div class="field" style="${v.field}">${rim}<span class="t" style="color:${v.fg}">${TYPED}</span><span class="t ${v.glass ? '' : 'ghost'}" style="${v.glass ? glassText(dark) : ''}">${GHOST}</span>
+        <div class="row" style="font-size:1em"><span class="chip" style="${v.chip}">Gemma 4 E2B</span><span class="pw" style="background:${v.pw}">${POWER(v.pwi)}</span></div></div>
+      <div class="status" style="color:${v.sub}">Press Tab to take the ${v.glass ? 'glass' : 'grey'} text.</div></div></div></div>
+    <div class="meta"><b class="l">${v.l}</b><span class="name">${v.name}</span><p>${v.note}</p></div>`;
+  grid.appendChild(el);
+}
+const drawAll = () => document.querySelectorAll('canvas[data-sky]').forEach(c => drawSky(c, c.dataset.sky === 'dark'));
+addEventListener('resize', drawAll); drawAll();
+
+const IMGS = [['H', 'images/H.png', 'Ink words, glass suggestion', 'Codex’s C, and it confirms it: ink words then glass words read at once as yours and offered. Worth taking: the blue-to-peach runs across the suggestion only, and the glossy 3D h as the logo.'], ['I', 'images/I.png', 'A glass slab on ink', 'Codex’s E, done better: the glow sits on the rim, not inside, so the field stays dark and readable. Worth taking: that rim, if the window stays dark.'], ['J', 'images/J.png', 'Codex’s own take', 'The boldest: the h itself, huge and 3D, sweeps through the window, ink stem on the left and the glass arch passing behind the field. Worth taking: the glass arch as the backdrop (D’s idea, but as a solid object, not a blur). An image asset, so it wouldn’t move as the sky does.']];
+const imgs = document.getElementById('imgs');
+for (const [l, src, name, note] of IMGS) {
+  const el = document.createElement('div'); el.className = 'card img';
+  el.innerHTML = `<img src="${src}" alt="${name}"><div class="meta"><b class="l">${l}</b><span class="name">${name}</span> <span style="color:#8a8b90">· image</span><p>${note}</p></div>`;
+  imgs.appendChild(el);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>README Demo Keys</title>
+<style>
+  :root { --ink:#16181d; --sub:#6b6f78; --line:#e6e2da; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f1ec; color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
+  main { max-width: 1600px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .q { color: var(--sub); margin: 0 0 12px; }
+  .rec { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; }
+  .bar { position: sticky; top: 0; z-index: 2; padding: 8px 0; background: #f4f1ec; }
+  .bar button { font: inherit; padding: 6px 14px; border-radius: 8px; border: 1px solid #cfcac0; background: #fff; cursor: pointer; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .card header { padding: 10px 14px 2px; display: flex; gap: 10px; align-items: baseline; }
+  .letter { font-weight: 700; font-size: 19px; } .name { font-weight: 600; }
+  .card img { display: block; width: 100%; aspect-ratio: 760 / 360; }
+  .card p { margin: 0; padding: 8px 14px 14px; color: var(--sub); font-size: 13.5px; }
+  code { font-size: 12px; color: #8a7f72; }
+</style>
+</head>
+<body>
+<main>
+  <h1>README demo: Tab and Shift-Tab</h1>
+  <p class="q">Mixing the two keys on D's timing. John: "What if we mix tabs and shift tabs? So show using tab for some small suggestions, and then shift tab (after a pause) to show accepting a long suggestion?"</p>
+  <div class="rec"><b>Recommendation: H.</b> Quick Tabs for short suggestions, and a long one that is right to the end gets a 0.4 s look, then one Shift-Tab and one glint across the whole phrase. It saves the most keys of any we've tried (69% and 71%) and shows both keys in 12 s. I holds longer before Shift-Tab, which reads more clearly but drags; J also uses Shift-Tab for two-word suggestions, so it happens more often and Tab shows less. Every option is a real render: same model, sentences and counts.</div>
+  <div class="bar"><button id="replay">Replay all together</button></div>
+  <div class="grid">
+    <div class="card"><header><span class="letter">D</span><span class="name">Round 2's D: Tabs only</span></header><img src="round3/D.webp" alt="D"><p>For comparison: a short beat, quick Tabs, one glint per run. 56% and 64% fewer keys. 12 s.</p></div>
+    <div class="card"><header><span class="letter">H</span><span class="name">Shift-Tab for three words or more, 0.4 s look</span></header><img src="round3/H.webp" alt="H"><p>Short suggestions take quick Tabs; "et me know if you" and "ave any other questions." each take one Shift-Tab after a short look. 69% and 71%. 12 s. <code>long=3 hold=40</code></p></div>
+    <div class="card"><header><span class="letter">I</span><span class="name">H with a longer look</span></header><img src="round3/I.webp" alt="I"><p>0.7 s before each Shift-Tab and a longer rest after, so you can read the whole suggestion first. Clearest, but slower. 14 s. <code>long=3 hold=70 after=15</code></p></div>
+    <div class="card"><header><span class="letter">J</span><span class="name">Shift-Tab from two words</span></header><img src="round3/J.webp" alt="J"><p>Shift-Tab whenever two words or more are right, so it's the main move and Tab is rarer. 69% and 74%. 12 s. <code>long=2 hold=45</code></p></div>
+  </div>
+</main>
+<script>
+document.getElementById("replay").onclick = () => {
+  const t = Date.now();
+  document.querySelectorAll(".card img").forEach((img) => { img.src = img.src.split("?")[0] + "?" + t; });
+};
+</script>
+</body>
+</html>

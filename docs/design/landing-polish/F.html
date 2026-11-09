@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="base.css"><title>F Icon</title><style>
+.hero { position: absolute; top: 96px; left: 0; right: 0; text-align: center; }
+.icon { width: 168px; height: 168px; filter: drop-shadow(0 24px 30px rgba(29,28,26,.18)); animation: float calc(6s / var(--speed,1)) ease-in-out infinite alternate; }
+@keyframes float { to { transform: translateY(-8px); } }
+h1 { font: 700 60px/1.05 var(--sans); letter-spacing: -.03em; margin-top: 18px; }
+.sub { margin: 14px auto 24px; max-width: 520px; font-size: 18px; color: var(--muted); line-height: 1.45; }
+.brewline { margin-top: 12px; }
+.arch.low { left: 160px; right: 160px; top: 560px; height: 380px; opacity: .8; }
+.field { position: absolute; left: 50%; transform: translateX(-50%); top: 640px; width: 700px; }
+</style></head><body><div class="arch low"></div><script src="demo.js"></script><script>document.write(nav())</script>
+<div class="hero"><img class="icon" src="icon.png" alt=""><h1>Halftype</h1><p class="sub">Autocomplete for your whole Mac. Grey text finishes your sentence; Tab takes it. The model runs on your Mac.</p><a class="btn"> Download for Mac</a><div class="brewline">or brew install --cask halftype</div></div>
+<div class="field"><div class="text" id="t"></div><script>document.write(FIELD_BAR)</script></div>
+<script>runDemo(document.getElementById('t'), document.querySelector('[data-key]'))</script></body></html>

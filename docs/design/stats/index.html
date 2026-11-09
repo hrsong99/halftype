@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stats page options</title>
+<style>
+:root { --bg:#0e0f11; --fg:#e8e8ea; --mute:#8a8b90; --card:#18191c; --line:#2a2b2f; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+main { max-width:1500px; margin:0 auto; padding:24px 16px 60px; }
+h1 { font-size:20px; margin:0 0 6px; } h2 { font-size:15px; margin:30px 0 12px; }
+.q { color:var(--mute); margin:0 0 14px; }
+.rec { background:#1d2430; border:1px solid #2f3b4d; border-radius:10px; padding:12px 14px; margin:0 0 18px; }
+.rec p { margin:6px 0 0; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 560px), 1fr)); gap:18px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.meta { padding:10px 14px 14px; }
+b.l { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:6px; background:#e8e8ea; color:#111; margin-right:8px; }
+.name { font-weight:600; } .meta p { margin:6px 0 0; color:var(--mute); } .meta .cost { color:#b9c3d0; }
+.img img { width:100%; display:block; }
+.sample { color:#d8a657; }
+
+/* The window at its ideal 720 x 500 points, sidebar open; 1em = 1 point. */
+.shot { padding:4%; background:#2b2d31; }
+.win { position:relative; aspect-ratio:720/500; container-type:inline-size; border-radius:1.4cqw; overflow:hidden; box-shadow:0 2cqw 5cqw rgba(0,0,0,.45);
+  color:#1d1d1f; font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+.win > * { font-size:calc(100cqw / 720); }
+.layer { position:absolute; inset:0; width:100%; height:100%; }
+.lights { position:absolute; left:14em; top:12em; display:flex; gap:8em; z-index:3; }
+.lights i { width:12em; height:12em; border-radius:50%; background:#ff5f57; } .lights i:nth-child(2){background:#febc2e} .lights i:nth-child(3){background:#28c840}
+.side { position:absolute; left:0; top:0; bottom:0; width:150em; background:rgba(0,0,0,.03); padding:38em 8em 12em; box-sizing:border-box; z-index:2; }
+.side div { font-size:13em; padding:.38em .77em; border-radius:.54em; } .side .on { background:rgba(0,0,0,.08); }
+.side .tog { position:absolute; left:1.4em; bottom:1.2em; font-size:13em; display:flex; gap:.5em; align-items:center; }
+.side .tog i { width:2.2em; height:1.2em; border-radius:1em; background:#1d1d1f; position:relative; } .side .tog i::after { content:''; position:absolute; right:.12em; top:.12em; width:.96em; height:.96em; border-radius:50%; background:#fff; }
+.content { position:absolute; left:150em; right:0; top:28em; bottom:0; overflow:hidden; z-index:2; }
+.pane { margin:16em auto; width:514em; box-sizing:border-box; padding:16em 20em 18em; background:rgba(255,255,255,.6); border-radius:20em; position:relative; }
+.pane .t { font-size:20em; font-weight:600; margin-bottom:.6em; }
+.figs { display:flex; align-items:baseline; gap:36em; padding:18em 0; }
+.fig .v { font-size:26em; font-variant-numeric:tabular-nums; line-height:1.15; } .fig.big .v { font-size:44em; font-weight:600; }
+.fig .k { font-size:12em; color:rgba(60,60,67,.6); margin-top:.15em; } .fig .vv { white-space:nowrap; }
+.cap { font-size:12em; color:rgba(60,60,67,.6); font-variant-numeric:tabular-nums; }
+.hr { height:1em; background:rgba(0,0,0,.1); }
+.delta { font-size:12em; color:#2f7d4f; font-weight:500; margin-left:.5em; } .delta.dn { color:#a2463b; }
+/* Swift Charts-like bars */
+.chart { position:relative; height:140em; margin-right:30em; }
+.chart .gl { position:absolute; left:0; right:0; height:1em; background:rgba(0,0,0,.08); }
+.chart .yl { position:absolute; right:-3em; font-size:10em; color:rgba(60,60,67,.6); transform:translateY(-50%); }
+.bars { position:absolute; left:0; right:0; top:0; bottom:18em; display:flex; align-items:flex-end; }
+.bars > div { flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; position:relative; cursor:default; }
+.bars b { width:60%; border-radius:3em; background:rgba(29,29,31,.18); display:block; }
+.bars .hi b { background:rgba(29,29,31,.85); }
+.bars .x { position:absolute; bottom:-1.6em; font-size:10em; color:rgba(60,60,67,.6); }
+.tip { position:absolute; z-index:5; background:#1d1d1f; color:#fff; border-radius:8em; padding:7em 9em; pointer-events:none; white-space:nowrap; transform:translate(-50%,-100%); }
+.tip div { font-size:11em; line-height:1.4; } .tip .d { color:rgba(255,255,255,.6); }
+.seg { position:absolute; right:20em; top:18em; display:flex; background:rgba(0,0,0,.06); border-radius:7em; padding:2em; }
+.seg span { font-size:12em; padding:.2em .8em; border-radius:.45em; cursor:pointer; color:rgba(60,60,67,.8); } .seg .on { background:#fff; color:#1d1d1f; box-shadow:0 .5px 2px rgba(0,0,0,.15); }
+.foot { font-size:12em; color:rgba(60,60,67,.6); margin-top:1.6em; }
+.key { display:flex; gap:14em; } .key span { font-size:11em; color:rgba(60,60,67,.6); } .key i { display:inline-block; width:.8em; height:.8em; border-radius:.2em; margin-right:.35em; vertical-align:-.05em; }
+</style>
+</head>
+<body>
+<main>
+<h1>Halftype’s Stats page, upgraded</h1>
+<p class="q">What’s being decided: how the Stats page should look, borrowing from Divan Raj’s sleep dashboard you bookmarked. Your note: “(1) hover a bar to see that day’s numbers; (2) a small ‘+12 vs yesterday’ delta next to the headline number; (3) a Day / Week / Month switch, only once there are months of data. Skip the stacked colour bars.” <br>
+Found while reading the code: <b>(1) already ships.</b> Hovering a bar today darkens it and changes the grey caption above the chart (Stats uses <code>chartXSelection</code>, and the app targets macOS 26). So B moves that day’s numbers to the bar itself. And there is no hourly data, so a “Day” view can’t exist without new counting: E is Week / Month / All.<br>
+<span class="sample">Numbers:</span> today (Sun Nov 8) is this Mac’s real <code>stats.json</code>, its only day so far: 189 Tabs, 770 letters, 102 of 2,328 suggestions taken, 481 keys saved of 4,329 typed. The 13 days before are <span class="sample">sample data</span> shaped like it (<code>sample-tally.json</code>, odd dates with the personal model, as Compare does). Hover the bars.</p>
+
+<div class="rec"><b>Recommendation: C, “your typing, by Tab”, with B’s tooltip.</b>
+<p>The one number that says whether Halftype is worth it is the share of your typing Tab did (11% today), not the count of Tabs: 189 Tabs means nothing until you know it’s 1 key in 9. That share is also what the Personal Model experiment is about, so C colours each day’s bar by whether the model was on, and the comparison stops being a separate block under the fold. One series, two honest colours, which is the part of the shot worth taking. B is the smallest change (an afternoon) if you want to keep Tabs as the headline. D is the prettiest and most on-brand (the sky’s dots), but a calendar of 14 days is mostly empty for months. Leave E for when there are months of data, as you said.</p></div>
+
+<div class="grid" id="grid"></div>
+<h2>Image ideas (Codex, not built: what to take from each)</h2>
+<div class="grid" id="imgs"></div>
+</main>
+<script>
+// Sample tally: sample-tally.json, inlined. Nov 8 is real.
+const RAW = {"2026-10-26":[118,484,1452,64,2898,300,1],"2026-10-27":[142,582,1747,77,2547,361,0],"2026-10-28":[96,394,1181,52,2024,244,1],"2026-10-29":[163,668,2005,88,2921,414,0],"2026-10-30":[131,537,1611,71,2756,333,1],"2026-10-31":[24,98,295,13,430,61,0],"2026-11-01":[0,0,0,0,0,0,1],"2026-11-02":[151,619,1857,82,3170,384,1],"2026-11-03":[176,722,2165,95,3166,448,0],"2026-11-04":[120,492,1476,65,2524,305,1],"2026-11-05":[204,836,2509,110,3665,518,0],"2026-11-06":[158,648,1943,85,3313,402,1],"2026-11-07":[47,193,578,25,846,120,0],"2026-11-08":[189,770,2328,102,3848,481,1]};
+// [tabs, characters, shown, taken, typed, saved, withoutModel]
+const DAYS = Object.entries(RAW).map(([k, a]) => { const d = new Date(k + 'T12:00');
+  return { k, d, tabs:a[0], chars:a[1], shown:a[2], taken:a[3], typed:a[4], saved:a[5], model: !a[6], by: a[4] ? a[5] / (a[5] + a[4]) : null }; });
+const T = DAYS[DAYS.length - 1], Y = DAYS[DAYS.length - 2];
+const pct = (x, f = 0) => (x * 100).toFixed(f) + '%', n = x => x.toLocaleString('en-US');
+const wd = d => d.toLocaleDateString('en-US', { weekday:'narrow' }), long = d => d.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
+
+// Sky: Sky.metal's default band for a page with no field (0.413..0.56 of the height), light.
+const W = 720, H = 500, CELL = 6, R = CELL * 0.62, sat = x => Math.min(1, Math.max(0, x));
+function sky(y) { const top = H * 0.413, bot = H * 0.56;
+  const blue = sat(0.62 - 1.5 * 0.413 * y / top), peach = sat((0.44 * (y - bot) / (H - bot)) * 1.45);
+  return { blue: 0.62 * Math.pow(blue / 0.62, 1.8), peach: 0.64 * Math.pow(peach / 0.64, 1.8) }; }
+function drawSky(cv) {
+  const dpr = devicePixelRatio || 1, s = cv.clientWidth / W;
+  cv.width = Math.round(cv.clientWidth * dpr); cv.height = Math.round(cv.clientHeight * dpr);
+  const g = cv.getContext('2d'); g.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
+  g.fillStyle = '#f8f4ec'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'multiply';
+  for (const [ink, off, rgb] of [['blue', 0, '169,205,240'], ['peach', CELL / 2, '246,195,164']]) {
+    g.fillStyle = `rgb(${rgb})`;
+    for (let y = off; y <= H + CELL; y += CELL) { const d = sky(y)[ink]; if (d < 0.006) continue;
+      for (let x = off; x <= W + CELL; x += CELL) { g.beginPath(); g.arc(x, y, Math.max(R * Math.sqrt(d), 0.45), 0, 7); g.fill(); } }
+  }
+}
+
+const fig = (v, k, big, extra = '') => `<div class="fig ${big ? 'big' : ''}"><div class="vv"><span class="v">${v}</span>${extra}</div><div class="k">${k}</div></div>`;
+const signed = (x, unit = '') => `<span class="delta ${x < 0 ? 'dn' : ''}">${x < 0 ? '−' : '+'}${n(Math.abs(x))}${unit}</span>`;
+// A Swift Charts-like bar chart. days, value fn, max, colour fn, xlabel fn; hover calls onHover(day|null, el).
+function chart(id, days, val, { max = 400, ticks = [0, 200, 400], color = () => null, xl = d => wd(d.d), hi = d => d === T, h = 122, fmt = t => t } = {}) {
+  return `<div class="chart" id="${id}" style="height:${h + 18}em">${ticks.map(t => `<div class="gl" style="bottom:${18 + (t / max) * h}em"></div><div class="yl" style="bottom:${(18 + (t / max) * h) / 10}em;transform:translateY(50%)">${fmt(t)}</div>`).join('')}
+    <div class="bars">${days.map((d, i) => `<div data-i="${i}" class="${hi(d) ? 'hi' : ''}"><b style="height:${Math.max(0, val(d)) / max * h}em;${color(d) ? 'background:' + color(d) : ''}"></b><span class="x">${h > 60 ? xl(d, i) : ''}</span></div>`).join('')}</div></div>`;
+}
+function hover(root, days, onHover) {
+  root.querySelectorAll('.bars > div').forEach(el => {
+    el.onmouseenter = () => { root.querySelectorAll('.bars > div').forEach(o => o.classList.toggle('hi', o === el)); onHover(days[+el.dataset.i], el); };
+  });
+  root.querySelector('.bars').onmouseleave = () => { root.querySelectorAll('.bars > div').forEach((o, i) => o.classList.toggle('hi', days[i] === T)); onHover(null); };
+}
+const personal = `<div class="hr" style="margin-top:20em"></div><div class="figs" style="padding-bottom:0">${fig('12.4%', 'typed by Tab with your model, 6 days')}${fig('10.9%', 'without it, 7 days')}</div>`;
+const foot = `<div class="foot">1,719 Tabs and 7,043 letters in all. Only counts are kept, never what you type.</div>`;
+const tipFor = (win, el, html) => { const t = win.querySelector('.tip'); if (!el) return t.style.display = 'none';
+  const wr = win.getBoundingClientRect(), r = el.querySelector('b').getBoundingClientRect(), s = wr.width / 720;
+  t.style.display = 'block'; t.innerHTML = html; t.style.left = ((r.left + r.width / 2 - wr.left) / s) + 'em'; t.style.top = ((r.top - wr.top) / s - 6) + 'em'; };
+
+const V = [
+ { l:'A', name:'Today', cost:'Ships now.',
+   note:'Three numbers for today, 14 bars of Tabs, the model comparison, all time. Hover a bar: it darkens and the caption reads that day. At the ideal 500-point height the comparison sits at the fold and the footnote is below it.',
+   body: () => `${figsA()}<div class="hr"></div><div class="cap" id="cap" style="padding:1.33em 0 .67em">Last 14 days: 1,719 Tabs</div>${chart('c', DAYS, d => d.tabs)}${personal}${foot}`,
+   wire(win) { hover(win, DAYS, d => win.querySelector('#cap').textContent = d ? `${long(d.d)}: ${d.tabs} Tabs, ${d.chars} letters` : 'Last 14 days: 1,719 Tabs'); } },
+ { l:'B', name:'Delta, and the day at the bar', cost:'Small, ~half a day. The delta is <code>tally.last(2)</code> and a Text (~6 lines). The tooltip is a <code>RuleMark</code> at the picked date with <code>.annotation(position: .top, overflowResolution: .init(x: .fit, y: .disabled))</code> (~20 lines); <code>chartXSelection</code> is already there.',
+   note:'Your (1) and (2). “+142 vs yesterday” beside 189, and hovering a bar shows a dark tooltip on it with the date, Tabs, letters and the share by Tab, as in the shot. The caption goes back to the 14-day sum. Caveat: yesterday was a Saturday, so the delta mostly measures weekends; B could say “vs last Sunday” (+189) instead.',
+   body: () => `${figsA(signed(T.tabs - Y.tabs) + '<span class="cap" style="margin-left:.3em">vs yesterday</span>')}<div class="hr"></div><div class="cap" style="padding:1.33em 0 .67em">Last 14 days: 1,719 Tabs</div>${chart('c', DAYS, d => d.tabs)}${personal}${foot}`,
+   wire(win) { hover(win, DAYS, (d, el) => tipFor(win, el, d && `<div class="d">${long(d.d)}</div><div>${d.tabs} Tabs · ${d.chars} letters</div><div>${d.by == null ? 'no typing' : pct(d.by, 1) + ' typed by Tab'}</div>`)); } },
+ { l:'C', name:'Your typing, by Tab', cost:'Medium, ~1 day. Same <code>Tally</code>, no new data: <code>byTab</code> per day for the bars, <code>.foregroundStyle(by: .value("Model", …))</code> with two colours for <code>withModel</code>, mixed days grey. The comparison block becomes the legend’s two numbers.',
+   note:'The headline becomes the outcome: 11% of everything you typed today was Tab’s, with the change against your 14-day average. Bars show that share per day, ink on days with your personal model, grey without, so the A/B test you’re running is visible day by day. Tabs, letters and suggestions taken become one line. Fits above the fold.',
+   body: () => { const avg = DAYS.filter(d => d.by != null); const a = avg.reduce((s, d) => s + d.by, 0) / avg.length;
+     return `<div class="figs" style="gap:24em">${fig(pct(T.by), 'of your typing today was Tab’s', true, `<span class="delta ${T.by < a ? 'dn' : ''}">${T.by < a ? '−' : '+'}${Math.abs((T.by - a) * 100).toFixed(1)} pts</span><span class="cap" style="margin-left:.3em">vs 14-day avg</span>`)}</div>
+     <div class="cap" style="margin:-.9em 0 1.4em">189 Tabs · 770 letters · 4% of suggestions taken</div><div class="hr"></div>
+     <div style="display:flex;justify-content:space-between;align-items:center;padding:1.2em 0 .6em"><span class="cap" id="cap">Share typed by Tab, last 14 days</span>
+     <div class="key"><span><i style="background:#1d1d1f"></i>your model 12.4%</span><span><i style="background:rgba(29,29,31,.25)"></i>without 10.9%</span></div></div>
+     ${chart('c', DAYS, d => d.by || 0, { max:0.16, ticks:[0, .08, .16].map(x => x), color: d => d.model ? 'rgba(29,29,31,.85)' : 'rgba(29,29,31,.22)', hi: () => false, fmt: t => Math.round(t * 100) + '%' })}${foot}`; },
+   wire(win) { hover(win, DAYS, (d, el) => tipFor(win, el, d && `<div class="d">${long(d.d)} · ${d.model ? 'your model' : 'without it'}</div><div>${d.by == null ? 'no typing' : pct(d.by, 1) + ' typed by Tab'}</div><div>${d.tabs} Tabs · ${d.chars} letters</div>`));
+     win.querySelectorAll('.bars > div').forEach(o => o.classList.remove('hi')); win.querySelector('.bars').onmouseleave = () => tipFor(win, null); } },
+ { l:'D', name:'A halftone calendar', cost:'Medium, ~1 day. A <code>Canvas</code> or a <code>Grid</code> of circles, 12 weeks × 7 (no Charts), dot area by Tabs, plus <code>onContinuousHover</code> for the day. Earns its keep only after a few months.',
+   note:'The bars become a calendar of the sky’s own dots: each day a dot, bigger for more Tabs, today in ink, days before Halftype as faint specks. Weeks and weekends show at a glance, and it’s the most Halftype-looking. Hover a dot for the day. With 14 days it’s mostly empty, which is why it’s not first.',
+   body: () => `${figsA(signed(T.tabs - Y.tabs) + '<span class="cap" style="margin-left:.3em">vs yesterday</span>')}<div class="hr"></div><div class="cap" id="cap" style="padding:1.33em 0 .8em">Last 12 weeks: 1,719 Tabs since Oct 26</div>${cal()}${personal}`,
+   wire(win) { win.querySelectorAll('[data-day]').forEach(el => { el.onmouseenter = () => { const d = DAYS.find(x => x.k === el.dataset.day); win.querySelector('#cap').textContent = `${long(d.d)}: ${d.tabs} Tabs, ${d.chars} letters`; };
+     el.onmouseleave = () => win.querySelector('#cap').textContent = 'Last 12 weeks: 1,719 Tabs since Oct 26'; }); } },
+ { l:'E', name:'Week / Month / All', cost:'Medium, ~1 day. A segmented <code>Picker</code>, sums over the range (<code>tally.last(7)</code>, <code>last(30)</code>, all), weekly bars for All via <code>BarMark(x: .value(…, unit: .weekOfYear))</code>. No Day view: there are no hourly counts, and adding them means counting by hour in <code>Tally</code>.',
+   note:'Your (3). The header names the range (“This week · Nov 2 – 8”), the three numbers are the range’s sums with a delta against the range before, and the bars follow: 7 days, 30 days, or one bar per week. Click the switch. As you said, it pays off once there are months of data; today only 1 day is real.',
+   body: () => `<div class="seg"><span class="on" data-r="w">Week</span><span data-r="m">Month</span><span data-r="a">All</span></div><div id="rng"></div>`,
+   wire(win) { const draw = r => { win.querySelectorAll('.seg span').forEach(s => s.classList.toggle('on', s.dataset.r === r)); win.querySelector('#rng').innerHTML = range(r); };
+     win.querySelectorAll('.seg span').forEach(s => s.onclick = () => draw(s.dataset.r)); draw('w'); } },
+ { l:'F', name:'One sentence', cost:'Small, ~half a day. A <code>Text</code> built from the same numbers, a thin chart (height 48) with no axes, and the comparison as a second sentence. Less to show, so less to build.',
+   note:'The page as a note, not a dashboard: one sentence that says what Halftype did today, a thin strip of the 14 days, and the experiment in a line. Hover the strip for a day. Fits in any window size with room to spare. For someone who opens Stats once a week, this is all they read anyway.',
+   body: () => `<div style="font-size:22em;line-height:1.35;letter-spacing:-.01em;padding:.5em 0 .9em">Today Tab typed <b>770 letters</b> for you, <b>1 key in 9</b> of all you typed. That’s <span style="color:#2f7d4f">142 more Tabs</span> than yesterday.</div>
+     <div class="cap" id="cap" style="padding-bottom:.6em">Last 14 days: 1,719 Tabs</div>${chart('c', DAYS, d => d.tabs, { ticks: [], h: 42 })}
+     <div class="hr" style="margin-top:12em"></div><div style="font-size:13em;padding-top:1.1em;color:rgba(60,60,67,.75)">With your personal model, Tab typed 12.4% of your keys (6 days); without it, 10.9% (7 days).</div>${foot}`,
+   wire(win) { hover(win, DAYS, d => win.querySelector('#cap').textContent = d ? `${long(d.d)}: ${d.tabs} Tabs, ${d.chars} letters` : 'Last 14 days: 1,719 Tabs'); } },
+];
+function figsA(extra = '') { return `<div class="figs">${fig('189', 'Tabs today', true, extra)}${fig('770', 'letters typed for you')}${fig('4%', 'of suggestions taken')}</div>`; }
+function cal() { // 12 weeks, Monday-first columns ending this week.
+  const end = new Date('2026-11-08T12:00'), cells = [];
+  for (let w = 11; w >= 0; w--) { const col = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(end); d.setDate(end.getDate() - w * 7 - (6 - i)); const k = d.toISOString().slice(0, 10), day = DAYS.find(x => x.k === k);
+      const r = day ? (day.tabs ? 2 + 5.5 * Math.sqrt(day.tabs / 204) : 1.4) : 1, c = day === T ? '#1d1d1f' : day ? 'rgba(29,29,31,.5)' : 'rgba(29,29,31,.15)';
+      col.push(`<div ${day ? `data-day="${k}"` : ''} style="width:22em;height:17em;display:grid;place-items:center"><i style="width:${2 * r}em;height:${2 * r}em;border-radius:50%;background:${c};display:block"></i></div>`); }
+    cells.push(`<div>${col.join('')}</div>`); }
+  return `<div style="display:flex;gap:6em;align-items:flex-start"><div style="display:flex;flex-direction:column">${['M','','W','','F','','S'].map(x => `<div style="height:17em;width:14em;display:grid;align-items:center"><span class="cap" style="font-size:10em">${x}</span></div>`).join('')}</div>${cells.join('')}</div>`;
+}
+function range(r) {
+  const sum = ds => ds.reduce((s, d) => ({ tabs: s.tabs + d.tabs, chars: s.chars + d.chars, shown: s.shown + d.shown, taken: s.taken + d.taken }), { tabs:0, chars:0, shown:0, taken:0 });
+  let ds, prev, head, bars;
+  if (r === 'w') { ds = DAYS.slice(-7); prev = DAYS.slice(-14, -7); head = 'This week · Nov 2 – 8'; bars = chart('c', ds, d => d.tabs, { max: 250, ticks: [0, 125, 250] }); }
+  else if (r === 'm') { ds = DAYS; prev = []; head = 'Last 30 days · Oct 10 – Nov 8';
+    const pad = Array.from({ length: 16 }, (_, i) => ({ tabs: 0, d: new Date(2026, 9, 10 + i), k: 'p' + i }));
+    bars = chart('c', [...pad, ...DAYS], d => d.tabs, { max: 250, ticks: [0, 125, 250], xl: (d, i) => i % 7 === 2 ? d.d.getDate() : '' }); }
+  else { ds = DAYS; prev = null; head = 'All time · since Oct 26';
+    const wk = [DAYS.slice(0, 7), DAYS.slice(7)].map((w, i) => ({ tabs: sum(w).tabs, d: w[0].d, k: 'w' + i }));
+    bars = chart('c', wk, d => d.tabs, { max: 1000, ticks: [0, 500, 1000], hi: d => d.k === 'w1', xl: d => d.d.toLocaleDateString('en-US', { month:'short', day:'numeric' }) }); }
+  const s = sum(ds), p = prev && prev.length ? sum(prev) : null;
+  const dl = (a, b) => p ? signed(a - b) : '';
+  return `<div class="cap" style="font-size:13em;color:#1d1d1f;font-weight:500">${head}</div><div class="figs" style="padding-top:12em">${fig(n(s.tabs), 'Tabs', true, dl(s.tabs, p && p.tabs))}${fig(n(s.chars), 'letters typed for you', false, dl(s.chars, p && p.chars))}${fig(pct(s.taken / s.shown), 'of suggestions taken')}</div><div class="hr"></div>
+    <div class="cap" style="padding:1.33em 0 .67em">${p ? 'Against the week before' : r === 'm' ? 'Halftype counted from Oct 26' : 'By week'}</div>${bars}`;
+}
+
+const grid = document.getElementById('grid');
+for (const v of V) {
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `<div class="shot"><div class="win"><canvas class="layer"></canvas><div class="lights"><i></i><i></i><i></i></div>
+    <div class="side"><div>Try It</div><div class="on">Stats</div><div>Models</div><div>Apps</div><div>General</div><div class="tog">On <i></i></div></div>
+    <div class="content"><div class="pane"><div class="t">Stats</div>${v.body()}</div></div><div class="tip" style="display:none"></div></div></div>
+    <div class="meta"><b class="l">${v.l}</b><span class="name">${v.name}</span><p>${v.note}</p><p class="cost">Cost in Swift: ${v.cost}</p></div>`;
+  grid.appendChild(el); v.wire(el.querySelector('.win'));
+}
+const drawAll = () => document.querySelectorAll('canvas.layer').forEach(drawSky);
+addEventListener('resize', drawAll); drawAll();
+
+const IMGS = [['G', 'images/G.png', 'Bars made of halftone dots', 'A with the sky’s dots as the bars, the delta beside 189, and the pane gone so the sky shows through. Worth taking: dotted bars (a fixed dot grid clipped to each bar’s height in a Canvas) on any of A–C; it ties the chart to the sky and the icon at almost no cost. The sidebar icons and the logo are Codex’s own.'], ['H', 'images/H.png', 'A sentence in ink and glass', 'F, but on cream with a serif and the icon’s materials: 770 in ink, “1 in 9” in blue-to-peach glass, the days as glass pills with today in black. Worth taking: the ink-and-glass split (yours vs Tab’s), which matches home-glass C if that’s built, and the serif for one sentence. No axes or numbers on the pills, so no hover.']];
+const imgs = document.getElementById('imgs');
+for (const [l, src, name, note] of IMGS) {
+  const el = document.createElement('div'); el.className = 'card img';
+  el.innerHTML = `<img src="${src}" alt="${name}"><div class="meta"><b class="l">${l}</b><span class="name">${name}</span> <span style="color:#8a8b90">· image</span><p>${note}</p></div>`;
+  imgs.appendChild(el);
+}
+</script>
+</body>
+</html>

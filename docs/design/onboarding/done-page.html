@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Last page options</title>
+<style>
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.card{border-radius:var(--radius,10px);overflow:hidden}
+.w{position:relative;aspect-ratio:720/500;background:#f6f1e9;color:#141416;font:13px -apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden;border-radius:10px}
+.w .sky{position:absolute;inset:0;background:radial-gradient(40% 50% at 10% 75%,rgba(143,182,228,.55),transparent 70%),radial-gradient(35% 45% at 92% 72%,rgba(243,180,140,.55),transparent 70%)}
+.c{position:absolute;left:0;right:0;top:20%;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px}
+.h{font-size:22px;font-weight:650;margin-top:4px}
+.s{color:rgba(20,20,22,.55);font-size:11px;line-height:1.4}
+.btn{background:rgba(0,0,0,.88);color:#fff;border-radius:99px;padding:7px 16px;font-size:12px;font-weight:500}
+.pill{display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.6);border-radius:12px;padding:6px 10px;font-size:11px}
+.sw{width:26px;height:15px;border-radius:9px;background:#141416;position:relative}.sw:after{content:"";position:absolute;right:2px;top:2px;width:11px;height:11px;border-radius:50%;background:#fff}
+.chk{display:flex;gap:6px;align-items:center;font-size:11px;color:rgba(20,20,22,.7)}
+.box{width:12px;height:12px;border-radius:3px;background:#141416;color:#fff;font-size:9px;display:grid;place-items:center}
+.mark{width:26px;height:26px}
+.bar{position:absolute;top:0;left:0;right:0;height:16px;background:rgba(255,255,255,.55);display:flex;justify-content:flex-end;align-items:center;gap:8px;padding-right:56px;font-size:9px;color:#555}
+.hi{width:13px;height:11px;border-radius:3px;background:rgba(143,182,228,.7);outline:2px solid rgba(233,169,133,.8)}
+.arrow{position:absolute;top:18px;right:52px;font-size:10px;color:#c9765a}
+.meta{padding:8px 2px}.meta b{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:5px;background:var(--foreground,#eee);color:var(--background,#111);margin-right:6px;font-size:12px}
+.meta p{margin:4px 0 0;color:var(--muted-foreground,#888);font-size:12px}
+.rec{padding:10px 12px;border:1px solid var(--border,#333);border-radius:var(--radius,10px);margin-bottom:12px;font-size:13px}
+</style></head><body>
+<div class="rec"><b>Recommendation: B.</b> One main action, and Start at Login becomes a small checked box under it rather than a second control of equal weight. It's ticked by default: a menu-bar typing helper that doesn't come back after a restart looks broken, and the box shows it plainly, so it's still your choice.</div>
+<div class="g">
+<div class="card"><div class="w"><div class="sky"></div><div class="c">
+<svg class="mark" viewBox="0 0 18 18" fill="none" stroke-width="2" stroke-linecap="round"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6" stroke="#141416"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke="#9cb9dc"/></svg>
+<div class="h">You're set</div><div class="s">Halftype lives in the menu bar, up at the top right.<br>Open any app and start typing.</div>
+<div class="pill" style="margin-top:6px">Start at login <span class="sw"></span></div><div class="btn">Start Writing</div></div></div>
+<div class="meta"><b>A</b>Today<p>Two controls of the same weight stacked tightly; the eye doesn't know which matters.</p></div></div>
+
+<div class="card"><div class="w"><div class="sky"></div><div class="c">
+<svg class="mark" viewBox="0 0 18 18" fill="none" stroke-width="2" stroke-linecap="round"><path d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6" stroke="#141416"/><path d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9" stroke="#9cb9dc"/></svg>
+<div class="h">You're set</div><div class="s">Halftype lives in the menu bar, up at the top right.<br>Open any app and start typing.</div>
+<div class="btn" style="margin-top:14px">Start Writing</div><div class="chk" style="margin-top:4px"><span class="box">✓</span>Open Halftype when I log in</div></div></div>
+<div class="meta"><b>B</b>Button first, login as a checkbox under it<p>One clear action, a quiet option below with room around it. Smallest change: a checkbox instead of the switch pane.</p></div></div>
+
+<div class="card"><div class="w"><div class="sky"></div><div class="bar"><span>⌘</span><span>Wi-Fi</span><span class="hi"></span><span>9:41</span></div><div class="arrow">↑ Halftype lives here</div><div class="c" style="top:26%">
+<div class="h">You're set</div><div class="s">Open any app and start typing.</div>
+<div class="btn" style="margin-top:14px">Start Writing</div><div class="chk" style="margin-top:4px"><span class="box">✓</span>Open Halftype when I log in</div></div></div>
+<div class="meta"><b>C</b>B, and point at the real menu bar icon<p>Halftype's menu-bar icon glints once while an arrow at the top of the window points at it, instead of the sentence. More delight; the arrow must be placed from the icon's real position, about a day more.</p></div></div>
+</div></body></html>

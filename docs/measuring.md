@@ -1,10 +1,12 @@
 # What the numbers mean, and how to get them yourself
 
-All of it on an M5 with 16 GB, llama.cpp b12167. Unless it says otherwise, on Kanana 1.5 2.1B base (1.4 GB), the default until 0.1.0. The default is now Qwen 3.5 0.8B (0.5 GB): see [Choosing the default model](#choosing-the-default-model). Its memory is in the next section; the rest of that section is Kanana's.
+All of it on an M5 with 16 GB, llama.cpp b12167. Unless it says otherwise, on Kanana 1.5 2.1B base (1.4 GB), the default until 0.1.0. Since 2026-11-09 the default is Gemma 4 E2B (3.4 GB), and before that Qwen 3.5 0.8B (0.5 GB): see [Choosing the default model](#choosing-the-default-model). Gemma's and Qwen's memory open the next section; the rest of it is Kanana's.
 
 ## Memory: what a user actually pays
 
-**Qwen 3.5 0.8B, the default**, the same run on 2026-11-07: while typing (282 keys in 52 s), `MTLDevice.currentAllocatedSize` 562 MB, system wired +542 MB over before loading, footprint 267 MB, CPU 7% of a core. Idle with the model loaded, wired back to where it started; unloaded, Metal 2 MB. 20 reloads: footprint 171-214 MB, no growth. The first run of the harness crashed in its own window's Accessibility read, off the main thread; the second passed.
+**Gemma 4 E2B, the default since 2026-11-09**, `scripts/e2e.sh --measure` on 2026-11-09: loaded, `MTLDevice.currentAllocatedSize` 1,469-1,471 MB and system wired +1.48 GB over before loading (3,908 to 5,387 MB); just after typing (282 keys in 51 s, ghost up on 186) +1.32 GB, footprint 240 MB, CPU 14% of a core. Idle with the model loaded, wired back below where it started, footprint 177 MB, CPU 0.16-0.93%. Unloaded, Metal 2 MB. RSS reaches 3.4 GB while loaded: only part of the 3.43 GB file goes to Metal, and the rest is mapped, not wired, so it can be evicted (likely the per-layer embeddings Gemma's E models keep off the GPU; not checked). 20 reloads: footprint 208-230 MB, no growth. Other agents' work shared the Mac.
+
+**Qwen 3.5 0.8B, the default until 2026-11-09**, the same run on 2026-11-07: while typing (282 keys in 52 s), `MTLDevice.currentAllocatedSize` 562 MB, system wired +542 MB over before loading, footprint 267 MB, CPU 7% of a core. Idle with the model loaded, wired back to where it started; unloaded, Metal 2 MB. 20 reloads: footprint 171-214 MB, no growth. The first run of the harness crashed in its own window's Accessibility read, off the main thread; the second passed.
 
 Kanana 1.5 2.1B, the default until 0.1.0:
 
@@ -29,6 +31,7 @@ CPU: the shipped app, idle, 0.13% to 0.27% of a core over 60 s, loaded or unload
 ## Against other apps (landing page, 2026-11-09)
 
 Cotypist, Cotabby and KeyType at rest, each with its default model: the method, the numbers and the traps are in [site/compare/README.md](site/compare/README.md), with the script that measured them. While typing (speed from the screen, keys saved, first word right, memory, CPU, Korean mid-syllable), with macOS's predictions too: [bench/compare/README.md](../bench/compare/README.md), not run yet.
+- **To do, if we want it:** profile where Halftype's CPU goes while typing. In the 2026-11-09 typing run (`~/halftype-lab-private/compare/2026-11-09T135219Z/`) it used 23% of a core, against Cotabby's 15% on the same Gemma 4 E2B. Probably the extra suggestions it finishes (96% shown after a 1.5 s pause, against 44%), but not measured. Run `sample <pid> 30` on Halftype while `scripts/live-keys.swift` types (this takes the keyboard: ask John), and split the time between llama.cpp/Metal and our Swift. The suspect is `Vocab.pick` (Engine.swift), which checks Gemma's whole ~262k-token vocabulary on every token. Fix it only if it is a real share.
 - System-wide wired memory is useless while other agents run: it swung 4.9-7.1 GB with one app idle. Use `footprint -p`.
 - Before measuring Halftype the same way, check `pgrep -lf Halftype.app`: another session's dev build may already be running. Check `defaults read app.halftype.Halftype modelPath` too, as it may not be the default.
 
@@ -42,7 +45,11 @@ Typing 48 letters through a ghost in the private window of `scripts/e2e.sh --fli
 | At once, on the next main-thread turn | 46 of 48, hidden 6-8 ms (p50, p90) | 22 single blank frames at 60 Hz, about 4 flashes a second |
 | One frame later (shipped) | 0 from typing | 0 blank frames (only the no-ghost a mid-word line end asks for) |
 
-A native host answers in under 8 ms. **Chromium's time isn't measured**: if it is over a frame the ghost still blanks there. `docs/live-test.md` step 10 is that check.
+A native host answers in under 8 ms. **Chromium's time isn't measured**, and John saw the ghost flash on each key in T3 Code (Electron), so it is over a frame there.
+
+Since 2026-11-09 a key that types the ghost's next letter doesn't blank it: the panel stops drawing that letter in place and skips the frame's hide (`KeyTap.typesNext`, `GhostPanel.trim`) until the host's update draws and arms it again. Tab stays disarmed in between, as after any key, so it can only take what the host has confirmed (Codex: an armed guess let Tab insert `here` after a `t` a web editor ate). Only another key hides after the frame. A host that never shows the letter loses the ghost after `Watcher.unanswered`, 0.5 s.
+
+Measured live on 2026-11-09 (the app run from the shell with a temporary timestamp trace, keys from `scripts/live-keys.swift` at 98 ms apart, typing ` the lates` through a ` the latest` ghost in a plain textarea in ego lite, Chromium): every key trimmed the drawing at once and none hid it; Chromium's update redrew it 12-29 ms after the key (p50 about 20 ms, 10 keys). One frame is 16.7 ms, so the old frame-then-hide blanked most keys there. The table above is from before this, in the private window.
 
 ## How well it predicts
 
@@ -137,13 +144,14 @@ November 2026, the same replay (`itda-replay` at tag `bench-1`, threshold -0.7) 
 | LFM3 1.7B | 1.10 GB | 78.7% | 8.6% | 0.73, -0.32 to -0.18 | 17.0% | 63 ms | 0.41 |
 
 - Granite leads by showing more wrong suggestions. At its own threshold for 80% precision on dev threads (-0.5) it gives 0.96 keys at 83.0%, level with Qwen 3.5 2B at 1.75 times the size.
-- Qwen 3.5 0.8B ties Qwen 3.5 2B on English within the CI, at 41% of the size and with the quickest first word, so it's the default. What it gives up is Korean: own messages 0.60 against 0.88 keys per request (CI -0.52 to -0.10).
+- Qwen 3.5 0.8B ties Qwen 3.5 2B on English within the CI, at 41% of the size and with the quickest first word, so it was the default until 2026-11-09. What it gives up is Korean: own messages 0.60 against 0.88 keys per request (CI -0.52 to -0.10).
 - Qwen 3.5 0.8B against Kanana 1.5, the old default, in full: English test 922 of 1,131 shown right (81.5%), coverage 47.1%. Whole messages: English 21.6% against 22.1% (800 keys), Korean public 4.8% against 8.8% (1,200 keys), Korean own 10.8% against 13.4% (1,800 keys). Korean public suggestions on Hangul right when shown: 20.9% against 33.7%. First displayable word p50: 53, 97 and 102 ms against 60, 102 and 114 ms. No model call on 47%, 20% and 26% of keys against 48%, 27% and 28%.
+- Gemma 4 E2B became the default on 2026-11-09, John's call: the most right when shown after Kanana among the full-precision models, and the most saved on whole messages of those that don't show more wrong ones (Granite does). It costs 6.5 times Qwen 3.5 0.8B's file, and its Korean is a little weaker (0.54 against 0.60). Its Korean whole messages and coverage haven't been measured; its memory is at the top of this file; `scripts/e2e.sh --measure <gguf>` and the replay above would give them.
 - Not tried: models of 3.5 GB or more, community fine-tunes, and Ternary Bonsai's smaller packings, which need a fork of llama.cpp. Gemma 4's tokenizer fix of 3 November 2026 changed no weights and came after these files.
 
 ## Length and How Often
 
-The window's two settings move the two numbers above: Length the floor that ends a suggestion (-1, -2, -3), How Often the gate's threshold (-0.3, -0.7, -1.2). Defaults are Short and Normal, the fitted values. Offline replay, Qwen 3.5 0.8B, English test threads, 2,400 requests, Tab one word, the first word at least 3 keys (`reviews/audit-2026-11/quality-aggregates/length_freq.py` in the bench repo):
+The window's two settings move the two numbers above: Length the floor that ends a suggestion (-1, -2, -3), How Often the gate's threshold (-0.3, -0.7, -1.2, and Always with no gate, not replayed here; the no-gate figure in the README is the nearest). Defaults are Short and Normal, the fitted values. The Try It window ignores both and always runs with no floor and no gate, so a first try shows a suggestion at every pause. Offline replay, Qwen 3.5 0.8B, English test threads, 2,400 requests, Tab one word, the first word at least 3 keys (`reviews/audit-2026-11/quality-aggregates/length_freq.py` in the bench repo):
 
 | Setting | Shown, of requests | First word right | Wrong and shown, per request | Grey characters per ghost | Grey characters right | Characters saved per request |
 |---|---|---|---|---|---|---|

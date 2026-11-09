@@ -1,0 +1,26 @@
+/* Shared by the variants: the app's tokens (Window.swift, GhostPanel.swift), the field, glass suggestions, the Tab glint, keycaps. */
+:root { --cream: #f6f1e9; --ink: #1d1c1a; --muted: #6a6762; --peach: #e6946b; --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif; --mono: ui-monospace, "SF Mono", Menlo, monospace; --serif: "Instrument Serif", "New York", Georgia, serif; }
+* { box-sizing: border-box; margin: 0; }
+html, body { background: var(--cream); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+body { width: 1440px; height: 900px; overflow: hidden; position: relative; }
+nav.top { position: absolute; top: 0; left: 0; right: 0; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 80px; font-size: 14px; z-index: 5; }
+nav.top .logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 17px; }
+nav.top .links { display: flex; gap: 28px; color: var(--muted); }
+.btn { display: inline-flex; align-items: center; gap: 8px; background: var(--ink); color: var(--cream); border-radius: 999px; padding: 12px 22px; font: 500 15px var(--sans); text-decoration: none; }
+.btn.small { padding: 8px 16px; font-size: 13px; }
+.brewline { font: 12px var(--mono); color: var(--muted); }
+.arch { position: absolute; background: url(arch.svg) center / 100% 100% no-repeat; filter: blur(26px); opacity: .75; pointer-events: none; }
+.field { background: rgba(255,255,255,.6); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: .5px solid rgba(29,28,26,.08); border-radius: 20px; padding: 22px 24px 16px; box-shadow: 0 30px 60px -30px rgba(29,28,26,.18); }
+.field .text { font: 400 22px/1.45 var(--sans); min-height: 2.9em; }
+.field .bar { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.pill { background: #fff; border-radius: 999px; padding: 5px 13px; font-size: 13px; }
+.power { width: 30px; height: 30px; border-radius: 50%; background: var(--ink); display: grid; place-items: center; }
+.power svg { width: 15px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; }
+.kc { display: inline-grid; place-items: center; min-width: 46px; height: 32px; padding: 0 10px; border-radius: 8px; background: #fff; border: 1px solid rgba(29,28,26,.12); box-shadow: 0 2px 0 rgba(29,28,26,.14); font: 500 13px var(--mono); transition: transform .09s, box-shadow .09s, background .09s; }
+.kc.down { transform: translateY(2px); box-shadow: none; background: #f4b48c; }
+.ghost { background: linear-gradient(90deg, #45709d, #606e7e, #995e3e); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.taken { background: linear-gradient(90deg, var(--ink) 0 38%, #45709d 44%, #606e7e 50%, #995e3e 56%, var(--ink) 62% 100%) 100% 0 / 320% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: glint calc(.25s / var(--speed, 1)) ease-in-out forwards; }
+@keyframes glint { to { background-position: 0 0; } }
+.caret { border-left: 2px solid var(--ink); margin: 0 -1px; animation: blink 1.05s steps(1) infinite; }
+.ghost, .caret { white-space: nowrap; }
+@keyframes blink { 50% { border-left-color: transparent; } }

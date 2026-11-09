@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stats, round 4</title>
+<style>
+:root { --mute:#8a8b90; --card:#18191c; --line:#2a2b2f; }
+body { margin:0; background:#0e0f11; color:#e8e8ea; font:14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+main { max-width:1500px; margin:0 auto; padding:24px 16px 60px; }
+h1 { font-size:20px; margin:0 0 6px; } h2 { font-size:15px; margin:28px 0 10px; }
+.q { color:var(--mute); margin:0 0 14px; }
+.rec { background:#1d2430; border:1px solid #2f3b4d; border-radius:10px; padding:12px 14px; margin:0 0 14px; } .rec p { margin:6px 0 0; }
+.data { display:flex; gap:8px; align-items:center; margin:0 0 14px; color:var(--mute); }
+.data button { background:#25272b; color:#ddd; border:1px solid #3a3c41; border-radius:7px; padding:4px 10px; font:inherit; cursor:pointer; } .data button.on { background:#e8e8ea; color:#111; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 600px), 1fr)); gap:18px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.meta { padding:10px 14px 14px; } .meta p { margin:6px 0 0; color:var(--mute); } .meta .cost { color:#b9c3d0; }
+b.l { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:6px; background:#e8e8ea; color:#111; margin-right:8px; } .name { font-weight:600; }
+
+/* The window at 720 x 500 points, main's cream design, scrolled to Stats; 1em = 1 point. */
+.shot { padding:4%; background:#2b2d31; }
+.win { position:relative; aspect-ratio:720/600; container-type:inline-size; border-radius:1.4cqw; overflow:hidden; box-shadow:0 2cqw 5cqw rgba(0,0,0,.45);
+  background:#f6f1e9; color:#1d1d1f; font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+.win > * { font-size:calc(100cqw / 720); }
+.lights { position:absolute; left:14em; top:12em; display:flex; gap:8em; z-index:3; }
+.lights i { width:12em; height:12em; border-radius:50%; background:#ff5f57; } .lights i:nth-child(2){background:#febc2e} .lights i:nth-child(3){background:#28c840}
+.sbtn { position:absolute; left:84em; top:9em; width:17em; height:13em; z-index:3; color:rgba(60,60,67,.55); }
+.side { position:absolute; left:10em; top:36em; bottom:10em; width:142em; box-sizing:border-box; padding:8em; background:rgba(255,255,255,.75); border-radius:16em; box-shadow:0 0 0 .5em rgba(0,0,0,.07); z-index:2; }
+.it { display:flex; align-items:center; gap:7em; padding:5em 10em; border-radius:7em; color:rgba(60,60,67,.6); }
+.it span { font-size:12.5em; } .it.field span { font-size:13em; } .it.field { color:#1d1d1f; } .it.on { background:rgba(0,0,0,.07); color:#1d1d1f; }
+.it .dot { width:5em; height:5em; border-radius:50%; flex:none; } .it.on .dot { background:#e6946b; }
+.it svg { width:14em; height:14em; flex:none; }
+.side .hd { font-size:11em; color:rgba(60,60,67,.6); padding:0 .9em .2em; } .side .div { height:1em; background:rgba(0,0,0,.1); margin:6em 0; }
+.side .tog { position:absolute; left:18em; bottom:12em; display:flex; gap:6em; align-items:center; } .side .tog span { font-size:13em; }
+.side .tog i { width:26em; height:15em; border-radius:8em; background:#1d1d1f; position:relative; } .side .tog i::after { content:''; position:absolute; right:1.5em; top:1.5em; width:12em; height:12em; border-radius:50%; background:#fff; }
+.content { position:absolute; left:152em; right:0; top:0; bottom:0; overflow:hidden; z-index:1; }
+.pane { margin:0 auto; width:512em; box-sizing:border-box; padding:18em 20em 20em; background:rgba(255,255,255,.6); border-radius:0 0 20em 20em; min-height:100%; position:relative; }
+.pane .t { font-size:20em; font-weight:600; } .pane .n { font-size:12em; color:rgba(60,60,67,.6); margin:.15em 0 1em; }
+.figs { display:flex; align-items:baseline; gap:36em; padding:14em 0 16em; }
+.fig .v { font-size:26em; font-variant-numeric:tabular-nums; line-height:1.15; } .fig.big .v { font-size:44em; font-weight:600; } .fig .vv { white-space:nowrap; }
+.fig .k { font-size:12em; color:rgba(60,60,67,.6); margin-top:.15em; }
+.cap { font-size:12em; color:rgba(60,60,67,.6); font-variant-numeric:tabular-nums; }
+.hr { height:1em; background:rgba(0,0,0,.1); }
+.delta { font-size:12em; color:#2f7d4f; font-weight:500; margin-left:.5em; } .delta.dn { color:#a2463b; }
+.chart { position:relative; margin-right:30em; }
+.chart .gl { position:absolute; left:0; right:0; height:1em; background:rgba(0,0,0,.08); }
+.chart .yl { position:absolute; right:-3em; font-size:10em; color:rgba(60,60,67,.6); transform:translateY(50%); }
+.bars { position:absolute; left:0; right:0; top:0; bottom:18em; display:flex; align-items:flex-end; }
+.bars > div { flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; position:relative; }
+.bars b { width:60%; border-radius:3em; background:rgba(29,29,31,.18); display:block; } .bars .hi b { background:rgba(29,29,31,.85); }
+.bars .x { position:absolute; bottom:-1.6em; font-size:10em; color:rgba(60,60,67,.6); white-space:nowrap; }
+.tip { position:absolute; z-index:5; background:#1d1d1f; color:#fff; border-radius:8em; padding:7em 9em; pointer-events:none; white-space:nowrap; transform:translate(-50%,-100%); display:none; }
+.tip div { font-size:11em; line-height:1.4; } .tip .d { color:rgba(255,255,255,.6); }
+.bar { display:flex; justify-content:space-between; align-items:center; padding:12em 0 8em; }
+.seg { display:flex; background:rgba(0,0,0,.06); border-radius:7em; padding:2em; }
+.seg span { font-size:12em; padding:.2em .8em; border-radius:.45em; cursor:pointer; color:rgba(60,60,67,.8); } .seg .on { background:#fff; color:#1d1d1f; box-shadow:0 .5px 2px rgba(0,0,0,.15); }
+.pager { display:flex; align-items:center; gap:6em; } .pager button { all:unset; cursor:pointer; width:20em; height:20em; border-radius:6em; display:grid; place-items:center; color:#1d1d1f; }
+.pager button:hover { background:rgba(0,0,0,.06); } .pager button[disabled] { opacity:.25; cursor:default; } .pager button span { font-size:14em; line-height:1; }
+.cal { display:flex; gap:0; position:relative; } .cal .c { display:flex; flex-direction:column; } .cal .c > div { display:grid; place-items:center; cursor:default; }
+.cal i { display:block; border-radius:50%; } .cal .m { position:absolute; top:-1.4em; font-size:10em; color:rgba(60,60,67,.6); }
+.foot { font-size:12em; color:rgba(60,60,67,.6); margin-top:1.4em; }
+.models { font-size:20em; font-weight:600; margin-top:1.2em; }
+/* sidebar strip */
+.strip { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap:18px; }
+.strip .win { aspect-ratio:162/250; } .strip .win > * { font-size:calc(100cqw / 162); }
+.box { display:grid; grid-template-columns:repeat(10, 1fr); gap:2.4em; width:220em; margin:6em 0 8em; }
+.box i { aspect-ratio:1; border-radius:1.6em; background:rgba(29,29,31,.12); } .box i.k1 { background:#1d1d1f; }
+.legend { display:flex; gap:18em; } .legend span { font-size:12em; color:rgba(60,60,67,.6); } .legend b { color:#1d1d1f; font-weight:500; }
+.sent { font-size:22em; line-height:1.35; font-weight:400; padding:14em 0 0; letter-spacing:-.01em; } .sent b { font-weight:600; }
+.sent { padding:.6em 0 .2em; } .sent em { font-style:normal; background:linear-gradient(90deg,#8fb7e0,#e6946b); -webkit-background-clip:text; color:transparent; font-weight:600; }
+.tiles { display:grid; grid-template-columns:1fr 1fr; gap:10em; padding:12em 0 14em; }
+.tile { background:rgba(255,255,255,.75); border-radius:12em; padding:12em 14em; box-shadow:0 0 0 .5em rgba(0,0,0,.06); }
+.tile .v { font-size:28em; font-variant-numeric:tabular-nums; line-height:1.1; } .tile .k { font-size:12em; color:rgba(60,60,67,.6); } .tile svg { width:100%; height:26em; display:block; margin-top:6em; }
+.eq { display:flex; align-items:baseline; flex-wrap:wrap; gap:8em; padding:14em 0 16em; } .eq .op { font-size:16em; color:rgba(60,60,67,.45); }
+.eq .fig .v { font-size:22em; } .eq .fig.big .v { font-size:40em; }
+.small { font-size:11em; color:rgba(60,60,67,.6); } .model { font-size:12em; color:rgba(60,60,67,.75); padding-top:1.2em; }
+.hl { font-size:21em; line-height:1.3; letter-spacing:-.01em; padding:.7em 0 .5em; }
+.hl.big { font-size:26em; } .hl .tm { font-weight:600; }
+.hl .glass { background:linear-gradient(90deg,#5d93d6,#e07f52); -webkit-background-clip:text; color:transparent; }
+.hl .ink { color:#1d1d1f; } .hl .lead { color:rgba(60,60,67,.75); }
+.row { display:flex; gap:30em; padding:4em 0 16em; } .row .fig .v { font-size:20em; }
+.pills .x { bottom:-1.7em; }
+.pills s { display:flex; flex-direction:column; justify-content:flex-end; width:32em; height:100%; border-radius:99em; text-decoration:none; }
+.pills s.track { background:rgba(255,255,255,.75); box-shadow:inset 0 0 0 .8em rgba(0,0,0,.07), inset 0 2em 4em rgba(0,0,0,.05), 0 1em 3em rgba(0,0,0,.05); }
+.pills b { width:100% !important; border-radius:99em !important; background:linear-gradient(to top,#f4b892,#a9cdf2) !important; box-shadow:inset 0 1em 1.5em rgba(255,255,255,.6); }
+.pills .flat b { background:#1d1d1f !important; box-shadow:none; }
+</style>
+</head>
+<body>
+<main>
+<h1>Stats, round 4: one short sentence, and G’s bars</h1>
+<p class="q">John: “What about D's writing but very short and concise, maybe ‘Halftype saved you &lt;21 minutes&gt; (of typing? dunno if we should add that) this week’ with the time colored in, and other stats below. And i'm wondering if G's bar chart looks better than the simple one we have now.” Same real week as round 3 (Nov 9–10). Hover the bars.</p>
+
+<div class="rec"><b>Recommendation: C. “Halftype saved you 21 minutes of typing this week”, the time in the icon’s glass, flat ink bars.</b>
+<p><b>“of typing”: keep it.</b> It says what kind of time, so the claim holds up: you didn’t get 21 minutes of your day back, you skipped 21 minutes of keystrokes. Without it (B) it reads punchier but promises more than we measure. It costs a second line at this width, which is fine for the only sentence on the page.</p>
+<p><b>G’s bars: I wouldn’t.</b> They look lovely in the image, but E and F show the cost on real data: an empty track on every day looks like a goal you missed (Wed–Sun are all “empty”), the gradient means nothing (blue at the top of Monday, peach at the bottom), and a 0.07-minute Tuesday has to be drawn as a dot anyway. They also repeat the sentence’s colour, so nothing stands out. Glass belongs to one thing per page: the number. If you like the softness, F (pills, no tracks, today in ink) is the version that holds up.</p></div>
+
+<div class="grid" id="grid"></div>
+</main>
+<script>
+const ICON = {
+  'Try It': '<path d="M5 3.5v9l7-4.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  Stats: '<path d="M3.5 13V9M8 13V5M12.5 13V2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  Models: '<path d="M8 2.5l5.5 2.8L8 8.1 2.5 5.3z M2.5 8l5.5 2.8L13.5 8 M2.5 10.7l5.5 2.8 5.5-2.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>',
+  Apps: '<g fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="9" width="4.5" height="4.5" rx="1.2"/></g>',
+  General: '<g fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="2.1"/><path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M3.6 12.4l1.2-1.2M11.2 4.8l1.2-1.2"/><circle cx="8" cy="8" r="4.4"/></g>',
+};
+// Sidebar: style 1 today (dot), 2 icons + dot, 3 icons with the current one in peach.
+function side(style) {
+  const item = (name, on, field) => { const ic = style > 1 ? `<svg viewBox="0 0 16 16" style="${on && style === 3 ? 'color:#e6946b' : ''}">${ICON[name]}</svg>` : '';
+    return `<div class="it ${field ? 'field' : ''} ${on ? 'on' : ''}">${!field && style !== 3 ? '<i class="dot"></i>' : ''}${ic}<span>${name}</span></div>`; };
+  return `<div class="side">${item('Try It', false, true)}<div class="div"></div><div class="hd">Settings</div>${['Stats', 'Models', 'Apps', 'General'].map((x, i) => item(x, i === 0)).join('')}<div class="tog"><span>On</span><i></i></div></div>`;
+}
+const chrome = (style, inner) => `<div class="lights"><i></i><i></i><i></i></div><svg class="sbtn" viewBox="0 0 17 13" fill="none" stroke="currentColor" stroke-width="1.1"><rect x=".6" y=".6" width="15.8" height="11.8" rx="2.5"/><path d="M5.5 .6v11.8M2.3 3.2h1.6M2.3 5h1.6M2.3 6.8h1.6"/></svg>${side(style)}<div class="content"><div class="pane"><div class="t">Stats</div><div class="n">What Tab has typed for you.</div>${inner}</div></div><div class="tip"></div>`;
+const D = { '2026-11-09': { tabs:936, characters:4143, saved:4154, typed:27095 }, '2026-11-10': { tabs:3, characters:14, saved:14, typed:406 } };
+const LAST = { tabs:219, characters:926, saved:637, typed:3868 }; // last week: only Sun Nov 8 was counted
+const KPM = 200; // shortcut: 40 wpm assumed; the build should measure the user's own speed
+const days = ['M','T','W','T','F','S','S'].map((x, i) => { const k = `2026-11-${String(9 + i).padStart(2,'0')}`; return { x, k, ...(D[k] || { tabs:0, characters:0, saved:0, typed:0 }), future: i > 1 }; });
+const W = days.reduce((s, d) => ({ tabs:s.tabs + d.tabs, characters:s.characters + d.characters, saved:s.saved + d.saved, typed:s.typed + d.typed }), { tabs:0, characters:0, saved:0, typed:0 });
+const n = x => Math.round(x).toLocaleString('en-US'), min = keys => keys / KPM, words = c => c / 5;
+const share = W.saved / (W.saved + W.typed), every = Math.round(1 / share);
+const fig = (v, k, big, extra = '') => `<div class="fig ${big ? 'big' : ''}"><div class="vv"><span class="v">${v}</span>${extra}</div><div class="k">${k}</div></div>`;
+const delta = x => `<span class="delta ${x < 0 ? 'dn' : ''}">${x < 0 ? '−' : '+'}${n(Math.abs(x))}</span>`;
+const bar = `<div class="bar"><div class="pager"><button><span>‹</span></button><button disabled><span>›</span></button><span style="font-size:13em;font-weight:500">This week</span></div><div class="seg"><span class="on">Week</span><span>Month</span><span>All</span></div></div>`;
+const model = `<div class="hr" style="margin-top:14em"></div><div class="model">(The with/without-model comparison stays as it is, below; this Mac has no whole day with the model yet.)</div><div class="foot">Only counts are kept, never what you type.</div>`;
+function chart(val, fmt, h = 110) {
+  const max = Math.max(...days.map(val)) * 1.15 || 1;
+  return `<div class="chart" style="height:${h + 18}em"><div class="gl" style="bottom:18em"></div><div class="gl" style="bottom:${18 + h}em"></div><div class="yl" style="bottom:${(18 + h) / 10}em">${fmt(max)}</div>
+    <div class="bars">${days.map((d, i) => `<div data-i="${i}" class="${i === 1 ? 'hi' : ''}"><b style="height:${val(d) / max * h}em;${d.future ? 'opacity:0' : ''}"></b><span class="x">${d.x}</span></div>`).join('')}</div></div>`;
+}
+const tipFor = d => `<div class="d">${d.x === 'M' ? 'Monday, Nov 9' : 'Tuesday, Nov 10'}</div><div>${n(min(d.saved))} min saved · ${n(words(d.characters))} words</div><div>${d.tabs} Tabs · 1 in ${Math.round((d.saved + d.typed) / d.saved)} keys by Tab</div>`;
+function spark(val) { const max = Math.max(...days.map(val)) || 1; return `<svg viewBox="0 0 70 10" preserveAspectRatio="none">${days.map((d, i) => `<rect x="${i * 10 + 2}" y="${10 - val(d) / max * 10}" width="6" height="${Math.max(.4, val(d) / max * 10)}" rx="1" fill="${d.future ? 'transparent' : i === 1 ? '#1d1d1f' : 'rgba(29,29,31,.2)'}"/>`).join('')}</svg>`; }
+
+function pills(track, h = 100) {
+  const max = Math.max(...days.map(d => min(d.saved))) * 1.1 || 1;
+  return `<div class="chart pills" style="height:${h + 18}em;margin-right:0"><div class="bars">${days.map((d, i) => { const v = min(d.saved), fh = v ? Math.max(32, v / max * h) : 0;
+    return `<div data-i="${i}" class="${track === 'today' && i === 1 ? 'flat' : ''}"><s class="${track === true ? 'track' : ''}"><b style="height:${fh}em"></b></s><span class="x">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}</span></div>`; }).join('')}</div></div>`;
+}
+const T = n(min(W.saved)) + ' minutes';
+const row = `<div class="row">${fig(n(words(W.characters)), 'words typed for you')}${fig('1 in ' + every, 'keys typed by Tab')}${fig(n(W.tabs), 'Tabs')}</div><div class="hr"></div><div style="height:12em"></div>`;
+const foot = `<div style="height:12em"></div><div class="hr"></div><div class="foot">Only counts are kept, never what you type.</div>`;
+const flat = () => chart(d => min(d.saved), x => n(x) + ' min', 100);
+const V = [
+ { l:'A', name:'Round 3’s B (for reference)', note:'Time as the big figure, three figures beside it, flat bars.', cost:'',
+   html: () => bar + `<div class="figs" style="gap:30em">${fig(n(min(W.saved)) + '<span style="font-size:.5em;font-weight:500"> min</span>', 'saved this week', true)}${fig(n(words(W.characters)), 'words typed for you')}${fig('1 in ' + every, 'keys typed by Tab')}</div><div class="small" style="margin:0 0 1.1em">${n(W.tabs)} Tabs · ${n(W.characters)} letters</div><div class="hr"></div><div style="height:12em"></div>` + flat() + foot },
+ { l:'B', name:'Short: “saved you 21 minutes this week”', note:'Your wording without “of typing”. Fits one line, punchiest. Claims more than we measure: it’s typing time, not time in your day.', cost:'Small: one Text with a styled run.',
+   html: () => bar + `<div class="hl big"><span class="lead">Halftype saved you</span> <span class="tm glass">${T}</span> <span class="lead">this week.</span></div>` + row + flat() + foot },
+ { l:'C', name:'“…21 minutes of typing this week”', note:'Recommended. Same, plus “of typing”: says exactly what was saved. Wraps to two lines at this width, which is fine as the page’s only sentence.', cost:'Small: one Text with a styled run.',
+   html: () => bar + `<div class="hl big"><span class="lead">Halftype saved you</span> <span class="tm glass">${T} of typing</span> <span class="lead">this week.</span></div>` + row + flat() + foot },
+ { l:'D', name:'Time first, ink', note:'“21 minutes of typing saved this week”: the number leads, in black ink, no colour. Calmer, matches the rest of the window, loses the glass accent you asked for.', cost:'Small.',
+   html: () => bar + `<div class="hl big"><span class="tm ink">${T}</span> <span class="lead">of typing saved this week.</span></div>` + row + flat() + foot },
+ { l:'E', name:'C with G’s bars (glass tracks)', note:'G’s chart on real data: every day gets an empty glass track, filled blue-to-peach. Soft and pretty, but empty days read as missed goals, the colour repeats the headline’s, and the axis is gone (hover for the number).', cost:'Medium: custom bar shape in Swift Charts, or a hand-drawn row.',
+   html: () => bar + `<div class="hl big"><span class="lead">Halftype saved you</span> <span class="tm glass">${T} of typing</span> <span class="lead">this week.</span></div>` + row + pills(true) + foot },
+ { l:'F', name:'C with soft pills, no tracks', note:'G’s rounded pills without the empty tracks: past days in soft glass, today in ink, as the current chart lights today. Keeps the softness, drops the “missed goal” look.', cost:'Small: a rounder bar mark in Swift Charts.',
+   html: () => bar + `<div class="hl big"><span class="lead">Halftype saved you</span> <span class="tm glass">${T} of typing</span> <span class="lead">this week.</span></div>` + row + pills('today') + foot },
+];
+const grid = document.getElementById('grid');
+for (const v of V) {
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `<div class="shot"><div class="win">${chrome(3, v.html())}</div></div><div class="meta"><b class="l">${v.l}</b><span class="name">${v.name}</span><p>${v.note}</p><p class="cost">${v.cost} Mac only (no iOS/Android app).</p></div>`;
+  grid.appendChild(el);
+  const win = el.querySelector('.win'), t = win.querySelector('.tip');
+  win.querySelectorAll('.bars > div').forEach(b => { const d = days[+b.dataset.i]; if (d.future) return;
+    b.onmouseenter = () => { const wr = win.getBoundingClientRect(), r = b.querySelector('b').getBoundingClientRect(), s = wr.width / 720;
+      t.style.display = 'block'; t.innerHTML = tipFor(d); t.style.left = (r.left + r.width / 2 - wr.left) / s + 'em'; t.style.top = (r.top - wr.top) / s - 6 + 'em'; };
+    b.onmouseleave = () => t.style.display = 'none'; });
+}
+</script></body></html>

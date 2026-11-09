@@ -71,14 +71,40 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Nil in the window pictures, whose made-up counts must not reach the real file. Set before any App exists.
     /// Main thread only: the suggestion the last Tab took from.
     private var lastTaken = -1
+    /// When the last key was typed, in seconds of uptime, to time the user's typing speed.
+    private var lastKey: TimeInterval?
     /// Only in the app itself: unit tests and the e2e runner make an App too, and once wrote their counts into the real file.
     nonisolated(unsafe) static var tallyFile: URL? = Bundle.main.bundleIdentifier == "app.halftype.Halftype" ? support.appendingPathComponent("stats.json") : nil
 
-    /// A personal LoRA trained on the user's own text for this model (lab/dogfood on the `learn` branch): the last by name, which train.sh
-    /// dates, in `adapters/<model file>/`. An adapter fits only the model it was trained on, so each model has its own folder.
-    static func adapterFile(for model: String) -> String? {
+    /// Personal LoRAs trained on the user's own text for this model (lab/dogfood in the private halftype-train repo), in `adapters/<model file>/`,
+    /// by name, which train.sh dates. An adapter fits only the model it was trained on, so each model has its own folder.
+    static func adapters(for model: String) -> [String] {
         let folder = support.appendingPathComponent("adapters").appendingPathComponent(URL(fileURLWithPath: model).lastPathComponent).path
-        return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }.max().map { folder + "/" + $0 }
+        return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }.map { folder + "/" + $0 }  // numbers as numbers: -10 after -9
+    }
+    /// The one chosen in General (by name, kept per name so it holds across models' folders), else the newest.
+    static func adapterFile(for model: String) -> String? {
+        let all = adapters(for: model), chosen = UserDefaults.standard.string(forKey: "adapter") ?? ""
+        return all.first { name(ofAdapter: $0) == chosen } ?? all.last
+    }
+    static func name(ofAdapter path: String) -> String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
+    /// Its `<name>.json`, if the run wrote one.
+    static func info(ofAdapter path: String) -> AdapterInfo? {
+        (try? Data(contentsOf: URL(fileURLWithPath: path).deletingPathExtension().appendingPathExtension("json"))).flatMap { try? JSONDecoder().decode(AdapterInfo.self, from: $0) }
+    }
+    /// Makes this one the personal model. An older one stays until another is chosen or it's deleted; the newest means always the newest,
+    /// so the next trained one takes over again. Choosing the one in use changes nothing.
+    func use(adapter path: String) {
+        guard let activePath, App.adapterFile(for: activePath) != path else { return }
+        adapterChoice = App.adapters(for: activePath).last == path ? "" : App.name(ofAdapter: path)
+    }
+    /// The adapter and its `.json`, off the disk. Deleting the chosen one goes back to the newest left.
+    func delete(adapter path: String) {
+        let url = URL(fileURLWithPath: path)
+        try? FileManager.default.removeItem(at: url)
+        try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("json"))
+        if adapterChoice == App.name(ofAdapter: path) { adapterChoice = "" } else { objectWillChange.send() }
     }
     /// Read on each request, so a new setting or midnight takes effect at once.
     /// Compare puts it on odd dates only, so the Stats page can set days with it against days without.
@@ -95,18 +121,29 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             count { $0.mark(personal: nil) }  // A day the setting changed on is mixed, whatever was sampled.
         }
     }
+    /// Empty: the newest. Read by `adapterFile` on each request, so the engine reloads with it on the next suggestion. A switch leaves the day
+    /// a with-model day: it names both versions, which keeps it out of each one's figures (`markPersonal` names only the loaded one).
+    @Published var adapterChoice = UserDefaults.standard.string(forKey: "adapter") ?? "" {
+        didSet { UserDefaults.standard.set(adapterChoice, forKey: "adapter") }
+    }
     private var engine: Engine?
     /// Counts the event, and marks today with the model's state as it is now, in one change.
     private func count(_ event: (inout Tally) -> Void) {
         var next = tally
         event(&next)
         if let activePath {
-            if App.adapterFile(for: activePath) == nil { next.mark(personal: nil) }  // A model with no adapter compares nothing.
-            // Only once the engine has caught up with today: unloaded, just past midnight, or an adapter that won't load says nothing.
-            // shortcut: a broken adapter's hours, then a working one's the same day, count as a personal day; track failed loads if adapters ship.
-            else if let applied = engine?.applied.withLock({ $0 }), applied == (App.adapterToday(model: activePath) != nil) { next.mark(personal: applied) }
+            App.markPersonal(&next, hasAdapter: App.adapterFile(for: activePath) != nil, applied: engine?.applied.withLock { $0 },
+                             wanted: App.adapterToday(model: activePath))
         }
         tally = next
+    }
+    /// A model with no adapter compares nothing, so its day is mixed. Otherwise only once the engine has caught up with today:
+    /// unloaded (nil), just past midnight, a new version not yet loaded, or an adapter that won't load says nothing.
+    /// shortcut: a broken adapter's hours, then a working one's the same day, count as a personal day; track failed loads if adapters ship.
+    static func markPersonal(_ tally: inout Tally, hasAdapter: Bool, applied: Engine.Running?, wanted: @autoclosure () -> String?) {
+        guard hasAdapter else { return tally.mark(personal: nil) }
+        guard let applied, applied == (wanted().map { .adapter($0) } ?? .plain) else { return }
+        if case .adapter(let file) = applied { tally.mark(personal: true, adapter: name(ofAdapter: file)) } else { tally.mark(personal: false) }
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     var ready: Bool { activePath != nil }
@@ -123,8 +160,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var why = Watcher.Why.unreadable
     /// A suggestion was taken since the window opened, and nothing has stood in the way since.
     @Published var accepted = false
-    /// Counts every Tab taken anywhere, so the window's sky can swell on one.
-    @Published var tabs = 0
     /// Counts each bind and unbind, so a reason from an earlier one is dropped.
     var binding = 0
     /// This launch began without a model or the permission, so the field gets a sentence once, and the first ghost needs no typing.
@@ -140,8 +175,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The model that loaded last, which is the one answering. Nil again if it can't load after an idle unload.
     @Published var activePath: String? { didSet { updateIcon() } }
     var window: NSWindow?
-    /// Started only in a released build, whose Info.plist names the feed.
-    let updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+    /// Started only in a released build, whose Info.plist names the feed. Lazy, to be its own delegate.
+    lazy var updates = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
+    /// An update Sparkle has downloaded, which would wait for a quit that a menu-bar app rarely sees: the dot and a menu item offer it now.
+    var readyUpdate: (version: String, install: () -> Void)? { didSet { updateIcon() } }
+    /// A newer version the daily check found while Update Automatically is off: the dot and a menu item, instead of Sparkle's window.
+    var availableUpdate: String? { didSet { updateIcon() } }
     /// The model's line, for the menu and under the field.
     var modelLine: String {
         if ready { return activeName }
@@ -152,7 +191,21 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         return "No model loaded"
     }
     var isRelease: Bool { Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil }
-    var askedForAccessibility = false
+    @Published var askedForAccessibility = false
+    /// First launch's steps show instead of the home window, until Start Writing (Onboarding.swift).
+    @Published var onboarding = false
+    /// No model yet, so `Practice` answers Try It's own sentences in the meantime.
+    @Published var practicing = false
+    /// The last key that took or hid a suggestion, which onboarding's lessons wait for. Onboarding sets it back to nil.
+    @Published var taught: KeyTap.Taught?
+    /// A key the lesson didn't ask for, so it can say which one it wants. Onboarding sets it back to nil.
+    @Published var refused: KeyTap.Taught?
+    /// The key onboarding's lesson teaches, the only one our window's ghost answers meanwhile. Nil outside the lessons.
+    var lessonKey: KeyTap.Taught? {
+        get { tap.state.withLock { $0.only } }
+        set { tap.state.withLock { $0.only = newValue } }
+    }
+    let guide = SettingsGuide()
     private let loading = DispatchQueue(label: "halftype.load", qos: .userInitiated)
     private var latestOpen = 0
     /// The open whose model is installed, so a failure from one it replaced, even at the same path, is ignored. Main thread.
@@ -169,11 +222,27 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var length = Length(rawValue: UserDefaults.standard.string(forKey: "length") ?? "") ?? .short {
         didSet { UserDefaults.standard.set(length.rawValue, forKey: "length"); tune() }
     }
+    @Published var motion = AcceptMotion(rawValue: UserDefaults.standard.string(forKey: "motion") ?? "") ?? .trail {
+        didSet { UserDefaults.standard.set(motion.rawValue, forKey: "motion"); panel.motion = motion }
+    }
+    /// Lets a tap of ⌃⌥ show what the model was given over each suggestion. Off by default.
+    @Published var peeking = UserDefaults.standard.bool(forKey: "peeking") {
+        didSet { UserDefaults.standard.set(peeking, forKey: "peeking"); peek() }
+    }
+    func peek() {
+        panel.peekWatch.on = peeking
+        watcher.peeking.store(peeking, ordering: .relaxed)
+        watcher.retune()  // A ghost already up has no card yet, or keeps one it no longer should.
+    }
     @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
+    /// Try It is where people judge Halftype first, so there it shows a suggestion whenever it can, as long as it can, whatever the settings say.
     func tune() {
-        Tuning.current.withLock { $0 = Tuning(floor: length.floor, threshold: often.threshold) }
+        let tryIt = NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid()
+        let tuning = tryIt ? Tuning(floor: -.infinity, threshold: Often.always.threshold) :Tuning(floor: length.floor, threshold: often.threshold)
+        guard Tuning.current.withLock({ $0 }) != tuning else { return }
+        Tuning.current.withLock { $0 = tuning }
         watcher.retune()
     }
     @Published var pausedApps = Set(UserDefaults.standard.stringArray(forKey: "pausedApps") ?? []) {
@@ -214,16 +283,38 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func isLoading(path: String) -> Bool { loadingPath == path }
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        // Before anything makes the folder. Every install before onboarding has it (a model, or the move from Itda), or chose its own model.
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "onboarded") == nil {
+            defaults.set(FileManager.default.fileExists(atPath: App.support.path) || defaults.string(forKey: "modelPath") != nil, forKey: "onboarded")
+        }
+        onboarding = !defaults.bool(forKey: "onboarded")
         tune()
+        panel.motion = motion
+        peek()
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
-        tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
-        tap.onAccept = { [weak self] added, keys, suggestion in
+        // Only a key in our own window teaches: a Tab in another app while onboarding is open isn't the lesson.
+        tap.onTaught = { [weak self] key in
+            DispatchQueue.main.async { if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid() { self?.taught = key } }
+        }
+        tap.onRefused = { [weak self] key in DispatchQueue.main.async { self?.refused = key } }
+        tap.onTyped = { [weak self] in
+            let now = ProcessInfo.processInfo.systemUptime  // Read on the tap's thread, before the hop, so the gap is the user's.
+            DispatchQueue.main.async {
+                guard let self, self.on else { return }
+                let gap = self.lastKey.map { now - $0 }
+                self.lastKey = now
+                self.count { $0.typed(1, after: gap) }
+            }
+        }
+        tap.onAccept = { [weak self] added, keys, words, suggestion, text, drawing in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
+                self.panel.took(text, drawing: drawing)
+                self.count { $0.took(added, keys: keys, words: words, first: suggestion != self.lastTaken) }
+                self.lastKey = nil  // The pause to read and take a suggestion isn't typing.
                 self.lastTaken = suggestion
-                self.tabs += 1
                 if !self.accepted { self.accepted = true }
             }
         }
@@ -248,7 +339,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         }
         watcher.hideOnSessionChange()
 
-        if isRelease { updates.startUpdater() }
+        if isRelease {
+            // The check runs daily whatever General says; Update Automatically only decides whether it downloads.
+            updates.updater.automaticallyChecksForUpdates = true
+            updates.startUpdater()
+        }
         store.removeLeftovers()
         store.onChange = { [weak self] state in self?.modelChanged(state) }
         loadModel()
@@ -257,6 +352,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         tap.onUp = { [weak self] up in DispatchQueue.main.async { self?.tapChanged(up: up) } }
         trusted = tap.hold()
         if !trusted { fresh = true }
+        // A model opening now installs after this, and replaces it.
+        if onboarding, !ready {
+            practicing = true
+            watcher.install(Practice())
+        }
         // Started by the system at login, it stays out of the way. Started by you, it answers. Without the permission it has to ask.
         let launch = NSAppleEventManager.shared().currentAppleEvent
         let atLogin = launch?.eventID == kAEOpenApplication && launch?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
@@ -305,11 +405,16 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private func tapChanged(up: Bool) {
         let granted = up && !trusted
         trusted = up
+        if granted { guide.close() }
         rebind()
         // Back in front of System Settings, where the grant was given.
         if granted, let window {
             showWindow()
             window.orderFrontRegardless()
+            // `activate()` is only a request since macOS 14, and Settings, active, keeps the front: the window showed but stayed
+            // inactive, so the watcher kept watching Settings and the first lesson's suggestion waited for a click (John: "takes a few
+            // seconds"). The deprecated form still takes the front (tried on macOS 27), and here the user has just asked to come back.
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
@@ -317,6 +422,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     private var activeHere: Bool { on && !pausedApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") }
 
     @objc private func rebind() {
+        tune()  // Try It and every other app are tuned apart.
         watcher.hideNow()
         tap.reenable()
         updateIcon()
@@ -335,6 +441,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if let path = customModel, FileManager.default.fileExists(atPath: path) { return open(path) }
         let first = ModelStore.models[0]
         if store.has(first) { return open(store.path(first).path) }
+        // An install from before Gemma was the default keeps the model it has, rather than fetching 3.4 GB unasked.
+        if let had = ModelStore.models.first(where: store.has) { return open(store.path(had).path) }
         afterFetch = .load
         fresh = true
         store.fetch(first)
@@ -386,6 +494,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Every model opened that something still holds, so quit can close each without waiting on the watcher. Loading queue: an engine
     /// is in here before anything else can hold it.
     private let engines = NSHashTable<AnyObject>.weakObjects()
+    /// The model installed last, which onboarding's practice wraps until it ends. Main thread.
+    private var answering: Completer?
     private let quitting = Atomic<Bool>(false)
 
     private func open(_ path: String, remember: Bool = false) {
@@ -406,11 +516,13 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                     return
                 }
                 activePath = path
+                practicing = false
                 self.engine = engine as? Engine
                 if !ModelStore.models.contains(where: { store.path($0).path == path }), !ownPaths.contains(path) { ownPaths.append(path) }
                 if remember { customModel = path == store.path(ModelStore.models[0]).path ? nil : path }
                 installed = id
-                watcher.install(engine)
+                answering = engine
+                watcher.install(onboarding ? Practice(over: engine) : engine)
             }
         }
     }
@@ -418,7 +530,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// The model answering couldn't load again after an idle unload: its file moved or broke. Nothing answers until another is chosen.
     private func lost(_ id: Int) {
         guard id == installed, let path = activePath else { return }
-        (installed, activePath) = (0, nil)
+        (installed, activePath, answering) = (0, nil, nil)
         notice = "Could not load " + URL(fileURLWithPath: path).lastPathComponent
         watcher.install(nil)
     }
@@ -445,10 +557,20 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     /// The prefill, taken once. The field is asked again, as a model installed in the same moment may have read it still empty.
     func takePrefill(draft: String) -> String? {
-        guard let sentence = App.prefill(fresh: fresh, ready: ready, draft: draft, korean: watcher.koreanInput.load(ordering: .relaxed)) else { return nil }
+        // Practice knows English only.
+        // Practice finishes only its own sentence, so a field opened again (the window closed mid-step) needs it again too.
+        guard let sentence = App.prefill(fresh: fresh || practicing, ready: ready || practicing, draft: draft, korean: ready && watcher.koreanInput.load(ordering: .relaxed)) else { return nil }
         fresh = false
         DispatchQueue.main.async { [self] in watcher.redraw() }
         return sentence
+    }
+
+    func finishOnboarding() {
+        UserDefaults.standard.set(true, forKey: "onboarded")
+        onboarding = false
+        lessonKey = nil
+        if let answering { watcher.install(answering) }
+        guide.close()
     }
 
     // MARK: Why, and the icon
@@ -483,7 +605,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
     func line(for why: Watcher.Why) -> String? {
-        App.line(trusted: trusted, active: activeHere, obstacle: tap.obstacle, ready: ready, why: why)
+        App.line(trusted: trusted, active: activeHere, obstacle: tap.obstacle, ready: ready || practicing, why: why)
     }
 
     static let lesson = "Tab takes a word. Shift-Tab takes it all. Esc hides it."
@@ -493,13 +615,34 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Nothing while off, paused or without the permission.
     func fieldLine(_ why: Watcher.Why) -> String? {
         guard let line = line(for: why) else { return nil }
-        guard why.working, ready, tap.obstacle == nil else { return line }
+        guard why.working, ready || practicing, tap.obstacle == nil else { return line }
         return accepted ? App.success : why == .shown ? App.lesson : line
     }
 
     /// macOS's own grey inline predictions, which would show beside ours. Read, never written.
     var predictions: Bool { readPredictions() }
     var readPredictions = { NSSpellChecker.isAutomaticInlinePredictionEnabled }
+    /// Pro's page, with its three plans (docs/site/a2/pro).
+    static let proPage = URL(string: "https://halftype.app/pro")!
+    /// The early-bird list (docs/pricing.md), a Google Form the page posts to as well.
+    static let signupForm = URL(string: "https://docs.google.com/forms/d/e/1FAIpQLSeIekyjCphdrP9pZ9zaj5P90plPghgLAJ3zYof6PEji1uo9UQ/formResponse")!
+    /// Sends the address to the early-bird list: besides models and updates, the one thing the app sends, and only on Notify Me.
+    func notifyMe(_ email: String, done: @escaping (Bool) -> Void) {
+        let field = { (s: String) in s.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "" }
+        var request = URLRequest(url: App.signupForm, timeoutInterval: 20)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = "entry.1594900331=\(field(email))&entry.605839130=app".data(using: .utf8)
+        URLSession.shared.dataTask(with: request) { _, response, _ in
+            let ok = (response as? HTTPURLResponse)?.statusCode == 200
+            DispatchQueue.main.async {
+                if ok { UserDefaults.standard.set(true, forKey: "signedUp"); self.signedUp = true }
+                done(ok)
+            }
+        }.resume()
+    }
+    /// On the list, so General says so after a relaunch. A flag only: the address itself is never saved.
+    @Published var signedUp = UserDefaults.standard.bool(forKey: "signedUp")
     @objc func openKeyboardSettings() { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!) }
 
     struct Icon: Equatable {
@@ -514,7 +657,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// From each place the state it shows changes: rebind (on, pause, front app, permission), the model's state, and the watcher.
     func updateIcon() {
         guard let glyphs, let button = status.button else { return }
-        let icon = App.icon(active: activeHere, problem: !trusted || tap.obstacle != nil || (!ready && notice != nil),
+        let icon = App.icon(active: activeHere, problem: !trusted || tap.obstacle != nil || (!ready && notice != nil) || readyUpdate != nil || availableUpdate != nil,
                             downloading: downloading.map { _ in downloadFraction })
         guard icon != shownIcon else { return }
         shownIcon = icon
@@ -524,17 +667,22 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
 
     /// The glyph with a dot at its top right, cut clear around it so it reads at menu-bar size.
+    /// Not a template, as macOS paints a template in one colour and the dot should be red, macOS's badge colour for something new; the glyph is coloured for the menu bar's
+    /// appearance at each draw instead, so it still follows light and dark.
     static func marked(_ glyph: NSImage) -> NSImage {
         let image = NSImage(size: glyph.size, flipped: false) { rect in
             glyph.draw(in: rect)
+            // Solid black or white, as macOS draws a template (labelColor is a shade lighter).
+            (NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor.white : NSColor.black).set()
+            rect.fill(using: .sourceAtop)
             let dot = CGRect(x: rect.maxX - 6, y: rect.maxY - 6, width: 6, height: 6)
             NSGraphicsContext.current?.compositingOperation = .clear
             NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
             NSGraphicsContext.current?.compositingOperation = .sourceOver
+            NSColor.systemRed.setFill()
             NSBezierPath(ovalIn: dot).fill()
             return true
         }
-        image.isTemplate = true
         image.accessibilityDescription = "Halftype, needs attention"
         return image
     }
@@ -559,7 +707,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         if retryable { menu.addItem(withTitle: "Retry Download", action: #selector(retry), keyEquivalent: "") }
         if predictions { menu.addItem(withTitle: "Turn Off macOS Predictions…", action: #selector(openKeyboardSettings), keyEquivalent: "") }
         menu.addItem(.separator())
-        if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
+        if let readyUpdate { menu.addItem(withTitle: "Halftype \(readyUpdate.version) is ready: Restart to Update", action: #selector(installUpdate), keyEquivalent: "") }
+        else if let availableUpdate { menu.addItem(withTitle: "Halftype \(availableUpdate) is available: Update…", action: #selector(checkForUpdates), keyEquivalent: "") }
+        else if isRelease { menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "") }
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         for item in menu.items where item.action != #selector(NSApplication.terminate(_:)) && item.action != nil { item.target = self }
     }
@@ -575,6 +725,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
     @objc private func openWindow() { showWindow() }
     @objc func checkForUpdates() { updates.checkForUpdates(nil) }
+    @objc private func installUpdate() { readyUpdate?.install() }
 
     func chooseModel() {
         let open = NSOpenPanel()
@@ -598,7 +749,31 @@ enum Length: String, CaseIterable {
 enum Personal: String, CaseIterable { case off, compare, on }
 
 enum Often: String, CaseIterable {
-    case less, normal, more
-    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2 } }
+    case less, normal, more, always
+    /// Always has no check at all, unmeasured: what Try It shows.
+    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2; case .always: -.infinity } }
 }
 
+extension App: SPUUpdaterDelegate {
+    /// Downloaded and set to install on quit. Taking it here keeps Sparkle's own alert away; the menu's item runs the install and relaunch.
+    func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        readyUpdate = (item.displayVersionString, immediateInstallHandler)
+        return true
+    }
+    /// The cycle holds while an update waits, so its end means the install ran or failed: either way there's nothing left to offer.
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
+        readyUpdate = nil
+    }
+}
+
+/// With Update Automatically off, a scheduled check that finds a new version shows the dot rather than Sparkle's window, which in a
+/// menu-bar app would open over whatever you're typing. The menu's item asks Sparkle to show it then.
+extension App: SPUStandardUserDriverDelegate {
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+    func standardUserDriverShouldHandleShowingScheduledUpdate(_ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool) -> Bool { false }
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        if !handleShowingUpdate { availableUpdate = update.displayVersionString }
+    }
+    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) { availableUpdate = nil }
+    func standardUserDriverWillFinishUpdateSession() { availableUpdate = nil }
+}

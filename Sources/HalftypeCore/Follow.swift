@@ -34,6 +34,11 @@ public enum Follow {
 
 /// The input method finishes the syllable from `keys`, and `text` follows. Never delete and retype.
 public enum Accept {
+    /// The words a Tab types any of, for Stats: with the composing syllable when it changes it (`하` to `한 다음` is two), not when the
+    /// user had already typed it right (`달`, then ` 이것`, is one).
+    public static func words(_ ghost: Ghost, _ taken: (keys: String, text: String)) -> Int {
+        Tally.words(in: (taken.keys.isEmpty ? "" : ghost.composing) + taken.text)
+    }
     public static func nextWord(_ ghost: Ghost) -> (keys: String, text: String) {
         (ghost.keys, String(ghost.remainder[..<Word.firstEnd(ghost.remainder)]))
     }

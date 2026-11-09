@@ -26,6 +26,10 @@ final class Watcher: @unchecked Sendable {
     // On the field only: app-wide AXValueChanged storms while a reply streams.
     private static let fieldNotifications = ["AXValueChanged", "AXSelectedTextChanged"]
     private static let oneFrame: TimeInterval = 1.0 / 60
+    /// A host that hasn't shown a typed letter by now never will: Chromium answers in 12-29 ms (docs/measuring.md), so this is over 15 times that.
+    private static let unanswered: TimeInterval = 0.5
+    /// The input whose letter the drawing lost in place, which the frame's hide leaves to the host's update. Main thread.
+    private var trimmed = -1
 
     let queue = DispatchQueue(label: "halftype.watcher", qos: .userInteractive)
     let tap: KeyTap
@@ -39,12 +43,15 @@ final class Watcher: @unchecked Sendable {
     private var process = Priming.Process(pid: 0, launched: nil)
     private var context: String?
     private var suggestion: (anchor: String, text: String)?
+    /// The ⌃⌥ card for `suggestion`, made only while `peeking`. Typed text, so in memory only.
+    private var peek: Peek?
+    let peeking = Atomic<Bool>(false)
     private var last: Reading?
     /// The tap's generation when `last` was read: a later key means it may no longer be what the field holds.
     private var lastGeneration = 0
     private var request = 0
     private var unloadWork: DispatchWorkItem?
-    /// Numbers the model's suggestions, for the counts: following one as you type keeps its number.
+    /// Numbers the model's suggestions by their request, for the counts: streaming or following one as you type keeps its number.
     private var suggestionNumber = 0
     /// Main thread only: the last suggestion counted as shown.
     private var counted = 0
@@ -101,7 +108,20 @@ final class Watcher: @unchecked Sendable {
         tap.onInput = { [weak self] generation in
             if let self { healing.run(on: queue) { [weak self] in self?.heal() } }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.oneFrame) {
-                if self?.tap.generation == generation { self?.hideDisarmed() }
+                if self?.tap.generation == generation, self?.trimmed != generation { self?.hideDisarmed() }
+            }
+        }
+        // Typed through: the drawing loses the letter in place and waits for the host, disarmed, rather than hide after a frame. A host that
+        // never shows the letter can't keep it up: with no new drawing and no other input, it goes after the time any host takes to answer.
+        // Not with a Korean source, which may recompose the letter before. Queued before `onInput`'s frame, so it runs first.
+        tap.onTypedThrough = { [weak self] drawing, text, generation in
+            guard let self, !koreanInput.load(ordering: .relaxed) else { return }
+            DispatchQueue.main.async {
+                guard self.panel.trim(text, drawing: drawing) != nil else { return }
+                self.trimmed = generation
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.unanswered) {
+                    if self.tap.generation == generation, self.panel.drawing == drawing { self.hidePanel() }
+                }
             }
         }
     }
@@ -110,25 +130,34 @@ final class Watcher: @unchecked Sendable {
 
     /// Which app to watch: the frontmost, or in tests a private window's own process.
     func bind(pid: pid_t, binding: Int = 0) {
-        queue.async { [self] in
-            self.binding = binding
-            detach()
-            let app = AXUIElementCreateApplication(pid)
-            var created: AXObserver?
-            let callback: AXObserverCallback = { _, _, name, refcon in
-                Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String)
-            }
-            guard AXObserverCreate(pid, callback, &created) == .success, let observer = created else { return }
-            self.app = app
-            self.observer = observer
-            self.pid = pid
-            process = Priming.Process(pid: pid, launched: launchDate(pid))
-            priming.bound(process)
-            for name in Self.appNotifications { AXObserverAddNotification(observer, app, name as CFString, refcon) }
-            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
-            refocus()
-            update()
+        queue.async { [self] in attach(pid: pid, binding: binding) }
+    }
+
+    /// Queue.
+    private func attach(pid: pid_t, binding: Int) {
+        self.binding = binding
+        detach()
+        let app = AXUIElementCreateApplication(pid)
+        var created: AXObserver?
+        let callback: AXObserverCallback = { _, element, name, refcon in
+            Unmanaged<Watcher>.fromOpaque(refcon!).takeUnretainedValue().notified(name as String, element)
         }
+        // Just after the grant the tap is up but AX still refuses for a moment (apiDisabled): an observer made then hears nothing,
+        // ever, and the first lesson's field sat without its suggestion until a click rebound (seen live, 2026-11-09). Again shortly.
+        // Checked in the same block that attaches: a newer bind queued meanwhile has moved `binding`, and wins.
+        let again = { [self] in queue.asyncAfter(deadline: .now() + 0.5) { [self] in if self.binding == binding { attach(pid: pid, binding: binding) } } }
+        let made = AXObserverCreate(pid, callback, &created)
+        guard made == .success, let observer = created else { return made == .apiDisabled ? again() : () }
+        self.app = app
+        self.observer = observer
+        self.pid = pid
+        process = Priming.Process(pid: pid, launched: launchDate(pid))
+        priming.bound(process)
+        let added = AX.own(app) { Self.appNotifications.map { AXObserverAddNotification(observer, app, $0 as CFString, refcon) } }
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
+        refocus()
+        update()
+        if added.contains(.apiDisabled) { again() }
     }
 
     func unbind(binding: Int = 0) {
@@ -162,9 +191,11 @@ final class Watcher: @unchecked Sendable {
     }
 
     /// Main run loop, no IPC here.
-    private func notified(_ name: String) {
+    private func notified(_ name: String, _ element: AXUIElement) {
         switch name {
         case "AXWindowMoved", "AXWindowResized":
+            // In Try It our own panel's moves come here too, and drawing a ghost moves it: that hide disarmed every ghost there.
+            guard !Self.isGhostPanel(element) else { return }
             hideNow()
         case "AXFocusedUIElementChanged", "AXFocusedWindowChanged", "AXMainWindowChanged":
             hideNow()  // Before the read, which may stall: from here Tab belongs to whatever has focus.
@@ -175,6 +206,13 @@ final class Watcher: @unchecked Sendable {
         default:
             scheduleUpdate()
         }
+    }
+
+    /// Only asks our own process, which answers in-process: the main thread does no IPC here.
+    static func isGhostPanel(_ element: AXUIElement) -> Bool {
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(element, &pid) == .success, pid == getpid() else { return false }
+        return AX.get(element, "AXIdentifier") as? String == GhostPanel.accessibilityID
     }
 
     /// Reads coalesce, so a hung app can't build a backlog.
@@ -202,13 +240,13 @@ final class Watcher: @unchecked Sendable {
         if let now, let focused, CFEqual(now, focused) {
             last = nil  // Hidden for this notification, with nothing else to bring it back.
         } else {
-            if let focused { for name in Self.fieldNotifications { AXObserverRemoveNotification(observer, focused, name as CFString) } }
+            if let focused { AX.own(focused) { for name in Self.fieldNotifications { AXObserverRemoveNotification(observer, focused, name as CFString) } } }
             forget()
             focused = now
         }
         // Asked again of the same element, as a field can become editable in place. Adding twice is refused, harmlessly.
         guard let now, Reader.isEditableText(now) else { return false }
-        for name in Self.fieldNotifications { AXObserverAddNotification(observer, now, name as CFString, refcon) }
+        AX.own(now) { for name in Self.fieldNotifications { AXObserverAddNotification(observer, now, name as CFString, refcon) } }
         return true
     }
 
@@ -224,7 +262,7 @@ final class Watcher: @unchecked Sendable {
                                            voiceOver: { NSWorkspace.shared.isVoiceOverEnabled }, isOn: { AX.get(app, Priming.enhanced) as? Bool })
         else { return }
         // Its result says nothing: Chromium answers "not implemented" while it works.
-        AXUIElementSetAttributeValue(app, attribute as CFString, kCFBooleanTrue)
+        _ = AX.own(app) { AXUIElementSetAttributeValue(app, attribute as CFString, kCFBooleanTrue) }
     }
 
     /// Quit, main thread. The models close first, without waiting on this queue, which a hung host can hold: ggml asserts at exit with
@@ -252,7 +290,7 @@ final class Watcher: @unchecked Sendable {
     private func forget() {
         completer?.cancel()
         request += 1
-        (context, suggestion, last) = (nil, nil, nil)
+        (context, suggestion, peek, last) = (nil, nil, nil, nil)
         tap.state.withLock { ($0.composing, $0.pending) = (false, nil) }
         hideOnMain()
     }
@@ -275,6 +313,10 @@ final class Watcher: @unchecked Sendable {
         // A key during the read may be in it, and its notification must not then find nothing new.
         last = tap.generation == generation ? reading : nil
         lastGeneration = generation
+        // The read where our last accept has fully landed, which `settled` then lets go: its caret is where a Tab's motion ends.
+        if tap.state.withLock({ $0.pending?.to == reading.field.before }), let caret = reading.caret {
+            DispatchQueue.main.async { [panel] in panel.landed(at: caret) }
+        }
         let field = settled(reading.field)
         if field.before.isEmpty {
             // A message was sent, so what's above has changed. It is read again with the first character typed, not now: the
@@ -345,8 +387,9 @@ final class Watcher: @unchecked Sendable {
         let anchor = field.committed
         request += 1
         let id = request
+        let context = context?.count ?? 0
         completer.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: prompt.composing) { [weak self] result in
-            self?.queue.async { self?.received(id: id, anchor: anchor, result) }
+            self?.queue.async { self?.received(id: id, anchor: anchor, prompt: prompt, context: context, result) }
         }
         unloadWhenIdle()
     }
@@ -372,7 +415,7 @@ final class Watcher: @unchecked Sendable {
     }
 
     /// Nil is the model's last word: nothing to suggest. A gate of nil is a first word still being written, not an answer yet.
-    private func received(id: Int, anchor: String, _ result: Suggestion?) {
+    private func received(id: Int, anchor: String, prompt: Prompt, context: Int, _ result: Suggestion?) {
         guard id == request else { return }
         guard tap.canTake else {
             last = nil  // Never shown, so the same field must ask again once Tab can be taken.
@@ -388,7 +431,9 @@ final class Watcher: @unchecked Sendable {
         guard let last else { return }
         let text = result.text
         suggestion = (anchor, text)
-        suggestionNumber += 1
+        peek = peeking.load(ordering: .relaxed)
+            ? Peek.make(result.tokens, prompt: prompt, context: context, shown: text, tuning: Tuning.current.withLock { $0 }) : nil
+        suggestionNumber = id  // One request is one suggestion, however many times it streams.
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
         if let ghost = Follow.check(anchor: anchor, suggestion: text, field: field) { display(ghost, field, last, lastGeneration) }
@@ -396,6 +441,7 @@ final class Watcher: @unchecked Sendable {
 
     private func display(_ ghost: Ghost, _ field: Field, _ reading: Reading, _ generation: Int) {
         let twoSet = twoSet.load(ordering: .relaxed)
+        let left = ghost.composing.count + ghost.remainder.count  // of the suggestion, before 2-set trims what it can't type
         var ghost = ghost
         if twoSet { ghost.remainder = TwoSetLayout.typable(ghost.remainder) }
         // Only as offered: typing through a word has to see it out, or the ghost would blink off for its last letters.
@@ -419,7 +465,8 @@ final class Watcher: @unchecked Sendable {
         }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
-                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret)
+                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid(),
+                             peek: peek.map { var peek = $0; peek.taken = peek.shown - left; return peek })
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before, suggestion: suggestionNumber)
         let binding = binding
         /// Back on the queue, and only for the binding and input this draw was made under: input during the draw has queued a newer report.
@@ -438,6 +485,7 @@ final class Watcher: @unchecked Sendable {
             }
             var offer = armed
             offer.ghost.remainder = drawn  // `suggestion` keeps the rest, to draw as the field reaches it.
+            offer.drawing = panel.drawing
             guard typedThrough || Gate.worthShowing(offer.ghost) else {  // What fits must still be worth a Tab.
                 report(.noRoom)
                 return hidePanel()
@@ -457,7 +505,7 @@ final class Watcher: @unchecked Sendable {
     func retune() { queue.async { [self] in clearSuggestion() } }
 
     private func clearSuggestion() {
-        suggestion = nil
+        (suggestion, peek) = (nil, nil)
         completer?.cancel()
         request += 1
         hideOnMain()
@@ -545,7 +593,7 @@ struct Priming {
     /// slows their windows.
     static func kind(of app: AXUIElement, pid: pid_t) -> String? {
         var settable = DarwinBoolean(false)
-        if AXUIElementIsAttributeSettable(app, manual as CFString, &settable) == .success, settable.boolValue { return manual }
+        if AX.own(app, { AXUIElementIsAttributeSettable(app, manual as CFString, &settable) == .success }), settable.boolValue { return manual }
         guard let bundle = NSRunningApplication(processIdentifier: pid)?.bundleURL, shipsChromium(bundle) else { return nil }
         return enhanced
     }

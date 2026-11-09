@@ -1,0 +1,1134 @@
+{
+ "days": {
+  "2026-07-20": {
+   "shown": 552,
+   "taken": 25,
+   "tabs": 48,
+   "characters": 202,
+   "typed": 1085,
+   "saved": 141,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-07-21": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-07-22": {
+   "shown": 472,
+   "taken": 21,
+   "tabs": 41,
+   "characters": 172,
+   "typed": 968,
+   "saved": 120,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-07-23": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-07-24": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-07-25": {
+   "shown": 230,
+   "taken": 10,
+   "tabs": 20,
+   "characters": 84,
+   "typed": 453,
+   "saved": 59,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-07-26": {
+   "shown": 58,
+   "taken": 3,
+   "tabs": 5,
+   "characters": 21,
+   "typed": 105,
+   "saved": 15,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-07-27": {
+   "shown": 736,
+   "taken": 33,
+   "tabs": 64,
+   "characters": 269,
+   "typed": 1077,
+   "saved": 188,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-07-28": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-07-29": {
+   "shown": 552,
+   "taken": 25,
+   "tabs": 48,
+   "characters": 202,
+   "typed": 1084,
+   "saved": 141,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-07-30": {
+   "shown": 1138,
+   "taken": 51,
+   "tabs": 99,
+   "characters": 416,
+   "typed": 2635,
+   "saved": 291,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-07-31": {
+   "shown": 794,
+   "taken": 36,
+   "tabs": 69,
+   "characters": 290,
+   "typed": 1421,
+   "saved": 203,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-01": {
+   "shown": 126,
+   "taken": 6,
+   "tabs": 11,
+   "characters": 46,
+   "typed": 252,
+   "saved": 32,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-02": {
+   "shown": 69,
+   "taken": 3,
+   "tabs": 6,
+   "characters": 25,
+   "typed": 149,
+   "saved": 18,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-03": {
+   "shown": 908,
+   "taken": 41,
+   "tabs": 79,
+   "characters": 332,
+   "typed": 1578,
+   "saved": 232,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-04": {
+   "shown": 1150,
+   "taken": 52,
+   "tabs": 100,
+   "characters": 420,
+   "typed": 2228,
+   "saved": 294,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-05": {
+   "shown": 851,
+   "taken": 38,
+   "tabs": 74,
+   "characters": 311,
+   "typed": 1446,
+   "saved": 218,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-06": {
+   "shown": 1162,
+   "taken": 53,
+   "tabs": 101,
+   "characters": 424,
+   "typed": 2586,
+   "saved": 297,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-07": {
+   "shown": 552,
+   "taken": 25,
+   "tabs": 48,
+   "characters": 202,
+   "typed": 971,
+   "saved": 141,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-08": {
+   "shown": 150,
+   "taken": 7,
+   "tabs": 13,
+   "characters": 55,
+   "typed": 309,
+   "saved": 38,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-09": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-10": {
+   "shown": 954,
+   "taken": 43,
+   "tabs": 83,
+   "characters": 349,
+   "typed": 1750,
+   "saved": 244,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-11": {
+   "shown": 1150,
+   "taken": 52,
+   "tabs": 100,
+   "characters": 420,
+   "typed": 1905,
+   "saved": 294,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-12": {
+   "shown": 828,
+   "taken": 37,
+   "tabs": 72,
+   "characters": 302,
+   "typed": 1530,
+   "saved": 211,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-13": {
+   "shown": 1035,
+   "taken": 47,
+   "tabs": 90,
+   "characters": 378,
+   "typed": 1678,
+   "saved": 265,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-14": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-15": {
+   "shown": 299,
+   "taken": 14,
+   "tabs": 26,
+   "characters": 109,
+   "typed": 457,
+   "saved": 76,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-16": {
+   "shown": 58,
+   "taken": 3,
+   "tabs": 5,
+   "characters": 21,
+   "typed": 115,
+   "saved": 15,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-17": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-18": {
+   "shown": 770,
+   "taken": 35,
+   "tabs": 67,
+   "characters": 281,
+   "typed": 1867,
+   "saved": 197,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-19": {
+   "shown": 667,
+   "taken": 30,
+   "tabs": 58,
+   "characters": 244,
+   "typed": 1252,
+   "saved": 171,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-20": {
+   "shown": 1426,
+   "taken": 64,
+   "tabs": 124,
+   "characters": 521,
+   "typed": 3431,
+   "saved": 365,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-21": {
+   "shown": 897,
+   "taken": 41,
+   "tabs": 78,
+   "characters": 328,
+   "typed": 1357,
+   "saved": 230,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-22": {
+   "shown": 299,
+   "taken": 14,
+   "tabs": 26,
+   "characters": 109,
+   "typed": 664,
+   "saved": 76,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-23": {
+   "shown": 58,
+   "taken": 3,
+   "tabs": 5,
+   "characters": 21,
+   "typed": 88,
+   "saved": 15,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-24": {
+   "shown": 759,
+   "taken": 34,
+   "tabs": 66,
+   "characters": 277,
+   "typed": 1759,
+   "saved": 194,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-25": {
+   "shown": 908,
+   "taken": 41,
+   "tabs": 79,
+   "characters": 332,
+   "typed": 1561,
+   "saved": 232,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-26": {
+   "shown": 794,
+   "taken": 36,
+   "tabs": 69,
+   "characters": 290,
+   "typed": 1965,
+   "saved": 203,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-27": {
+   "shown": 1070,
+   "taken": 48,
+   "tabs": 93,
+   "characters": 391,
+   "typed": 1793,
+   "saved": 274,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-28": {
+   "shown": 1035,
+   "taken": 47,
+   "tabs": 90,
+   "characters": 378,
+   "typed": 2133,
+   "saved": 265,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-29": {
+   "shown": 276,
+   "taken": 12,
+   "tabs": 24,
+   "characters": 101,
+   "typed": 560,
+   "saved": 71,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-08-30": {
+   "shown": 80,
+   "taken": 4,
+   "tabs": 7,
+   "characters": 29,
+   "typed": 143,
+   "saved": 20,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-08-31": {
+   "shown": 989,
+   "taken": 45,
+   "tabs": 86,
+   "characters": 361,
+   "typed": 1754,
+   "saved": 253,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-01": {
+   "shown": 1311,
+   "taken": 59,
+   "tabs": 114,
+   "characters": 479,
+   "typed": 2632,
+   "saved": 335,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-02": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-03": {
+   "shown": 1104,
+   "taken": 50,
+   "tabs": 96,
+   "characters": 403,
+   "typed": 2224,
+   "saved": 282,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-04": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-05": {
+   "shown": 230,
+   "taken": 10,
+   "tabs": 20,
+   "characters": 84,
+   "typed": 470,
+   "saved": 59,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-06": {
+   "shown": 80,
+   "taken": 4,
+   "tabs": 7,
+   "characters": 29,
+   "typed": 183,
+   "saved": 20,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-07": {
+   "shown": 1000,
+   "taken": 45,
+   "tabs": 87,
+   "characters": 365,
+   "typed": 1790,
+   "saved": 255,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-08": {
+   "shown": 1576,
+   "taken": 71,
+   "tabs": 137,
+   "characters": 575,
+   "typed": 2782,
+   "saved": 402,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-09": {
+   "shown": 1058,
+   "taken": 48,
+   "tabs": 92,
+   "characters": 386,
+   "typed": 2102,
+   "saved": 270,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-10": {
+   "shown": 1162,
+   "taken": 53,
+   "tabs": 101,
+   "characters": 424,
+   "typed": 2608,
+   "saved": 297,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-11": {
+   "shown": 759,
+   "taken": 34,
+   "tabs": 66,
+   "characters": 277,
+   "typed": 1547,
+   "saved": 194,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-12": {
+   "shown": 276,
+   "taken": 12,
+   "tabs": 24,
+   "characters": 101,
+   "typed": 651,
+   "saved": 71,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-13": {
+   "shown": 46,
+   "taken": 2,
+   "tabs": 4,
+   "characters": 17,
+   "typed": 80,
+   "saved": 12,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-14": {
+   "shown": 1506,
+   "taken": 68,
+   "tabs": 131,
+   "characters": 550,
+   "typed": 2920,
+   "saved": 385,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-15": {
+   "shown": 1184,
+   "taken": 54,
+   "tabs": 103,
+   "characters": 433,
+   "typed": 2286,
+   "saved": 303,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-16": {
+   "shown": 1150,
+   "taken": 52,
+   "tabs": 100,
+   "characters": 420,
+   "typed": 2172,
+   "saved": 294,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-17": {
+   "shown": 1092,
+   "taken": 49,
+   "tabs": 95,
+   "characters": 399,
+   "typed": 1684,
+   "saved": 279,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-18": {
+   "shown": 1334,
+   "taken": 60,
+   "tabs": 116,
+   "characters": 487,
+   "typed": 2498,
+   "saved": 341,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-19": {
+   "shown": 334,
+   "taken": 15,
+   "tabs": 29,
+   "characters": 122,
+   "typed": 627,
+   "saved": 85,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-20": {
+   "shown": 69,
+   "taken": 3,
+   "tabs": 6,
+   "characters": 25,
+   "typed": 173,
+   "saved": 18,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-21": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-22": {
+   "shown": 1576,
+   "taken": 71,
+   "tabs": 137,
+   "characters": 575,
+   "typed": 2812,
+   "saved": 402,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-23": {
+   "shown": 1552,
+   "taken": 70,
+   "tabs": 135,
+   "characters": 567,
+   "typed": 2267,
+   "saved": 397,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-24": {
+   "shown": 1300,
+   "taken": 59,
+   "tabs": 113,
+   "characters": 475,
+   "typed": 2962,
+   "saved": 332,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-25": {
+   "shown": 862,
+   "taken": 39,
+   "tabs": 75,
+   "characters": 315,
+   "typed": 1637,
+   "saved": 220,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-26": {
+   "shown": 391,
+   "taken": 18,
+   "tabs": 34,
+   "characters": 143,
+   "typed": 725,
+   "saved": 100,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-27": {
+   "shown": 92,
+   "taken": 4,
+   "tabs": 8,
+   "characters": 34,
+   "typed": 145,
+   "saved": 24,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-28": {
+   "shown": 1449,
+   "taken": 66,
+   "tabs": 126,
+   "characters": 529,
+   "typed": 2625,
+   "saved": 370,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-09-29": {
+   "shown": 1702,
+   "taken": 77,
+   "tabs": 148,
+   "characters": 622,
+   "typed": 2933,
+   "saved": 435,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-09-30": {
+   "shown": 1495,
+   "taken": 68,
+   "tabs": 130,
+   "characters": 546,
+   "typed": 3274,
+   "saved": 382,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-01": {
+   "shown": 2024,
+   "taken": 92,
+   "tabs": 176,
+   "characters": 739,
+   "typed": 3588,
+   "saved": 517,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-02": {
+   "shown": 1541,
+   "taken": 70,
+   "tabs": 134,
+   "characters": 563,
+   "typed": 2962,
+   "saved": 394,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-03": {
+   "shown": 230,
+   "taken": 10,
+   "tabs": 20,
+   "characters": 84,
+   "typed": 448,
+   "saved": 59,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-04": {
+   "shown": 115,
+   "taken": 5,
+   "tabs": 10,
+   "characters": 42,
+   "typed": 266,
+   "saved": 29,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-05": {
+   "shown": 1840,
+   "taken": 83,
+   "tabs": 160,
+   "characters": 672,
+   "typed": 2982,
+   "saved": 470,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-06": {
+   "shown": 1552,
+   "taken": 70,
+   "tabs": 135,
+   "characters": 567,
+   "typed": 3661,
+   "saved": 397,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-07": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-08": {
+   "shown": 1598,
+   "taken": 72,
+   "tabs": 139,
+   "characters": 584,
+   "typed": 2881,
+   "saved": 409,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-09": {
+   "shown": 1530,
+   "taken": 69,
+   "tabs": 133,
+   "characters": 559,
+   "typed": 2349,
+   "saved": 391,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-10": {
+   "shown": 264,
+   "taken": 12,
+   "tabs": 23,
+   "characters": 97,
+   "typed": 591,
+   "saved": 68,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-11": {
+   "shown": 104,
+   "taken": 5,
+   "tabs": 9,
+   "characters": 38,
+   "typed": 197,
+   "saved": 27,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-12": {
+   "shown": 1024,
+   "taken": 46,
+   "tabs": 89,
+   "characters": 374,
+   "typed": 1859,
+   "saved": 262,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-13": {
+   "shown": 1518,
+   "taken": 69,
+   "tabs": 132,
+   "characters": 554,
+   "typed": 2524,
+   "saved": 388,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-14": {
+   "shown": 1254,
+   "taken": 57,
+   "tabs": 109,
+   "characters": 458,
+   "typed": 2272,
+   "saved": 321,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-15": {
+   "shown": 1668,
+   "taken": 75,
+   "tabs": 145,
+   "characters": 609,
+   "typed": 2828,
+   "saved": 426,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-16": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-17": {
+   "shown": 218,
+   "taken": 10,
+   "tabs": 19,
+   "characters": 80,
+   "typed": 339,
+   "saved": 56,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-18": {
+   "shown": 92,
+   "taken": 4,
+   "tabs": 8,
+   "characters": 34,
+   "typed": 180,
+   "saved": 24,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-19": {
+   "shown": 1276,
+   "taken": 58,
+   "tabs": 111,
+   "characters": 466,
+   "typed": 2168,
+   "saved": 326,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-20": {
+   "shown": 1966,
+   "taken": 89,
+   "tabs": 171,
+   "characters": 718,
+   "typed": 4682,
+   "saved": 503,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-21": {
+   "shown": 1127,
+   "taken": 51,
+   "tabs": 98,
+   "characters": 412,
+   "typed": 2086,
+   "saved": 288,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-22": {
+   "shown": 1702,
+   "taken": 77,
+   "tabs": 148,
+   "characters": 622,
+   "typed": 3448,
+   "saved": 435,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-23": {
+   "shown": 1702,
+   "taken": 77,
+   "tabs": 148,
+   "characters": 622,
+   "typed": 2969,
+   "saved": 435,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-24": {
+   "shown": 356,
+   "taken": 16,
+   "tabs": 31,
+   "characters": 130,
+   "typed": 733,
+   "saved": 91,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-25": {
+   "shown": 92,
+   "taken": 4,
+   "tabs": 8,
+   "characters": 34,
+   "typed": 159,
+   "saved": 24,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-26": {
+   "shown": 2024,
+   "taken": 92,
+   "tabs": 176,
+   "characters": 739,
+   "typed": 3918,
+   "saved": 517,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-27": {
+   "shown": 2242,
+   "taken": 101,
+   "tabs": 195,
+   "characters": 819,
+   "typed": 4177,
+   "saved": 573,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-28": {
+   "shown": 1909,
+   "taken": 86,
+   "tabs": 166,
+   "characters": 697,
+   "typed": 3538,
+   "saved": 488,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-29": {
+   "shown": 1265,
+   "taken": 57,
+   "tabs": 110,
+   "characters": 462,
+   "typed": 2206,
+   "saved": 323,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-10-30": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-10-31": {
+   "shown": 0,
+   "taken": 0,
+   "tabs": 0,
+   "characters": 0,
+   "typed": 0,
+   "saved": 0,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-01": {
+   "shown": 138,
+   "taken": 6,
+   "tabs": 12,
+   "characters": 50,
+   "typed": 265,
+   "saved": 35,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-02": {
+   "shown": 1771,
+   "taken": 80,
+   "tabs": 154,
+   "characters": 647,
+   "typed": 4159,
+   "saved": 453,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-11-03": {
+   "shown": 2358,
+   "taken": 107,
+   "tabs": 205,
+   "characters": 861,
+   "typed": 4462,
+   "saved": 603,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-04": {
+   "shown": 1380,
+   "taken": 62,
+   "tabs": 120,
+   "characters": 504,
+   "typed": 2868,
+   "saved": 353,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-11-05": {
+   "shown": 2266,
+   "taken": 102,
+   "tabs": 197,
+   "characters": 827,
+   "typed": 4378,
+   "saved": 579,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-06": {
+   "shown": 1414,
+   "taken": 64,
+   "tabs": 123,
+   "characters": 517,
+   "typed": 3096,
+   "saved": 362,
+   "withModel": false,
+   "withoutModel": true
+  },
+  "2026-11-07": {
+   "shown": 334,
+   "taken": 15,
+   "tabs": 29,
+   "characters": 122,
+   "typed": 528,
+   "saved": 85,
+   "withModel": true,
+   "withoutModel": false
+  },
+  "2026-11-08": {
+   "typed": 3868,
+   "taken": 110,
+   "tabs": 219,
+   "shown": 2371,
+   "withModel": false,
+   "withoutModel": true,
+   "characters": 926,
+   "saved": 637
+  },
+  "2026-11-09": {
+   "typed": 2483,
+   "taken": 61,
+   "tabs": 167,
+   "shown": 1327,
+   "withModel": true,
+   "withoutModel": false,
+   "characters": 847,
+   "saved": 847
+  }
+ }
+}

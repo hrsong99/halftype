@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halftype: you type half, it writes the rest</title>
+<meta name="description" content="Suggestions finish your sentence in almost any Mac app. Tab takes them. The model runs on your Mac.">
+<meta name="theme-color" content="#f6f1e9">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Halftype: you type half, it writes the rest">
+<meta property="og:description" content="Suggestions finish your sentence in almost any Mac app. The model runs on your Mac.">
+<meta property="og:image" content="https://halftype.app/share.jpg">
+<meta property="og:url" content="https://halftype.app/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://halftype.app/">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="page.css">
+</head>
+<body>
+<a class="skip" href="#hero-h">Skip to content</a>
+<script src="demo.js"></script>
+
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="logo" href="#top" aria-label="Halftype, top of page"><span id="mark" aria-hidden="true"></span>Halftype</a>
+    <nav class="nav__links" aria-label="Sections"><a href="#keys">Keys</a><a href="#privacy">Privacy</a><a href="#compare">Compare</a><a href="#faq">Questions</a></nav>
+    <button type="button" class="pause" id="pause" aria-pressed="false" aria-label="Pause the motion"><svg viewBox="0 0 16 16" aria-hidden="true"><rect class="p" x="4" y="3" width="2.6" height="10" rx="1"/><rect class="p" x="9.4" y="3" width="2.6" height="10" rx="1"/><path class="pl" d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.4-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg></button>
+    <a class="btn small" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download</a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- 1. Hero -->
+  <section class="hero" aria-labelledby="hero-h">
+    <div class="wrap hero__text">
+      <p class="eyebrow">For macOS 26 on Apple Silicon · English and Korean</p>
+      <h1 id="hero-h">You type half.<br><i class="glass">It writes the rest.</i></h1>
+      <p class="lead">Suggestions finish your sentence in almost any app. Tab takes them. The model runs on your Mac.</p>
+      <div class="install">
+        <a class="btn" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download for Mac</a>
+        <div class="brew"><code>brew install --cask halftype</code><button type="button" class="copy" data-copy aria-label="Copy the two Homebrew commands">Copy</button></div>
+      </div>
+    </div>
+    <div class="hero__stage">
+      <svg class="ribbon" viewBox="0 0 1440 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="gl" gradientUnits="userSpaceOnUse" x1="200" x2="1240" y1="0" y2="0"><stop offset="0" stop-color="#45709d"/><stop offset=".5" stop-color="#606e7e"/><stop offset="1" stop-color="#995e3e"/></linearGradient>
+          <linearGradient id="arch" gradientUnits="userSpaceOnUse" x1="0" x2="1440" y1="0" y2="0"><stop offset="0" stop-color="#8fbbe8"/><stop offset=".5" stop-color="#dfe7ef"/><stop offset="1" stop-color="#f4b48c"/></linearGradient>
+          <filter id="bl" x="-20%" y="-150%" width="140%" height="400%"><feGaussianBlur stdDeviation="28"/></filter>
+        </defs>
+        <path d="M-80 200 C220 70 520 30 740 60 C960 90 1000 170 1180 160 C1320 152 1420 100 1540 60" fill="none" stroke="url(#arch)" stroke-width="130" opacity=".8" filter="url(#bl)"/>
+        <path id="rp" d="M-80 152 C220 52 520 22 740 46 C960 70 1000 132 1180 126 C1320 120 1420 82 1540 40" fill="none"/>
+        <text class="ribbon__text"><textPath href="#rp" startOffset="40">Lunch on Friday wo<tspan class="g">rks for me.</tspan><tspan class="sep">   ·   </tspan>I'll bring the ch<tspan class="g">arger tonight.</tspan><tspan class="sep">   ·   </tspan>Can you send me the ad<tspan class="g">dress again?</tspan><tspan class="sep">   ·   </tspan>Sounds good, see you the<tspan class="g">re at seven.</tspan><tspan class="sep">   ·   </tspan>Congrats on the new jo<tspan class="g">b, well deserved!</tspan><tspan class="sep">   ·   </tspan>Happy to help with the mo<tspan class="g">ve on Sunday.</tspan><tspan class="sep">   ·   </tspan>Just landed, call you from the ta<tspan class="g">xi.</tspan><tspan class="sep">   ·   </tspan>Could you print two copies for the mee<tspan class="g">ting?</tspan><tspan class="sep">   ·   </tspan>The kids loved the pi<tspan class="g">zza, thank you!</tspan><tspan class="sep">   ·   </tspan>I left the keys under the m<tspan class="g">at.</tspan><tspan class="sep">   ·   </tspan>Let me know when you get ho<tspan class="g">me safe.</tspan></textPath></text>
+      </svg>
+      <div class="wrap">
+        <div class="field hero__field" role="img" aria-label="Halftype's field: three messages are typed; a suggestion finishes each, Tab takes the next word and Shift-Tab the whole suggestion.">
+          <div class="text" id="hero-text" aria-hidden="true"></div>
+          <div class="bar" aria-hidden="true"><span class="kc" id="hero-key">tab</span><span class="grow"></span><span class="pill">Qwen 3.5 0.8B</span><span class="power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. In a real app -->
+  <section class="section" aria-labelledby="real-h">
+    <div class="wrap">
+      <div class="head"><h2 id="real-h">Right where you type.</h2><p>No new window, no copy and paste.</p></div>
+      <div class="stage">
+        <div class="arch" aria-hidden="true"></div>
+        <div class="win win--big" role="img" aria-label="A Mail reply: “Can we move it to Th” is typed, Tab takes “ursday”, then Shift-Tab takes “ afternoon? I have a clash at ten.”">
+          <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span class="chrome__title">Re: Design review</span></div>
+          <div class="hdr" aria-hidden="true">To: <b>Priya Shah</b></div>
+          <div class="hdr" aria-hidden="true">Subject: <b>Re: Design review</b></div>
+          <div class="win__body" aria-hidden="true">
+            <div class="text" id="real-text">Can we move it to Th<span class="caret"></span><span class="ghost">ursday afternoon? I have a clash at ten.</span></div>
+            <blockquote class="quote"><span>On Monday, Priya Shah wrote:</span>Does 10 am on Wednesday still work for the design review?</blockquote>
+          </div>
+        </div>
+        <span class="kc bigkey" id="real-key" aria-hidden="true">tab</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Every app -->
+  <section class="section section--tight" aria-labelledby="every-h">
+    <div class="wrap">
+      <div class="head"><h2 id="every-h">In almost every app.</h2><p>Wherever there’s a text field.</p></div>
+      <div class="apps still">
+        <div class="arch arch--apps" aria-hidden="true"></div>
+        <svg class="tube" viewBox="0 0 1120 600" preserveAspectRatio="none" aria-hidden="true">
+          <defs><linearGradient id="tg" gradientUnits="userSpaceOnUse" x1="0" x2="1120" y1="0" y2="0"><stop offset="0" stop-color="#8fbbe8"/><stop offset=".5" stop-color="#dfe7ef"/><stop offset="1" stop-color="#f4b48c"/></linearGradient>
+          <filter id="tb" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="26"/></filter><filter id="th"><feGaussianBlur stdDeviation="2"/></filter></defs>
+          <path d="M-200 700 C80 320 320 160 520 230 C720 300 640 500 860 470 C1020 448 1140 260 1300 -120" fill="none" stroke="url(#tg)" stroke-width="120" opacity=".6" filter="url(#tb)"/>
+          <path d="M-200 690 C80 310 320 150 520 220 C720 290 640 490 860 460 C1020 438 1140 250 1300 -130" fill="none" stroke="#fff" stroke-width="2" opacity=".6" filter="url(#th)"/>
+        </svg>
+        <figure class="win app app--msg">
+          <div class="chrome"><i></i><i></i><i></i><span class="chrome__title">Messages</span></div>
+          <div class="app__body"><ul class="side"><li>Sam</li><li class="on">Alex</li><li>Jo</li></ul><div class="app__main"><span class="bub">Game starts at 7?</span><span class="bub me">Yes! Section B</span><div class="compose">Want to grab dinner after the ga<span class="caret"></span><span class="ghost">me?</span></div></div></div>
+          <figcaption class="sr">Messages: “Want to grab dinner after the ga” with “me?” suggested</figcaption>
+        </figure>
+        <figure class="win app app--mail">
+          <div class="chrome"><i></i><i></i><i></i><span class="chrome__title">Notes</span></div>
+          <div class="app__body"><ul class="side"><li class="on">Weekend</li><li>Groceries</li><li>Trip</li></ul><div class="app__main"><div class="note-title">Weekend</div><div class="compose compose--plain">Pick up coffee beans and the dry cle<span class="caret"></span><span class="ghost">aning on Saturday.</span></div></div></div>
+          <figcaption class="sr">Notes: “Pick up coffee beans and the dry cle” with “aning on Saturday.” suggested</figcaption>
+        </figure>
+        <figure class="win app app--chat">
+          <div class="chrome"><i></i><i></i><i></i><span class="chrome__title">Team Chat</span></div>
+          <div class="app__body"><ul class="side"><li># general</li><li class="on"># web</li><li># design</li></ul><div class="app__main"><p class="msg"><b>Mina</b> The login page breaks on Safari again.</p><div class="compose">Pushed the fix, could someone re<span class="caret"></span><span class="ghost">view it before lunch?</span></div></div></div>
+          <figcaption class="sr">A team chat: “Pushed the fix, could someone re” with “view it before lunch?” suggested</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Three keys -->
+  <section class="section" id="keys" aria-labelledby="keys-h">
+    <div class="wrap">
+      <div class="head"><h2 id="keys-h">Three keys.</h2><p>Or keep typing, and the suggestion follows.</p></div>
+      <div class="keys still">
+        <article class="key played" role="img" aria-label="Tab takes a word: “Thanks so mu” with “ch for the help” suggested becomes “Thanks so much”, and “ for the help” stays suggested">
+          <h3 aria-hidden="true">Tab takes a word</h3>
+          <div class="mini" aria-hidden="true">Thanks so mu<span class="caret"></span><span class="ghost">ch for the help</span></div>
+          <span class="kc" aria-hidden="true">tab</span>
+          <div class="mini" aria-hidden="true">Thanks so mu<span class="taken">ch</span><span class="caret"></span><span class="ghost"> for the help</span></div>
+        </article>
+        <article class="key played" role="img" aria-label="Shift-Tab takes it all: “I'll call you to” with “morrow morning.” suggested becomes “I'll call you tomorrow morning.”">
+          <h3 aria-hidden="true">Shift-Tab takes it all</h3>
+          <div class="mini" aria-hidden="true">I'll call you to<span class="caret"></span><span class="ghost">morrow morning.</span></div>
+          <span class="kc" aria-hidden="true"><span class="sh">⇧</span> tab</span>
+          <div class="mini" aria-hidden="true">I'll call you to<span class="taken">morrow morning.</span><span class="caret"></span></div>
+        </article>
+        <article class="key played" role="img" aria-label="Esc hides it: “Back in fi” with “ve minutes.” suggested; Esc hides the suggestion, and the next Esc goes to the app">
+          <h3 aria-hidden="true">Esc hides it</h3>
+          <div class="mini" aria-hidden="true">Back in fi<span class="caret"></span><span class="ghost">ve minutes.</span></div>
+          <span class="kc" aria-hidden="true">esc</span>
+          <div class="mini" aria-hidden="true">Back in fi<span class="caret"></span></div>
+          <p class="hint" aria-hidden="true">The next Esc goes to the app</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Korean -->
+  <section class="section" aria-labelledby="ko-h">
+    <div class="wrap split">
+      <div class="head head--left"><h2 id="ko-h">Korean, even mid-syllable.</h2><p>Tab presses the keys left, and your input method finishes the syllable.</p></div>
+      <div class="ko" role="img" aria-label="“만나서 반갑” with “습니다.” suggested; Tab presses ㅅ ㅡ ㅂ ㄴ ㅣ ㄷ ㅏ and the full stop">
+        <div class="field ko__field" aria-hidden="true"><div class="text" lang="ko" id="ko-text">만나서 반갑<span class="caret"></span><span class="ghost">습니다.</span></div><div class="bar"><span class="kc" id="ko-tab">tab</span><span class="grow"></span><span class="pill">2-Set Korean</span></div></div>
+        <div class="jamo" aria-hidden="true" lang="ko"><span class="kc">ㅅ</span><span class="kc">ㅡ</span><span class="kc">ㅂ</span><span class="kc">ㄴ</span><span class="kc">ㅣ</span><span class="kc">ㄷ</span><span class="kc">ㅏ</span><span class="kc">.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Privacy -->
+  <section class="section" id="privacy" aria-labelledby="privacy-h">
+    <div class="wrap split">
+      <div>
+        <div class="head head--left"><h2 id="privacy-h">Nothing you type leaves your Mac.</h2></div>
+        <dl class="rows">
+          <div><dt>One permission</dt><dd>Accessibility. No Screen Recording.</dd></div>
+          <div><dt>Network</dt><dd>Model downloads from Hugging Face, SHA&#8209;256 checked, and a daily update check.</dd></div>
+          <div><dt>On disk</dt><dd>Settings, models and four counts a day. No text, no logs.</dd></div>
+          <div><dt>Password fields</dt><dd>Skipped.</dd></div>
+        </dl>
+        <a class="more" href="https://github.com/hrsong99/halftype#privacy">Every privacy promise, in full</a>
+      </div>
+      <img class="shot" src="models.png" width="1056" height="664" loading="lazy" alt="Halftype's Models settings: “They run on this Mac.” Qwen 3.5 0.8B, 0.5 GB, in use; Qwen 3.5 2B, Kanana 1.5 and Gemma 4 E2B; or add your own GGUF">
+    </div>
+  </section>
+
+  <!-- 7. Compare -->
+  <section class="section" id="compare" aria-labelledby="compare-h">
+    <div class="wrap">
+      <div class="head"><h2 id="compare-h">Small download. Light at rest.</h2></div>
+      <div class="charts">
+        <figure class="chart">
+          <figcaption>Model to download</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:13.8%"></span></span><b>0.53 GB</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:33%"></span></span><b>1.27 GB</b></div>
+          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:77.4%"></span></span><b>2.98 GB</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:100%"></span></span><b>3.85 GB</b></div>
+          <p class="note">Defaults: Qwen 3.5 0.8B, Qwen 3.5 2B (KeyType 1.8), Gemma 4 E2B Q4_C as Cotypist 2026.5.2 downloaded it, Gemma 4 E2B Q6 (Cotabby 0.6.2).</p>
+        </figure>
+        <figure class="chart">
+          <figcaption>Memory at rest</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:20.6%"></span></span><b>79 MB</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:48.3%"></span></span><b>185 MB</b></div>
+          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:100%"></span></span><b>383 MB</b></div>
+          <p class="note">Halftype unloads its model after 5 idle minutes. Cotabby and Cotypist keep theirs mapped; Cotypist was 478 MB in a first run.</p>
+        </figure>
+        <figure class="chart">
+          <figcaption>CPU at rest</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:9.1%"></span></span><b>0.2%</b></div>
+          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:9.1%"></span></span><b>0.2%</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:100%"></span></span><b>2.2%</b></div>
+          <p class="note">Halftype 0.13–0.27% over 60 s. Cotypist median, with one 13% sample in each of two 8&#8209;minute runs. Cotabby median of 9 samples.</p>
+        </figure>
+      </div>
+      <table class="ko-table">
+        <caption>Suggests mid-syllable in Korean</caption>
+        <tbody>
+          <tr class="us"><th scope="row">Halftype</th><td class="yes">Yes</td><td>Measured: 0.69 keys saved per mid-syllable request, with more wrong suggestions (18.2% against 8.4%)</td></tr>
+          <tr><th scope="row">macOS predictions</th><td>No Korean</td><td>Apple offers inline predictions in English, French and Spanish</td></tr>
+          <tr><th scope="row">Cotabby, KeyType</th><td>Not found</td><td>No completion through a composing syllable in their source</td></tr>
+          <tr><th scope="row">Cotypist</th><td>Not tested</td><td>Closed source</td></tr>
+        </tbody>
+      </table>
+      <p class="how">Each app's default model, on one M5 with 16 GB, 2026-11-09. At rest is 9 minutes after launch, with no typing; memory is macOS's footprint. Halftype's figures are from <code>scripts/e2e.sh --measure</code>, the others from <code>docs/site/compare/idle.sh</code>. KeyType is left out at rest: it starts only once it has Accessibility, then keeps its model until you quit. Cotabby had no Accessibility either, but had loaded its model. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a></p>
+      <div class="figures">
+        <h3>And what it does for you</h3>
+        <dl class="figs">
+          <div><dt>21.6%</dt><dd>of keystrokes saved, across whole English messages</dd></div>
+          <div><dt>81.5%</dt><dd>of suggestions shown were right on the first word</dd></div>
+          <div><dt>53 ms</dt><dd>to the first word (median)</dd></div>
+        </dl>
+        <p class="how">English, default model and settings, from replayed typing: 21.6% with real typing delays, before the latest change to how much a suggestion shows; 81.5% over 2,400 held-out requests; 53 ms the median of requests that reached a first word.</p>
+        <a class="more" href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. FAQ -->
+  <section class="section" id="faq" aria-labelledby="faq-h">
+    <div class="wrap split split--faq">
+      <div class="head head--left"><h2 id="faq-h">Questions.</h2><p>An early release. <a href="https://github.com/hrsong99/halftype/issues">Open an issue</a> with what you find.</p></div>
+      <dl class="faq">
+        <div><dt>Which Macs?</dt><dd>macOS 26 on Apple Silicon.</dd></div>
+        <div><dt>How much does it save?</dt><dd>About a fifth of keystrokes in English. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a></dd></div>
+        <div><dt>And Korean?</dt><dd lang="ko">두벌식에서 됩니다. 영어보다는 약해요.</dd></div>
+        <div><dt>Where won't it suggest?</dt><dd>Mid-line, in password fields, and during Secure Input.</dd></div>
+        <div><dt>In Chromium apps?</dt><dd>Used by hand in T3 Code. Others aren't tested yet.</dd></div>
+        <div><dt>What does it cost?</dt><dd>Nothing. Open source, MIT.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- 9. Close -->
+  <section class="close" aria-labelledby="close-h">
+    <div class="arch" aria-hidden="true"></div>
+    <div class="wrap close__in">
+      <img class="close__icon" src="icon.png" width="112" height="112" alt="">
+      <h2 id="close-h">Try it in the next thing <i class="glass">you type.</i></h2>
+      <div class="install install--center">
+        <a class="btn" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download for Mac</a>
+        <div class="brew"><code>brew install --cask halftype</code><button type="button" class="copy" data-copy aria-label="Copy the two Homebrew commands">Copy</button></div>
+      </div>
+      <p class="fine">Free · MIT · macOS 26, Apple Silicon · Updates&nbsp;itself</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__in">
+    <span class="logo logo--small"><span class="mark2" aria-hidden="true"></span>Halftype</span>
+    <nav aria-label="Footer"><a href="https://github.com/hrsong99/halftype">GitHub</a><a href="https://github.com/hrsong99/halftype/blob/main/docs/how-it-works.md">How it works</a><a href="https://github.com/hrsong99/halftype/releases">Releases</a><a href="https://github.com/hrsong99/halftype/blob/main/LICENSE">MIT licence</a></nav>
+  </div>
+</footer>
+
+<script src="page.js"></script>
+</body>
+</html>

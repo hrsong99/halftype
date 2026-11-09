@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Halftype landing polish</title>
+<style>
+  :root { --bg:#f6f1e9; --ink:#1d1c1a; --mute:#6a6762; --line:#e3dccf; --card:#fffdfa; --accent:#2f6aa8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#161513; --ink:#ecebe8; --mute:#9a978f; --line:#2c2b28; --card:#1e1d1b; --accent:#8db4ef; } }
+  :root[data-theme="dark"] { --bg:#161513; --ink:#ecebe8; --mute:#9a978f; --line:#2c2b28; --card:#1e1d1b; --accent:#8db4ef; }
+  * { box-sizing: border-box; } body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system, system-ui, sans-serif; }
+  main { max-width: 1520px; margin: 0 auto; padding: 28px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 6px; } .q { color: var(--mute); margin: 0 0 16px; max-width: 980px; }
+  .rec { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; max-width: 980px; } .rec b { color: var(--accent); }
+  .controls { position: sticky; top: 0; z-index: 3; background: var(--bg); padding: 10px 0; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); }
+  .controls button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; } .controls button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--mute); margin: 26px 0 10px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .head { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: baseline; } .letter { font-weight: 700; font-size: 20px; } .name { font-weight: 600; } .head a { margin-left: auto; color: var(--accent); font-size: 13px; }
+  .frame { position: relative; width: 100%; aspect-ratio: 1440/900; overflow: hidden; } .frame iframe { position: absolute; top: 0; left: 0; width: 1440px; height: 900px; border: 0; transform-origin: 0 0; }
+  .frame img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  .note { padding: 10px 14px 14px; color: var(--mute); font-size: 14px; } .note p { margin: 0 0 6px; } .note b { color: var(--ink); font-weight: 600; }
+  .refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; } .refs .card img { width: 100%; display: block; aspect-ratio: 16/10; object-fit: cover; object-position: top; }
+</style></head><body><main>
+<h1>Halftype landing page: polish, from the best Mac app sites</h1>
+<p class="q">What should the first screen of halftype.app become? John: "Not a bad start but definitely not professional polish level yet. Can you find some sleek and high quality landing page references (along with their animations) and give me some /variants". Every live option plays the README demo on the same clock, in the app's own look (cream, the icon's arch, glass suggestions, the Tab glint).</p>
+<div class="rec"><b>Recommendation: C's headline and flowing ribbon, over D's real Mail window.</b> C says the idea in four words and moves like nothing else on the web (it's Wispr Flow's best trick, done with our own suggestions). D proves it in an app people know. Together: C as the first screen, D as the next section, and J's idea (several app windows linked by the ribbon, drawn as glass) for the "every app" section after it. B is the safe, Raycast-clean choice if you'd rather keep one sans-serif voice.</div>
+<div class="controls"><button id="replay">Replay all</button><span style="color:var(--mute)">Speed</span><button data-speed="1" aria-pressed="true">1×</button><button data-speed="0.5">½×</button><button data-speed="0.25">¼×</button></div>
+
+<h2>Live options (each a 1440×900 first screen; open full page to see it at size)</h2>
+<div class="row" id="live"></div>
+
+<h2>Image ideas (Codex image tool, not built; prompts in images/)</h2>
+<div class="row" id="ideas"></div>
+
+<h2>References captured 2026-11-09 (hero, and one screen down)</h2>
+<div class="refs" id="refs"></div>
+</main>
+<script>
+const LIVE = [
+  ['A', 'Today: split hero', '../../site/a2/index.html', 'What ships on halftype.app now. Headline left, the field on the arch at right. <b>Weak spots:</b> two columns fight for attention, the field is small, and nothing moves except the typing.'],
+  ['B', 'Glow (Raycast)', 'B.html', 'One tight centred headline over the arch, blown up and slowly drifting, like Raycast\'s glowing stripes. Download pill with a mono line under it for macOS and Homebrew. The field sits wide under the fold line. <b>Cost:</b> small, mostly CSS.'],
+  ['C', 'Serif and a ribbon of text (Wispr Flow)', 'C.html', '"You type half. <i>It writes the rest.</i>" in a serif, the second line in the suggestions\' glass. The demo\'s messages flow along the arch itself, the typed part in ink and the suggested part in glass, while the field types below. <b>Cost:</b> one SVG path and a webfont (Instrument Serif). The ribbon text needs a check on phones.'],
+  ['D', 'In a real app (Cursor, Linear)', 'D.html', 'Small headline, then the product working where people type: a Mail window on the blurred arch, the suggestions in the email body, a large Tab key beside it. Shows "whole Mac" rather than saying it. <b>Cost:</b> moderate; Messages and Slack windows could rotate in.'],
+  ['E', 'Wordmark (Dia)', 'E.html', 'A giant serif "half<span style=\'color:#5f9bd8\'>type</span>", the second half in glass that glints when Shift-Tab takes a suggestion; the field overlaps its descenders. Bold and brand-first, but the product is a smaller part of the screen.'],
+  ['F', 'Icon first (Things)', 'F.html', 'The glossy app icon floating, the name, one line, and the field below on the arch. Calm and Apple-like; the least new information above the fold.'],
+];
+const IDEAS = [['H', 'A Mail window rising in perspective', 'images/H.jpg', 'Linear and Raycast style: a centred headline and a big window below in 3D.'], ['I', 'The headline is the demo', 'images/I.jpg', 'Two huge lines, the second in glass after a caret, with a Tab key floating beside it.'], ['J', 'Every app', 'images/J.jpg', 'Several small Mac windows at different depths, each with a suggestion, linked by the ribbon.']];
+const REFS = [['raycast', 'Raycast', 'One glowing art piece behind a centred headline; download pill with "macOS … · Install via Homebrew" in mono under it. Sections are dark glass cards whose icons light up on hover.'],
+  ['linear', 'Linear', 'Small precise headline, then the real product UI full width, fading into the dark; isometric line drawings that draw in on scroll.'],
+  ['wispr', 'Wispr Flow', 'Serif display with an italic half; dictated text flows along curved paths around a waveform pill. The closest product to ours.'],
+  ['granola', 'Granola', 'Large serif headline; a collage of app windows and photos that settle into place on load.'],
+  ['superhuman', 'Superhuman', 'Glass UI cards floating over a photo sky; a suite switcher with tabs.'],
+  ['dia', 'Dia', 'A giant serif wordmark behind the app window on warm yellow; a sticky window that changes with chapters as you scroll.'],
+  ['cleanshot', 'CleanShot X', 'Centred headline with one coloured word, two buttons; a bento grid of gradient cards, each a small looping demo.'],
+  ['things', 'Things', 'The app icon as the hero; the product on every device, lots of white.'],
+  ['cursor', 'Cursor', 'Small headline at top left; the product in a window over a painted landscape, full width.']];
+const card = (l, n, src, note, img) => `<div class="card"><div class="head"><span class="letter">${l}</span><span class="name">${n}</span><a href="${src}" target="_blank">${img ? 'Full size' : 'Open full page'}</a></div><div class="frame">${img ? `<img src="${src}" alt="${n}">` : `<iframe data-src="${src}" title="${l}"></iframe>`}</div><div class="note"><p>${note}</p></div></div>`;
+live.innerHTML = LIVE.map(x => card(...x)).join('');
+ideas.innerHTML = IDEAS.map(x => card(...x, true)).join('');
+refs.innerHTML = REFS.map(([f, n, note]) => `<div class="card"><div class="head"><span class="name">${n}</span><a href="references/${f}-3.png" target="_blank">One screen down</a></div><a href="references/${f}-1.png" target="_blank"><img src="references/${f}-1.png" alt="${n} hero"></a><div class="note"><p>${note}</p></div></div>`).join('');
+let speed = 1;
+const load = () => document.querySelectorAll('iframe[data-src]').forEach(f => { const s = f.dataset.src; f.src = s + (s.includes('a2') ? '' : '?speed=' + speed + '&t=' + Date.now()); });
+const fit = () => document.querySelectorAll('.frame').forEach(f => { const i = f.querySelector('iframe'); if (i) i.style.transform = `scale(${f.clientWidth / 1440})`; });
+replay.onclick = load;
+document.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => { speed = +b.dataset.speed; document.querySelectorAll('[data-speed]').forEach(x => x.setAttribute('aria-pressed', x === b)); load(); });
+addEventListener('resize', fit); fit(); load();
+</script></body></html>

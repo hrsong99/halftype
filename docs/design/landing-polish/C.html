@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="base.css"><link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"><title>C Serif ribbon</title><style>
+.hero { position: absolute; top: 120px; left: 0; right: 0; text-align: center; }
+.eyebrow { font: 12px var(--mono); letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+h1 { font: 400 96px/1 var(--serif); letter-spacing: -.02em; margin-top: 18px; }
+h1 i { background: linear-gradient(90deg, #5f9bd8, #99b0c9, #e88f5e); -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .08em; }
+.sub { margin: 18px auto 26px; font-size: 18px; color: var(--muted); }
+svg.ribbon { position: absolute; left: 0; top: 420px; width: 1440px; height: 480px; }
+.field { position: absolute; left: 50%; transform: translateX(-50%); top: 600px; width: 640px; }
+.field .text { font-size: 20px; }
+</style></head><body><script src="demo.js"></script><script>document.write(nav())</script>
+<div class="hero"><div class="eyebrow">Inline suggestions · on your Mac</div><h1>You type half.<br><i>It writes the rest.</i></h1><p class="sub">In almost any app. Tab takes it.</p><a class="btn"> Download for Mac</a></div>
+<svg class="ribbon" viewBox="0 0 1440 480"><defs><linearGradient id="gl" x1="0" x2="1"><stop offset="0" stop-color="#5f9bd8"/><stop offset=".5" stop-color="#99b0c9"/><stop offset="1" stop-color="#e88f5e"/></linearGradient>
+<filter id="bl"><feGaussianBlur stdDeviation="22"/></filter></defs>
+<path d="M-40 420 C260 120 560 40 760 140 C960 240 900 400 1080 420 C1240 440 1360 330 1480 260" fill="none" stroke="url(#gl)" stroke-width="110" stroke-linecap="round" opacity=".45" filter="url(#bl)"/>
+<path id="p" d="M-40 420 C260 120 560 40 760 140 C960 240 900 400 1080 420 C1240 440 1360 330 1480 260" fill="none"/>
+<text font-size="19" font-family="-apple-system, sans-serif" fill="#1d1c1a"><textPath href="#p" startOffset="0">Happy birthday! I <tspan fill="url(#gl)">hope you have a great day!</tspan> · Thanks for the update. I'll t<tspan fill="url(#gl)">ake a look and get back to you.</tspan> · Running 10 minutes late, sorry! Sa<tspan fill="url(#gl)">ve me a seat.</tspan> · Happy birthday! I <tspan fill="url(#gl)">hope you have a great day!</tspan> · Thanks for the update. I'll t<tspan fill="url(#gl)">ake a look and get back to you.</tspan>
+<animate attributeName="startOffset" from="0" to="-1100" dur="40s" repeatCount="indefinite"/></textPath></text></svg>
+<div class="field"><div class="text" id="t"></div><script>document.write(FIELD_BAR)</script></div>
+<script>document.querySelector('animate').setAttribute('dur', (40 / SPEED) + 's'); runDemo(document.getElementById('t'), document.querySelector('[data-key]'))</script></body></html>

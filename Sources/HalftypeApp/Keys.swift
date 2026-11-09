@@ -8,7 +8,17 @@ import notify
 /// and its text, and any other key or click disarms first, which leaves Tab the app's. Input means any event not marked as ours:
 /// another program's synthetic key counts too, which errs towards disarming.
 class KeyTap: @unchecked Sendable {
-    enum Decision: Equatable { case pass, dismiss(swallow: Bool), accept(all: Bool), reenable }
+    enum Decision: Equatable {
+        case pass, dismiss(swallow: Bool), accept(all: Bool), reenable
+        /// The lesson this key would answer, on a ghost.
+        var taught: Taught? {
+            switch self {
+            case .accept(let all): all ? .shiftTab : .tab
+            case .dismiss(swallow: true): .esc
+            default: nil
+            }
+        }
+    }
 
     /// Why Tab wouldn't reach us, in the menu's words.
     enum Obstacle: String {
@@ -26,6 +36,8 @@ class KeyTap: @unchecked Sendable {
         var before: String
         /// Which of the model's suggestions this is, for the counts: redraws and the rest after a Tab keep it.
         var suggestion = 0
+        /// Which of the panel's drawings it was armed on, so a Tab's glint goes only where its words were drawn. The rest after a Tab keeps it.
+        var drawing = 0
     }
 
     struct State {
@@ -36,14 +48,21 @@ class KeyTap: @unchecked Sendable {
         /// A syllable may be open, for hosts that don't report marked text: the last physical key was a letter, or a Backspace with one
         /// open. A click, an arrow, Return or a shortcut commits it. Wrong towards true would type a stray jamo after a committed syllable.
         var composing = false
+        /// Onboarding's lesson: in our own window, a ghost answers only this key, and the others do nothing at all.
+        var only: Taught?
         /// What the field will hold once our last accept lands; Tab-Tab can beat the host's update. Any other input ends it, as the
         /// field then holds something else: Tab, Backspace, and `hello ther` would otherwise read as on its way to `hello there`.
         var pending: (from: String, to: String)?
+        /// Tab just took the last of a ghost, and the next (its clipped rest, or a new suggestion) isn't drawn yet. Until then a Tab
+        /// for that app types nothing, rather than reach the app as a tab: tapping through a long ghost outruns the redraw and the model.
+        /// Any other input, a new ghost or the deadline ends it, so a host that refuses the insert keeps Tab for 0.3 s at most.
+        var held: (pid: pid_t, until: Date)?
+        var holdFor: TimeInterval = 0.3
         /// The live tap, and the run loop of its thread once that has started.
         var port: CFMachPort?
         var loop: CFRunLoop?
 
-        mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)? {
+        mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int, words: Int)? {
             let next = all ? Accept.all(armed.ghost) : Accept.nextWord(armed.ghost)
             let strokes = armed.typesKeys ? TwoSetLayout.strokes(next.keys + Hangul.keys(next.text)) : nil
             if armed.typesKeys && strokes == nil { return nil }
@@ -51,10 +70,11 @@ class KeyTap: @unchecked Sendable {
             let rest = String(armed.ghost.remainder.dropFirst(next.text.count))
             pending = (pending?.from ?? armed.before, to)
             self.armed = rest.isEmpty ? nil : Armed(pid: armed.pid, ghost: Ghost(remainder: rest), typesKeys: armed.typesKeys, committed: to, before: to,
-                                                         suggestion: armed.suggestion)
+                                                         suggestion: armed.suggestion, drawing: armed.drawing)
+            if rest.isEmpty { held = (armed.pid, Date() + holdFor) }
             composing = strokes?.last.map { TwoSetLayout.letterCodes.contains(Int64($0.code)) } ?? false  // As if the user typed it.
             // Finishing a syllable can add more than the text typed: `그 달` to `그 다라가` is two characters, from `가` alone.
-            return (strokes, next.text, max(0, to.count - armed.before.count))
+            return (strokes, next.text, max(0, to.count - armed.before.count), Accept.words(armed.ghost, next))
         }
     }
 
@@ -66,8 +86,17 @@ class KeyTap: @unchecked Sendable {
     /// Off this thread at once. Given the generation this input moved to.
     var onInput: (@Sendable (Int) -> Void)?
     var onDismiss: (@Sendable () -> Void)?
-    /// Given the characters a Tab added, and which suggestion it took from. Off this thread at once.
-    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int) -> Void)?
+    /// Which key just took or hid a suggestion, for onboarding's lessons. Off this thread at once.
+    enum Taught: Sendable { case tab, shiftTab, esc }
+    var onTaught: (@Sendable (Taught) -> Void)?
+    /// A key the lesson didn't ask for, swallowed with the ghost left up. Off this thread at once.
+    var onRefused: (@Sendable (Taught) -> Void)?
+    /// Given the characters a Tab added, which suggestion it took from, the text (nil when typed as strokes: an input method may recompose
+    /// the letter before it, moving the text from where the ghost was), and the drawing it was taken from. Off this thread at once.
+    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ words: Int, _ suggestion: Int, _ text: String?, _ drawing: Int) -> Void)?
+    /// A key typed the ghost's next letter, so the drawing can lose it in place while the host catches up. Tab is disarmed as after any
+    /// key, until the host's update arms it again. Given the drawing, the letter, and the generation it moved to. Off this thread at once.
+    var onTypedThrough: (@Sendable (_ drawing: Int, _ text: String, _ generation: Int) -> Void)?
     /// When the tap comes up or the system refuses it, on `keeper`. Not for a tap back up within the retry.
     var onUp: (@Sendable (Bool) -> Void)?
     /// Private-window checks tap one process. A proxy doesn't reach an app from such a tap, so they post to it instead.
@@ -93,6 +122,7 @@ class KeyTap: @unchecked Sendable {
             $0.generation += 1
             $0.armed = nil
             $0.pending = nil
+            $0.held = nil
         }
     }
 
@@ -117,6 +147,7 @@ class KeyTap: @unchecked Sendable {
         state.withLock {
             guard $0.generation == generation else { return false }
             $0.armed = armed
+            $0.held = nil
             return true
         }
     }
@@ -129,6 +160,14 @@ class KeyTap: @unchecked Sendable {
         if keyCode == escapeKey { return .dismiss(swallow: armed && plain) }
         guard armed, keyCode == tabKey, plain else { return .pass }
         return .accept(all: flags.contains(.maskShift))
+    }
+
+    /// A key typed the ghost's next letter, which only the drawing may act on before the host confirms it (a Chromium app takes longer
+    /// than the frame a ghost is kept): not for 2-set, whose letters an input method recomposes, nor the last letter, which leaves nothing.
+    static func typesNext(_ armed: Armed, _ typed: String) -> Bool {
+        guard !armed.typesKeys, armed.ghost.composing.isEmpty, armed.ghost.keys.isEmpty, armed.ghost.remainder.count > 1,
+              let first = armed.ghost.remainder.first else { return false }
+        return String(first) == typed
     }
 
     static func composes(after was: Bool, type: CGEventType, keyCode: Int64, flags: CGEventFlags) -> Bool {
@@ -150,30 +189,63 @@ class KeyTap: @unchecked Sendable {
         guard event.getIntegerValueField(.eventSourceUserData) != Self.ownEvent else { return false }
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode), flags = event.flags
         let target = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
-        var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)?
-        var suggestion = 0
+        var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int, words: Int)?
+        var suggestion = 0, drawing = 0
         var generation = 0
+        var held = false
+        var refused: Taught?
+        var whole = false
+        var through: (drawing: Int, text: String)?
+        var length = 0, units = [UniChar](repeating: 0, count: 4)
+        if Self.types(type, event, flags) { event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &units) }
+        let typed = String(utf16CodeUnits: units, count: length)
         let decision = state.withLock { s -> Decision in
             let armed = s.armed.flatMap { $0.pid == target ? $0 : nil }  // A key for another app is that app's.
             let decision = Self.decide(type: type, keyCode: keyCode, flags: flags, armed: armed != nil)
+            if let only = s.only, armed != nil, target == getpid(), let key = decision.taught, key != only {
+                refused = key
+                return .pass
+            }
+            // A held Tab changes nothing, so it is no input: the draw already on its way still arms.
+            // Not Shift-Tab, which goes back a field.
+            if armed == nil, type == .keyDown, keyCode == Self.tabKey, flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift]).isEmpty,
+               let h = s.held, h.pid == target, Date() < h.until {
+                held = true
+                return decision
+            }
+            s.held = nil
             s.generation += 1
             generation = s.generation
             s.armed = nil
+            if decision == .pass, let armed, Self.typesNext(armed, typed) { through = (armed.drawing, typed) }
             s.composing = Self.composes(after: s.composing, type: type, keyCode: keyCode, flags: flags)
             if case .accept(let all) = decision, let armed {
                 plan = s.accept(armed, all: all)
+                whole = all
                 suggestion = armed.suggestion
+                drawing = armed.drawing
             }
             if plan == nil { s.pending = nil }
             return decision
         }
+        if let refused {
+            onRefused?(refused)
+            return true
+        }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
-            onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion)
+            onAccept?(plan.added, plan.strokes?.count ?? plan.added, plan.words, suggestion, plan.strokes == nil ? plan.text : nil, drawing)
+            onTaught?(whole ? .shiftTab : .tab)
         }
         if decision == .reenable { reenable() }
-        if case .dismiss = decision { onDismiss?() }
-        if plan == nil, Self.types(type, event, flags) { onTyped?() }
+        if case .dismiss(let swallow) = decision {
+            onDismiss?()
+            if swallow { onTaught?(.esc) }  // Swallowed: a ghost was up, so this Esc hid it.
+        }
+        if held { return true }
+        if let through { onTypedThrough?(through.drawing, through.text, generation) }
+        // A held key's repeats aren't typing: they would count as keys and, 30 a second, as the user's speed.
+        if plan == nil, Self.types(type, event, flags), event.getIntegerValueField(.keyboardEventAutorepeat) == 0 { onTyped?() }
         onInput?(generation)
         return plan != nil || decision == .dismiss(swallow: true)
     }
@@ -231,7 +303,7 @@ class KeyTap: @unchecked Sendable {
     func stop() {
         let (port, loop) = state.withLock { s in
             let running = (s.port, s.loop)
-            (s.port, s.loop, s.armed, s.pending) = (nil, nil, nil, nil)
+            (s.port, s.loop, s.armed, s.pending, s.held) = (nil, nil, nil, nil, nil)
             s.generation += 1
             return running
         }

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sky edges</title>
+<style>
+:root { --bg:#0e0f11; --fg:#e8e8ea; --mute:#8a8b90; --card:#18191c; --line:#2a2b2f; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+main { max-width:1500px; margin:0 auto; padding:24px 16px 60px; }
+h1 { font-size:20px; margin:0 0 6px; }
+.q { color:var(--mute); margin:0 0 14px; }
+.rec { background:#1d2430; border:1px solid #2f3b4d; border-radius:10px; padding:12px 14px; margin:0 0 16px; }
+.bar { display:flex; gap:8px; margin:0 0 18px; }
+button { background:#24262a; color:var(--fg); border:1px solid var(--line); border-radius:7px; padding:5px 12px; font:inherit; cursor:pointer; }
+button.on { background:#3a3d44; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 560px), 1fr)); gap:18px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.card .meta { padding:10px 14px 14px; }
+.card b.l { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:6px; background:#e8e8ea; color:#111; margin-right:8px; }
+.card .name { font-weight:600; }
+.card p { margin:6px 0 0; color:var(--mute); }
+h2 { font-size:15px; margin:30px 0 12px; }
+.win { position:relative; aspect-ratio:690/396; container-type:inline-size; }
+.win canvas { position:absolute; inset:0; width:100%; height:100%; }
+.ui { position:absolute; inset:0; font-size:calc(100cqw / 690 * 15); }
+.ui .mark { position:absolute; left:calc(100% * 337/690); top:calc(100% * 104/396); width:calc(100% * 36/690); }
+.ui .pane { position:absolute; left:calc(100% * 104/690); top:calc(100% * 156/396); width:calc(100% * 499/690); height:calc(100% * 93/396); border-radius:1.5em; background:rgba(40,41,45,.72); backdrop-filter:blur(6px); }
+.light .ui .pane { background:rgba(255,255,255,.7); }
+.ui .ph { position:absolute; left:1.15em; top:.95em; color:#7d7e83; }
+.ui .chip { position:absolute; right:3.6em; bottom:.75em; padding:.3em .7em; border-radius:.8em; background:rgba(255,255,255,.06); color:#ddd; font-size:.85em; }
+.light .ui .chip { background:rgba(0,0,0,.05); color:#333; }
+.ui .pw { position:absolute; right:.95em; bottom:.65em; width:1.6em; height:1.6em; border-radius:50%; background:#e3e3e5; }
+.ui .work { position:absolute; width:100%; text-align:center; top:calc(100% * 262/396); color:#8d8e93; font-size:.8em; }
+.img img { width:100%; display:block; }
+</style>
+</head>
+<body>
+<main>
+<h1>Sky edges, round 2: B + subtle F, and B + C</h1>
+<p class="q">John: “Show me B + (subtle) F and B + C.” Two strengths of each, next to today and B alone. Same maths as round 1. “Writing” shows the sky with a full field (the horizon risen), where the edges show most.</p>
+<div class="rec"><b>Recommendation: C (B + subtle F).</b> The arc is felt rather than seen, and it stays smooth while the peach rises. E (B + gentle C) is the other good one: it reads as printed rather than drawn, at the cost of a slightly busier edge.</div>
+<div class="bar"><button id="dark" class="on">Dark</button><button id="light">Light</button><span style="width:16px"></span><button id="rest" class="on">At rest</button><button id="writing">Writing</button></div>
+<div class="grid" id="grid"></div>
+</main>
+<script>
+const W = 690, H = 396, CELL = 6, R = CELL * 0.62;
+const sat = x => Math.min(1, Math.max(0, x));
+const hash = (a, b) => { const h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return h - Math.floor(h); };
+const noise = x => { const i = Math.floor(x), f = x - i, s = f * f * (3 - 2 * f); return (hash(i, 7) * (1 - s) + hash(i + 1, 7) * s) * 2 - 1; };
+const margin = (free, m) => Math.max(24, Math.min(m, free / 2));
+const TOP = 104, BOT = 280;
+const [CX, CY] = [TOP - margin(TOP, 44), BOT + margin(H - BOT, 44)];
+let mode = 'dark', rise = 0;
+
+// Sky.metal's ink; rise is the writing's progress, 0 to 1.
+function today(x, y, cx, cy) {
+  const vb = y * 0.413 / Math.max(cx, 1), vp = 0.56 + 0.44 * (y - cy) / Math.max(H - cy, 1);
+  return { blue: sat(0.62 - vb * 1.5 - 0.048 * rise), peach: sat((vp - (0.56 - 0.08 * rise)) * 1.45) };
+}
+// Round 1's B: start 30 pt further in, fall off on ink^1.8.
+const taper = t => ({ blue: 0.62 * Math.pow(t.blue / 0.62, 1.8), peach: 0.64 * Math.pow(t.peach / 0.64, 1.8) });
+const B = (cx, cy) => taper(today(x0, y0, cx + 30, cy - 30));
+let x0, y0;
+const arc = (x, k) => k * Math.pow(2 * x / W - 1, 2);
+// C's grain: near the edge each dot's size varies at random (mean unchanged), so the taper stays but the edge looks printed.
+const grain = (d, i, j, k) => d < 0.2 ? d * (0.3 + 1.4 * hash(i + k, j)) : d;
+const V = [
+  { l: 'A', name: 'Today', note: 'For comparison.', min: 0.04,
+    ink: (x, y) => today(x, y, CX, CY) },
+  { l: 'B', name: 'B alone (round 1)', note: 'Soft taper, straight edges.',
+    ink: (x, y) => { x0 = x; y0 = y; return B(CX, CY); } },
+  { l: 'C', name: 'B + subtle F (30 pt arc)', note: 'The bands reach 30 pt further in at the window’s sides than at its middle. Felt more than seen. Two lines in ink().',
+    ink: (x, y) => { x0 = x; y0 = y; const a = arc(x, 30); return B(CX + a, CY - a); } },
+  { l: 'D', name: 'B + F (50 pt arc)', note: 'The same, a little more: you can see it’s a curve. Round 1’s F was 70.',
+    ink: (x, y) => { x0 = x; y0 = y; const a = arc(x, 50); return B(CX + a, CY - a); } },
+  { l: 'E', name: 'B + gentle C', note: 'The edge wanders ±8 pt and, in the taper, each dot’s size varies at random. Reads as printed rather than drawn. A hash per dot on top of B.',
+    ink: (x, y, i, j) => { x0 = x; y0 = y; const t = B(CX + 8 * noise(x / 60), CY + 8 * noise(x / 60 + 40));
+      return { blue: grain(t.blue, i, j, 0), peach: grain(t.peach, i, j, 9) }; } },
+  { l: 'F', name: 'B + C', note: 'Wanders ±16 pt, the same size grain, and a few stray dots up to 24 pt past the edge, like ink spatter. Round 1’s C, softened by B.',
+    ink: (x, y, i, j) => { x0 = x; y0 = y; const n1 = 16 * noise(x / 70), n2 = 16 * noise(x / 70 + 40);
+      const t = B(CX + n1, CY + n2), far = B(CX + n1 + 24, CY + n2 - 24);
+      const spat = (d, f, k) => d < 0.006 && f > 0.006 && hash(i + k, j) < 0.18 ? 0.03 : grain(d, i, j, k);
+      return { blue: spat(t.blue, far.blue, 0), peach: spat(t.peach, far.peach, 9) }; } },
+];
+const COLORS = { dark: { paper: '#121317', blue: [33, 56, 79], peach: [77, 48, 36] }, light: { paper: '#fcfaf6', blue: [169, 205, 240], peach: [246, 195, 164] } };
+function draw(cv, v) {
+  const dpr = devicePixelRatio || 1, scale = cv.clientWidth / W;
+  cv.width = Math.round(cv.clientWidth * dpr); cv.height = Math.round(cv.clientHeight * dpr);
+  const g = cv.getContext('2d'); g.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  const c = COLORS[mode]; g.fillStyle = c.paper; g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = mode === 'dark' ? 'lighter' : 'multiply';
+  const min = v.min ?? 0.006;
+  for (const [ink, off, rgb] of [['blue', 0, c.blue], ['peach', CELL / 2, c.peach]]) {
+    g.fillStyle = `rgb(${rgb})`;
+    for (let j = 0; j * CELL + off <= H + CELL; j++) for (let i = 0; i * CELL + off <= W + CELL; i++) {
+      const x = i * CELL + off, y = j * CELL + off, d = v.ink(x, y, i, j)[ink];
+      if (d < min) continue;
+      g.beginPath(); g.arc(x, y, Math.max(R * Math.sqrt(d), 0.45), 0, 7); g.fill();
+    }
+  }
+  g.globalCompositeOperation = 'source-over';
+}
+const MARK = `<svg viewBox="0 0 18 18" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="a" x1="5.5" x2="15.2" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="currentColor"/><stop offset=".5" stop-color="#a9cdf0"/><stop offset="1" stop-color="#f6c3a4" stop-opacity=".7"/></linearGradient></defs><path stroke="url(#a)" d="M4.9 12.2 C6.5 9.4 8.7 8 10.2 8.4 C11.8 8.8 11.2 11.6 11.3 13.4 C11.4 15.4 13.2 15.6 15.2 13.9"/><path stroke="currentColor" d="M8.4 3.6 C7.6 1.6 5 1.7 4.9 4.6 C4.8 7.5 4.7 11.5 4.6 15.6"/></svg>`;
+const ui = () => `<div class="ui"><div class="mark">${MARK}</div><div class="pane"><span class="ph">${rise ? '<span style="color:#ddd">See you at four, I’ll bring the</span> notes from Monday' : 'Type here, then press Tab on the grey text'}</span><span class="chip">Gemma 4 E2B</span><span class="pw"></span></div><div class="work">Working.</div></div>`;
+const grid = document.getElementById('grid');
+const cards = V.map(v => {
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `<div class="win"><canvas></canvas><div class="u"></div></div><div class="meta"><b class="l">${v.l}</b><span class="name">${v.name}</span><p>${v.note}</p></div>`;
+  grid.appendChild(el); return [el, v];
+});
+const render = () => cards.forEach(([el, v]) => { const w = el.querySelector('.win'); w.classList.toggle('light', mode === 'light'); w.querySelector('.u').innerHTML = ui(); el.querySelector('.mark').style.color = mode === 'dark' ? '#eee' : '#222'; draw(el.querySelector('canvas'), v); });
+const pick = (ids, id) => ids.forEach(b => document.getElementById(b).classList.toggle('on', b === id));
+for (const m of ['dark', 'light']) document.getElementById(m).onclick = () => { mode = m; pick(['dark', 'light'], m); render(); };
+for (const [id, r] of [['rest', 0], ['writing', 1]]) document.getElementById(id).onclick = () => { rise = r; pick(['rest', 'writing'], id); render(); };
+if (location.hash === '#writing') { rise = 1; pick(['rest', 'writing'], 'writing'); }
+addEventListener('resize', render); render();
+</script>
+</body>
+</html>

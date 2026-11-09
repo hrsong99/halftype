@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>README Demo Text</title>
+<style>
+  :root { --ink:#16181d; --sub:#6b6f78; --line:#e6e2da; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f1ec; color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
+  main { max-width: 1600px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .q { color: var(--sub); margin: 0 0 12px; }
+  .rec { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; }
+  .bar { position: sticky; top: 0; z-index: 2; padding: 8px 0; background: #f4f1ec; }
+  .bar button { font: inherit; padding: 6px 14px; border-radius: 8px; border: 1px solid #cfcac0; background: #fff; cursor: pointer; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .card header { padding: 10px 14px 2px; display: flex; gap: 10px; align-items: baseline; }
+  .letter { font-weight: 700; font-size: 19px; } .name { font-weight: 600; }
+  .card img { display: block; width: 100%; aspect-ratio: 760 / 360; }
+  .card p { margin: 0; padding: 8px 14px 14px; color: var(--sub); font-size: 13.5px; }
+  code { font-size: 12px; color: #8a7f72; }
+</style>
+</head>
+<body>
+<main>
+  <h1>README demo: more text</h1>
+  <p class="q">The single birthday message runs 3.5 s. John: "Okay now it feels too short. Any ideas for text we can add there? Or a new text we can cycle through", then "show me".</p>
+  <div class="rec"><b>Recommendation: B.</b> Three everyday messages, each showing something different: Tab and Shift-Tab (birthday), a long suggestion taken whole (work reply), and a wrong suggestion you just type over (running late). 10 s, and it shows Halftype isn't only for one kind of message. All scripted, as the README says.</div>
+  <div class="bar"><button id="replay">Replay all together</button></div>
+  <div class="grid">
+    <div class="card"><header><span class="letter">A</span><span class="name">Today: one message</span></header><img src="round4/A.webp" alt="A"><p>"Happy birthday! I hope you have a great day!": two Tabs, one Shift-Tab. 3.5 s.</p></div>
+    <div class="card"><header><span class="letter">B</span><span class="name">Three messages, cycling</span></header><img src="round4/B.webp" alt="B"><p>The birthday; "Thanks for the update. I'll take a look and get back to you." with two Shift-Tabs; "Running 10 minutes late, sorry! Save me a seat." where "ee you soon!" is typed over. The field clears between them. 10 s.</p></div>
+    <div class="card"><header><span class="letter">C</span><span class="name">The birthday, longer</span></header><img src="round4/C.webp" alt="C"><p>"…great day! Let's celebrate this weekend, dinner's on me.", with "atch up soon" typed over, a Tab for "eekend" and a Shift-Tab for "inner's on me.". One message, two lines. 6 s.</p></div>
+  </div>
+</main>
+<script>
+document.getElementById("replay").onclick = () => {
+  const t = Date.now();
+  document.querySelectorAll(".card img").forEach((img) => { img.src = img.src.split("?")[0] + "?" + t; });
+};
+</script>
+</body>
+</html>

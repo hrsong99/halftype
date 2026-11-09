@@ -1,0 +1,24 @@
+{
+ "days": {
+  "2026-11-08": {
+   "typed": 3868,
+   "taken": 110,
+   "tabs": 219,
+   "shown": 2371,
+   "withModel": false,
+   "withoutModel": true,
+   "characters": 926,
+   "saved": 637
+  },
+  "2026-11-09": {
+   "typed": 2483,
+   "taken": 61,
+   "tabs": 167,
+   "shown": 1327,
+   "withModel": true,
+   "withoutModel": false,
+   "characters": 847,
+   "saved": 847
+  }
+ }
+}
