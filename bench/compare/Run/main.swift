@@ -273,7 +273,7 @@ func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
     }
     var phases = [("en", Array(en.dropFirst().prefix(enCount)))]
     if r.korean { phases.append(("ko", Array(ko.prefix(koCount)))) }
-    for (lang, list) in phases {
+    for (lang, list) in phases where !list.isEmpty {  // --ko 0: no phase, and no division by its zero seconds
         print("  \(lang == "en" ? "English" : "Korean, 2-Set")")
         guard selectSource(lang == "ko" ? twoSet : latinSource!) else { throw Stop(why: "couldn't select the input source") }
         capture.korean = lang == "ko"
