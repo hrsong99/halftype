@@ -13,3 +13,5 @@ Recommendation: B, an inspector panel opened from the menu bar. It needs no engi
 ## Pick
 
 John picked C, polished as G: "C (or polished version G) is kind of what i was imagining… as a debug feature that users can turn on". Built as General › Show What the Model Sees (off by default): hold ⌃⌥ over a ghost (`Sources/HalftypeApp/Peek.swift`, numbers from `Peek.make` in `Generation.swift`). The modifiers are watched by NSEvent monitors, never taken. No runner-up words yet: they need the engine to keep more than the picked token. `built/17-peek-*.png` come from `HALFTYPE_SHOTS=<dir> swift test --disable-keychain --filter WindowShots/peek`.
+
+Live check, 2026-11-09 (TextEdit, Gemma 4 E2B, ⌃⌥ posted at the HID level): `built/live-1-tomorrow.png` (before the fix: a word followed from an older request read "omorrow", the part after its held "t"; the first word now shows whole), `built/live-2-appreciate.png`, `built/live-3-released.png` (card gone on release, ghost kept).

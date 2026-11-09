@@ -11,7 +11,7 @@ private func token(_ text: String, _ logprob: Double = 0) -> Token { Token(bytes
     let peek = try #require(Peek.make(tokens, prompt: prompt, context: 16, shown: shown, tuning: Tuning()))
     #expect(peek.held == " tomo")
     #expect(peek.tail.hasSuffix("see you"))
-    #expect(peek.steps.map(\.text) == ["rrow", " at", " the", " station"])
+    #expect(peek.steps.map(\.text) == [" tomorrow", " at", " the", " station"])
     #expect(peek.steps.map(\.kept) == [true, true, true, false])
     #expect(abs(peek.steps[1].logprob - -0.41) < 1e-9)
     #expect(abs(peek.steps[3].running - -1.05) < 1e-9)
@@ -26,7 +26,7 @@ private func token(_ text: String, _ logprob: Double = 0) -> Token { Token(bytes
     let shown = Stop.cut(tokens, fragment: prompt.fragment).text
     #expect(shown == "lo.")
     let peek = try #require(Peek.make(tokens, prompt: prompt, context: 0, shown: shown, tuning: Tuning()))
-    #expect(peek.steps.map(\.text) == ["lo"])
+    #expect(peek.steps.map(\.text) == [" hello"])
     #expect(peek.end == .punctuation)
 }
 
@@ -37,7 +37,7 @@ private func token(_ text: String, _ logprob: Double = 0) -> Token { Token(bytes
                   token("\n다음", -0.1)]
     let shown = Stop.cut(tokens, fragment: prompt.fragment).text
     let peek = try #require(Peek.make(tokens, prompt: prompt, context: 0, shown: shown, tuning: Tuning()))
-    #expect(peek.steps.map(\.text) == ["아네"])
+    #expect(peek.steps.map(\.text) == [" 좋아네"])
     #expect(peek.steps.allSatisfy { $0.kept })
     #expect(abs(peek.steps[0].logprob - -0.3) < 1e-9)
     #expect(peek.end == .line)
