@@ -14,6 +14,12 @@ func option(_ name: String) -> String? { args.firstIndex(of: name).flatMap { $0 
 let chosen = (option("--apps")?.split(separator: ",").map(String.init)).map { names in rivals.filter { names.contains($0.name) } } ?? rivals
 let enCount = Int(option("--en") ?? "") ?? 16, koCount = Int(option("--ko") ?? "") ?? 10
 let textDir = option("--text") ?? lab + "/compare/text"
+/// `--halftype long,more`: Halftype at that Length and How Often instead of its defaults, scored as "halftype long,more".
+let halftypeSetting = option("--halftype")?.split(separator: ",").map(String.init)
+if let h = halftypeSetting, h.count != 2 || !["short", "medium", "long"].contains(h[0]) || !["less", "normal", "more", "always"].contains(h[1]) {
+    print("--halftype takes <short|medium|long>,<less|normal|more|always>"); exit(1)
+}
+extension Rival { var label: String { name == "halftype" ? (halftypeSetting.map { "halftype " + $0.joined(separator: ",") } ?? name) : name } }
 /// A pause this long after every third word lets a slow app finish, so its speed is measured rather than cut off.
 let probeMs = 1500.0
 
@@ -221,12 +227,12 @@ final class Typist {
                 press(s.code, shift: s.shift)
                 pressed += 1
             }
-            pending = (KeyRecord(app: r.name, lang: lang, sentence: id, tab: isTab, probe: probe, fresh: before == nil, latencyMs: nil,
+            pending = (KeyRecord(app: r.label, lang: lang, sentence: id, tab: isTab, probe: probe, fresh: before == nil, latencyMs: nil,
                                  shown: false, firstRight: false, composing: false), t0, before)
             sleepMs(probe ? probeMs : delays.next())
         }
         if record {
-            append(SentenceRecord(app: r.name, lang: lang, sentence: id, total: plan.keys.count, pressed: pressed, tabs: tabs, wrongTabs: wrongTabs, tabsAsRead: asRead),
+            append(SentenceRecord(app: r.label, lang: lang, sentence: id, total: plan.keys.count, pressed: pressed, tabs: tabs, wrongTabs: wrongTabs, tabsAsRead: asRead),
                    to: out + "/sentences.jsonl")
         }
         print("    \(id.prefix(24))…: \(pressed) of \(plan.keys.count) keys, \(tabs) Tabs\(wrongTabs > 0 ? " (\(wrongTabs) wrong)" : ""), ghost on \(shownKeys) keys")
@@ -252,7 +258,11 @@ func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
             halftypeSaved = Dictionary(uniqueKeysWithValues: halftypeKeys.compactMap { k in halftypeDefaults.object(forKey: k).map { (k, $0) } })
             for k in halftypeKeys { halftypeDefaults.removeObject(forKey: k) }
             halftypeDefaults.set("off", forKey: "personal")
+            if let h = halftypeSetting { halftypeDefaults.set(h[0], forKey: "length"); halftypeDefaults.set(h[1], forKey: "often") }
         }
+        // KeyType feeds what was typed in an app back into its prompt: start it fresh, as a new install, or it completes sentences
+        // it saw in an earlier run (its history holds only text this harness typed, as only the harness starts it).
+        if r.name == "keytype" { try? FileManager.default.removeItem(atPath: NSHomeDirectory() + "/Library/Application Support/KeyType/History") }
         launched = r
         sh("/usr/bin/open", ["-g", "-j", r.path!])
         print("  launched hidden; waiting for its model to be mapped (up to 3 minutes)")
@@ -288,7 +298,7 @@ func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
         }
         let seconds = ms(t0, now()) / 1000
         // The CPU share is over typing and the sampling between sentences, the same for every app.
-        append(ResourceRecord(app: r.name, lang: lang, footprintMB: footprints, modelResidentMB: modelResidentMB(pids),
+        append(ResourceRecord(app: r.label, lang: lang, footprintMB: footprints, modelResidentMB: modelResidentMB(pids),
                               cpuPercent: pids.isEmpty ? nil : (cpuSeconds(pids) - cpu0) / seconds * 100, seconds: seconds), to: out + "/resources.jsonl")
         print(String(format: "  %.0f s, waited %.1f s in all for OCR", seconds, typist.ocrWaitMs / 1000))
     }

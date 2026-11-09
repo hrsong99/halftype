@@ -9,6 +9,8 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - **The landing drafts in `docs/site/` repeat the README's claims and numbers.** Change them together.
 - **Every number carries how it was measured**, here or in `docs/measuring.md`. Remeasure rather than edit one by hand.
 
+- **Product priority (John, 2026-11-09): more right suggestions beat fewer wrong ones.** He ignores a bad ghost and takes a good one fast, so tune for keys saved and right ghosts per key; report wrong ones, don't optimise for them. This outranks the precision-first gate in `docs/how-it-works.md` #2.
+
 ## Commands
 - Tests: `swift test --disable-keychain -j 2`. Add `HALFTYPE_MODEL=<gguf>` for the model tests, which otherwise skip.
 - App: `scripts/build-app.sh`, output `build/Halftype.app`. Renamed from Itda on 2026-11-08, everywhere: bundle ID `app.halftype.Halftype`, modules, repo `hrsong99/halftype`, cask `halftype`. `moveFromItda` carries the old folder and settings over once. Checkouts are `halftype` and `halftype-learn`, the lab `~/halftype-lab-private`, signing `~/.config/halftype-signing` and the `halftype-signing` keychain; `itda*` symlinks to them stay for old T3 history. Only the tag `bench-1`'s `itda-replay` keeps the old name.
