@@ -89,7 +89,7 @@ func preflight() -> Bool {
     }
     if chosen.contains(where: { $0.name == "halftype" }) {
         let set = halftypeKeys.compactMap { k in halftypeDefaults.object(forKey: k).map { "\(k)=\($0)" } }
-        print("  --   halftype runs at its defaults (Short, Normal, Gemma 4 E2B, no personal model)" +
+        print("  --   halftype runs at \(halftypeSetting.map { "Length \($0[0]), How Often \($0[1])" } ?? "its default settings"), Gemma 4 E2B, no personal model" +
               (set.isEmpty ? "" : "; your settings \(set.joined(separator: ", ")) are put back when it quits"))
         let model = NSHomeDirectory() + "/Library/Application Support/Halftype/gemma-4-E2B.Q4_K_M.gguf"
         line(FileManager.default.fileExists(atPath: model), "Halftype's default model is downloaded")
