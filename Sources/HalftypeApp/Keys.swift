@@ -62,7 +62,7 @@ class KeyTap: @unchecked Sendable {
         var port: CFMachPort?
         var loop: CFRunLoop?
 
-        mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)? {
+        mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int, words: Int)? {
             let next = all ? Accept.all(armed.ghost) : Accept.nextWord(armed.ghost)
             let strokes = armed.typesKeys ? TwoSetLayout.strokes(next.keys + Hangul.keys(next.text)) : nil
             if armed.typesKeys && strokes == nil { return nil }
@@ -74,7 +74,8 @@ class KeyTap: @unchecked Sendable {
             if rest.isEmpty { held = (armed.pid, Date() + holdFor) }
             composing = strokes?.last.map { TwoSetLayout.letterCodes.contains(Int64($0.code)) } ?? false  // As if the user typed it.
             // Finishing a syllable can add more than the text typed: `그 달` to `그 다라가` is two characters, from `가` alone.
-            return (strokes, next.text, max(0, to.count - armed.before.count))
+            // Words with the syllable it finishes: `하` to `한 다음` is two.
+            return (strokes, next.text, max(0, to.count - armed.before.count), Tally.words(in: armed.ghost.composing + next.text))
         }
     }
 
@@ -189,7 +190,7 @@ class KeyTap: @unchecked Sendable {
         guard event.getIntegerValueField(.eventSourceUserData) != Self.ownEvent else { return false }
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode), flags = event.flags
         let target = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
-        var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)?
+        var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int, words: Int)?
         var suggestion = 0, drawing = 0
         var generation = 0
         var held = false
@@ -234,7 +235,7 @@ class KeyTap: @unchecked Sendable {
         }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
-            onAccept?(plan.added, plan.strokes?.count ?? plan.added, Tally.words(in: plan.text), suggestion, plan.strokes == nil ? plan.text : nil, drawing)
+            onAccept?(plan.added, plan.strokes?.count ?? plan.added, plan.words, suggestion, plan.strokes == nil ? plan.text : nil, drawing)
             onTaught?(whole ? .shiftTab : .tab)
         }
         if decision == .reenable { reenable() }
