@@ -244,7 +244,8 @@ class KeyTap: @unchecked Sendable {
         }
         if held { return true }
         if let through { onTypedThrough?(through.drawing, through.text, generation) }
-        if plan == nil, Self.types(type, event, flags) { onTyped?() }
+        // A held key's repeats aren't typing: they would count as keys and, 30 a second, as the user's speed.
+        if plan == nil, Self.types(type, event, flags), event.getIntegerValueField(.keyboardEventAutorepeat) == 0 { onTyped?() }
         onInput?(generation)
         return plan != nil || decision == .dismiss(swallow: true)
     }
