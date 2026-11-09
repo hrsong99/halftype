@@ -37,6 +37,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - The local branch `bench-2` (worktree `../local-autocomplete/bench2-worktree`) replays the shipped policy; the 2026-11 numbers in `docs/measuring.md` come from it, run by `../local-autocomplete/experiments/bench2/run.sh` and scored by `report.py` there.
 
 ## Traps
+- **An animation in the window runs whenever the window exists, hidden or behind others:** a `TimelineView(.animation)` with no `paused: !appearsActive` cost a fifth of a core at rest (Tab Motion preview, fixed 7a64185). Check a new animation with `ps -o cputime` over 30 s after `open -g -j`.
 - Accessibility grants are pinned to the signing certificate. The Developer ID build can't use a grant made for an Apple Development build, and a relaunch silently loses it. To keep one, re-sign that copy with the granted certificate and check it with `codesign -v -R <csreq from TCC.db>`.
 - Activity Monitor's per-app Memory hides what Metal wires, about the model's file size. Read `docs/measuring.md` before claiming a memory number.
 - `Gate.threshold` is fitted for English, and no Korean threshold exists. Don't tune it on Korean.
