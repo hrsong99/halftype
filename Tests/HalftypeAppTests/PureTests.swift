@@ -31,14 +31,17 @@ import Testing
         tap.key()  // typing before the tap
         #expect(tap.flags([.control]) == nil)
         #expect(tap.flags([.control, .option]) == nil)
-        #expect(tap.flags([.option]) == nil)
-        #expect(tap.flags([]) == false)
+        #expect(tap.flags([.option]) == false)
+        #expect(tap.flags([]) == nil)
         // ⌃⌥←: a shortcut, not a tap.
         _ = tap.flags([.control, .option]); tap.key()
         #expect(tap.flags([]) == nil)
         // ⇧ too asks for the whole prompt; Caps Lock changes nothing; ⌘ spoils it.
         _ = tap.flags([.control, .option, .shift, .capsLock])
-        #expect(tap.flags([.capsLock]) == true)
+        #expect(tap.flags([.option, .shift, .capsLock]) == true)
+        // Decided before ⇧ is let go: an Esc KeyTap swallows then can't make a tap of it again.
+        _ = tap.flags([.shift])
+        #expect(tap.flags([]) == nil)
         _ = tap.flags([.control, .option, .command])
         #expect(tap.flags([]) == nil)
         _ = tap.flags([.control])

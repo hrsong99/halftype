@@ -56,13 +56,15 @@ final class PeekWatch {
 struct PeekTap {
     private var chord: NSEvent.ModifierFlags = [], spoiled = false
 
-    /// On letting go of a tap: whether it had ⇧. Caps Lock and Fn don't count.
+    /// On letting go of ⌃ or ⌥ after a tap: whether it had ⇧. Caps Lock and Fn don't count. Not on the last key up: once ⌃⌥ are gone,
+    /// KeyTap may swallow an Esc that these monitors never see.
     mutating func flags(_ flags: NSEvent.ModifierFlags) -> Bool? {
         let held = flags.intersection([.control, .option, .command, .shift])
+        let peaked = chord.isSuperset(of: [.control, .option])
         chord.formUnion(held)
-        guard held.isEmpty else { return nil }
+        guard !held.isSuperset(of: [.control, .option]), peaked || held.isEmpty else { return nil }
         defer { (chord, spoiled) = ([], false) }
-        return !spoiled && chord.subtracting(.shift) == [.control, .option] ? chord.contains(.shift) : nil
+        return peaked && !spoiled && !chord.contains(.command) ? chord.contains(.shift) : nil
     }
 
     /// A key pressed with modifiers down; typing between taps doesn't count.
