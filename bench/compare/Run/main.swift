@@ -54,7 +54,7 @@ func sentences(_ lang: String) -> [(id: String, text: String)] {
     }
 }
 
-/// Halftype is measured at its defaults (Long, Always), or at `--halftype`, with the default model, no personal model. What the user set is put back after.
+/// Halftype is measured at its default settings, or at `--halftype`, with the default model, no personal model. What the user set is put back after.
 let halftypeDefaults = UserDefaults(suiteName: "app.halftype.Halftype")!
 let halftypeKeys = ["length", "often", "personal", "modelPath"]
 var halftypeSaved: [String: Any]? = nil
