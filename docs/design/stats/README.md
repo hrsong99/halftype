@@ -33,3 +33,12 @@ All in `round3/`, on this Mac's real week so far (Nov 9–10, counts only). The 
 Ranking proposed: time saved, words (letters ÷ 5), share as "1 in every N keys", Tabs last; leave out taken ÷ shown. Time assumes 40 wpm in the mockups; the build should measure typing seconds per day instead.
 
 Recommendation: B with C's "1 in every 8 keys" label. Pick: pending.
+
+## Round 4: one short sentence, and G's bars
+
+John: "What about D's writing but very short and concise, maybe 'Halftype saved you <21 minutes> (of typing? dunno if we should add that) this week' with the time colored in, and other stats below. And i'm wondering if G's bar chart looks better than the simple one we have now."
+
+- `round4/index.html`: A round 3's B for reference; B "saved you 21 minutes this week"; C the same with "of typing"; D time first in ink; E C with G's glass-track pills; F C with pills and no tracks, today in ink. Same real week as round 3.
+- `round4/options.png`: frozen screenshot.
+
+Recommendation: C with flat bars ("of typing" keeps the claim to what we measure; G's empty tracks read as missed goals on real data, and its gradient repeats the headline's colour). Pick: pending.
