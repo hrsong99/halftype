@@ -923,7 +923,7 @@ private struct GeneralPage: View {
             }
             Row(title: "Length", note: "Short ends sooner, so more of what it shows is right.") {
                 Picker("", selection: $app.length) { Text("Long").tag(Length.long); Text("Short").tag(Length.short) }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 160, alignment: .trailing)
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
             }
             // Under its title at full width, as System Settings' Appearance: beside it, three tiles crush the title in a small window.
             VStack(alignment: .leading, spacing: 8) {

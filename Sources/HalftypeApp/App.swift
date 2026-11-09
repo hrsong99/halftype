@@ -749,8 +749,8 @@ enum Length: String, CaseIterable {
 
 enum Personal: String, CaseIterable { case off, compare, on }
 
-/// The window's Suggestions: Always (no gate, the default), When likely (`more`) and When sure (`normal`, fitted for 80% precision).
-/// Less went on 2026-11-10, against the product's priority of more right suggestions; a saved `less` reads as When sure.
+/// The window's Suggestions: Always (no gate, the default), When Likely (`more`) and When Sure (`normal`, fitted for 80% precision).
+/// Less went on 2026-11-10, against the product's priority of more right suggestions; a saved `less` reads as When Sure.
 /// The raw values are the settings saved before the labels changed. docs/measuring.md.
 enum Often: String, CaseIterable {
     case always, more, normal
