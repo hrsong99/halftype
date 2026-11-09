@@ -8,7 +8,7 @@ It feeds the comparison on the landing page (`docs/site/compare/`, branch `landi
 
 ```sh
 bench/compare/run.sh --check    # the preconditions only: types nothing, launches nothing
-bench/compare/run.sh            # everything, about 45-50 minutes
+bench/compare/run.sh            # everything, about 40 minutes (25 with --ko 0)
 bench/compare/run.sh --apps halftype,keytype --en 16 --ko 10
 ```
 
@@ -29,8 +29,8 @@ and OCR crops of public text, and stays out.
    System Settings > Privacy & Security > Accessibility > + > `~/halftype-lab-private/rivals/Cotabby.app` and `KeyType.app` (the
    notarized release builds, copied there from their DMGs). `--check` reads the TCC database when the terminal has Full Disk Access;
    otherwise the warm-up finds out.
-5. **Each app's default model is downloaded**: Halftype's Qwen 3.5 0.8B; Cotabby's and KeyType's are in their Application Support folders.
-6. Halftype runs at its defaults (Short, Normal, Qwen 3.5 0.8B, personal model off) whatever you have set; your settings come back when it quits.
+5. **Each app's default model is downloaded**: Halftype's Gemma 4 E2B (the default since 0.1.10); Cotabby's and KeyType's are in their Application Support folders.
+6. Halftype runs at its default settings, or at `--halftype <length>,<suggestions>`, with Gemma 4 E2B and the personal model off, whatever you have set; your settings come back when it quits.
 7. **Cotypist**: if a personal prompt is set in its settings, its numbers include it (`--check` says so). Clear it for a default run.
    Its free plan has a daily cap; if suggestions stop part-way, the run prints a warning.
 
@@ -78,7 +78,7 @@ running at all** (KeyType starts its engine only with Accessibility), which is w
 - **GPU memory per process isn't read**: nothing outside a process reports what Metal wired for it fairly across apps (Halftype's own
   `MTLDevice.currentAllocatedSize` in measuring.md is from inside). The resident `.gguf` pages stand in for the weights. macOS's
   predictions run in system processes, so they get no memory or CPU numbers at all.
-- Small samples: 16 English and 10 Korean sentences per app (about 650 and 550 keys), to fit an hour. The CIs say how much that matters.
+- Small samples by default: 16 English and 10 Korean sentences per app (about 650 and 550 keys), to fit an hour. Two runs of KeyType 1.8 differed by 2 points (24.7% and 22.9%), as wide as the gap between two apps, so a claim needs `--en 64` (all 64 scored English sentences, about 16 minutes an app): CI width goes with 1/sqrt(n), so half of 16's.
 - **English**: Taskmaster-1 self-dialogs, the user side: people writing to a booking assistant, typed by crowd workers. Not chat
   between friends, and some words are rare. Sentences were kept only if every word is in the system dictionary. **Korean**: SmileStyle,
   other people's style-transfer dialogue (as in measuring.md), not how anyone writes messages.
@@ -92,6 +92,8 @@ running at all** (KeyType starts its engine only with Accessibility), which is w
 - Each app's Tab is taken as one word (macOS: all). If an app's Tab does something else, the wrong-Tab column shows it.
 - Exact match only: a good paraphrase scores zero, the same for every app.
 - Not tested: Chromium or Electron fields, other input methods, settings other than each app's defaults.
+- A wrong ghost costs nothing here: the typist never misreads one, which favours apps that show many.
+- Cotypist 2026.5.2 and macOS 27's inline predictions show nothing in the test window (2026-11-09, cause unknown; macOS's "Show inline predictive text" was off globally, and turning it on in the harness's own domain didn't help): they come out "not measured".
 
 ## Text
 

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halftype Pro: suggestions in your own words</title>
+<meta name="description" content="Personal Model: a model trained on your own typing and retrained routinely, so Halftype's suggestions get more accurate and more like you. Coming soon.">
+<meta name="theme-color" content="#f6f1e9">
+<link rel="canonical" href="https://halftype.app/pro">
+<link rel="icon" href="/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root { --cream: #f6f1e9; --ink: #1d1c1a; --muted: #6a6762; --line: rgba(29,28,26,.12); --peach: #f4b48c;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; --serif: "Instrument Serif", Georgia, serif; }
+* { box-sizing: border-box; margin: 0; }
+html, body { background: var(--cream); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+.nav { display: flex; justify-content: space-between; align-items: center; padding-top: 18px; padding-bottom: 18px; font-size: 14px; }
+.logo { font-weight: 600; font-size: 17px; text-decoration: none; }
+.btn { background: var(--ink); color: var(--cream); border-radius: 999px; padding: 8px 16px; font-size: 13px; text-decoration: none; }
+.hero { text-align: center; padding: 48px 0 8px; }
+.eyebrow { color: var(--muted); font-size: 13px; letter-spacing: .02em; }
+h1 { font: 400 64px/1.04 var(--serif); margin: 14px 0; } h1 i { color: #606e7e; }
+.lead { color: var(--muted); max-width: 600px; margin: 0 auto; line-height: 1.6; font-size: 16px; }
+.plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding-top: 40px; border: 0; }
+.plans legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.plan { background: #fff; border-radius: 20px; padding: 22px; border: 1px solid var(--line); position: relative; cursor: pointer; display: block; }
+.plan input { position: absolute; opacity: 0; }
+.plan:has(input:checked) { border: 2px solid var(--ink); padding: 21px; }
+.plan:has(input:focus-visible) { outline: 2px solid #45709d; outline-offset: 3px; }
+.plan .n { font-size: 14px; color: var(--muted); } .plan .p { font: 400 46px var(--serif); margin: 6px 0 2px; } .plan .p small { font: 14px var(--sans); color: var(--muted); }
+.plan .d { font-size: 13px; color: var(--muted); }
+.tag { position: absolute; top: -11px; left: 22px; background: var(--peach); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 500; }
+.signup { max-width: 560px; margin: 26px auto 0; text-align: center; }
+.signup .box { display: flex; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 6px; }
+.signup input[type=email] { flex: 1; min-width: 0; border: 0; font: 16px var(--sans); padding: 0 14px; outline: none; background: transparent; }
+.signup button { background: var(--ink); color: var(--cream); border: 0; border-radius: 999px; padding: 11px 20px; font: 500 14px var(--sans); cursor: pointer; white-space: nowrap; }
+.signup button:disabled { opacity: .6; }
+.signup small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 10px; line-height: 1.5; }
+.thanks { text-align: center; padding: 30px 0 10px; } .thanks h2 { font: 400 44px var(--serif); } .thanks p { color: var(--muted); margin-top: 8px; }
+.what { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; padding-top: 34px; padding-bottom: 48px; margin-top: 52px; border-top: .5px solid var(--line); }
+.what h2 { font-size: 15px; font-weight: 600; } .what p { color: var(--muted); font-size: 14px; line-height: 1.55; margin-top: 6px; }
+.foot { color: var(--muted); font-size: 13px; padding-bottom: 40px; }
+@media (max-width: 760px) { h1 { font-size: 44px; } .plans, .what { grid-template-columns: 1fr; } .signup .box { flex-direction: column; border-radius: 20px; } .signup input[type=email] { padding: 12px 14px; } }
+</style>
+</head>
+<body>
+<header class="wrap nav"><a class="logo" href="/">Halftype</a><a class="btn" href="https://github.com/hrsong99/halftype/releases/latest/download/Halftype.dmg">Download</a></header>
+<main class="wrap">
+  <section class="hero">
+    <p class="eyebrow">Halftype Pro · coming soon</p>
+    <h1>Suggestions in<br><i>your own words.</i></h1>
+    <p class="lead">We train a model on your own typing, in Korean and English, then retrain it routinely as you keep typing, so its suggestions get more accurate and more like you over time. The app stays free; Pro is the model that's yours, kept up to date.</p>
+  </section>
+
+  <form id="signup">
+    <fieldset class="plans">
+      <legend>Plan</legend>
+      <label class="plan"><input type="radio" name="plan" value="Monthly ($4 a month)"><div class="n">Monthly</div><div class="p">$4<small> a month</small></div><div class="d">Cancel any time.</div></label>
+      <label class="plan"><span class="tag">3 months free</span><input type="radio" name="plan" value="Yearly ($36 a year)" checked><div class="n">Yearly</div><div class="p">$36<small> a year</small></div><div class="d">$3 a month, billed once a year.</div></label>
+      <label class="plan"><input type="radio" name="plan" value="Lifetime ($99 once)"><div class="n">Lifetime</div><div class="p">$99<small> once</small></div><div class="d">Pay once, retrained for good.</div></label>
+    </fieldset>
+    <div class="signup">
+      <div class="box"><input type="email" name="email" required autocomplete="email" placeholder="you@example.com" aria-label="Email"><button type="submit" id="go">Notify Me: Yearly</button></div>
+      <small>Not for sale yet. Leave your email and we'll write when it is: an email or two a month at most.</small>
+    </div>
+  </form>
+  <div class="thanks" id="thanks" hidden><h2>You're on the list.</h2><p id="thanks-p"></p></div>
+
+  <section class="what">
+    <div><h2>Learns your words</h2><p>Trained on your own typing, so it suggests the names, phrases and mix of Korean and English you actually use.</p></div>
+    <div><h2>Retrained routinely</h2><p>Every few weeks we retrain it on what you've typed since, on our GPUs, so it keeps up with how you write now. That ongoing training is what the subscription pays for. New base models come too.</p></div>
+    <div><h2>Your text, handled carefully</h2><p>You choose what it learns from, and nothing is sent until you do. It goes encrypted to one training run and is deleted when the run ends, with no copy kept. The model lives on your Mac; turn it off or delete it any time.</p></div>
+  </section>
+</main>
+<footer class="wrap foot"><a href="/">Halftype</a> · <a href="https://github.com/hrsong99/halftype">GitHub</a> · <a href="https://github.com/sponsors/hrsong99">Sponsor</a></footer>
+<script>
+// Sign-ups go to the early-bird Google Form (docs/pricing.md); the app's General page posts to the same one.
+const FORM = "https://docs.google.com/forms/d/e/1FAIpQLSeIekyjCphdrP9pZ9zaj5P90plPghgLAJ3zYof6PEji1uo9UQ/formResponse";
+const form = document.getElementById("signup"), go = document.getElementById("go");
+const short = v => v.split(" ")[0];
+form.addEventListener("change", () => { go.textContent = "Notify Me: " + short(form.plan.value); });
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+  go.disabled = true;
+  const body = new URLSearchParams({ "entry.1594900331": form.email.value, "entry.1026117992": form.plan.value, "entry.605839130": "halftype.app/pro" });
+  try {
+    await fetch(FORM, { method: "POST", mode: "no-cors", body });  // shortcut: no-cors hides the response, so a Forms outage looks like success; check responses after a launch
+    form.hidden = true;
+    document.getElementById("thanks-p").textContent = "We'll email " + form.email.value + " when Personal Model is ready. " + short(form.plan.value) + ", noted.";
+    document.getElementById("thanks").hidden = false;
+  } catch { go.disabled = false; go.textContent = "Couldn't send. Try again"; }
+});
+</script>
+</body>
+</html>

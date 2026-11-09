@@ -129,11 +129,13 @@ public enum Score {
         func pct(_ x: Double?) -> String { x.map { String(format: "%.1f%%", $0 * 100) } ?? "-" }
         func ms(_ x: Double?) -> String { x.map { String(format: "%.0f ms", $0) } ?? "-" }
         func mb(_ x: Double?) -> String { x.map { String(format: "%.0f MB", $0) } ?? "-" }
-        var s = "| App | Text | Sentences, keys | Keys saved (95% CI) | Keys with a ghost | First word right | Ghost after a key, fresh p50 / p90 (n) | 1.5 s probe: none, p50 (n) | Mid-syllable ghost (n) | Tabs, wrong, as OCR read | Footprint median / max | Model resident | CPU |\n"
-        s += "|---|---|---|---|---|---|---|---|---|---|---|---|---|\n"
+        var s = "| App | Text | Sentences, keys | Keys saved (95% CI) | Keys with a ghost | First word right | Right / wrong ghosts per 100 keys | Ghost after a key, fresh p50 / p90 (n) | 1.5 s probe: none, p50 (n) | Mid-syllable ghost (n) | Tabs, wrong, as OCR read | Footprint median / max | Model resident | CPU |\n"
+        s += "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n"
         for r in rows {
+            // Helpfulness and noise in one place: right is shown and first word right, wrong the rest of what was shown.
+            let per100 = r.shownShare.flatMap { sh in r.firstRight.map { String(format: "%.0f / %.0f", sh * $0 * 100, sh * (1 - $0) * 100) } } ?? "-"
             let ci = r.savedLow.map { String(format: " (%.1f-%.1f)", $0 * 100, r.savedHigh! * 100) } ?? ""
-            s += "| \(r.app) | \(r.lang) | \(r.sentences), \(r.keys) | \(pct(r.saved))\(ci) | \(pct(r.shownShare)) | \(pct(r.firstRight)) | \(ms(r.freshP50)) / \(ms(r.freshP90)) (\(r.freshN)) | \(pct(r.probeNone)), \(ms(r.probeP50)) (\(r.probeN)) | \(r.lang == "ko" ? "\(pct(r.composingShown)) (\(r.composingN))" : "-") | \(r.tabs), \(r.wrongTabs), \(r.tabsAsRead) | \(mb(r.footprintMedianMB)) / \(mb(r.footprintMaxMB)) | \(mb(r.modelResidentMB)) | \(r.cpuPercent.map { String(format: "%.0f%%", $0) } ?? "-") |\n"
+            s += "| \(r.app) | \(r.lang) | \(r.sentences), \(r.keys) | \(pct(r.saved))\(ci) | \(pct(r.shownShare)) | \(pct(r.firstRight)) | \(per100) | \(ms(r.freshP50)) / \(ms(r.freshP90)) (\(r.freshN)) | \(pct(r.probeNone)), \(ms(r.probeP50)) (\(r.probeN)) | \(r.lang == "ko" ? "\(pct(r.composingShown)) (\(r.composingN))" : "-") | \(r.tabs), \(r.wrongTabs), \(r.tabsAsRead) | \(mb(r.footprintMedianMB)) / \(mb(r.footprintMaxMB)) | \(mb(r.modelResidentMB)) | \(r.cpuPercent.map { String(format: "%.0f%%", $0) } ?? "-") |\n"
         }
         return s
     }

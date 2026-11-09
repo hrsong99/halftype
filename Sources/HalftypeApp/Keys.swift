@@ -62,7 +62,7 @@ class KeyTap: @unchecked Sendable {
         var port: CFMachPort?
         var loop: CFRunLoop?
 
-        mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)? {
+        mutating func accept(_ armed: Armed, all: Bool) -> (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int, words: Int)? {
             let next = all ? Accept.all(armed.ghost) : Accept.nextWord(armed.ghost)
             let strokes = armed.typesKeys ? TwoSetLayout.strokes(next.keys + Hangul.keys(next.text)) : nil
             if armed.typesKeys && strokes == nil { return nil }
@@ -74,7 +74,7 @@ class KeyTap: @unchecked Sendable {
             if rest.isEmpty { held = (armed.pid, Date() + holdFor) }
             composing = strokes?.last.map { TwoSetLayout.letterCodes.contains(Int64($0.code)) } ?? false  // As if the user typed it.
             // Finishing a syllable can add more than the text typed: `그 달` to `그 다라가` is two characters, from `가` alone.
-            return (strokes, next.text, max(0, to.count - armed.before.count))
+            return (strokes, next.text, max(0, to.count - armed.before.count), Accept.words(armed.ghost, next))
         }
     }
 
@@ -93,7 +93,7 @@ class KeyTap: @unchecked Sendable {
     var onRefused: (@Sendable (Taught) -> Void)?
     /// Given the characters a Tab added, which suggestion it took from, the text (nil when typed as strokes: an input method may recompose
     /// the letter before it, moving the text from where the ghost was), and the drawing it was taken from. Off this thread at once.
-    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ suggestion: Int, _ text: String?, _ drawing: Int) -> Void)?
+    var onAccept: (@Sendable (_ added: Int, _ keys: Int, _ words: Int, _ suggestion: Int, _ text: String?, _ drawing: Int) -> Void)?
     /// A key typed the ghost's next letter, so the drawing can lose it in place while the host catches up. Tab is disarmed as after any
     /// key, until the host's update arms it again. Given the drawing, the letter, and the generation it moved to. Off this thread at once.
     var onTypedThrough: (@Sendable (_ drawing: Int, _ text: String, _ generation: Int) -> Void)?
@@ -189,7 +189,7 @@ class KeyTap: @unchecked Sendable {
         guard event.getIntegerValueField(.eventSourceUserData) != Self.ownEvent else { return false }
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode), flags = event.flags
         let target = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
-        var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int)?
+        var plan: (strokes: [TwoSetLayout.Stroke]?, text: String, added: Int, words: Int)?
         var suggestion = 0, drawing = 0
         var generation = 0
         var held = false
@@ -234,7 +234,7 @@ class KeyTap: @unchecked Sendable {
         }
         if let plan {
             if let strokes = plan.strokes { Inserter.press(strokes, post: post) } else { Inserter.insert(plan.text, post: post) }
-            onAccept?(plan.added, plan.strokes?.count ?? plan.added, suggestion, plan.strokes == nil ? plan.text : nil, drawing)
+            onAccept?(plan.added, plan.strokes?.count ?? plan.added, plan.words, suggestion, plan.strokes == nil ? plan.text : nil, drawing)
             onTaught?(whole ? .shiftTab : .tab)
         }
         if decision == .reenable { reenable() }
@@ -244,7 +244,8 @@ class KeyTap: @unchecked Sendable {
         }
         if held { return true }
         if let through { onTypedThrough?(through.drawing, through.text, generation) }
-        if plan == nil, Self.types(type, event, flags) { onTyped?() }
+        // A held key's repeats aren't typing: they would count as keys and, 30 a second, as the user's speed.
+        if plan == nil, Self.types(type, event, flags), event.getIntegerValueField(.keyboardEventAutorepeat) == 0 { onTyped?() }
         onInput?(generation)
         return plan != nil || decision == .dismiss(swallow: true)
     }

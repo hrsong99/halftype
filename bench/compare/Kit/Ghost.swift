@@ -51,10 +51,15 @@ public enum Ghost {
         Double(ink.minX - caretX) > 0.2 * emPixels
     }
 
-    /// The ink from `fromX` on as black on white, with a margin, for OCR: a grey ghost reads like print.
+    /// The ink from `fromX` on as black on white, with a margin, for OCR: a grey ghost reads like print. Cut to the ink, as
+    /// Vision reads nothing in a few letters at the end of a field-wide strip: of 80 saved Halftype crops ("ing", "eed"), 4 read
+    /// uncut and 66 cut (2026-11-09).
     public static func binarized(_ f: Frame, fromX: Int, margin: Int = 10) -> CGImage? {
-        let x0 = max(0, fromX), w = f.width - x0 + 2 * margin, h = f.height + 2 * margin
-        guard w > 2 * margin else { return nil }
+        let x0 = max(0, fromX), h = f.height + 2 * margin
+        var inkMaxX = -1
+        for y in 0..<f.height { for x in x0..<f.width where f.light(x, y) < inkBelow { inkMaxX = max(inkMaxX, x) } }
+        guard inkMaxX >= 0 else { return nil }
+        let w = max(inkMaxX - x0 + 1 + margin + h / 2, 2 * h)
         var bytes = [UInt8](repeating: 255, count: w * h)
         for y in 0..<f.height { for x in x0..<f.width where f.light(x, y) < inkBelow { bytes[(y + margin) * w + x - x0 + margin] = 0 } }
         guard let provider = CGDataProvider(data: Data(bytes) as CFData) else { return nil }

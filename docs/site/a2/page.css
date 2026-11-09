@@ -154,7 +154,7 @@ h1 { font-size: var(--t-display); line-height: .98; margin-top: var(--s3); }
 .shot { width: 100%; max-width: 528px; height: auto; justify-self: center; border-radius: 22px; box-shadow: 0 32px 64px -32px rgba(29,28,26,.3); }
 
 /* 7. compare */
-.charts { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); }
+.charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s3); }
 .chart { margin: 0; background: rgba(255,255,255,.6); border-radius: 20px; padding: var(--s3); box-shadow: 0 0 0 .5px var(--line); display: flex; flex-direction: column; gap: 12px; }
 .chart figcaption { font-weight: 600; margin-bottom: var(--s1); }
 .row { display: grid; grid-template-columns: 5.2em 1fr 4.4em; align-items: center; gap: 12px; }
@@ -254,13 +254,3 @@ h1 { font-size: var(--t-display); line-height: .98; margin-top: var(--s3); }
 .brew-lines { margin: 0; font: var(--t-small)/1.6 var(--mono); color: var(--ink); white-space: pre-wrap; user-select: all; -webkit-user-select: all; text-align: left; max-width: 100%; }
 @media (prefers-reduced-motion: reduce) { .taken { animation: none; background-position: 0 0; } }
 .rows dd, .faq dd, .note, .how, .ko-table td { text-wrap: pretty; }
-/* Compare: the full table scrolls inside its box on narrow screens, so no column (or its qualification) is hidden. */
-.table-scroll { margin-top: var(--s5); overflow-x: auto; border-radius: 12px; }
-.table-scroll:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.cmp { width: 100%; min-width: 860px; border-collapse: collapse; font-size: var(--t-small); font-variant-numeric: tabular-nums; }
-.cmp caption { text-align: left; font-weight: 600; font-size: var(--t-body); padding-bottom: var(--s2); }
-.cmp th, .cmp td { text-align: left; padding: 10px 12px 10px 0; border-top: .5px solid rgba(29,28,26,.14); vertical-align: top; }
-.cmp thead th { font-weight: 500; color: var(--muted); border-top: 0; }
-.cmp tbody th { font-weight: 500; white-space: nowrap; }
-.cmp tr.us th, .cmp tr.us td { font-weight: 600; }
-.cmp td[colspan] { color: var(--muted); }

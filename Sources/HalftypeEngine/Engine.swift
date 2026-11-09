@@ -242,11 +242,14 @@ public final class Engine: @unchecked Sendable {
 final class Vocab {
     let raw: OpaquePointer
     let count: Int
-    private let bytes: [UInt8]
-    private let starts: [Int32]
-    private let allowed: [Bool]
+    // Read by tests too (EngineTests: the check by decoding, to compare `allows` with).
+    let bytes: [UInt8]
+    let starts: [Int32]
+    let allowed: [Bool]
     private let ends: [Bool]
     private var keyStarts: [Int32] = [], keyCodes: [UInt16] = []
+    /// Each token's bytes at its end that don't decode yet, from the same pass as its keystrokes.
+    private var keyRests: [UInt8] = []
 
     init(_ vocab: OpaquePointer?) {
         raw = vocab!
@@ -287,21 +290,36 @@ final class Vocab {
 
     /// Greedy over the allowed tokens, those that `need` lets through.
     func pick(_ logits: UnsafeBufferPointer<Float>, need: Constraint) -> Pick? {
-        if !need.keys.isEmpty, keyStarts.isEmpty { indexKeys() }
-        return Pick.best(logits, allowed: { [self] t in
-            guard allowed[t] else { return false }
-            if need.isDone { return true }
-            let s = Int(starts[t]), e = Int(starts[t + 1])
-            guard s < e else { return false }
-            if let wanted = need.bytes.first {
-                guard bytes[s] == wanted, Vocab.agrees(bytes[s..<e], need.bytes) else { return false }
-                return e - s <= need.bytes.count || need.agrees(tail: bytes[(s + need.bytes.count)..<e])
-            }
-            if !need.held.isEmpty { return need.agrees(tail: bytes[s..<e]) }
-            let codes = keyCodes[Int(keyStarts[t])..<Int(keyStarts[t + 1])]
-            guard codes.prefix(need.keys.count).elementsEqual(need.keys.prefix(codes.count)) else { return false }
-            return bytes[e - 1] < 0x80 || need.agrees(tail: bytes[s..<e])
-        }, isEnd: { [self] in ends[$0] })
+        var begins: [Int: Bool] = [:]
+        return Pick.best(logits, allowed: { [self] t in allows(t, need, &begins) }, isEnd: { [self] in ends[$0] })
+    }
+
+    /// Whether `need` lets token `t` through. `begins` holds `canBegin` by a token's unfinished bytes and how many keys it used, for
+    /// one step: a few hundred kinds, each a scan of ~640 jamo and syllables, where Gemma has 262k tokens. With it and the cached rest,
+    /// no token is decoded again while Korean composes. Indexes keys first if `need` has any.
+    func allows(_ t: Int, _ need: Constraint, _ begins: inout [Int: Bool]) -> Bool {
+        guard allowed[t] else { return false }
+        if need.isDone { return true }
+        let s = Int(starts[t]), e = Int(starts[t + 1])
+        guard s < e else { return false }
+        if let wanted = need.bytes.first {
+            guard bytes[s] == wanted, Vocab.agrees(bytes[s..<e], need.bytes) else { return false }
+            return e - s <= need.bytes.count || need.agrees(tail: bytes[(s + need.bytes.count)..<e])
+        }
+        if !need.held.isEmpty { return need.agrees(tail: bytes[s..<e]) }
+        if keyStarts.isEmpty { indexKeys() }
+        let codes = keyCodes[Int(keyStarts[t])..<Int(keyStarts[t + 1])]
+        guard codes.prefix(need.keys.count).elementsEqual(need.keys.prefix(codes.count)) else { return false }
+        if bytes[e - 1] < 0x80 { return true }  // As before: a piece ending in ASCII passes, even one with invalid bytes before.
+        // As `need.agrees(tail:)`, from the index.
+        let rest = Int(keyRests[t])
+        guard rest > 0, codes.count < need.keys.count else { return true }
+        var key = codes.count << 2 | rest
+        for b in bytes[(e - rest)..<e] { key = key << 8 | Int(b) }
+        if let known = begins[key] { return known }
+        let ok = Constraint.canBegin(bytes[(e - rest)..<e], keys: need.keys.dropFirst(codes.count))
+        begins[key] = ok
+        return ok
     }
 
     /// In bytes, as a token can end inside a Hangul character.
@@ -314,8 +332,10 @@ final class Vocab {
         keyStarts = [0]
         for t in 0..<count {
             let piece = bytes[Int(starts[t])..<Int(starts[t + 1])]
-            keyCodes += Constraint.keyCodes(piece).codes
+            let (codes, rest) = Constraint.keyCodes(piece)
+            keyCodes += codes
             keyStarts.append(Int32(keyCodes.count))
+            keyRests.append(UInt8(min(rest, 4)))  // A piece that never decodes reports its length; past 2 bytes canBegin says no anyway.
         }
     }
 }

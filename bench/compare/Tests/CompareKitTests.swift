@@ -1,3 +1,4 @@
+import ImageIO
 import AppKit
 @testable import CompareKit
 import Testing
@@ -119,9 +120,12 @@ func frame(typed: String, ghost: String, grey: NSColor = NSColor(white: 0.6, alp
     }
 }
 
+/// Vision waits on threads from the pool these tests block, so OCR tests at once starve it and hang (2026-11-09): one at a time.
+@Suite(.serialized) struct OCR {
 @Test(arguments: [
     ("Could you send", " me the file", false), ("I would like", " to book a table", false), ("Is it wor", "th the trip", false),
     ("Let's meet at", " noon tomorrow", false), ("오늘", " 저녁에 만나요", true), ("주말에 같이", " 영화 볼래?", true),
+    ("We are look", "ing", false), ("Thanks for y", "our help.", false),
 ])
 func ocrReadsAGreyGhost(typed: String, ghost: String, korean: Bool) {
     for grey in [NSColor(white: 0.55, alpha: 1), NSColor(white: 0.72, alpha: 1)] {
@@ -130,6 +134,18 @@ func ocrReadsAGreyGhost(typed: String, ghost: String, korean: Bool) {
             #expect(Ghost.read(image, korean: korean) == ghost.trimmingCharacters(in: .whitespaces), "grey \(grey.whiteComponent)")
         }
     }
+}
+
+/// A real capture of Halftype's ghost, a word's end at the left of the field-wide strip: Vision read it as nothing until the
+/// crop was cut to the ink. A drawn frame didn't show the miss, so this is the screen's own pixels (public text).
+@Test func ocrReadsAWordEndOnTheWholeStrip() throws {
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/word-end-ing.png")
+    let image = try #require(CGImageSourceCreateWithURL(url as CFURL, nil).flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) })
+    let ctx = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: image.width * 4,
+                        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)!
+    ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+    let f = Frame(base: UnsafeRawPointer(ctx.data!), width: image.width, height: image.height, bytesPerRow: ctx.bytesPerRow)
+    #expect(Ghost.read(try #require(Ghost.binarized(f, fromX: 0)), korean: false) == "ing")
 }
 
 /// The oracle waits for OCR before each key (up to 500 ms), so a warm read must be well inside a typing delay.
@@ -147,4 +163,5 @@ func ocrReadsAGreyGhost(typed: String, ghost: String, korean: Bool) {
             #expect(Score.percentile(times, 0.5)! < 250)
         }
     }
+}
 }

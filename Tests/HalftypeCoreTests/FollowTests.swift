@@ -149,6 +149,9 @@ func acceptAgreesWithFollowOnceInTheField(start: String) {
     #expect(changing.composing == "한")
     #expect(Accept.nextWord(changing) == ("ㄴ", " 다음"))
     #expect(Accept.all(changing) == ("ㄴ", " 다음 날"))
+    #expect(Accept.words(changing, Accept.nextWord(changing)) == 2)  // What Stats counts: 한, finished, and 다음.
+    let right = Ghost(keys: "", composing: "달", remainder: " 이것")  // The syllable was already right: only 이것 is Tab's.
+    #expect(Accept.words(right, Accept.nextWord(right)) == 1 && Accept.words(matched, Accept.nextWord(matched)) == 1)
 }
 
 /// Once the key says the syllable is committed, Hangul compares literally: nothing asks to change it, so no stray ㄴ is possible.

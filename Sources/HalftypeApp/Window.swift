@@ -486,6 +486,7 @@ private struct Row<Trailing: View>: View {
 }
 
 /// A week or a month as bars, paged back with arrows, or every day as a dot; the numbers follow what's showing (docs/design/stats round 2, B).
+/// Time saved leads, in one sentence, with the other counts as chips below (round 5, E).
 struct StatsPage: View {
     enum Span: String, CaseIterable { case week = "Week", month = "Month", all = "All" }
     /// Where the page opens, for the window shots.
@@ -522,13 +523,14 @@ struct StatsPage: View {
             .buttonStyle(.borderless)
             .padding(.top, 6)
             .onChange(of: span) { back = 0; picked = nil; hovered = nil }
-            HStack(alignment: .lastTextBaseline, spacing: 28) {
-                Figure(value: shown.tabs.formatted(), label: shown.tabs == 1 ? "Tab" : "Tabs", big: true, change: change(shown.tabs, before?.tabs))
-                Figure(value: shown.characters.formatted(), label: "letters typed for you", change: change(shown.characters, before?.characters))
-                Figure(value: shown.byTab.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "–", label: "of your typing by Tab")
+            headline(shown, period).padding(.top, 18)
+            HStack(spacing: 8) {
+                Chip(value: shown.wordCount.formatted(), label: shown.wordCount == 1 ? "word" : "words", help: "Words Tab typed for you, whole or in part.")
+                if let n = shown.oneIn { Chip(value: "1 in \(n)", label: "keys by Tab", help: "Of all the keys you typed, Tab typed one in \(n) for you.") }
+                Chip(value: shown.tabs.formatted(), label: shown.tabs == 1 ? "Tab" : "Tabs", help: "How many times you pressed Tab to take a suggestion.")
             }
-            .padding(.vertical, 16)
-            Text(caption(period, before)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().padding(.top, 14).padding(.bottom, 8)
+            .padding(.top, 12)
+            Text(caption(period, before)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().padding(.top, 24).padding(.bottom, 8)
             if let period { bars(period) } else { dots }
             personal
             Text("Only counts are kept, never what you type.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 20)
@@ -548,19 +550,36 @@ struct StatsPage: View {
     }
     private static let keyFormat: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX"); return f }()
 
-    /// Up or down on the stretch before, once there was one.
-    private func change(_ now: Int, _ before: Int?) -> Int? { before.map { now - $0 } }
+    /// "Halftype saved you 21 minutes of typing this week.", the time in the icon's glass.
+    private func headline(_ day: Tally.Day, _ period: Tally.Period?) -> some View {
+        let end = period == nil ? " so far." : back > 0 ? "." : span == .week ? " this week." : " this month."
+        let time = Text(Self.time(app.tally.minutes(day)) + " of typing").fontWeight(.semibold).foregroundStyle(StatsPage.glass)
+        let sentence = day.tabs == 0 ? Text("Nothing typed by Tab" + end) : Text("Halftype saved you \(time)\(end)")
+        return sentence.foregroundStyle(.secondary).font(.system(size: 22)).fixedSize(horizontal: false, vertical: true)
+            .help(app.tally.speed.map { "Keys Tab typed for you, at your typing speed: \(Int($0.rounded())) keys a minute." }
+                  ?? "Keys Tab typed for you, at 40 words a minute (200 keys), until Halftype has timed a minute of your typing.")
+    }
+
+    /// The icon's glass, pale blue to peach, darkened to read on cream.
+    static let glass = LinearGradient(colors: [Color(red: 0.36, green: 0.58, blue: 0.84), Color(red: 0.88, green: 0.50, blue: 0.32)], startPoint: .leading, endPoint: .trailing)
+
+    /// "21 minutes", "1 hour, 12 minutes", or under a minute.
+    static func time(_ minutes: Double) -> String {
+        let whole = Int(minutes.rounded())
+        if whole == 0 { return "under a minute" }
+        return Duration.seconds(whole * 60).formatted(.units(allowed: [.hours, .minutes], width: .wide))
+    }
 
     private func caption(_ period: Tally.Period?, _ before: Tally.Day?) -> String {
         if let hovered {
             let day = app.tally.last(1, to: hovered, calendar)[0].day
-            return "\(hovered.formatted(.dateTime.weekday(.wide).month().day())): \(day.tabs) Tabs, \(day.characters) letters"
+            return "\(hovered.formatted(.dateTime.weekday(.wide).month().day())): \(Self.time(app.tally.minutes(day))) saved, \(day.wordCount.formatted()) words"
         }
-        guard let period else { return "Each dot is a day, bigger for more Tabs." }
+        guard let period else { return "Each dot is a day, bigger for more time saved." }
         guard let before else { return "" }
         let stretch = back > 0 ? (span == .week ? "The week before" : "The month before")
             : period.elapsed == 1 ? "The same day last \(span == .week ? "week" : "month")" : "The same \(period.previousLength) days last \(span == .week ? "week" : "month")"
-        return "\(stretch): \(before.tabs.formatted()) Tabs"
+        return "\(stretch): \(Self.time(app.tally.minutes(before)))"
     }
 
     /// The period's days as bars; hovering one shows it in a tag above.
@@ -568,13 +587,13 @@ struct StatsPage: View {
         let days = app.tally.last(period.length, to: day(period.length - 1, of: period.start), calendar)
         return Chart {
             ForEach(days, id: \.date) { entry in
-                BarMark(x: .value("Day", entry.date, unit: .day), y: .value("Tabs", entry.day.tabs), width: .ratio(0.6))
+                BarMark(x: .value("Day", entry.date, unit: .day), y: .value("Minutes", app.tally.minutes(entry.day)), width: .ratio(0.6))
                     .clipShape(RoundedRectangle(cornerRadius: 3))
                     .foregroundStyle(Color.primary.opacity(lit(entry.date) ? 0.85 : 0.18))
             }
             if let picked, let entry = days.first(where: { calendar.isDate($0.date, inSameDayAs: picked) }) {
                 RuleMark(x: .value("Day", entry.date, unit: .day)).foregroundStyle(.clear)
-                    .annotation(position: .top, spacing: 2, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) { Tag(date: entry.date, day: entry.day) }
+                    .annotation(position: .top, spacing: 2, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) { Tag(date: entry.date, day: entry.day, minutes: app.tally.minutes(entry.day)) }
             }
         }
         .chartXSelection(value: $picked)
@@ -586,26 +605,27 @@ struct StatsPage: View {
                 AxisMarks(values: [0, 7, 14, 21, 28].compactMap { calendar.date(byAdding: .hour, value: 12, to: day($0, of: period.start)) }) { _ in AxisValueLabel(format: .dateTime.day()) }
             }
         }
-        .chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { AxisGridLine(); AxisValueLabel() } }
+        // Only the baseline: a day's number is in its tag (round 5).
+        .chartYAxis { AxisMarks(values: [0]) { _ in AxisGridLine() } }
         .frame(height: 140)
     }
 
     private func lit(_ date: Date) -> Bool { calendar.isDate(date, inSameDayAs: picked ?? Date()) }
 
-    /// The last 26 weeks, one dot a day in the sky's halftone, bigger for more Tabs. Days before counting began are specks.
+    /// The last 26 weeks, one dot a day in the sky's halftone, bigger for more time saved. Days before counting began are specks.
     private var dots: some View {
         let weeks = 26, cell: CGFloat = 18
         let thisWeek = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? calendar.startOfDay(for: Date())
         let first = calendar.date(byAdding: .weekOfYear, value: -(weeks - 1), to: thisWeek) ?? thisWeek
         let all = app.tally.last(weeks * 7, to: day(weeks * 7 - 1, of: first), calendar)
-        let most = max(1, all.map(\.day.tabs).max() ?? 1), since = app.tally.since
+        let most = max(1, all.map(\.day.saved).max() ?? 1), since = app.tally.since
         return HStack(spacing: 0) {
             ForEach(0..<weeks, id: \.self) { week in
                 VStack(spacing: 0) {
                     ForEach(0..<7, id: \.self) { weekday in
                         let entry = all[week * 7 + weekday], key = Tally.key(entry.date, calendar)
                         let future = entry.date > Date(), counted = since.map { key >= $0 } ?? false, today = calendar.isDateInToday(entry.date)
-                        let radius = future ? 0 : !counted ? 0.9 : entry.day.tabs == 0 ? 1.2 : 1.4 + (cell * 0.42 - 1.4) * sqrt(Double(entry.day.tabs) / Double(most))
+                        let radius = future ? 0 : !counted ? 0.9 : entry.day.saved == 0 ? 1.2 : 1.4 + (cell * 0.42 - 1.4) * sqrt(Double(entry.day.saved) / Double(most))
                         Circle().fill(Color.primary.opacity(today ? 0.88 : counted ? 0.55 : 0.13)).frame(width: radius * 2, height: radius * 2)
                             .frame(width: cell, height: cell)
                             .contentShape(Rectangle())
@@ -614,31 +634,101 @@ struct StatsPage: View {
                 }
             }
         }
-        .accessibilityLabel("Tabs per day for the last 26 weeks")
+        .accessibilityLabel("Time saved per day for the last 26 weeks")
     }
 
-    /// Days with the personal model against days without, once there are both.
+    /// Days with the personal model against days without, once there are both, and each version's days once more than one has run a whole
+    /// day (which checkpoint to keep; with Personal Model On there are no days without). One bar each, from zero, so the gap is true to size.
     @ViewBuilder private var personal: some View {
         let with = app.tally.sum(personal: true), without = app.tally.sum(personal: false)
-        if let a = with.sum.byTab, let b = without.sum.byTab {
-            HStack(alignment: .lastTextBaseline, spacing: 36) {
-                Figure(value: a.formatted(.percent.precision(.fractionLength(1))), label: "typed by Tab with your model, \(with.count) \(with.count == 1 ? "day" : "days")")
-                Figure(value: b.formatted(.percent.precision(.fractionLength(1))), label: "without it, \(without.count) \(without.count == 1 ? "day" : "days")")
-            }
-            .padding(.top, 28)
+        let both = with.sum.byTab.flatMap { a in without.sum.byTab.map { b in [Meter(id: "with", label: "With it", share: a, days: with.count, glass: true), Meter(id: "without", label: "Without", share: b, days: without.count, glass: false)] } } ?? []
+        let versions = app.tally.adapters.count < 2 ? [] : app.tally.adapters.compactMap { name -> Meter? in
+            let one = app.tally.sum(personal: true, adapter: name)
+            return one.sum.byTab.map { Meter(id: name, label: "\(AdapterInfo.title(name: name)) version", share: $0, days: one.count, glass: true) }
         }
-        // Each version's days, once more than one has run a whole day: which checkpoint to keep. With Personal Model On there are no days without.
-        if app.tally.adapters.count > 1 {
-            HStack(alignment: .lastTextBaseline, spacing: 36) {
-                ForEach(app.tally.adapters, id: \.self) { name in
-                    let one = app.tally.sum(personal: true, adapter: name)
-                    if let share = one.sum.byTab {
-                        Figure(value: share.formatted(.percent.precision(.fractionLength(1))), label: "\(AdapterInfo.title(name: name)) version, \(one.count) \(one.count == 1 ? "day" : "days")")
-                    }
+        let rows = both + versions
+        if let most = rows.map(\.share).max() {  // 0 when nothing was saved: empty tracks
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Your personal model").font(.system(size: 13, weight: .semibold))
+                    Text("Of your typing, how much Tab typed on whole days with it and without.").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 2)
+                ForEach(rows, id: \.id) { $0.scaled(to: most) }
+            }
+            .padding(.top, 32)
+        }
+    }
+}
+
+/// One row of the personal model's comparison: its share of typing by Tab as a bar, the icon's glass for the model, grey without it.
+private struct Meter: View {
+    /// The adapter's file name: two versions can share a title.
+    let id: String
+    let label: String
+    let share: Double
+    let days: Int
+    let glass: Bool
+    var most = 1.0
+    func scaled(to most: Double) -> Meter { var meter = self; meter.most = most; return meter }
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(label).font(.system(size: 12)).foregroundStyle(.secondary).frame(width: 96, alignment: .leading)
+            GeometryReader { space in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.05))
+                    Capsule().fill(glass ? AnyShapeStyle(StatsPage.glass)
+                                         : AnyShapeStyle(Color.primary.opacity(0.22)))
+                        .frame(width: most > 0 ? space.size.width * share / most : 0)
                 }
             }
-            .padding(.top, 16)
+            .frame(height: 8)
+            Text(share.formatted(.percent.precision(.fractionLength(1)))).font(.system(size: 13, weight: .semibold)).monospacedDigit().frame(width: 48, alignment: .trailing)
+            Text("\(days) \(days == 1 ? "day" : "days")").font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().frame(width: 56, alignment: .leading)
         }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Pro's fake door (docs/pricing.md): the prices, and an email for the early-bird list. No "free": a sign-up should mean they'd pay.
+private struct ProSignup: View {
+    @ObservedObject var app: App
+    @State private var email = ""
+    @State private var sending = false
+    @State private var failed = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Personal Model")
+                Spacer()
+                Text("$4 a month · $36 a year · $99 once").font(.system(size: 11.5)).foregroundStyle(.secondary)
+            }
+            Text("Coming soon: a model trained on your own typing, and retrained routinely as you type, so suggestions get more accurate and more like you.")
+                .font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if app.signedUp {
+                Label("You're on the list. We'll email you when it's ready.", systemImage: "checkmark").font(.system(size: 12)).padding(.top, 4)
+            } else {
+                HStack {
+                    TextField("you@example.com", text: $email).textFieldStyle(.roundedBorder).onSubmit(send)
+                    Button("Notify Me", action: send).disabled(sending || address == nil)
+                    Button("See Plans") { NSWorkspace.shared.open(App.proPage) }
+                }
+                .controlSize(.small).padding(.top, 4)
+                Text(failed ? "Couldn't send. Check your connection and try again." : "Halftype sends only this address, and only when you press Notify Me.")
+                    .font(.system(size: 11)).foregroundStyle(failed ? .red : .secondary)
+            }
+        }
+        .padding(.vertical, 9)
+    }
+    /// shortcut: one @ and a dot after it, enough to catch a slip; the list's first email shows a wrong one.
+    private var address: String? {
+        let e = email.trimmingCharacters(in: .whitespaces), parts = e.split(separator: "@", omittingEmptySubsequences: false)
+        return parts.count == 2 && !parts[0].isEmpty && parts[1].contains(".") && !e.contains(" ") ? e : nil
+    }
+    private func send() {
+        guard let address, !sending else { return }
+        (sending, failed) = (true, false)
+        app.notifyMe(address) { ok in (sending, failed) = (false, !ok) }
     }
 }
 
@@ -646,11 +736,12 @@ struct StatsPage: View {
 private struct Tag: View {
     let date: Date
     let day: Tally.Day
+    let minutes: Double
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(date.formatted(.dateTime.weekday(.wide).month().day())).foregroundStyle(.white.opacity(0.6))
-            Text("\(day.tabs) Tabs · \(day.characters.formatted()) letters")
-            if let share = day.byTab { Text("\(share.formatted(.percent.precision(.fractionLength(1)))) typed by Tab") }
+            Text("\(StatsPage.time(minutes)) saved · \(day.wordCount.formatted()) words")
+            Text("\(day.tabs.formatted()) Tabs" + (day.oneIn.map { " · 1 in \($0) keys by Tab" } ?? ""))
         }
         .font(.system(size: 11)).monospacedDigit().foregroundStyle(.white)
         .padding(.horizontal, 9).padding(.vertical, 6)
@@ -658,26 +749,20 @@ private struct Tag: View {
     }
 }
 
-private struct Figure: View {
+/// One count under the sentence, in faint glass so it doesn't read as a button; hovering says what it means.
+private struct Chip: View {
     let value: String
     let label: String
-    var big = false
-    /// Up or down on the stretch before, beside the label, where it fits at any window width.
-    var change: Int? = nil
+    let help: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.system(size: big ? 44 : 26, weight: big ? .semibold : .regular)).monospacedDigit()
-                .contentTransition(.numericText()).animation(.snappy, value: value)
-                .fixedSize()
-            HStack(spacing: 6) {
-                Text(label).foregroundStyle(.secondary)
-                if let change, change != 0 {
-                    Text((change > 0 ? "+" : "−") + abs(change).formatted()).fontWeight(.medium).monospacedDigit()
-                        .foregroundStyle(change > 0 ? Color(red: 0.18, green: 0.49, blue: 0.31) : Color(red: 0.64, green: 0.27, blue: 0.23))
-                }
-            }
-            .font(.system(size: 12))
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text(value).font(.system(size: 13, weight: .semibold)).monospacedDigit()
+            Text(label).font(.system(size: 12)).foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 12).padding(.vertical, 5)
+        .background(.white.opacity(0.6), in: Capsule())
+        .overlay(Capsule().strokeBorder(.primary.opacity(0.09), lineWidth: 0.5))
+        .help(help)
     }
 }
 
@@ -786,8 +871,11 @@ private struct MotionTile: View {
 private struct MotionPreview: View {
     let motion: AcceptMotion
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// False while the window is behind another app's or the app is hidden: the loop redraws every frame, a fifth of a core
+    /// measured idle (2026-11-10), so it plays only while the window is the one in use.
+    @Environment(\.appearsActive) private var appearsActive
     var body: some View {
-        TimelineView(.animation(paused: reduceMotion)) { timeline in
+        TimelineView(.animation(paused: reduceMotion || !appearsActive)) { timeline in
             Canvas { g, size in
                 // Reduce Motion: the words already taken, as the app then plays nothing.
                 let t = reduceMotion ? 1.79 : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8)
@@ -832,13 +920,13 @@ private struct GeneralPage: View {
                     Toggle("", isOn: $app.updatesAutomatically).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
                 }
             }
-            Row(title: "Length", note: "Longer suggestions are wrong more often.") {
-                Picker("", selection: $app.length) { Text("Short").tag(Length.short); Text("Medium").tag(Length.medium); Text("Long").tag(Length.long) }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 220)
-            }
-            Row(title: "How Often", note: "More often means more wrong ones.") {
-                Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more); Text("Always").tag(Often.always) }
+            Row(title: "Suggestions", note: "Always shows every guess; ignore the wrong ones.") {
+                Picker("", selection: $app.often) { Text("Always").tag(Often.always); Text("When Likely").tag(Often.more); Text("When Sure").tag(Often.normal) }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 280)
+            }
+            Row(title: "Length", note: "Short ends sooner, so more of what it shows is right.") {
+                Picker("", selection: $app.length) { Text("Long").tag(Length.long); Text("Short").tag(Length.short) }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
             }
             // Under its title at full width, as System Settings' Appearance: beside it, three tiles crush the title in a small window.
             VStack(alignment: .leading, spacing: 8) {
@@ -861,6 +949,8 @@ private struct GeneralPage: View {
                     }
                     .padding(.leading, 16)
                 }
+            } else {
+                ProSignup(app: app)
             }
             Row(title: "Show What the Model Sees", note: "Press ⌃⌥ to show it over suggestions, again to hide. On screen only, never saved.") {
                 Toggle("", isOn: $app.peeking).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()

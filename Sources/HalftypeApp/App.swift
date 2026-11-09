@@ -71,6 +71,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Nil in the window pictures, whose made-up counts must not reach the real file. Set before any App exists.
     /// Main thread only: the suggestion the last Tab took from.
     private var lastTaken = -1
+    /// When the last key was typed, in seconds of uptime, to time the user's typing speed.
+    private var lastKey: TimeInterval?
     /// Only in the app itself: unit tests and the e2e runner make an App too, and once wrote their counts into the real file.
     nonisolated(unsafe) static var tallyFile: URL? = Bundle.main.bundleIdentifier == "app.halftype.Halftype" ? support.appendingPathComponent("stats.json") : nil
 
@@ -217,7 +219,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             rebind()
         }
     }
-    @Published var length = Length(rawValue: UserDefaults.standard.string(forKey: "length") ?? "") ?? .short {
+    @Published var length = Length.saved(UserDefaults.standard.string(forKey: "length")) {
         didSet { UserDefaults.standard.set(length.rawValue, forKey: "length"); tune() }
     }
     @Published var motion = AcceptMotion(rawValue: UserDefaults.standard.string(forKey: "motion") ?? "") ?? .trail {
@@ -232,7 +234,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.peeking.store(peeking, ordering: .relaxed)
         watcher.retune()  // A ghost already up has no card yet, or keeps one it no longer should.
     }
-    @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
+    @Published var often = Often.saved(UserDefaults.standard.string(forKey: "often")) {  // Long and Always by default: the most keys saved, English and Korean (docs/measuring.md, 2026-11-10)
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
     /// Try It is where people judge Halftype first, so there it shows a suggestion whenever it can, as long as it can, whatever the settings say.
@@ -297,12 +299,21 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             DispatchQueue.main.async { if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid() { self?.taught = key } }
         }
         tap.onRefused = { [weak self] key in DispatchQueue.main.async { self?.refused = key } }
-        tap.onTyped = { [weak self] in DispatchQueue.main.async { if self?.on == true { self?.count { $0.typed(1) } } } }
-        tap.onAccept = { [weak self] added, keys, suggestion, text, drawing in
+        tap.onTyped = { [weak self] in
+            let now = ProcessInfo.processInfo.systemUptime  // Read on the tap's thread, before the hop, so the gap is the user's.
+            DispatchQueue.main.async {
+                guard let self, self.on else { return }
+                let gap = self.lastKey.map { now - $0 }
+                self.lastKey = now
+                self.count { $0.typed(1, after: gap) }
+            }
+        }
+        tap.onAccept = { [weak self] added, keys, words, suggestion, text, drawing in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.panel.took(text, drawing: drawing)
-                self.count { $0.took(added, keys: keys, first: suggestion != self.lastTaken) }
+                self.count { $0.took(added, keys: keys, words: words, first: suggestion != self.lastTaken) }
+                self.lastKey = nil  // The pause to read and take a suggestion isn't typing.
                 self.lastTaken = suggestion
                 if !self.accepted { self.accepted = true }
             }
@@ -611,6 +622,27 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// macOS's own grey inline predictions, which would show beside ours. Read, never written.
     var predictions: Bool { readPredictions() }
     var readPredictions = { NSSpellChecker.isAutomaticInlinePredictionEnabled }
+    /// Pro's page, with its three plans (docs/site/a2/pro).
+    static let proPage = URL(string: "https://halftype.app/pro")!
+    /// The early-bird list (docs/pricing.md), a Google Form the page posts to as well.
+    static let signupForm = URL(string: "https://docs.google.com/forms/d/e/1FAIpQLSeIekyjCphdrP9pZ9zaj5P90plPghgLAJ3zYof6PEji1uo9UQ/formResponse")!
+    /// Sends the address to the early-bird list: besides models and updates, the one thing the app sends, and only on Notify Me.
+    func notifyMe(_ email: String, done: @escaping (Bool) -> Void) {
+        let field = { (s: String) in s.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "" }
+        var request = URLRequest(url: App.signupForm, timeoutInterval: 20)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = "entry.1594900331=\(field(email))&entry.605839130=app".data(using: .utf8)
+        URLSession.shared.dataTask(with: request) { _, response, _ in
+            let ok = (response as? HTTPURLResponse)?.statusCode == 200
+            DispatchQueue.main.async {
+                if ok { UserDefaults.standard.set(true, forKey: "signedUp"); self.signedUp = true }
+                done(ok)
+            }
+        }.resume()
+    }
+    /// On the list, so General says so after a relaunch. A flag only: the address itself is never saved.
+    @Published var signedUp = UserDefaults.standard.bool(forKey: "signedUp")
     @objc func openKeyboardSettings() { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!) }
 
     struct Icon: Equatable {
@@ -707,19 +739,23 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
 }
 
-/// Replayed on English test threads with Qwen 3.5 0.8B (docs/measuring.md): grey characters right 77%, 61%, 50%.
+/// Long (the default) and Short: the floor that ends a suggestion. Medium, between them, saved within 1% of Long and went on
+/// 2026-11-10; a saved `medium` reads as Long. docs/measuring.md.
 enum Length: String, CaseIterable {
-    case short, medium, long
-    var floor: Double { switch self { case .short: Stop.floor; case .medium: -2; case .long: -3 } }
+    case long, short
+    var floor: Double { switch self { case .short: Stop.floor; case .long: -3 } }
+    static func saved(_ raw: String?) -> Length { Length(rawValue: raw == "medium" ? "long" : raw ?? "") ?? .long }
 }
 
-/// The same replay: suggestions shown on 12%, 20% and 31% of requests, with the first word right 89%, 75% and 58% of the time.
 enum Personal: String, CaseIterable { case off, compare, on }
 
+/// The window's Suggestions: Always (no gate, the default), When Likely (`more`) and When Sure (`normal`, fitted for 80% precision).
+/// Less went on 2026-11-10, against the product's priority of more right suggestions; a saved `less` reads as When Sure.
+/// The raw values are the settings saved before the labels changed. docs/measuring.md.
 enum Often: String, CaseIterable {
-    case less, normal, more, always
-    /// Always has no check at all, unmeasured: what Try It shows.
-    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2; case .always: -.infinity } }
+    case always, more, normal
+    var threshold: Double { switch self { case .normal: Gate.threshold; case .more: -1.2; case .always: -.infinity } }
+    static func saved(_ raw: String?) -> Often { Often(rawValue: raw == "less" ? "normal" : raw ?? "") ?? .always }
 }
 
 extension App: SPUUpdaterDelegate {

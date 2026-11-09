@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stats, round 3</title>
+<style>
+:root { --mute:#8a8b90; --card:#18191c; --line:#2a2b2f; }
+body { margin:0; background:#0e0f11; color:#e8e8ea; font:14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+main { max-width:1500px; margin:0 auto; padding:24px 16px 60px; }
+h1 { font-size:20px; margin:0 0 6px; } h2 { font-size:15px; margin:28px 0 10px; }
+.q { color:var(--mute); margin:0 0 14px; }
+.rec { background:#1d2430; border:1px solid #2f3b4d; border-radius:10px; padding:12px 14px; margin:0 0 14px; } .rec p { margin:6px 0 0; }
+.data { display:flex; gap:8px; align-items:center; margin:0 0 14px; color:var(--mute); }
+.data button { background:#25272b; color:#ddd; border:1px solid #3a3c41; border-radius:7px; padding:4px 10px; font:inherit; cursor:pointer; } .data button.on { background:#e8e8ea; color:#111; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 600px), 1fr)); gap:18px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.meta { padding:10px 14px 14px; } .meta p { margin:6px 0 0; color:var(--mute); } .meta .cost { color:#b9c3d0; }
+b.l { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:6px; background:#e8e8ea; color:#111; margin-right:8px; } .name { font-weight:600; }
+
+/* The window at 720 x 500 points, main's cream design, scrolled to Stats; 1em = 1 point. */
+.shot { padding:4%; background:#2b2d31; }
+.win { position:relative; aspect-ratio:720/600; container-type:inline-size; border-radius:1.4cqw; overflow:hidden; box-shadow:0 2cqw 5cqw rgba(0,0,0,.45);
+  background:#f6f1e9; color:#1d1d1f; font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+.win > * { font-size:calc(100cqw / 720); }
+.lights { position:absolute; left:14em; top:12em; display:flex; gap:8em; z-index:3; }
+.lights i { width:12em; height:12em; border-radius:50%; background:#ff5f57; } .lights i:nth-child(2){background:#febc2e} .lights i:nth-child(3){background:#28c840}
+.sbtn { position:absolute; left:84em; top:9em; width:17em; height:13em; z-index:3; color:rgba(60,60,67,.55); }
+.side { position:absolute; left:10em; top:36em; bottom:10em; width:142em; box-sizing:border-box; padding:8em; background:rgba(255,255,255,.75); border-radius:16em; box-shadow:0 0 0 .5em rgba(0,0,0,.07); z-index:2; }
+.it { display:flex; align-items:center; gap:7em; padding:5em 10em; border-radius:7em; color:rgba(60,60,67,.6); }
+.it span { font-size:12.5em; } .it.field span { font-size:13em; } .it.field { color:#1d1d1f; } .it.on { background:rgba(0,0,0,.07); color:#1d1d1f; }
+.it .dot { width:5em; height:5em; border-radius:50%; flex:none; } .it.on .dot { background:#e6946b; }
+.it svg { width:14em; height:14em; flex:none; }
+.side .hd { font-size:11em; color:rgba(60,60,67,.6); padding:0 .9em .2em; } .side .div { height:1em; background:rgba(0,0,0,.1); margin:6em 0; }
+.side .tog { position:absolute; left:18em; bottom:12em; display:flex; gap:6em; align-items:center; } .side .tog span { font-size:13em; }
+.side .tog i { width:26em; height:15em; border-radius:8em; background:#1d1d1f; position:relative; } .side .tog i::after { content:''; position:absolute; right:1.5em; top:1.5em; width:12em; height:12em; border-radius:50%; background:#fff; }
+.content { position:absolute; left:152em; right:0; top:0; bottom:0; overflow:hidden; z-index:1; }
+.pane { margin:0 auto; width:512em; box-sizing:border-box; padding:18em 20em 20em; background:rgba(255,255,255,.6); border-radius:0 0 20em 20em; min-height:100%; position:relative; }
+.pane .t { font-size:20em; font-weight:600; } .pane .n { font-size:12em; color:rgba(60,60,67,.6); margin:.15em 0 1em; }
+.figs { display:flex; align-items:baseline; gap:36em; padding:14em 0 16em; }
+.fig .v { font-size:26em; font-variant-numeric:tabular-nums; line-height:1.15; } .fig.big .v { font-size:44em; font-weight:600; } .fig .vv { white-space:nowrap; }
+.fig .k { font-size:12em; color:rgba(60,60,67,.6); margin-top:.15em; }
+.cap { font-size:12em; color:rgba(60,60,67,.6); font-variant-numeric:tabular-nums; }
+.hr { height:1em; background:rgba(0,0,0,.1); }
+.delta { font-size:12em; color:#2f7d4f; font-weight:500; margin-left:.5em; } .delta.dn { color:#a2463b; }
+.chart { position:relative; margin-right:30em; }
+.chart .gl { position:absolute; left:0; right:0; height:1em; background:rgba(0,0,0,.08); }
+.chart .yl { position:absolute; right:-3em; font-size:10em; color:rgba(60,60,67,.6); transform:translateY(50%); }
+.bars { position:absolute; left:0; right:0; top:0; bottom:18em; display:flex; align-items:flex-end; }
+.bars > div { flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; position:relative; }
+.bars b { width:60%; border-radius:3em; background:rgba(29,29,31,.18); display:block; } .bars .hi b { background:rgba(29,29,31,.85); }
+.bars .x { position:absolute; bottom:-1.6em; font-size:10em; color:rgba(60,60,67,.6); white-space:nowrap; }
+.tip { position:absolute; z-index:5; background:#1d1d1f; color:#fff; border-radius:8em; padding:7em 9em; pointer-events:none; white-space:nowrap; transform:translate(-50%,-100%); display:none; }
+.tip div { font-size:11em; line-height:1.4; } .tip .d { color:rgba(255,255,255,.6); }
+.bar { display:flex; justify-content:space-between; align-items:center; padding:12em 0 8em; }
+.seg { display:flex; background:rgba(0,0,0,.06); border-radius:7em; padding:2em; }
+.seg span { font-size:12em; padding:.2em .8em; border-radius:.45em; cursor:pointer; color:rgba(60,60,67,.8); } .seg .on { background:#fff; color:#1d1d1f; box-shadow:0 .5px 2px rgba(0,0,0,.15); }
+.pager { display:flex; align-items:center; gap:6em; } .pager button { all:unset; cursor:pointer; width:20em; height:20em; border-radius:6em; display:grid; place-items:center; color:#1d1d1f; }
+.pager button:hover { background:rgba(0,0,0,.06); } .pager button[disabled] { opacity:.25; cursor:default; } .pager button span { font-size:14em; line-height:1; }
+.cal { display:flex; gap:0; position:relative; } .cal .c { display:flex; flex-direction:column; } .cal .c > div { display:grid; place-items:center; cursor:default; }
+.cal i { display:block; border-radius:50%; } .cal .m { position:absolute; top:-1.4em; font-size:10em; color:rgba(60,60,67,.6); }
+.foot { font-size:12em; color:rgba(60,60,67,.6); margin-top:1.4em; }
+.models { font-size:20em; font-weight:600; margin-top:1.2em; }
+/* sidebar strip */
+.strip { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap:18px; }
+.strip .win { aspect-ratio:162/250; } .strip .win > * { font-size:calc(100cqw / 162); }
+.box { display:grid; grid-template-columns:repeat(10, 1fr); gap:2.4em; width:220em; margin:6em 0 8em; }
+.box i { aspect-ratio:1; border-radius:1.6em; background:rgba(29,29,31,.12); } .box i.k1 { background:#1d1d1f; }
+.legend { display:flex; gap:18em; } .legend span { font-size:12em; color:rgba(60,60,67,.6); } .legend b { color:#1d1d1f; font-weight:500; }
+.sent { font-size:22em; line-height:1.35; font-weight:400; padding:14em 0 0; letter-spacing:-.01em; } .sent b { font-weight:600; }
+.sent { padding:.6em 0 .2em; } .sent em { font-style:normal; background:linear-gradient(90deg,#8fb7e0,#e6946b); -webkit-background-clip:text; color:transparent; font-weight:600; }
+.tiles { display:grid; grid-template-columns:1fr 1fr; gap:10em; padding:12em 0 14em; }
+.tile { background:rgba(255,255,255,.75); border-radius:12em; padding:12em 14em; box-shadow:0 0 0 .5em rgba(0,0,0,.06); }
+.tile .v { font-size:28em; font-variant-numeric:tabular-nums; line-height:1.1; } .tile .k { font-size:12em; color:rgba(60,60,67,.6); } .tile svg { width:100%; height:26em; display:block; margin-top:6em; }
+.eq { display:flex; align-items:baseline; flex-wrap:wrap; gap:8em; padding:14em 0 16em; } .eq .op { font-size:16em; color:rgba(60,60,67,.45); }
+.eq .fig .v { font-size:22em; } .eq .fig.big .v { font-size:40em; }
+.small { font-size:11em; color:rgba(60,60,67,.6); } .model { font-size:12em; color:rgba(60,60,67,.75); padding-top:1.2em; }
+</style>
+</head>
+<body>
+<main>
+<h1>Stats, round 3: show the value</h1>
+<p class="q">John: “I think the stats page needs an upgrade to directly show our value. I think we should make it more understandable and intuitive how many tabs they've accepted and letters/words got accepted, along with how much time they saved and stuff. What are the main stats that are most important you think?” All options use this Mac’s real week so far (Mon Nov 9 and Tue Nov 10, counts only, from <code>stats.json</code>), drawn on main’s window. Hover the bars.</p>
+
+<div class="rec"><b>Recommendation: B (time saved first), with C’s “1 in every 8 keys” as the share’s label.</b>
+<p>The stats that show value, most important first: <b>1. Time saved</b> (the one people care about; nobody feels “4,168 keys”). <b>2. Words typed for you</b> (letters ÷ 5, the standard typing-test word, so it’s a feel-able unit). <b>3. Share of your typing</b>, said as “1 in every 8 keys” not “13%”. <b>4. Tabs</b>, demoted: it counts effort, not gain. Leave out suggestions taken ÷ shown: it measures the model, not the user’s gain, and it was miscounted until Nov 10.</p>
+<p>Time saved needs a typing speed. The mockups assume 40 wpm (200 keys a minute), which is a guess, and “every number says how it was measured”. Better: count the seconds spent actually typing (gaps under 2 s between keys) per day, a count like the others, and divide. Then it’s “21 min at your speed, 52 wpm”. That’s a one-field addition to <code>Tally.Day</code>.</p></div>
+
+<div class="grid" id="grid"></div>
+<h2>Image ideas (Codex)</h2>
+<div class="grid" id="imgs"></div>
+</main>
+<script>
+const ICON = {
+  'Try It': '<path d="M5 3.5v9l7-4.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  Stats: '<path d="M3.5 13V9M8 13V5M12.5 13V2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  Models: '<path d="M8 2.5l5.5 2.8L8 8.1 2.5 5.3z M2.5 8l5.5 2.8L13.5 8 M2.5 10.7l5.5 2.8 5.5-2.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>',
+  Apps: '<g fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="9" width="4.5" height="4.5" rx="1.2"/></g>',
+  General: '<g fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="2.1"/><path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M3.6 12.4l1.2-1.2M11.2 4.8l1.2-1.2"/><circle cx="8" cy="8" r="4.4"/></g>',
+};
+// Sidebar: style 1 today (dot), 2 icons + dot, 3 icons with the current one in peach.
+function side(style) {
+  const item = (name, on, field) => { const ic = style > 1 ? `<svg viewBox="0 0 16 16" style="${on && style === 3 ? 'color:#e6946b' : ''}">${ICON[name]}</svg>` : '';
+    return `<div class="it ${field ? 'field' : ''} ${on ? 'on' : ''}">${!field && style !== 3 ? '<i class="dot"></i>' : ''}${ic}<span>${name}</span></div>`; };
+  return `<div class="side">${item('Try It', false, true)}<div class="div"></div><div class="hd">Settings</div>${['Stats', 'Models', 'Apps', 'General'].map((x, i) => item(x, i === 0)).join('')}<div class="tog"><span>On</span><i></i></div></div>`;
+}
+const chrome = (style, inner) => `<div class="lights"><i></i><i></i><i></i></div><svg class="sbtn" viewBox="0 0 17 13" fill="none" stroke="currentColor" stroke-width="1.1"><rect x=".6" y=".6" width="15.8" height="11.8" rx="2.5"/><path d="M5.5 .6v11.8M2.3 3.2h1.6M2.3 5h1.6M2.3 6.8h1.6"/></svg>${side(style)}<div class="content"><div class="pane"><div class="t">Stats</div><div class="n">What Tab has typed for you.</div>${inner}</div></div><div class="tip"></div>`;
+const D = { '2026-11-09': { tabs:936, characters:4143, saved:4154, typed:27095 }, '2026-11-10': { tabs:3, characters:14, saved:14, typed:406 } };
+const LAST = { tabs:219, characters:926, saved:637, typed:3868 }; // last week: only Sun Nov 8 was counted
+const KPM = 200; // shortcut: 40 wpm assumed; the build should measure the user's own speed
+const days = ['M','T','W','T','F','S','S'].map((x, i) => { const k = `2026-11-${String(9 + i).padStart(2,'0')}`; return { x, k, ...(D[k] || { tabs:0, characters:0, saved:0, typed:0 }), future: i > 1 }; });
+const W = days.reduce((s, d) => ({ tabs:s.tabs + d.tabs, characters:s.characters + d.characters, saved:s.saved + d.saved, typed:s.typed + d.typed }), { tabs:0, characters:0, saved:0, typed:0 });
+const n = x => Math.round(x).toLocaleString('en-US'), min = keys => keys / KPM, words = c => c / 5;
+const share = W.saved / (W.saved + W.typed), every = Math.round(1 / share);
+const fig = (v, k, big, extra = '') => `<div class="fig ${big ? 'big' : ''}"><div class="vv"><span class="v">${v}</span>${extra}</div><div class="k">${k}</div></div>`;
+const delta = x => `<span class="delta ${x < 0 ? 'dn' : ''}">${x < 0 ? '−' : '+'}${n(Math.abs(x))}</span>`;
+const bar = `<div class="bar"><div class="pager"><button><span>‹</span></button><button disabled><span>›</span></button><span style="font-size:13em;font-weight:500">This week</span></div><div class="seg"><span class="on">Week</span><span>Month</span><span>All</span></div></div>`;
+const model = `<div class="hr" style="margin-top:14em"></div><div class="model">(The with/without-model comparison stays as it is, below; this Mac has no whole day with the model yet.)</div><div class="foot">Only counts are kept, never what you type.</div>`;
+function chart(val, fmt, h = 110) {
+  const max = Math.max(...days.map(val)) * 1.15 || 1;
+  return `<div class="chart" style="height:${h + 18}em"><div class="gl" style="bottom:18em"></div><div class="gl" style="bottom:${18 + h}em"></div><div class="yl" style="bottom:${(18 + h) / 10}em">${fmt(max)}</div>
+    <div class="bars">${days.map((d, i) => `<div data-i="${i}" class="${i === 1 ? 'hi' : ''}"><b style="height:${val(d) / max * h}em;${d.future ? 'opacity:0' : ''}"></b><span class="x">${d.x}</span></div>`).join('')}</div></div>`;
+}
+const tipFor = d => `<div class="d">${d.x === 'M' ? 'Monday, Nov 9' : 'Tuesday, Nov 10'}</div><div>${n(min(d.saved))} min saved · ${n(words(d.characters))} words</div><div>${d.tabs} Tabs · 1 in ${Math.round((d.saved + d.typed) / d.saved)} keys by Tab</div>`;
+function spark(val) { const max = Math.max(...days.map(val)) || 1; return `<svg viewBox="0 0 70 10" preserveAspectRatio="none">${days.map((d, i) => `<rect x="${i * 10 + 2}" y="${10 - val(d) / max * 10}" width="6" height="${Math.max(.4, val(d) / max * 10)}" rx="1" fill="${d.future ? 'transparent' : i === 1 ? '#1d1d1f' : 'rgba(29,29,31,.2)'}"/>`).join('')}</svg>`; }
+
+const V = [
+ { l:'A', name:'Today: Tabs first', note:'What ships. The big number is Tabs, which counts how often you pressed a key, not what you got. “Letters typed for you” and “13% of your typing by Tab” are the value, but small and abstract.', cost:'Built.',
+   html: () => bar + `<div class="figs">${fig(n(W.tabs), `Tabs <span class="delta" style="font-size:1em">+${n(W.tabs - LAST.tabs)}</span>`, true)}${fig(n(W.characters), 'letters typed for you')}${fig(Math.round(share * 100) + '%', 'of your typing by Tab')}</div><div class="hr"></div><div class="cap" style="padding:1.2em 0 .7em">The same 2 days last week: 0 Tabs</div>` + chart(d => d.tabs, n) + model },
+ { l:'B', name:'Time saved first', note:'Minutes saved is the hero, the bars are minutes too. Under it, in plain units: words (letters ÷ 5), “1 in every 8 keys”, and Tabs last and small. One idea per number, ordered by how much a person cares.', cost:'Small: same layout as A, new labels; time needs a typing speed (see top).',
+   html: () => bar + `<div class="figs" style="gap:30em">${fig(n(min(W.saved)) + '<span style="font-size:.5em;font-weight:500"> min</span>', 'saved this week, at 40 wpm', true)}${fig(n(words(W.characters)), 'words typed for you')}${fig('1 in ' + every, 'keys typed by Tab')}</div><div class="small" style="margin:0 0 1.1em">${n(W.tabs)} Tabs · ${n(W.characters)} letters</div><div class="hr"></div><div class="cap" style="padding:1.2em 0 .7em">Minutes saved each day</div>` + chart(d => min(d.saved), x => n(x) + ' min') + model },
+ { l:'C', name:'Every 8th key', note:'Makes the share physical: 100 keys, the ones Tab typed in ink. You see “1 in 8” before you read it. Time and words sit in one line under it. Strong for a first week; on a slow day (Tuesday: 1 in 30) it looks thin.', cost:'Small: a 10×10 grid of squares, no chart.',
+   html: () => bar + `<div class="figs" style="padding-bottom:4em">${fig('1 in ' + every, 'of your keys typed by Tab', true)}</div><div class="box">${Array.from({ length:100 }, (_, i) => `<i class="${i % every === 0 ? 'k1' : ''}"></i>`).join('')}</div><div class="legend"><span><b>${n(W.saved)}</b> keys by Tab</span><span><b>${n(W.typed)}</b> by you</span></div><div class="figs" style="gap:30em;padding-top:16em">${fig(n(min(W.saved)) + ' min', 'saved')}${fig(n(words(W.characters)), 'words typed for you')}${fig(n(W.tabs), 'Tabs')}</div>` + model },
+ { l:'D', name:'One sentence', note:'The page says it: one sentence with three numbers, the share in the icon’s glass gradient. Reads like a note, nothing to decode. Hard to compare weeks at a glance, so the bars stay underneath.', cost:'Small: one Text with styled runs; Korean wording needed.',
+   html: () => bar + `<div class="sent">This week Tab wrote <b>${n(words(W.characters))} words</b> for you: about <b>${n(min(W.saved))} minutes</b> of typing, <em>1 in every ${every}</em> keys.</div><div class="small" style="margin:.5em 0 1.3em">${n(W.tabs)} Tabs · ${n(W.characters)} letters · at 40 wpm</div><div class="hr"></div><div style="height:10em"></div>` + chart(d => min(d.saved), x => n(x) + ' min', 90) + model },
+ { l:'E', name:'Four tiles', note:'Time, words, share and Tabs as equal cards, each with its change on last week and a 7-day spark. Familiar (Screen Time, fitness apps) and fits more stats later, but four equal tiles don’t say which matters.', cost:'Medium: four mini charts; replaces the big chart.',
+   html: () => bar + `<div class="tiles">
+     <div class="tile"><div><span class="v">${n(min(W.saved))} min</span>${delta(min(W.saved) - min(LAST.saved))}</div><div class="k">saved</div>${spark(d => d.saved)}</div>
+     <div class="tile"><div><span class="v">${n(words(W.characters))}</span>${delta(words(W.characters) - words(LAST.characters))}</div><div class="k">words typed for you</div>${spark(d => d.characters)}</div>
+     <div class="tile"><div><span class="v">1 in ${every}</span></div><div class="k">keys typed by Tab</div>${spark(d => d.saved / (d.saved + d.typed || 1))}</div>
+     <div class="tile"><div><span class="v">${n(W.tabs)}</span>${delta(W.tabs - LAST.tabs)}</div><div class="k">Tabs</div>${spark(d => d.tabs)}</div></div>` + model },
+ { l:'F', name:'The sum, shown', note:'Explains where the minutes come from: Tabs × letters per Tab = words = minutes. Teaches the product (“each Tab gives me ~4 letters”) and makes the time number believable, since you see it isn’t magic.', cost:'Small: a row of figures with operators.',
+   html: () => bar + `<div class="eq">${fig(n(W.tabs), 'Tabs')}<span class="op">×</span>${fig((W.characters / W.tabs).toFixed(1), 'letters each')}<span class="op">=</span>${fig(n(words(W.characters)), 'words')}<span class="op">≈</span>${fig(n(min(W.saved)) + ' min', 'saved, at 40 wpm', true)}</div><div class="cap" style="margin-bottom:.8em">1 in every ${every} keys you typed came from Tab.</div><div class="hr"></div><div style="height:10em"></div>` + chart(d => min(d.saved), x => n(x) + ' min', 90) + model },
+];
+const grid = document.getElementById('grid');
+for (const v of V) {
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `<div class="shot"><div class="win">${chrome(3, v.html())}</div></div><div class="meta"><b class="l">${v.l}</b><span class="name">${v.name}</span><p>${v.note}</p><p class="cost">${v.cost} Mac only (no iOS/Android app).</p></div>`;
+  grid.appendChild(el);
+  const win = el.querySelector('.win'), t = win.querySelector('.tip');
+  win.querySelectorAll('.bars > div').forEach(b => { const d = days[+b.dataset.i]; if (d.future) return;
+    b.onmouseenter = () => { const wr = win.getBoundingClientRect(), r = b.querySelector('b').getBoundingClientRect(), s = wr.width / 720;
+      t.style.display = 'block'; t.innerHTML = tipFor(d); t.style.left = (r.left + r.width / 2 - wr.left) / s + 'em'; t.style.top = (r.top - wr.top) / s - 6 + 'em'; };
+    b.onmouseleave = () => t.style.display = 'none'; });
+}
+const IMG = [
+ { l:'G', f:'I.png', name:'Time as a filling ring', note:'Worth taking: the ring as a weekly goal (“an hour back”) gives a reason to come back; the rest is B.' },
+ { l:'H', f:'J.png', name:'A strip of keycaps', note:'Worth taking: the keys as keycaps, not squares, if C is picked.' },
+ { l:'I', f:'K.png', name:'A weekly card to share', note:'Worth taking: a share-able weekly card is free marketing (“Halftype gave me 21 min back”), as a button next to any option.' },
+];
+document.getElementById('imgs').innerHTML = IMG.map(x => `<div class="card"><img src="${x.f}" style="width:100%;display:block" alt="${x.name}"><div class="meta"><b class="l">${x.l}</b><span class="name">${x.name}</span> <span style="color:#8a8b90">(image)</span><p>${x.note}</p></div></div>`).join('');
+</script>
+</body>
+</html>

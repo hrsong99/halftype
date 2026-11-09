@@ -58,11 +58,14 @@ def select(tm1, smile):
     ok = [k for k, t in sorted(en.items()) if 30 <= len(t) <= 70 and set(t) <= EN_CHARS
           and all(w.strip(",.?!'").lower() in words or "'" in w for w in t.split())]
     picked_en = rng.sample(ok, 24)
+    ok_en = ok
     ko = korean(open(smile, encoding="utf-8"))
     # The test dialogues of measuring.md's split (every third), 14-40 characters, only whole syllables, spaces and plain punctuation.
     ok = [k for k, t in sorted(ko.items()) if int(k.split("-")[1]) % 3 == 0 and 14 <= len(t) <= 40
           and all(0xAC00 <= ord(c) <= 0xD7A3 or c in KO_SYMBOLS for c in t) and "  " not in t]
     picked_ko = rng.sample(ok, 16)
+    # 41 more on 2026-11-10, so 64 are scored: 16 couldn't tell two apps 2 points apart. Drawn apart, so the first 24 and Korean stay.
+    picked_en += random.Random(20261110).sample(sorted(set(ok_en) - set(picked_en)), 41)
     for k in picked_en:
         print(f"en\t{k}")
     for k in picked_ko:

@@ -14,6 +14,12 @@ func option(_ name: String) -> String? { args.firstIndex(of: name).flatMap { $0 
 let chosen = (option("--apps")?.split(separator: ",").map(String.init)).map { names in rivals.filter { names.contains($0.name) } } ?? rivals
 let enCount = Int(option("--en") ?? "") ?? 16, koCount = Int(option("--ko") ?? "") ?? 10
 let textDir = option("--text") ?? lab + "/compare/text"
+/// `--halftype long,more`: Halftype at that Length and Suggestions (the saved values: `more` is When Likely, `normal` When Sure) instead of its defaults, scored as "halftype long,more".
+let halftypeSetting = option("--halftype")?.split(separator: ",").map(String.init)
+if let h = halftypeSetting, h.count != 2 || !["long", "short"].contains(h[0]) || !["always", "more", "normal"].contains(h[1]) {
+    print("--halftype takes <long|short>,<always|more|normal>"); exit(1)
+}
+extension Rival { var label: String { name == "halftype" ? (halftypeSetting.map { "halftype " + $0.joined(separator: ",") } ?? name) : name } }
 /// A pause this long after every third word lets a slow app finish, so its speed is measured rather than cut off.
 let probeMs = 1500.0
 
@@ -48,7 +54,7 @@ func sentences(_ lang: String) -> [(id: String, text: String)] {
     }
 }
 
-/// Halftype is measured at its defaults: Short, Normal, the default model, no personal model. What the user set is put back after.
+/// Halftype is measured at its default settings, or at `--halftype`, with the default model, no personal model. What the user set is put back after.
 let halftypeDefaults = UserDefaults(suiteName: "app.halftype.Halftype")!
 let halftypeKeys = ["length", "often", "personal", "modelPath"]
 var halftypeSaved: [String: Any]? = nil
@@ -83,9 +89,9 @@ func preflight() -> Bool {
     }
     if chosen.contains(where: { $0.name == "halftype" }) {
         let set = halftypeKeys.compactMap { k in halftypeDefaults.object(forKey: k).map { "\(k)=\($0)" } }
-        print("  --   halftype runs at its defaults (Short, Normal, Qwen 3.5 0.8B, no personal model)" +
+        print("  --   halftype runs at \(halftypeSetting.map { "Length \($0[0]), Suggestions \($0[1])" } ?? "its default settings"), Gemma 4 E2B, no personal model" +
               (set.isEmpty ? "" : "; your settings \(set.joined(separator: ", ")) are put back when it quits"))
-        let model = NSHomeDirectory() + "/Library/Application Support/Halftype/Qwen3.5-0.8B-Q4_K_M.gguf"
+        let model = NSHomeDirectory() + "/Library/Application Support/Halftype/gemma-4-E2B.Q4_K_M.gguf"
         line(FileManager.default.fileExists(atPath: model), "Halftype's default model is downloaded")
     }
     if chosen.contains(where: { $0.name == "cotypist" }) {
@@ -95,7 +101,7 @@ func preflight() -> Bool {
         }
         print("  !!   cotypist's free plan has a daily cap: if its suggestions stop part-way, the run says so and its numbers aren't comparable")
     }
-    let minutes = chosen.reduce(0) { $0 + ($1.path == nil ? 5 : $1.korean ? 11 : 6) }
+    let minutes = chosen.reduce(0) { $0 + ($1.path == nil ? 5 : $1.korean ? 9 : 6) }
     print("About \(minutes) minutes. It takes the keyboard, the pointer and the front window the whole time, and switches input sources.")
     return ok
 }
@@ -221,12 +227,12 @@ final class Typist {
                 press(s.code, shift: s.shift)
                 pressed += 1
             }
-            pending = (KeyRecord(app: r.name, lang: lang, sentence: id, tab: isTab, probe: probe, fresh: before == nil, latencyMs: nil,
+            pending = (KeyRecord(app: r.label, lang: lang, sentence: id, tab: isTab, probe: probe, fresh: before == nil, latencyMs: nil,
                                  shown: false, firstRight: false, composing: false), t0, before)
             sleepMs(probe ? probeMs : delays.next())
         }
         if record {
-            append(SentenceRecord(app: r.name, lang: lang, sentence: id, total: plan.keys.count, pressed: pressed, tabs: tabs, wrongTabs: wrongTabs, tabsAsRead: asRead),
+            append(SentenceRecord(app: r.label, lang: lang, sentence: id, total: plan.keys.count, pressed: pressed, tabs: tabs, wrongTabs: wrongTabs, tabsAsRead: asRead),
                    to: out + "/sentences.jsonl")
         }
         print("    \(id.prefix(24))…: \(pressed) of \(plan.keys.count) keys, \(tabs) Tabs\(wrongTabs > 0 ? " (\(wrongTabs) wrong)" : ""), ghost on \(shownKeys) keys")
@@ -252,7 +258,11 @@ func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
             halftypeSaved = Dictionary(uniqueKeysWithValues: halftypeKeys.compactMap { k in halftypeDefaults.object(forKey: k).map { (k, $0) } })
             for k in halftypeKeys { halftypeDefaults.removeObject(forKey: k) }
             halftypeDefaults.set("off", forKey: "personal")
+            if let h = halftypeSetting { halftypeDefaults.set(h[0], forKey: "length"); halftypeDefaults.set(h[1], forKey: "often") }
         }
+        // KeyType feeds what was typed in an app back into its prompt: start it fresh, as a new install, or it completes sentences
+        // it saw in an earlier run (its history holds only text this harness typed, as only the harness starts it).
+        if r.name == "keytype" { try? FileManager.default.removeItem(atPath: NSHomeDirectory() + "/Library/Application Support/KeyType/History") }
         launched = r
         sh("/usr/bin/open", ["-g", "-j", r.path!])
         print("  launched hidden; waiting for its model to be mapped (up to 3 minutes)")
@@ -273,7 +283,7 @@ func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
     }
     var phases = [("en", Array(en.dropFirst().prefix(enCount)))]
     if r.korean { phases.append(("ko", Array(ko.prefix(koCount)))) }
-    for (lang, list) in phases {
+    for (lang, list) in phases where !list.isEmpty {  // --ko 0: no phase, and no division by its zero seconds
         print("  \(lang == "en" ? "English" : "Korean, 2-Set")")
         guard selectSource(lang == "ko" ? twoSet : latinSource!) else { throw Stop(why: "couldn't select the input source") }
         capture.korean = lang == "ko"
@@ -288,7 +298,7 @@ func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
         }
         let seconds = ms(t0, now()) / 1000
         // The CPU share is over typing and the sampling between sentences, the same for every app.
-        append(ResourceRecord(app: r.name, lang: lang, footprintMB: footprints, modelResidentMB: modelResidentMB(pids),
+        append(ResourceRecord(app: r.label, lang: lang, footprintMB: footprints, modelResidentMB: modelResidentMB(pids),
                               cpuPercent: pids.isEmpty ? nil : (cpuSeconds(pids) - cpu0) / seconds * 100, seconds: seconds), to: out + "/resources.jsonl")
         print(String(format: "  %.0f s, waited %.1f s in all for OCR", seconds, typist.ocrWaitMs / 1000))
     }
@@ -318,6 +328,14 @@ let meta = """
 try? meta.write(toFile: out + "/meta.md", atomically: true, encoding: .utf8)
 
 NSApplication.shared.setActivationPolicy(.regular)
+// An Edit menu, as every real app has: KeyType puts in its suggestion with ⌘V, which does nothing in an app without one.
+let editMenu = NSMenu(title: "Edit")
+editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+let menuBar = NSMenu(), appItem = NSMenuItem(), editItem = NSMenuItem()
+appItem.submenu = NSMenu()
+editItem.submenu = editMenu
+menuBar.addItem(appItem); menuBar.addItem(editItem)
+NSApplication.shared.mainMenu = menuBar
 Thread {
     let field = onMain { Field() }
     let capture = Capture(field: field)

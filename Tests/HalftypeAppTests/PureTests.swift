@@ -8,6 +8,19 @@ import Synchronization
 import Testing
 @testable import HalftypeApp
 
+@Suite struct SettingsTests {
+    @Test func savedValuesKeepTheirMeaningAndRemovedOnesMapToTheNearest() {
+        #expect(Often.saved("less") == .normal)
+        #expect(Length.saved("medium") == .long)
+        #expect(Often.saved(nil) == .always)
+        #expect(Length.saved(nil) == .long)
+        for o in Often.allCases { #expect(Often.saved(o.rawValue) == o) }
+        for l in Length.allCases { #expect(Length.saved(l.rawValue) == l) }
+        #expect(Often.allCases.map(\.rawValue) == ["always", "more", "normal"])
+        #expect(Length.allCases.map(\.rawValue) == ["long", "short"])
+    }
+}
+
 @Suite struct SlicingTests {
     @Test func slicesBySelectionNotLength() throws {
         let t3Empty = try #require(Reader.slice("\n", CFRange(location: 0, length: 0)))
@@ -373,7 +386,7 @@ import Testing
     @Test func aTabReportsTheDrawingItWasTakenFromAndTheRestKeepsIt() {
         let drawings = Mutex<[Int]>([])
         let tap = KeyTap()
-        tap.onAccept = { _, _, _, _, drawing in drawings.withLock { $0.append(drawing) } }
+        tap.onAccept = { _, _, _, _, _, drawing in drawings.withLock { $0.append(drawing) } }
         #expect(tap.arm(.init(pid: pid, ghost: Ghost(remainder: " very very good"), typesKeys: false, committed: "hello", before: "hello", drawing: 7), generation: tap.generation))
         _ = press(tap, key(48))
         _ = press(tap, key(48))  // Before any redraw: the rest after a Tab, still on drawing 7.
@@ -382,7 +395,7 @@ import Testing
     @Test func anAcceptIsReportedAndNothingElseIs() {
         let accepts = Atomic<Int>(0), taken = Mutex("")
         let tap = KeyTap()
-        tap.onAccept = { _, _, _, text, _ in accepts.add(1, ordering: .relaxed); taken.withLock { $0 = text ?? "" } }
+        tap.onAccept = { _, _, _, _, text, _ in accepts.add(1, ordering: .relaxed); taken.withLock { $0 = text ?? "" } }
         #expect(!press(tap, key(48)).swallowed && accepts.load(ordering: .relaxed) == 0)  // No ghost: the app's Tab.
         armed(tap, Ghost(remainder: " there"))
         _ = press(tap, key(53))
@@ -877,6 +890,7 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         host.now.withLock { $0.field = field }
         watcher.focused = AXUIElementCreateSystemWide()
         watcher.completer = completer
+        watcher.threshold = { Gate.threshold }
         watcher.read = { _ in
             host.reads.add(1, ordering: .relaxed)
             let (field, caretX) = host.now.withLock { $0 }
@@ -910,7 +924,7 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         let unsure = CountingCompleter(" there friend")
         unsure.gate = -5
         #expect(await why(Field(before: "hello"), completer: unsure) == (.unsure, 1))
-        #expect(await why(Field(before: "hello"), completer: CountingCompleter(" a")) == (.unsure, 1), "too short to be worth it")
+        #expect(await why(Field(before: "hello"), completer: CountingCompleter("s")) == (.unsure, 1), "one key: too short to be worth it")
         #expect(await why(Field(before: "hello")) { $0.traits = { _, _ in nil } } == (.noFont, 1))
         #expect(await why(Field(before: "안녕")) { $0.koreanInput.store(true, ordering: .relaxed) } == (.notTwoSet, 1))
         host.caretless.store(true, ordering: .relaxed)
@@ -1007,7 +1021,7 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
     }
     @Test func whatFitsMustStillBeWorthATab() async {
         let watcher = watcher(Field(before: "hello"), completer: CountingCompleter(" there friend"))
-        panel.fits = 2  // " t": two keys.
+        panel.fits = 1  // " ": one key.
         watcher.scheduleUpdate()
         await watcher.settle()
         #expect(armed() == nil && !panel.isVisibleGhost)
