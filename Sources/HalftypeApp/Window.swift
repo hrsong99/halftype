@@ -626,18 +626,18 @@ struct StatsPage: View {
                 Figure(value: b.formatted(.percent.precision(.fractionLength(1))), label: "without it, \(without.count) \(without.count == 1 ? "day" : "days")")
             }
             .padding(.top, 28)
-            // Each version's days, once more than one has run a whole day: which checkpoint to keep.
-            if app.tally.adapters.count > 1 {
-                HStack(alignment: .lastTextBaseline, spacing: 36) {
-                    ForEach(app.tally.adapters, id: \.self) { name in
-                        let one = app.tally.sum(personal: true, adapter: name)
-                        if let share = one.sum.byTab {
-                            Figure(value: share.formatted(.percent.precision(.fractionLength(1))), label: "\(name), \(one.count) \(one.count == 1 ? "day" : "days")")
-                        }
+        }
+        // Each version's days, once more than one has run a whole day: which checkpoint to keep. With Personal Model On there are no days without.
+        if app.tally.adapters.count > 1 {
+            HStack(alignment: .lastTextBaseline, spacing: 36) {
+                ForEach(app.tally.adapters, id: \.self) { name in
+                    let one = app.tally.sum(personal: true, adapter: name)
+                    if let share = one.sum.byTab {
+                        Figure(value: share.formatted(.percent.precision(.fractionLength(1))), label: "\(name), \(one.count) \(one.count == 1 ? "day" : "days")")
                     }
                 }
-                .padding(.top, 16)
             }
+            .padding(.top, 16)
         }
     }
 }

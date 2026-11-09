@@ -114,18 +114,18 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         var next = tally
         event(&next)
         if let activePath {
-            let file = App.adapterFile(for: activePath)
-            App.markPersonal(&next, adapter: file.map(App.name(ofAdapter:)), applied: engine?.applied.withLock { $0 },
-                             wanted: App.adapterToday(model: activePath) != nil)
+            App.markPersonal(&next, hasAdapter: App.adapterFile(for: activePath) != nil, applied: engine?.applied.withLock { $0 },
+                             wanted: App.adapterToday(model: activePath))
         }
         tally = next
     }
     /// A model with no adapter compares nothing, so its day is mixed. Otherwise only once the engine has caught up with today:
-    /// unloaded (nil), just past midnight, or an adapter that won't load says nothing.
+    /// unloaded (nil), just past midnight, a new version not yet loaded, or an adapter that won't load says nothing.
     /// shortcut: a broken adapter's hours, then a working one's the same day, count as a personal day; track failed loads if adapters ship.
-    static func markPersonal(_ tally: inout Tally, adapter: String?, applied: Bool?, wanted: @autoclosure () -> Bool) {
-        if adapter == nil { tally.mark(personal: nil) }
-        else if let applied, applied == wanted() { tally.mark(personal: applied, adapter: adapter) }
+    static func markPersonal(_ tally: inout Tally, hasAdapter: Bool, applied: Engine.Running?, wanted: @autoclosure () -> String?) {
+        guard hasAdapter else { return tally.mark(personal: nil) }
+        guard let applied, applied == (wanted().map { .adapter($0) } ?? .plain) else { return }
+        if case .adapter(let file) = applied { tally.mark(personal: true, adapter: name(ofAdapter: file)) } else { tally.mark(personal: false) }
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     var ready: Bool { activePath != nil }

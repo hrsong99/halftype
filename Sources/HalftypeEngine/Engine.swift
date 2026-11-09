@@ -32,8 +32,9 @@ public final class Engine: @unchecked Sendable {
     /// doesn't fit the model is left out, not an error.
     private let adapter: @Sendable (String) -> String?
     private var loadedAdapter: String?
-    /// The adapter is in use, not only asked for, or nil while no model is loaded. For the Stats page, which reads it from the main thread.
-    public let applied = Mutex<Bool?>(nil)
+    /// What the loaded model runs: the adapter in use, not only asked for, or nil while no model is loaded. For the Stats page, which reads it from the main thread.
+    public let applied = Mutex<Running?>(nil)
+    public enum Running: Equatable, Sendable { case plain, adapter(String) }
     /// Runs on the engine's queue when the model, once unloaded, can't be loaded again. Each request then says nil, as with nothing to suggest.
     private let onLoadFailure: @Sendable () -> Void
     private let queue = DispatchQueue(label: "halftype.engine", qos: .userInteractive)
@@ -125,12 +126,12 @@ public final class Engine: @unchecked Sendable {
             throw EngineError.load(path)
         }
         // Freed with the model.
-        applied.withLock { $0 = false }
+        applied.withLock { $0 = .plain }
         loadedAdapter = adapter(path)
         if let file = loadedAdapter, let lora = llama_adapter_lora_init(model, file) {
             var adapters: [OpaquePointer?] = [lora], scales: [Float] = [1]
             let ok = llama_set_adapters_lora(ctx, &adapters, 1, &scales) == 0
-            applied.withLock { $0 = ok }
+            if ok { applied.withLock { $0 = .adapter(file) } }
         }
         (self.model, self.ctx) = (model, ctx)
         vocab = Vocab(llama_model_get_vocab(model))

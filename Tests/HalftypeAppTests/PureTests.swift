@@ -1025,17 +1025,18 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         #expect(await soon { seen.withLock { $0 } == .idle && !panel.isVisibleGhost })
     }
     @Test func aDayIsMarkedPersonalOnlyOnceTheEngineMatchesToday() {
-        func marked(_ hasAdapter: Bool, _ applied: Bool?, _ wanted: Bool) -> (with: Bool, without: Bool) {
+        func marked(_ hasAdapter: Bool, _ applied: Engine.Running?, _ wanted: String?) -> (with: Bool, without: Bool, adapters: [String]) {
             var tally = Tally()
-            App.markPersonal(&tally, adapter: hasAdapter ? "a" : nil, applied: applied, wanted: wanted)
+            App.markPersonal(&tally, hasAdapter: hasAdapter, applied: applied, wanted: wanted)
             let day = tally.days.values.first ?? Tally.Day()
-            return (day.withModel, day.withoutModel)
+            return (day.withModel, day.withoutModel, day.adapters)
         }
-        #expect(marked(false, true, true) == (true, true), "no adapter: mixed, so out of the comparison")
-        #expect(marked(true, true, true) == (true, false))
-        #expect(marked(true, false, false) == (false, true))
-        #expect(marked(true, false, true) == (false, false), "the engine hasn't caught up with today")
-        #expect(marked(true, nil, true) == (false, false), "unloaded")
+        #expect(marked(false, .adapter("/a/old.gguf"), "/a/old.gguf") == (true, true, []), "no adapter: mixed, so out of the comparison")
+        #expect(marked(true, .adapter("/a/old.gguf"), "/a/old.gguf") == (true, false, ["old"]))
+        #expect(marked(true, .plain, nil) == (false, true, []))
+        #expect(marked(true, .plain, "/a/old.gguf") == (false, false, []), "the engine hasn't caught up with today")
+        #expect(marked(true, .adapter("/a/old.gguf"), "/a/new.gguf") == (false, false, []), "nor with a new version")
+        #expect(marked(true, nil, "/a/old.gguf") == (false, false, []), "unloaded")
     }
     @Test func aStreamedSuggestionIsShownOnce() async {
         let model = CountingCompleter(" there my friend")
