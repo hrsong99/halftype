@@ -441,6 +441,7 @@ final class Watcher: @unchecked Sendable {
 
     private func display(_ ghost: Ghost, _ field: Field, _ reading: Reading, _ generation: Int) {
         let twoSet = twoSet.load(ordering: .relaxed)
+        let left = ghost.composing.count + ghost.remainder.count  // of the suggestion, before 2-set trims what it can't type
         var ghost = ghost
         if twoSet { ghost.remainder = TwoSetLayout.typable(ghost.remainder) }
         // Only as offered: typing through a word has to see it out, or the ghost would blink off for its last letters.
@@ -465,7 +466,7 @@ final class Watcher: @unchecked Sendable {
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
                              mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid(),
-                             peek: peek.map { var peek = $0; peek.taken = peek.shown - ghost.composing.count - ghost.remainder.count; return peek })
+                             peek: peek.map { var peek = $0; peek.taken = peek.shown - left; return peek })
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before, suggestion: suggestionNumber)
         let binding = binding
         /// Back on the queue, and only for the binding and input this draw was made under: input during the draw has queued a newer report.
