@@ -193,6 +193,15 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var motion = AcceptMotion(rawValue: UserDefaults.standard.string(forKey: "motion") ?? "") ?? .trail {
         didSet { UserDefaults.standard.set(motion.rawValue, forKey: "motion"); panel.motion = motion }
     }
+    /// Hold ⌃⌥ over a suggestion to see what the model was given. Off by default.
+    @Published var peeking = UserDefaults.standard.bool(forKey: "peeking") {
+        didSet { UserDefaults.standard.set(peeking, forKey: "peeking"); peek() }
+    }
+    func peek() {
+        panel.peekWatch.on = peeking
+        watcher.peeking.store(peeking, ordering: .relaxed)
+        watcher.retune()  // A ghost already up has no card yet, or keeps one it no longer should.
+    }
     @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
@@ -250,6 +259,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         onboarding = !defaults.bool(forKey: "onboarded")
         tune()
         panel.motion = motion
+        peek()
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
         // Only a key in our own window teaches: a Tab in another app while onboarding is open isn't the lesson.

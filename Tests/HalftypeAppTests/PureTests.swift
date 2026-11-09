@@ -1715,6 +1715,33 @@ final class FakeServer: URLProtocol {
         shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } })
     }
 
+    /// The ⌃⌥ card on an invented suggestion, light and dark, in a real window behind everything: its material needs one.
+    @Test func peek() throws {
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let prompt = Prompt.make(context: "are we still on for tomorrow?\nI can meet at the station at 6", before: "Sounds good, see you tomo")
+        let tokens = [Token(bytes: Array(" tomorrow".utf8), logprob: -0.12), Token(bytes: Array(" at".utf8), logprob: -0.41),
+                      Token(bytes: Array(" the".utf8), logprob: -0.22), Token(bytes: Array(" station".utf8), logprob: -0.3)]
+        let peek = try #require(Peek.make(tokens, prompt: prompt, context: 812, shown: "rrow at the", tuning: Tuning()))
+        for (name, look) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let host = NSHostingView(rootView: PeekCard(peek: peek))
+            let window = NSWindow(contentRect: CGRect(origin: .zero, size: host.fittingSize), styleMask: [.borderless], backing: .buffered, defer: false)
+            window.appearance = NSAppearance(named: look)
+            window.isOpaque = false
+            window.backgroundColor = look == .aqua ? .white : .black
+            window.contentView = host
+            window.orderBack(nil)
+            defer { window.orderOut(nil) }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+            let file = dir.appendingPathComponent("17-peek-\(name).png"), shot = Process()
+            try? FileManager.default.removeItem(at: file)
+            shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            shot.arguments = ["-x", "-o", "-l\(window.windowNumber)", file.path]
+            try shot.run()
+            shot.waitUntilExit()
+            #expect(NSImage(contentsOf: file) != nil, "no picture of the card")
+        }
+    }
+
     /// The Stats page on Week, Month and All with docs/design/stats/sample-tally-2.json (made-up weeks ending 2026-11-09), in a real window behind everything.
     /// Run it on 2026-11-09 or soon after: the page reads today from the clock.
     @Test func stats() throws {

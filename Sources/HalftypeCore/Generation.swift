@@ -103,7 +103,7 @@ public enum Stop {
     }
 
     /// Unicode's own Terminal_Punctuation covers Latin and CJK. `~` and `…` end casual Korean sentences and have no such property.
-    private static func endsClause(_ c: Character) -> Bool {
+    fileprivate static func endsClause(_ c: Character) -> Bool {
         c == "~" || c == "…" || c.unicodeScalars.first?.properties.isTerminalPunctuation == true
     }
 }
@@ -141,5 +141,58 @@ public enum Gate {
         guard let free = tokens.continuation(after: fragment), let text = decode(free),
               text.contains(where: Word.isPart) else { return nil }
         return free.logprob(through: Word.firstEnd(text), of: text)
+    }
+}
+
+/// What the model was given for one suggestion and how sure it was, word by word, for the card held up over a ghost. In memory only:
+/// it holds typed text, so it is never written or logged.
+public struct Peek: Equatable, Sendable {
+    public struct Step: Equatable, Sendable {
+        public var text: String
+        /// This word's own log probability, and the running sum through it, the one `Stop.floor` is held against.
+        public var logprob: Double
+        public var running: Double
+        /// False for the word the ghost stopped before.
+        public var kept: Bool
+    }
+
+    /// The prompt's end, where the screen text gives way to the field's.
+    public var tail: String
+    /// The half-typed word and any composing syllable, held back and forced at the logits.
+    public var held: String
+    /// How much screen text was read as context, in characters.
+    public var context: Int
+    public var steps: [Step]
+    /// Why the ghost ends where it does, by the same rules as `Stop.cut`.
+    public enum End: Equatable, Sendable { case floor, punctuation, line, limit, model, writing }
+    public var end: End
+    public var floor: Double
+    public var threshold: Double
+
+    public static let tailChars = 160
+
+    /// The ghost's words with their numbers, then the first word it stopped before, if the model got that far. Nil with no word.
+    public static func make(_ tokens: [Token], prompt: Prompt, context: Int, shown: String, tuning: Tuning) -> Peek? {
+        guard let free = tokens.continuation(after: prompt.fragment), let text = decode(Array(free.prefix(Stop.maxTokens))) else { return nil }
+        // Never past a newline or just after terminal punctuation, as `Stop.cut`.
+        let stop = text.firstIndex { $0.isNewline || Stop.endsClause($0) }
+        let line = stop.map { text[$0].isNewline ? $0 : text.index(after: $0) } ?? text.endIndex
+        let sum = free.prefix(Stop.maxTokens)
+        var steps: [Step] = [], start = text.startIndex, before = 0.0
+        while start < line {
+            let end = Word.firstEnd(text[start..<line])
+            guard end > start, text[start..<end].contains(where: Word.isPart) else { break }
+            let running = sum.logprob(through: end, of: text)
+            let kept = text[..<end].count <= shown.count
+            steps.append(Step(text: String(text[start..<end]), logprob: running - before, running: running, kept: kept))
+            if !kept { break }
+            (start, before) = (end, running)
+        }
+        guard !steps.isEmpty else { return nil }
+        let end: End = steps.last?.kept == false ? .floor
+            : stop.map { text[$0].isNewline ? .line : .punctuation }
+            ?? (tokens.contains(where: \.special) ? .model : free.count >= Stop.maxTokens ? .limit : .writing)
+        return Peek(tail: String(prompt.prefix.suffix(tailChars)), held: prompt.fragment + prompt.composing, context: context,
+                    steps: steps, end: end, floor: tuning.floor, threshold: tuning.threshold)
     }
 }

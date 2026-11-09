@@ -19,6 +19,8 @@ struct GhostSpec {
     var webCaret = false
     /// Our own window's field: the suggestion is drawn in the icon's glass rather than the host's colour.
     var glass = false
+    /// What the model was given and how sure it was, for the ⌃⌥ card. Nil unless that setting is on.
+    var peek: Peek? = nil
 }
 
 struct GhostLayout {
@@ -206,6 +208,9 @@ class GhostPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
+    /// The ⌃⌥ card, which follows this panel's ghost. Main thread.
+    private(set) lazy var peekWatch = PeekWatch()
+
     /// What it drew, which is all Tab may offer: a narrow field clips. Nil if nothing is on the screen that the user can see. Main thread.
     func show(_ spec: GhostSpec) -> String? {
         guard let primary = NSScreen.screens.first, let layout = GhostLayout.make(spec),
@@ -220,12 +225,14 @@ class GhostPanel: NSPanel {
         if !isVisible { orderFrontRegardless() }
         // A panel can get stranded on one Space whatever its collection behaviour says, and be drawn where nobody sees it.
         guard isOnActiveSpace else { hideGhost(); return nil }
+        peekWatch.ghost(spec.peek, caret: GhostLayout.appKitRect(spec.caret, primaryHeight: primary.frame.height), ghost: frame)
         return String(Word.withoutTrailingSpaces(layout.visibleText))
     }
 
     func hideGhost() {
         orderOut(nil)
         view.layout = nil
+        peekWatch.hide()
     }
 
     private lazy var shine = GlintPanel()

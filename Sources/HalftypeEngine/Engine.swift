@@ -8,7 +8,7 @@ public struct Suggestion: Sendable {
     public var text: String
     /// Log P(first word | fits the fragment). Nil until the first word is finished, as it can only fall until then.
     public var gate: Double?
-    var tokens: [Token] = []
+    public internal(set) var tokens: [Token] = []
 
     public init(text: String, gate: Double?) {
         self.text = text

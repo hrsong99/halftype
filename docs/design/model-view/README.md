@@ -12,4 +12,4 @@ Recommendation: B, an inspector panel opened from the menu bar. It needs no engi
 
 ## Pick
 
-(not yet)
+John picked C, polished as G: "C (or polished version G) is kind of what i was imagining… as a debug feature that users can turn on". Built as General › Show What the Model Sees (off by default): hold ⌃⌥ over a ghost (`Sources/HalftypeApp/Peek.swift`, numbers from `Peek.make` in `Generation.swift`). The modifiers are watched by NSEvent monitors, never taken. No runner-up words yet: they need the engine to keep more than the picked token. `built/17-peek-*.png` come from `HALFTYPE_SHOTS=<dir> swift test --disable-keychain --filter WindowShots/peek`.
