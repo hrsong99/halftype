@@ -95,7 +95,7 @@ func preflight() -> Bool {
         }
         print("  !!   cotypist's free plan has a daily cap: if its suggestions stop part-way, the run says so and its numbers aren't comparable")
     }
-    let minutes = chosen.reduce(0) { $0 + ($1.path == nil ? 5 : $1.korean ? 11 : 6) }
+    let minutes = chosen.reduce(0) { $0 + ($1.path == nil ? 5 : $1.korean ? 9 : 6) }
     print("About \(minutes) minutes. It takes the keyboard, the pointer and the front window the whole time, and switches input sources.")
     return ok
 }
