@@ -641,20 +641,20 @@ struct StatsPage: View {
     /// day (which checkpoint to keep; with Personal Model On there are no days without). One bar each, from zero, so the gap is true to size.
     @ViewBuilder private var personal: some View {
         let with = app.tally.sum(personal: true), without = app.tally.sum(personal: false)
-        let both = with.sum.byTab.flatMap { a in without.sum.byTab.map { b in [Meter(label: "With it", share: a, days: with.count, glass: true), Meter(label: "Without", share: b, days: without.count, glass: false)] } } ?? []
+        let both = with.sum.byTab.flatMap { a in without.sum.byTab.map { b in [Meter(id: "with", label: "With it", share: a, days: with.count, glass: true), Meter(id: "without", label: "Without", share: b, days: without.count, glass: false)] } } ?? []
         let versions = app.tally.adapters.count < 2 ? [] : app.tally.adapters.compactMap { name -> Meter? in
             let one = app.tally.sum(personal: true, adapter: name)
-            return one.sum.byTab.map { Meter(label: "\(AdapterInfo.title(name: name)) version", share: $0, days: one.count, glass: true) }
+            return one.sum.byTab.map { Meter(id: name, label: "\(AdapterInfo.title(name: name)) version", share: $0, days: one.count, glass: true) }
         }
         let rows = both + versions
-        if let most = rows.map(\.share).max() {
+        if let most = rows.map(\.share).max() {  // 0 when nothing was saved: empty tracks
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Your personal model").font(.system(size: 13, weight: .semibold))
                     Text("Of your typing, how much Tab typed on whole days with it and without.").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 .padding(.bottom, 2)
-                ForEach(rows, id: \.label) { $0.scaled(to: most) }
+                ForEach(rows, id: \.id) { $0.scaled(to: most) }
             }
             .padding(.top, 32)
         }
@@ -663,6 +663,8 @@ struct StatsPage: View {
 
 /// One row of the personal model's comparison: its share of typing by Tab as a bar, the icon's glass for the model, grey without it.
 private struct Meter: View {
+    /// The adapter's file name: two versions can share a title.
+    let id: String
     let label: String
     let share: Double
     let days: Int
@@ -677,7 +679,7 @@ private struct Meter: View {
                     Capsule().fill(Color.primary.opacity(0.05))
                     Capsule().fill(glass ? AnyShapeStyle(StatsPage.glass)
                                          : AnyShapeStyle(Color.primary.opacity(0.22)))
-                        .frame(width: max(8, space.size.width * share / max(most, 0.0001)))
+                        .frame(width: most > 0 ? space.size.width * share / most : 0)
                 }
             }
             .frame(height: 8)
