@@ -51,6 +51,8 @@ public struct Prompt: Equatable, Sendable {
     public let fragment: String
     /// What the output must next agree with in 2-set keystrokes, not bytes: spaces the prompt dropped, then the withheld syllable.
     public var composing = ""
+    /// How much of `prefix` is screen context, the blank line after it included; the rest is the field's.
+    public var screenChars = 0
 
     /// A composing syllable is withheld, because `하` on its way to `한` cannot be continued into `한`. A typed space the prompt
     /// dropped is forced back too, in any language: replay saved 17.8% of English keys against 17.1% (docs/measuring.md).
@@ -72,7 +74,9 @@ public struct Prompt: Equatable, Sendable {
             fragment = ""
         }
         let text = context.isEmpty ? String(head) : context + "\n\n" + head
-        let over = text.count - windowChars
-        return Prompt(prefix: over > 0 ? String(text.dropFirst((over / stepChars + 1) * stepChars)) : text, fragment: fragment)
+        let over = text.count - windowChars, dropped = over > 0 ? (over / stepChars + 1) * stepChars : 0
+        var prompt = Prompt(prefix: String(text.dropFirst(dropped)), fragment: fragment)
+        prompt.screenChars = max(0, text.count - head.count - dropped)
+        return prompt
     }
 }

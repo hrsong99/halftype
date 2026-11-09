@@ -14,9 +14,9 @@ func splitsLikeTheBench(before: String, prefix: String, fragment: String) {
 }
 
 @Test func contextComesFirstAndAWholeFieldWordHoldsOut() {
-    #expect(Prompt.make(context: "Note.", before: "go ho") == Prompt(prefix: "Note.\n\ngo", fragment: " ho"))
-    #expect(Prompt.make(context: "Note.", before: "hel") == Prompt(prefix: "Note.\n\n", fragment: "hel"))
-    #expect(Prompt.make(context: "Note.", before: "") == Prompt(prefix: "Note.\n\n", fragment: ""))
+    #expect(Prompt.make(context: "Note.", before: "go ho") == Prompt(prefix: "Note.\n\ngo", fragment: " ho", screenChars: 7))
+    #expect(Prompt.make(context: "Note.", before: "hel") == Prompt(prefix: "Note.\n\n", fragment: "hel", screenChars: 7))
+    #expect(Prompt.make(context: "Note.", before: "") == Prompt(prefix: "Note.\n\n", fragment: "", screenChars: 7))
 }
 
 @Test func withNothingElseTheFragmentIsThePrompt() {

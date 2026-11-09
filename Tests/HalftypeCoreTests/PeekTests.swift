@@ -10,7 +10,8 @@ private func token(_ text: String, _ logprob: Double = 0) -> Token { Token(bytes
     #expect(shown == "rrow at the")
     let peek = try #require(Peek.make(tokens, prompt: prompt, context: 16, shown: shown, tuning: Tuning()))
     #expect(peek.held == " tomo")
-    #expect(peek.tail.hasSuffix("see you"))
+    #expect(peek.screen == "are we still on?")
+    #expect(peek.field == "Sounds good, see you")
     #expect(peek.steps.map(\.text) == [" tomorrow", " at", " the", " station"])
     #expect(peek.steps.map(\.kept) == [true, true, true, false])
     #expect(abs(peek.steps[1].logprob - -0.41) < 1e-9)
@@ -46,4 +47,16 @@ private func token(_ text: String, _ logprob: Double = 0) -> Token { Token(bytes
 @Test func peekIsNilWithNoWord() {
     let prompt = Prompt.make(context: "", before: "hello th")
     #expect(Peek.make([token(" th", -1), token("\n", -0.1)], prompt: prompt, context: 0, shown: "", tuning: Tuning()) == nil)
+}
+
+@Test func promptKnowsWhereTheScreenEndsEvenWithABlankLineInTheField() {
+    let prompt = Prompt.make(context: "the plan", before: "Hi,\n\nsee you tomo")
+    #expect(prompt.prefix == "the plan\n\nHi,\n\nsee you")
+    #expect(prompt.screenChars == 10)
+    // Trimmed to the window, the screen text loses its start and keeps its count right.
+    let long = Prompt.make(context: String(repeating: "x", count: 1500), before: "see you tomo")
+    #expect(long.prefix.dropFirst(long.screenChars) == "see you")
+    #expect(long.prefix.prefix(long.screenChars).hasSuffix("x\n\n"))
+    let none = Prompt.make(context: "", before: "see you tomo")
+    #expect(none.screenChars == 0)
 }

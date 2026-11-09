@@ -3,11 +3,11 @@ import HalftypeCore
 import SwiftUI
 
 /// General's Show What the Model Sees: while ⌃⌥ is held over a ghost, a card above it with the prompt's end, the word held back, and
-/// each word's chance. The modifiers are only watched, never taken, so every ⌃⌥ shortcut still works. Main thread. What it shows lives
+/// each word's chance; with ⇧ too, the whole prompt. The modifiers are only watched, never taken, so every ⌃⌥ shortcut still works. Main thread. What it shows lives
 /// in memory with the ghost and goes with it.
 final class PeekWatch {
     private var monitors: [Any] = []
-    private var holding = false
+    private var holding = false, whole = false
     private var shown: (peek: Peek, caret: CGRect, ghost: NSRect)?
     private var card: PeekPanel?
 
@@ -38,14 +38,15 @@ final class PeekWatch {
     }
 
     private func flags(_ flags: NSEvent.ModifierFlags) {
-        holding = flags.intersection([.control, .option, .command, .shift]) == [.control, .option]  // Caps Lock or Fn may be on too.
+        let held = flags.intersection([.control, .option, .command, .shift])  // Caps Lock or Fn may be on too.
+        (holding, whole) = (held.subtracting(.shift) == [.control, .option], held.contains(.shift))
         update()
     }
 
     private func update() {
         guard on, holding, let shown else { return card?.clear() ?? () }
         if card == nil { card = PeekPanel() }
-        card?.show(shown.peek, caret: shown.caret, ghost: shown.ghost)
+        card?.show(shown.peek, whole: whole, caret: shown.caret, ghost: shown.ghost)
     }
 }
 
@@ -60,12 +61,12 @@ final class PeekPanel: GhostPanel {
     }
 
     /// Above the ghost, starting near the caret, inside the screen; below the line when there's no room above.
-    func show(_ peek: Peek, caret: CGRect, ghost: NSRect) {
-        host.rootView = PeekCard(peek: peek)
+    func show(_ peek: Peek, whole: Bool, caret: CGRect, ghost: NSRect) {
+        host.rootView = PeekCard(peek: peek, whole: whole)
         let size = host.fittingSize
         let screen = (NSScreen.screens.first { $0.frame.intersects(ghost) } ?? NSScreen.main)?.visibleFrame ?? ghost
         var origin = CGPoint(x: caret.minX - 18, y: ghost.maxY + 6)
-        if origin.y + size.height > screen.maxY { origin.y = ghost.minY - 6 - size.height }
+        if origin.y + size.height > screen.maxY { origin.y = max(ghost.minY - 6 - size.height, screen.minY + 8) }
         origin.x = min(max(origin.x, screen.minX + 8), screen.maxX - size.width - 8)
         setFrame(CGRect(origin: origin, size: size), display: true, animate: false)
         if !isVisible { orderFrontRegardless() }
@@ -80,10 +81,11 @@ final class PeekPanel: GhostPanel {
 
 struct PeekCard: View {
     let peek: Peek?
+    var whole = false
     private static let blue = Color(nsColor: GhostView.glassColors[0]), peach = Color(nsColor: GhostView.glassColors[2])
 
     var body: some View {
-        if let peek { card(peek).frame(width: 300).fixedSize(horizontal: false, vertical: true) }
+        if let peek { card(peek).frame(width: whole ? 520 : 300).fixedSize(horizontal: false, vertical: true) }
     }
 
     private func card(_ peek: Peek) -> some View {
@@ -91,11 +93,13 @@ struct PeekCard: View {
             HStack {
                 Text("What the model sees").font(.system(size: 12, weight: .semibold))
                 Spacer()
-                Text("⌃⌥").font(.system(size: 10, weight: .medium)).padding(.horizontal, 5).padding(.vertical, 1)
+                Text(whole ? "⌃⌥⇧" : "⌃⌥").font(.system(size: 10, weight: .medium)).padding(.horizontal, 5).padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(.tertiary))
             }
-            label(peek.context > 0 ? "Context · \(peek.context) characters from the screen" : "Context · none, only the field")
-            Text(prompt(peek)).font(.system(size: 11, design: .monospaced)).lineLimit(4).truncationMode(.head)
+            label(peek.screen.isEmpty ? "From the screen · nothing" : "From the screen · \(count(peek.screen.count, of: peek.context))")
+            if !peek.screen.isEmpty { prompt(Text(end(peek.screen, lines: 2))).foregroundStyle(.secondary) }
+            label("In the field · \(peek.field.count + peek.held.count) characters")
+            prompt(Text(end(peek.field, lines: 3)) + Text(field(peek.held)))
             label("Its words · chance, and running")
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
                 ForEach(Array(peek.steps.enumerated()), id: \.offset) { _, step in
@@ -111,6 +115,7 @@ struct PeekCard: View {
                 }
             }
             Text(verdict(peek)).font(.system(size: 11)).foregroundStyle(.secondary).padding(.top, 8)
+            if !whole { Text("Add ⇧ for the whole prompt.").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 3) }
         }
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -121,15 +126,27 @@ struct PeekCard: View {
         Text(text.uppercased()).font(.system(size: 9.5, weight: .medium)).kerning(0.4).foregroundStyle(.secondary).padding(.top, 9).padding(.bottom, 3)
     }
 
-    /// The screen text faded, the field's own text, then the word held back on a peach chip.
-    private func prompt(_ peek: Peek) -> AttributedString {
-        let split = peek.tail.range(of: "\n\n", options: .backwards)
-        var screen = AttributedString(split.map { String(peek.tail[..<$0.lowerBound]) + " ⏎ " } ?? "")
-        screen.foregroundColor = .secondary
-        let field = AttributedString(split.map { String(peek.tail[$0.upperBound...]) } ?? peek.tail)
-        var held = AttributedString(peek.held)
+    private func prompt(_ text: Text) -> some View {
+        text.font(.system(size: 11, design: .monospaced)).fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Its last lines only, nearest the caret, unless ⇧ asks for all of it. By hand: SwiftUI truncates many lines only at their end.
+    private func end(_ text: String, lines: Int) -> String {
+        guard !whole else { return text }
+        let last = text.split(separator: "\n", omittingEmptySubsequences: false).suffix(lines).joined(separator: "\n").suffix(38 * lines)
+        return (last.count < text.count ? "…" : "") + last
+    }
+
+    /// The word held back, on a peach chip.
+    private func field(_ held: String) -> AttributedString {
+        var held = AttributedString(held)
         held.backgroundColor = Self.peach.opacity(0.35)
-        return AttributedString("…") + screen + field + held
+        return held
+    }
+
+    /// "412 characters", or "1200 of 1800 characters" when the window cut its start.
+    private func count(_ given: Int, of read: Int) -> String {
+        read > given ? "\(given) of \(read) characters" : "\(given) characters"
     }
 
     private func bar(_ running: Double) -> some View {

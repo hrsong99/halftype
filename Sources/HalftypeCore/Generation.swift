@@ -156,8 +156,9 @@ public struct Peek: Equatable, Sendable {
         public var kept: Bool
     }
 
-    /// The prompt's end, where the screen text gives way to the field's.
-    public var tail: String
+    /// The whole prompt: the screen text the model was given, then the field's text up to the held word.
+    public var screen: String
+    public var field: String
     /// The half-typed word and any composing syllable, held back and forced at the logits.
     public var held: String
     /// How much screen text was read as context, in characters.
@@ -168,8 +169,6 @@ public struct Peek: Equatable, Sendable {
     public var end: End
     public var floor: Double
     public var threshold: Double
-
-    public static let tailChars = 160
 
     /// The ghost's words with their numbers, then the first word it stopped before, if the model got that far. Nil with no word.
     public static func make(_ tokens: [Token], prompt: Prompt, context: Int, shown: String, tuning: Tuning) -> Peek? {
@@ -193,7 +192,8 @@ public struct Peek: Equatable, Sendable {
         let end: End = steps.last?.kept == false ? .floor
             : stop.map { text[$0].isNewline ? .line : .punctuation }
             ?? (tokens.contains(where: \.special) ? .model : free.count >= Stop.maxTokens ? .limit : .writing)
-        return Peek(tail: String(prompt.prefix.suffix(tailChars)), held: prompt.fragment + prompt.composing, context: context,
+        let screen = prompt.prefix.prefix(prompt.screenChars)  // its blank line dropped below
+        return Peek(screen: String(screen.dropLast(min(2, screen.count))), field: String(prompt.prefix.dropFirst(screen.count)), held: prompt.fragment + prompt.composing, context: context,
                     steps: steps, end: end, floor: tuning.floor, threshold: tuning.threshold)
     }
 }
