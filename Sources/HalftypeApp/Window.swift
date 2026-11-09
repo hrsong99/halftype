@@ -871,8 +871,11 @@ private struct MotionTile: View {
 private struct MotionPreview: View {
     let motion: AcceptMotion
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// False while the window is behind another app's or the app is hidden: the loop redraws every frame, a fifth of a core
+    /// measured idle (2026-11-10), so it plays only while the window is the one in use.
+    @Environment(\.appearsActive) private var appearsActive
     var body: some View {
-        TimelineView(.animation(paused: reduceMotion)) { timeline in
+        TimelineView(.animation(paused: reduceMotion || !appearsActive)) { timeline in
             Canvas { g, size in
                 // Reduce Motion: the words already taken, as the app then plays nothing.
                 let t = reduceMotion ? 1.79 : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8)
