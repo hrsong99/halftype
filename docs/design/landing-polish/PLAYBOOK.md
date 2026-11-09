@@ -1,7 +1,7 @@
 # Building halftype.app's polished page (round 2 of landing-polish)
 
 ## State (keep this current)
-- 2026-11-09: John picked "C + D + J" from `index.html` ("Sure looks good, go ahead and build that"). Round 1: H 7.0, K 6.8 (review-r1.md in each folder); both under the bar. Hand-built wins the method test (K's lowest scores came from the kit: type sizes, Courier, one-screen sections). Round 2: H 7.5 (review-r2.md), nothing under 7. Round 3: H 8.5 (review-r3.md), nothing under 8: at the bar. Codex code review found 5 P2s (contrast 2.0-2.6:1, reduced motion at runtime, per-card triggers, off-screen work, clipboard fallback). Fix round done; Codex re-review clean (one stale path, fixed). Result in round2.html; waiting on John to publish.
+- 2026-11-09: John picked "C + D + J" from `index.html` ("Sure looks good, go ahead and build that"). Round 1: H 7.0, K 6.8 (review-r1.md in each folder); both under the bar. Hand-built wins the method test (K's lowest scores came from the kit: type sizes, Courier, one-screen sections). Round 2: H 7.5 (review-r2.md), nothing under 7. Round 3: H 8.5 (review-r3.md), nothing under 8: at the bar. Codex code review found 5 P2s (contrast 2.0-2.6:1, reduced motion at runtime, per-card triggers, off-screen work, clipboard fallback). Fix round done; Codex re-review clean (one stale path, fixed). Result in round2.html. Published 2026-11-09: H's page files replaced `docs/site/a2/` (the kit page and old drafts removed; in git history) and went live at https://halftype.app.
 - Nothing goes on halftype.app until John sees the result. Publishing is his call.
 
 ## Goal, in John's words
