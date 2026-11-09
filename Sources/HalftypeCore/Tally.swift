@@ -32,8 +32,8 @@ public struct Tally: Codable, Equatable, Sendable {
         public var oneIn: Int? { saved == 0 || typed == 0 ? nil : Int((Double(saved + typed) / Double(saved)).rounded()) }
         /// The keys Tab typed, at 40 words a minute (200 keys).
         /// shortcut: one speed for everyone; measure each user's typing seconds per day if the Stats page should say "at your speed".
-        /// Days before 0.1.6 counted no keys, so their letters stand in, one key each.
-        public var minutesSaved: Double { Double(saved > 0 ? saved : characters) / 200 }
+        /// Days before 0.1.6 (Nov 7–8) counted no keys and add no time: a fallback per day would be lost in a sum.
+        public var minutesSaved: Double { Double(saved) / 200 }
         /// Letters ÷ 5, the typing-test word.
         /// shortcut: a Hangul letter is a syllable, so Korean comes out about 3× high; count finished words at each Tab to fix it.
         public var words: Int { characters / 5 }
