@@ -78,7 +78,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// by name, which train.sh dates. An adapter fits only the model it was trained on, so each model has its own folder.
     static func adapters(for model: String) -> [String] {
         let folder = support.appendingPathComponent("adapters").appendingPathComponent(URL(fileURLWithPath: model).lastPathComponent).path
-        return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }.sorted().map { folder + "/" + $0 }
+        return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }.map { folder + "/" + $0 }  // numbers as numbers: -10 after -9
     }
     /// The one chosen in General (by name, kept per name so it holds across models' folders), else the newest.
     static func adapterFile(for model: String) -> String? {

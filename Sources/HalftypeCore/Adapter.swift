@@ -1,35 +1,27 @@
 import Foundation
 
 /// What a training run writes beside its adapter as `<name>.json` (lab/dogfood/train.sh on `learn`): counts, dates and settings, never text.
+/// The app shows what it learned from; where and how it trained stay in the file for the lab.
 public struct AdapterInfo: Codable, Equatable, Sendable {
     /// Messages it learned from, and the first and last of their days (`yyyy-MM-dd`).
     public var rows: Int?, from: String?, to: String?
-    /// The GPU it trained on, or "Mac".
-    public var gpu: String?
-    public init(rows: Int? = nil, from: String? = nil, to: String? = nil, gpu: String? = nil) { (self.rows, self.from, self.to, self.gpu) = (rows, from, to, gpu) }
+    public init(rows: Int? = nil, from: String? = nil, to: String? = nil) { (self.rows, self.from, self.to) = (rows, from, to) }
 
-    /// "3,014 messages, Aug 9 – Nov 9 · trained on a rented GPU"; nil parts are left out.
+    /// "3,014 messages, Aug 9 – Nov 9", or nil without a count.
     public var note: String? {
-        var parts: [String] = []
-        if let rows { parts.append("\(rows.formatted(.number.locale(Locale(identifier: "en_US")))) messages" + (Self.day(from).flatMap { a in Self.day(to).map { ", \(a) – \($0)" } } ?? "")) }
-        if let gpu { parts.append(gpu == "Mac" ? "trained on this Mac" : "trained on a rented GPU") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        rows.map { "\($0.formatted(.number.locale(Locale(identifier: "en_US")))) messages" + (Self.day(from).flatMap { a in Self.day(to).map { ", \(a) – \($0)" } } ?? "") }
     }
 
-    /// "Nov 8" from the date in a name like `john-2026-11-08`, "Nov 9, cloud" for `…-09-cloud`, "Nov 9, cloud (2)" for `…-cloud-2`,
-    /// or the name itself: what follows the date tells same-day runs apart.
+    /// "Nov 9" from a name like `john-2026-11-09`, "Nov 9 (2)" for the day's second run `…-09-2`, or the name itself.
     public static func title(name: String) -> String {
-        guard let r = name.range(of: #"\d{4}-\d{2}-\d{2}"#, options: .regularExpression), let day = day(String(name[r])) else { return name }
-        var rest = String(name[r.upperBound...]), count = ""
-        if let n = rest.range(of: #"-\d+$"#, options: .regularExpression) { count = " (\(rest[n].dropFirst()))"; rest.removeSubrange(n) }
-        rest = String(rest.drop { $0 == "-" })
-        return day + (rest.isEmpty ? "" : ", " + rest) + count
+        guard let r = name.range(of: #"\d{4}-\d{2}-\d{2}(-\d+)?$"#, options: .regularExpression), let day = day(String(name[r].prefix(10))) else { return name }
+        let n = name[r].dropFirst(11)
+        return n.isEmpty ? day : "\(day) (\(n))"
     }
 
-    private static let locale = Locale(identifier: "en_US_POSIX")
     private static func day(_ text: String?) -> String? {
         let parse = DateFormatter(), show = DateFormatter()
-        parse.locale = locale; parse.dateFormat = "yyyy-MM-dd"; show.locale = locale; show.dateFormat = "MMM d"
+        parse.locale = Locale(identifier: "en_US_POSIX"); parse.dateFormat = "yyyy-MM-dd"; show.locale = parse.locale; show.dateFormat = "MMM d"
         return text.flatMap(parse.date(from:)).map(show.string(from:))
     }
 }
