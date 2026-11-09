@@ -21,3 +21,15 @@ John: "I guess today's page is okay, but adding a halftone calendar could be nic
 - `sample-tally-2.json` (from `make-sample2.py`): 16 made-up weeks, with Nov 8–9 from `real-2days.json`, this Mac's `stats.json` on 2026-11-09 (counts only).
 
 Recommendation: B with sidebar 3. Pick: B with sidebar 3 (John: "sure go ahead with your suggestion"), built on the branch `stats-variants`. `built/` holds the shipped page on Week, Month and All, from `HALFTYPE_SHOTS=<dir> swift test --disable-keychain --filter WindowShots/stats` (a real window behind everything; run it on or soon after 2026-11-09). Built differences: the week starts where the user's calendar starts it, and the change sits beside each label, not the number, so it fits the smallest window.
+
+## Round 3: show the value
+
+John: "I think the stats page needs an upgrade to directly show our value. I think we should make it more understandable and intuitive how many tabs they've accepted and letters/words got accepted, along with how much time they saved and stuff. What are the main stats that are most important you think?"
+
+All in `round3/`, on this Mac's real week so far (Nov 9–10, counts only). The window is drawn taller than 720×500 so the whole page fits.
+- `index.html`: A today (Tabs first); B time saved first; C "1 in 8" as a 10×10 grid of keys; D one sentence; E four tiles with sparks; F the sum (Tabs × letters each = words ≈ minutes). G, H, I are Codex images (`I.png`, `J.png`, `K.png`, from `gen.sh` and `prompts/`): a filling ring, a keycap strip, a shareable weekly card.
+- `options.png`: frozen screenshot.
+
+Ranking proposed: time saved, words (letters ÷ 5), share as "1 in every N keys", Tabs last; leave out taken ÷ shown. Time assumes 40 wpm in the mockups; the build should measure typing seconds per day instead.
+
+Recommendation: B with C's "1 in every 8 keys" label. Pick: pending.
