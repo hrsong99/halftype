@@ -59,7 +59,7 @@
       <div class="wrap">
         <div class="field hero__field" role="img" aria-label="Halftype's field: three messages are typed; a suggestion finishes each, Tab takes the next word and Shift-Tab the whole suggestion.">
           <div class="text" id="hero-text" aria-hidden="true"></div>
-          <div class="bar" aria-hidden="true"><span class="kc" id="hero-key">tab</span><span class="grow"></span><span class="pill">Qwen 3.5 0.8B</span><span class="power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
+          <div class="bar" aria-hidden="true"><span class="kc" id="hero-key">tab</span><span class="grow"></span><span class="pill">Gemma 4 E2B</span><span class="power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span></div>
         </div>
       </div>
     </div>
@@ -176,16 +176,8 @@
   <!-- 7. Compare -->
   <section class="section" id="compare" aria-labelledby="compare-h">
     <div class="wrap">
-      <div class="head"><h2 id="compare-h">Small download. Light at rest.</h2></div>
+      <div class="head"><h2 id="compare-h">Light when you&rsquo;re not typing.</h2></div>
       <div class="charts">
-        <figure class="chart">
-          <figcaption>Model to download</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:13.8%"></span></span><b>0.53 GB</b></div>
-          <div class="row"><span>KeyType</span><span class="track"><span style="--w:33%"></span></span><b>1.27 GB</b></div>
-          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:77.4%"></span></span><b>2.98 GB</b></div>
-          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:100%"></span></span><b>3.85 GB</b></div>
-          <p class="note">Defaults: Qwen 3.5 0.8B, Qwen 3.5 2B (KeyType 1.8), Gemma 4 E2B Q4_C as Cotypist 2026.5.2 downloaded it, Gemma 4 E2B Q6 (Cotabby 0.6.2).</p>
-        </figure>
         <figure class="chart">
           <figcaption>Memory at rest</figcaption>
           <div class="row us"><span>Halftype</span><span class="track"><span style="--w:20.6%"></span></span><b>79 MB</b></div>
@@ -214,11 +206,11 @@
       <div class="figures">
         <h3>And what it does for you</h3>
         <dl class="figs">
-          <div><dt>21.6%</dt><dd>of keystrokes saved, across whole English messages</dd></div>
-          <div><dt>81.5%</dt><dd>of suggestions shown were right on the first word</dd></div>
-          <div><dt>53 ms</dt><dd>to the first word (median)</dd></div>
+          <div><dt>28.6%</dt><dd>of keystrokes saved, across whole English messages</dd></div>
+          <div><dt>+10.2</dt><dd>points saved over the old, cautious defaults</dd></div>
+          <div><dt>72 ms</dt><dd>to the first word (median)</dd></div>
         </dl>
-        <p class="how">English, default model and settings, from replayed typing: 21.6% with real typing delays, before the latest change to how much a suggestion shows; 81.5% over 2,400 held-out requests; 53 ms the median of requests that reached a first word.</p>
+        <p class="how">English, Gemma 4 E2B at the default settings (Suggestions: Always, Length: Long), from replayed typing: 28.6% over 1,200 keys of the author's messages with real typing delays, against 19.6% at the old defaults; +10.2 points in a replay of 120 more of the author's messages, held out (+9.8 on public Korean); 72–74 ms the median to the first word shown across those timed runs. The cost: about a third of the suggestions shown are right, against 71% before. Suggestions: When Sure brings back fewer, surer ones.</p>
         <a class="more" href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a>
       </div>
     </div>
@@ -230,7 +222,7 @@
       <div class="head head--left"><h2 id="faq-h">Questions.</h2><p>An early release. <a href="https://github.com/hrsong99/halftype/issues">Open an issue</a> with what you find.</p></div>
       <dl class="faq">
         <div><dt>Which Macs?</dt><dd>macOS 26 on Apple Silicon.</dd></div>
-        <div><dt>How much does it save?</dt><dd>About a fifth of keystrokes in English. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a></dd></div>
+        <div><dt>How much does it save?</dt><dd>Over a quarter of keystrokes in English. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a></dd></div>
         <div><dt>And Korean?</dt><dd>Yes, with 2-Set Korean. Weaker than English for now.</dd></div>
         <div><dt>Where won't it suggest?</dt><dd>Mid-line, in password fields, and during Secure Input.</dd></div>
         <div><dt>In Chromium apps?</dt><dd>Used by hand in T3 Code. Others aren't tested yet.</dd></div>

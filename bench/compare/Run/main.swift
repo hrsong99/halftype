@@ -14,10 +14,10 @@ func option(_ name: String) -> String? { args.firstIndex(of: name).flatMap { $0 
 let chosen = (option("--apps")?.split(separator: ",").map(String.init)).map { names in rivals.filter { names.contains($0.name) } } ?? rivals
 let enCount = Int(option("--en") ?? "") ?? 16, koCount = Int(option("--ko") ?? "") ?? 10
 let textDir = option("--text") ?? lab + "/compare/text"
-/// `--halftype long,more`: Halftype at that Length and How Often instead of its defaults, scored as "halftype long,more".
+/// `--halftype long,more`: Halftype at that Length and Suggestions (the saved values: `more` is When Likely, `normal` When Sure) instead of its defaults, scored as "halftype long,more".
 let halftypeSetting = option("--halftype")?.split(separator: ",").map(String.init)
-if let h = halftypeSetting, h.count != 2 || !["short", "medium", "long"].contains(h[0]) || !["less", "normal", "more", "always"].contains(h[1]) {
-    print("--halftype takes <short|medium|long>,<less|normal|more|always>"); exit(1)
+if let h = halftypeSetting, h.count != 2 || !["long", "short"].contains(h[0]) || !["always", "more", "normal"].contains(h[1]) {
+    print("--halftype takes <long|short>,<always|more|normal>"); exit(1)
 }
 extension Rival { var label: String { name == "halftype" ? (halftypeSetting.map { "halftype " + $0.joined(separator: ",") } ?? name) : name } }
 /// A pause this long after every third word lets a slow app finish, so its speed is measured rather than cut off.
@@ -54,7 +54,7 @@ func sentences(_ lang: String) -> [(id: String, text: String)] {
     }
 }
 
-/// Halftype is measured at its defaults: Short, Normal, the default model, no personal model. What the user set is put back after.
+/// Halftype is measured at its default settings, or at `--halftype`, with the default model, no personal model. What the user set is put back after.
 let halftypeDefaults = UserDefaults(suiteName: "app.halftype.Halftype")!
 let halftypeKeys = ["length", "often", "personal", "modelPath"]
 var halftypeSaved: [String: Any]? = nil
@@ -89,7 +89,7 @@ func preflight() -> Bool {
     }
     if chosen.contains(where: { $0.name == "halftype" }) {
         let set = halftypeKeys.compactMap { k in halftypeDefaults.object(forKey: k).map { "\(k)=\($0)" } }
-        print("  --   halftype runs at \(halftypeSetting.map { "Length \($0[0]), How Often \($0[1])" } ?? "its default settings"), Gemma 4 E2B, no personal model" +
+        print("  --   halftype runs at \(halftypeSetting.map { "Length \($0[0]), Suggestions \($0[1])" } ?? "its default settings"), Gemma 4 E2B, no personal model" +
               (set.isEmpty ? "" : "; your settings \(set.joined(separator: ", ")) are put back when it quits"))
         let model = NSHomeDirectory() + "/Library/Application Support/Halftype/gemma-4-E2B.Q4_K_M.gguf"
         line(FileManager.default.fileExists(atPath: model), "Halftype's default model is downloaded")

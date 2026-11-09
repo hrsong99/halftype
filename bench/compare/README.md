@@ -30,7 +30,7 @@ and OCR crops of public text, and stays out.
    notarized release builds, copied there from their DMGs). `--check` reads the TCC database when the terminal has Full Disk Access;
    otherwise the warm-up finds out.
 5. **Each app's default model is downloaded**: Halftype's Gemma 4 E2B (the default since 0.1.10); Cotabby's and KeyType's are in their Application Support folders.
-6. Halftype runs at its defaults (Short, Normal, Gemma 4 E2B, personal model off) whatever you have set; your settings come back when it quits.
+6. Halftype runs at its default settings, or at `--halftype <length>,<suggestions>`, with Gemma 4 E2B and the personal model off, whatever you have set; your settings come back when it quits.
 7. **Cotypist**: if a personal prompt is set in its settings, its numbers include it (`--check` says so). Clear it for a default run.
    Its free plan has a daily cap; if suggestions stop part-way, the run prints a warning.
 

@@ -219,7 +219,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             rebind()
         }
     }
-    @Published var length = Length(rawValue: UserDefaults.standard.string(forKey: "length") ?? "") ?? .short {
+    @Published var length = Length.saved(UserDefaults.standard.string(forKey: "length")) {
         didSet { UserDefaults.standard.set(length.rawValue, forKey: "length"); tune() }
     }
     @Published var motion = AcceptMotion(rawValue: UserDefaults.standard.string(forKey: "motion") ?? "") ?? .trail {
@@ -234,7 +234,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         watcher.peeking.store(peeking, ordering: .relaxed)
         watcher.retune()  // A ghost already up has no card yet, or keeps one it no longer should.
     }
-    @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
+    @Published var often = Often.saved(UserDefaults.standard.string(forKey: "often")) {  // Long and Always by default: the most keys saved, English and Korean (docs/measuring.md, 2026-11-10)
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
     /// Try It is where people judge Halftype first, so there it shows a suggestion whenever it can, as long as it can, whatever the settings say.
@@ -739,19 +739,23 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
 
 }
 
-/// Replayed on English test threads with Qwen 3.5 0.8B (docs/measuring.md): grey characters right 77%, 61%, 50%.
+/// Long (the default) and Short: the floor that ends a suggestion. Medium, between them, saved within 1% of Long and went on
+/// 2026-11-10; a saved `medium` reads as Long. docs/measuring.md.
 enum Length: String, CaseIterable {
-    case short, medium, long
-    var floor: Double { switch self { case .short: Stop.floor; case .medium: -2; case .long: -3 } }
+    case long, short
+    var floor: Double { switch self { case .short: Stop.floor; case .long: -3 } }
+    static func saved(_ raw: String?) -> Length { Length(rawValue: raw == "medium" ? "long" : raw ?? "") ?? .long }
 }
 
-/// The same replay: suggestions shown on 12%, 20% and 31% of requests, with the first word right 89%, 75% and 58% of the time.
 enum Personal: String, CaseIterable { case off, compare, on }
 
+/// The window's Suggestions: Always (no gate, the default), When Likely (`more`) and When Sure (`normal`, fitted for 80% precision).
+/// Less went on 2026-11-10, against the product's priority of more right suggestions; a saved `less` reads as When Sure.
+/// The raw values are the settings saved before the labels changed. docs/measuring.md.
 enum Often: String, CaseIterable {
-    case less, normal, more, always
-    /// Always has no check at all, unmeasured: what Try It shows.
-    var threshold: Double { switch self { case .less: -0.3; case .normal: Gate.threshold; case .more: -1.2; case .always: -.infinity } }
+    case always, more, normal
+    var threshold: Double { switch self { case .normal: Gate.threshold; case .more: -1.2; case .always: -.infinity } }
+    static func saved(_ raw: String?) -> Often { Often(rawValue: raw == "less" ? "normal" : raw ?? "") ?? .always }
 }
 
 extension App: SPUUpdaterDelegate {

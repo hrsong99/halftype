@@ -322,7 +322,7 @@ enum EndToEnd {
     static func demo(model: String, to dir: String, sentences: [String]) {
         guard let engine = try? Engine(modelPath: model) else { return check(false, "engine loads") }
         defer { engine.unload() }
-        // General's Length Long and How Often More, which anyone can choose: longer suggestions, shown more often. On these sentences it beat
+        // General's Length Long and Suggestions When Likely, which anyone can choose: longer suggestions, shown more often. On these sentences it beat
         // Try It's own (no cap, always) by a few keys (2026-11-09).
         let tuning = Tuning(floor: Length.long.floor, threshold: Often.more.threshold)
         Tuning.current.withLock { $0 = tuning }
