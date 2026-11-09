@@ -51,9 +51,11 @@ struct Rival {
 }
 
 let lab = NSHomeDirectory() + "/halftype-lab-private"
+/// `--halftype-app <path>`: a build to measure in place of the installed app. It must carry the Developer ID, whose Accessibility grant it shares.
+let halftypeApp = CommandLine.arguments.firstIndex(of: "--halftype-app").map { CommandLine.arguments[$0 + 1] } ?? "/Applications/Halftype.app"
 let rivals: [Rival] = [
     Rival(name: "macos", bundleID: nil, path: nil, unit: .all, korean: false, touchID: false),
-    Rival(name: "halftype", bundleID: "app.halftype.Halftype", path: "/Applications/Halftype.app", unit: .word, korean: true, touchID: false),
+    Rival(name: "halftype", bundleID: "app.halftype.Halftype", path: halftypeApp, unit: .word, korean: true, touchID: false),
     Rival(name: "cotypist", bundleID: "app.cotypist.Cotypist", path: "/Applications/Cotypist.app", unit: .word, korean: true, touchID: false),
     Rival(name: "cotabby", bundleID: "com.jacobfu.tabby", path: lab + "/rivals/Cotabby.app", unit: .word, korean: true, touchID: true),
     Rival(name: "keytype", bundleID: "com.pattonium.KeyType", path: lab + "/rivals/KeyType.app", unit: .word, korean: true, touchID: true),
