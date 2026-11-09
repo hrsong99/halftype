@@ -19,7 +19,7 @@ You need macOS 26 on Apple Silicon. Open Halftype: a short welcome asks for Acce
 
 It keeps itself up to date, with signed and notarized releases. Turn off Update Automatically under General and it only tells you, with a dot on its menu-bar icon, when there's a new version. To build it yourself, with Swift 6.2 (Xcode 26), run `scripts/build-app.sh` and open `build/Halftype.app`.
 
-**[Get early-bird news](https://docs.google.com/forms/d/e/1FAIpQLSeIekyjCphdrP9pZ9zaj5P90plPghgLAJ3zYof6PEji1uo9UQ/viewform)**: an email or two a month at most. Personal Model, a model that learns how you write, trained on your Mac, will be paid when it ships, and free for good for anyone who installed Halftype before then.
+**[Get early-bird news](https://docs.google.com/forms/d/e/1FAIpQLSeIekyjCphdrP9pZ9zaj5P90plPghgLAJ3zYof6PEji1uo9UQ/viewform)**: an email or two a month at most, and a note when Personal Model ships: a model that learns how you write, for $4 a month.
 
 | The window | Your models |
 |---|---|

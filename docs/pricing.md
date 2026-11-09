@@ -16,8 +16,7 @@
 - **Fake door first:** a "Personal Model: $4/mo" row in the window, that opens the early-bird form in the browser: the app can't count clicks without new network use, so form sign-ups against running installs (`scripts/usage.sh`) are the measure, before building the trainer or billing.
 
 ## Early birds
-- Anyone who installs before Pro launches gets Personal Model free for good, retraining included: each retrain costs ~$0.15 (above), so the promise is affordable. It doesn't cover other future cloud features.
-- Who counts: the first day in the install's Stats (`Tally.since`, never pruned) is before launch day. Resetting Stats loses it; a separate first-launch date would fix that if it matters.
+- **No free-for-good promise (dropped 2026-11-09, before anyone signed up).** Training runs on our GPUs, so every user costs money on every retrain. Early birds get news first; any launch discount is decided at launch.
 
 ## Copy: say only what's true
 - True: "Your model keeps learning. Halftype retrains it as your writing grows, and new base models come with updates."
