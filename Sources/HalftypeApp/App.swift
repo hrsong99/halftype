@@ -86,6 +86,22 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         return all.first { name(ofAdapter: $0) == chosen } ?? all.last
     }
     static func name(ofAdapter path: String) -> String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
+    /// Its `<name>.json`, if the run wrote one.
+    static func info(ofAdapter path: String) -> AdapterInfo? {
+        (try? Data(contentsOf: URL(fileURLWithPath: path).deletingPathExtension().appendingPathExtension("json"))).flatMap { try? JSONDecoder().decode(AdapterInfo.self, from: $0) }
+    }
+    /// Makes this one the personal model, until another is chosen or it's deleted. Choosing the one in use changes nothing.
+    func use(adapter path: String) {
+        guard let activePath, App.adapterFile(for: activePath) != path else { return }
+        adapterChoice = App.name(ofAdapter: path)
+    }
+    /// The adapter and its `.json`, off the disk. Deleting the chosen one goes back to the newest left.
+    func delete(adapter path: String) {
+        let url = URL(fileURLWithPath: path)
+        try? FileManager.default.removeItem(at: url)
+        try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("json"))
+        if adapterChoice == App.name(ofAdapter: path) { adapterChoice = "" } else { objectWillChange.send() }
+    }
     /// Read on each request, so a new setting or midnight takes effect at once.
     /// Compare puts it on odd dates only, so the Stats page can set days with it against days without.
     @Sendable static func adapterToday(model: String) -> String? {
