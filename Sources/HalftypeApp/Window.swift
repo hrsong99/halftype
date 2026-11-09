@@ -10,7 +10,7 @@ struct Root: View {
     @ObservedObject var app: App
     /// Stays in memory, and goes when the window closes.
     @State private var draft = ""
-    /// Shut until the toggle opens it, until the window closes.
+    /// Starts shut; only the toggle changes it, and it resets when the window closes.
     @State private var open: Bool
     /// The sections whose top has passed the middle of the window.
     @State private var passed: Set<Page>
