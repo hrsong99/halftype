@@ -193,7 +193,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var motion = AcceptMotion(rawValue: UserDefaults.standard.string(forKey: "motion") ?? "") ?? .trail {
         didSet { UserDefaults.standard.set(motion.rawValue, forKey: "motion"); panel.motion = motion }
     }
-    /// Hold ⌃⌥ over a suggestion to see what the model was given. Off by default.
+    /// Lets a tap of ⌃⌥ show what the model was given over each suggestion. Off by default.
     @Published var peeking = UserDefaults.standard.bool(forKey: "peeking") {
         didSet { UserDefaults.standard.set(peeking, forKey: "peeking"); peek() }
     }
