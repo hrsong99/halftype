@@ -173,6 +173,7 @@
   </section>
 
   <!-- 7. Compare -->
+  <!-- DRAFT, not for deploy: numbers from bench/compare/results/2026-11-09.md @ 27b109a; John holds them until the new defaults and engine are measured. -->
   <section class="section" id="compare" aria-labelledby="compare-h">
     <div class="wrap">
       <div class="head"><h2 id="compare-h">Right more often. Quiet when it isn't sure.</h2></div>
@@ -180,23 +181,23 @@
         <figure class="chart">
           <figcaption>First word right</figcaption>
           <div class="row us"><span>Halftype</span><span class="track"><span style="--w:100%"></span></span><b>59.0%</b></div>
-          <div class="row"><span>KeyType</span><span class="track"><span style="--w:40.7%"></span></span><b>24.0%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:37.3%"></span></span><b>22.0%</b></div>
           <div class="row"><span>Cotabby</span><span class="track"><span style="--w:4.7%"></span></span><b>2.8%</b></div>
           <p class="note">Of the suggestions shown, the first word was the next word typed.</p>
         </figure>
         <figure class="chart">
           <figcaption>Grey text on screen</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:21.7%"></span></span><b>15.1%</b></div>
-          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:57.6%"></span></span><b>40.0%</b></div>
-          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>69.5%</b></div>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:21.6%"></span></span><b>15.1%</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:57.1%"></span></span><b>40.0%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>70.0%</b></div>
           <p class="note">Share of keys with a suggestion showing. Halftype shows one only when it's fairly sure.</p>
         </figure>
         <figure class="chart">
           <figcaption>Keys saved</figcaption>
-          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>26.8%</b></div>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:65.3%"></span></span><b>17.5%</b></div>
-          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:17.5%"></span></span><b>4.7%</b></div>
-          <p class="note">KeyType saves the most: 9.3 points more than Halftype (95% CI 5.4&ndash;14.5), ahead in 15 of 16 sentences. The score doesn't charge for reading a wrong suggestion.</p>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>24.7%</b></div>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:70.9%"></span></span><b>17.5%</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:19%"></span></span><b>4.7%</b></div>
+          <p class="note">At the defaults. The score doesn't charge for reading a wrong suggestion.</p>
         </figure>
       </div>
       <div class="table-scroll" tabindex="0" role="region" aria-label="Every measurement">
@@ -205,7 +206,7 @@
         <thead><tr><th scope="col">App</th><th scope="col">Keys saved (95% CI)</th><th scope="col">Suggestion showing</th><th scope="col">First word right</th><th scope="col">Delay p50 / p90</th><th scope="col">Memory typing</th><th scope="col">Model in RAM</th><th scope="col">CPU typing</th><th scope="col">Download</th><th scope="col">Memory at rest</th></tr></thead>
         <tbody>
           <tr class="us"><th scope="row">Halftype 0.1.12</th><td>17.5% (12.1&ndash;23.0)</td><td>15.1%</td><td>59.0%</td><td>220 / 268 ms</td><td>350 MB</td><td>2.36 GB</td><td>23%</td><td>3.4 GB</td><td>79 MB</td></tr>
-          <tr><th scope="row">KeyType 1.8</th><td>26.8% (19.8&ndash;34.4)</td><td>69.5%</td><td>24.0%</td><td>185 / 275 ms</td><td>664 MB</td><td>1.23 GB</td><td>13%</td><td>1.27 GB</td><td>&ndash;</td></tr>
+          <tr><th scope="row">KeyType 1.8</th><td>24.7% (18.7&ndash;31.4)</td><td>70.0%</td><td>22.0%</td><td>72 / 253 ms</td><td>640 MB</td><td>1.23 GB</td><td>13%</td><td>1.27 GB</td><td>&ndash;</td></tr>
           <tr><th scope="row">Cotabby 0.6.2</th><td>4.7% (0.9&ndash;9.5)</td><td>40.0%</td><td>2.8%</td><td>226 / 407 ms</td><td>285 MB</td><td>3.58 GB</td><td>15%</td><td>3.85 GB</td><td>185 MB</td></tr>
           <tr><th scope="row">Cotypist 2026.5.2</th><td colspan="7">Not measured: it showed no suggestion in the test window</td><td>2.98 GB</td><td>383 MB</td></tr>
           <tr><th scope="row">macOS predictions</th><td colspan="9">Not measured: they showed no suggestion in the test window</td></tr>
