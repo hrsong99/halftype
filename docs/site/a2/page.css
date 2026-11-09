@@ -154,7 +154,7 @@ h1 { font-size: var(--t-display); line-height: .98; margin-top: var(--s3); }
 .shot { width: 100%; max-width: 528px; height: auto; justify-self: center; border-radius: 22px; box-shadow: 0 32px 64px -32px rgba(29,28,26,.3); }
 
 /* 7. compare */
-.charts { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); }
+.charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s3); }
 .chart { margin: 0; background: rgba(255,255,255,.6); border-radius: 20px; padding: var(--s3); box-shadow: 0 0 0 .5px var(--line); display: flex; flex-direction: column; gap: 12px; }
 .chart figcaption { font-weight: 600; margin-bottom: var(--s1); }
 .row { display: grid; grid-template-columns: 5.2em 1fr 4.4em; align-items: center; gap: 12px; }
