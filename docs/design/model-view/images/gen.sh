@@ -1,5 +1,5 @@
 #!/bin/zsh
-# One Codex image call per prompt: ./gen.sh G H I
+# One Codex image call per prompt: ./gen.sh g-popover h-xray i-docked
 here=${0:A:h}
 for k in "$@"; do (
   work=$(mktemp -d); cp "$here/today.jpg" "$work/"

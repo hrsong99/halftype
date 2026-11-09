@@ -6,7 +6,7 @@ What the model sees today: the screen text before the field (Accessibility, up t
 
 - `index.html`: options A–F built as HTML, on one invented chat moment (`Sounds good, see you tomo` → `rrow at the`, with stop and Gate numbers that follow the shipped rules), plus image ideas G–I.
 - `options.png`: a frozen screenshot of A–F (dark).
-- `images/`: Codex image ideas `G.png`, `H.png`, `I.png`, with `*.prompt.txt` and `gen.sh`. `today.jpg` (a live TextEdit ghost from accept-motion) was passed as a reference. The `.jpg` copies are what the page loads.
+- `images/`: Codex image ideas `g-popover`, `h-xray`, `i-docked` (.png originals, .jpg for the page), with `*.prompt.txt` and `gen.sh`. `today.jpg` (a live TextEdit ghost from accept-motion) was passed as a reference.
 
 Recommendation: B, an inspector panel opened from the menu bar. It needs no engine change and can't cover your typing. C, hold ⌃⌥ to peek at the caret, if you'd rather have it where you look.
 

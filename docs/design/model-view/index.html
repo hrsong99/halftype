@@ -91,9 +91,9 @@ const OPTIONS=[
 ];
 const grid=document.getElementById('grid');
 OPTIONS.forEach(([l,n,s,t])=>grid.insertAdjacentHTML('beforeend',`<div class="card"><h2><b>${l}</b>${n}</h2>${s}<p class="note">${t}</p></div>`));
-const IMGS=[["G","Glass popover at the caret","images/G.jpg","A take on C as a glass card pointing at the ghost. Worth taking: the 'held back' chip on the half-typed word, and pills that read faster than a table. It would cover the chat it quotes, so it needs C's hold to show."],
- ["H","X-ray in a mail app","images/H.jpg","A take on F. Worth taking: the glowing outline on the app's own text, and the hint pill at the bottom. Wrong in one place: the typed text isn't 'context', it's the prompt's last line."],
- ["I","Docked inspector, Web Inspector style","images/I.jpg","A take on B as a docked window. Worth taking: Live dots and a one-line Decision. Its runner-up list (interrupting 10%, invasive 0.7%) is the best answer to 'why', but it needs the engine to keep the top few logits per step. That's the change I said to add only if B leaves you wanting it."]];
+const IMGS=[["G","Glass popover at the caret","images/g-popover.jpg","A take on C as a glass card pointing at the ghost. Worth taking: the 'held back' chip on the half-typed word, and pills that read faster than a table. It would cover the chat it quotes, so it needs C's hold to show."],
+ ["H","X-ray in a mail app","images/h-xray.jpg","A take on F. Worth taking: the glowing outline on the app's own text, and the hint pill at the bottom. Wrong in one place: the typed text isn't 'context', it's the prompt's last line."],
+ ["I","Docked inspector, Web Inspector style","images/i-docked.jpg","A take on B as a docked window. Worth taking: Live dots and a one-line Decision. Its runner-up list (interrupting 10%, invasive 0.7%) is the best answer to 'why', but it needs the engine to keep the top few logits per step. That's the change I said to add only if B leaves you wanting it."]];
 const imgs=document.getElementById('imgs');
 IMGS.forEach(([l,n,src,t])=>imgs.insertAdjacentHTML('beforeend',`<div class="card"><h2><b>${l}</b>${n}</h2><img src="${src}" alt="${n}" onerror="this.closest('.card').remove()"><p class="note">${t}</p></div>`));
 document.getElementById('mode').onclick=e=>{const d=document.documentElement;const on=d.dataset.mode!=='dark';d.dataset.mode=on?'dark':'';e.target.textContent=on?'Light':'Dark'};
