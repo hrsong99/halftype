@@ -318,6 +318,14 @@ let meta = """
 try? meta.write(toFile: out + "/meta.md", atomically: true, encoding: .utf8)
 
 NSApplication.shared.setActivationPolicy(.regular)
+// An Edit menu, as every real app has: KeyType puts in its suggestion with ⌘V, which does nothing in an app without one.
+let editMenu = NSMenu(title: "Edit")
+editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+let menuBar = NSMenu(), appItem = NSMenuItem(), editItem = NSMenuItem()
+appItem.submenu = NSMenu()
+editItem.submenu = editMenu
+menuBar.addItem(appItem); menuBar.addItem(editItem)
+NSApplication.shared.mainMenu = menuBar
 Thread {
     let field = onMain { Field() }
     let capture = Capture(field: field)
