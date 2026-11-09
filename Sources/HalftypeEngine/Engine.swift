@@ -310,6 +310,7 @@ final class Vocab {
         if keyStarts.isEmpty { indexKeys() }
         let codes = keyCodes[Int(keyStarts[t])..<Int(keyStarts[t + 1])]
         guard codes.prefix(need.keys.count).elementsEqual(need.keys.prefix(codes.count)) else { return false }
+        if bytes[e - 1] < 0x80 { return true }  // As before: a piece ending in ASCII passes, even one with invalid bytes before.
         // As `need.agrees(tail:)`, from the index.
         let rest = Int(keyRests[t])
         guard rest > 0, codes.count < need.keys.count else { return true }
@@ -321,7 +322,7 @@ final class Vocab {
         return ok
     }
 
-    /// The same, the way it was before the index of rests: decoding each piece again. For tests.
+    /// The check as it was before the index of rests, decoding each piece again, for tests to compare `allows` with.
     func allowsByDecoding(_ t: Int, _ need: Constraint) -> Bool {
         guard allowed[t] else { return false }
         if need.isDone { return true }
@@ -331,7 +332,10 @@ final class Vocab {
             guard bytes[s] == wanted, Vocab.agrees(bytes[s..<e], need.bytes) else { return false }
             return e - s <= need.bytes.count || need.agrees(tail: bytes[(s + need.bytes.count)..<e])
         }
-        return need.agrees(tail: bytes[s..<e])
+        if !need.held.isEmpty { return need.agrees(tail: bytes[s..<e]) }
+        let codes = Constraint.keyCodes(bytes[s..<e]).codes
+        guard codes.prefix(need.keys.count).elementsEqual(need.keys.prefix(codes.count)) else { return false }
+        return bytes[e - 1] < 0x80 || need.agrees(tail: bytes[s..<e])
     }
 
     /// In bytes, as a token can end inside a Hangul character.
