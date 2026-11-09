@@ -9,6 +9,8 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - **https://halftype.app serves `docs/site/a2`** (publish with `docs/site/deploy.sh`) **and repeats the README's claims and numbers.** Change them together, and redeploy.
 - **Every number carries how it was measured**, here or in `docs/measuring.md`. Remeasure rather than edit one by hand.
 
+- **Product priority (John, 2026-11-09): more right suggestions beat fewer wrong ones.** He ignores a bad ghost and takes a good one fast, so tune for keys saved and right ghosts per key; report wrong ones, don't optimise for them. This outranks the precision-first gate in `docs/how-it-works.md` #2.
+
 ## Commands
 - Tests: `swift test --disable-keychain -j 2`. Add `HALFTYPE_MODEL=<gguf>` for the model tests, which otherwise skip.
 - App: `scripts/build-app.sh`, output `build/Halftype.app`. Renamed from Itda on 2026-11-08, everywhere: bundle ID `app.halftype.Halftype`, modules, repo `hrsong99/halftype`, cask `halftype`. `moveFromItda` carries the old folder and settings over once. Checkouts are `halftype` and `halftype-train` (the private repo below), the lab `~/halftype-lab-private`, signing `~/.config/halftype-signing` and the `halftype-signing` keychain; `itda*` symlinks to them stay for old T3 history, and `halftype-learn` points at `halftype-train` (the lab's checkout until 2026-11-10; `local-autocomplete`'s bench2 scripts call its `lab/run-model.sh`). Only the tag `bench-1`'s `itda-replay` keeps the old name. The app needs `Halftype_HalftypeApp.bundle` (the model logos) in Contents/Resources, which `build-app.sh` copies, or `Bundle.module` stops it at launch.
@@ -18,7 +20,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 - Usage: `scripts/usage.sh` (GitHub download counts; the app sends nothing). Pricing and the early-bird list: `docs/pricing.md`.
 - Always pass `--disable-keychain`: without it the first SwiftPM download of llama.cpp can hang on keychain credentials.
 - **`scripts/e2e.sh` takes the user's keyboard and cursor focus while it runs. Ask them first, every time.** A 60 s pause in typing doesn't mean they have stopped using the Mac. Unit tests and reviews don't take focus.
-- **`bench/compare/run.sh` (the typing comparison with other apps) takes the keyboard, pointer, front window and input source for ~50 minutes and launches rival apps. Ask first, every time;** `--check` is safe.
+- **`bench/compare/run.sh` (the typing comparison with other apps) takes the keyboard, pointer, front window and input source for ~40 minutes and launches rival apps. Ask first, every time;** `--check` is safe.
 - The Mac has limited memory: run one heavy build or model at a time, and don't steal focus.
 - Motion in the window: suggestions appear at once and never animate (they change on every key), and nothing resizes or moves on a Tab; the one motion is a quick glint over the words just taken (`GlintView`). John found a whole-field glint and a 0.6% breathe both bad. In other apps the host's text rarely sits exactly where the ghost was, so a Tab's motion (`AcceptMotion`, Trail or Flash in General) is drawn from the caret rects the host reports, never over letters.
 - `docs/icon/generate.sh` makes icon options, with Codex's image tool. `docs/icon/build.sh d` rebuilds `Resources/`. The window's `Mark` (Window.swift) draws `docs/icon/menubar.svg`'s paths by hand: change the logo, change it too.
