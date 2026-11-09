@@ -48,7 +48,7 @@ func sentences(_ lang: String) -> [(id: String, text: String)] {
     }
 }
 
-/// Halftype is measured at its defaults: Short, Normal, the default model, no personal model. What the user set is put back after.
+/// Halftype is measured at its defaults: Long length, Always suggestions, the default model, no personal model. What the user set is put back after.
 let halftypeDefaults = UserDefaults(suiteName: "app.halftype.Halftype")!
 let halftypeKeys = ["length", "often", "personal", "modelPath"]
 var halftypeSaved: [String: Any]? = nil
@@ -83,7 +83,7 @@ func preflight() -> Bool {
     }
     if chosen.contains(where: { $0.name == "halftype" }) {
         let set = halftypeKeys.compactMap { k in halftypeDefaults.object(forKey: k).map { "\(k)=\($0)" } }
-        print("  --   halftype runs at its defaults (Short, Normal, Qwen 3.5 0.8B, no personal model)" +
+        print("  --   halftype runs at its defaults (Long, Always, Qwen 3.5 0.8B, no personal model)" +
               (set.isEmpty ? "" : "; your settings \(set.joined(separator: ", ")) are put back when it quits"))
         let model = NSHomeDirectory() + "/Library/Application Support/Halftype/Qwen3.5-0.8B-Q4_K_M.gguf"
         line(FileManager.default.fileExists(atPath: model), "Halftype's default model is downloaded")

@@ -29,4 +29,4 @@ Each line is typed with no screen context, synchronously: every position waits f
 
 ## Results, 8 November 2026
 
-`results/summary.md`, at the shipped Short and Normal settings. Saved, whole lines (100 lines, 25 per group), against Qwen 3.5 0.8B with a 95% bootstrap CI over lines: Qwen 3.5 2B +9.6 points (+7.7 to +11.6), Kanana 1.5 +13.4 (+10.7 to +16.1), Gemma 4 E2B +15.7 (+12.8 to +18.7). The gap is widest on quotes (+17 to +29) and idioms (+10 to +21), and 4 to 9 points on stock phrases and article prose. Run times alone, M-series, sharing the Mac: 3.2, 6.3, 4.9 and 6.1 minutes for Qwen 0.8B, Qwen 2B, Kanana and Gemma.
+`results/summary.md`, at Short and Normal, the defaults then (Normal is now When Sure). Saved, whole lines (100 lines, 25 per group), against Qwen 3.5 0.8B with a 95% bootstrap CI over lines: Qwen 3.5 2B +9.6 points (+7.7 to +11.6), Kanana 1.5 +13.4 (+10.7 to +16.1), Gemma 4 E2B +15.7 (+12.8 to +18.7). The gap is widest on quotes (+17 to +29) and idioms (+10 to +21), and 4 to 9 points on stock phrases and article prose. Run times alone, M-series, sharing the Mac: 3.2, 6.3, 4.9 and 6.1 minutes for Qwen 0.8B, Qwen 2B, Kanana and Gemma.

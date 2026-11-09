@@ -108,7 +108,7 @@ public enum Stop {
     }
 }
 
-/// The window's Length and How Often: a floor for `Stop.cut` and a threshold for the gate. Read once per request.
+/// The window's Length and Suggestions: a floor for `Stop.cut` and a threshold for the gate. Read once per request.
 /// The defaults are the fitted values; the others trade right grey text for more of it (docs/measuring.md).
 public struct Tuning: Sendable, Equatable {
     public var floor: Double

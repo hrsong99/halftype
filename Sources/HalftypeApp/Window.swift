@@ -917,13 +917,13 @@ private struct GeneralPage: View {
                     Toggle("", isOn: $app.updatesAutomatically).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
                 }
             }
-            Row(title: "Length", note: "Longer suggestions are wrong more often.") {
-                Picker("", selection: $app.length) { Text("Short").tag(Length.short); Text("Medium").tag(Length.medium); Text("Long").tag(Length.long) }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 220)
-            }
-            Row(title: "How Often", note: "More often means more wrong ones.") {
-                Picker("", selection: $app.often) { Text("Less").tag(Often.less); Text("Normal").tag(Often.normal); Text("More").tag(Often.more); Text("Always").tag(Often.always) }
+            Row(title: "Suggestions", note: "Always shows every guess; ignore the wrong ones.") {
+                Picker("", selection: $app.often) { Text("Always").tag(Often.always); Text("When Likely").tag(Often.more); Text("When Sure").tag(Often.normal) }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 280)
+            }
+            Row(title: "Length", note: "Short ends sooner, so more of what it shows is right.") {
+                Picker("", selection: $app.length) { Text("Long").tag(Length.long); Text("Short").tag(Length.short) }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 160, alignment: .trailing)
             }
             // Under its title at full width, as System Settings' Appearance: beside it, three tiles crush the title in a small window.
             VStack(alignment: .leading, spacing: 8) {

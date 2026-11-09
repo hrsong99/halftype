@@ -72,7 +72,7 @@ final class Watcher: @unchecked Sendable {
     /// The host, as this layer reads it: `Reader`, or a fake.
     var read: (AXUIElement) -> Reading? = { Reader.read($0) }
     var traits: (AXUIElement, Reading) -> FieldTraits? = { Reader.traits($0, before: $1.field.before, skipped: $1.skipped) }
-    /// How Often's gate, read per answer. Tests fix it, as any App() in another suite retunes the shared one.
+    /// The Suggestions setting's gate, read per answer. Tests fix it, as any App() in another suite retunes the shared one.
     var threshold: () -> Double = { Tuning.current.withLock { $0.threshold } }
     /// Read on the main thread, as TIS requires, and kept here.
     let koreanInput = Atomic<Bool>(false)

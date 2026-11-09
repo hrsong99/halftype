@@ -8,6 +8,19 @@ import Synchronization
 import Testing
 @testable import HalftypeApp
 
+@Suite struct SettingsTests {
+    @Test func savedValuesKeepTheirMeaningAndRemovedOnesMapToTheNearest() {
+        #expect(Often.saved("less") == .normal)
+        #expect(Length.saved("medium") == .long)
+        #expect(Often.saved(nil) == .always)
+        #expect(Length.saved(nil) == .long)
+        for o in Often.allCases { #expect(Often.saved(o.rawValue) == o) }
+        for l in Length.allCases { #expect(Length.saved(l.rawValue) == l) }
+        #expect(Often.allCases.map(\.rawValue) == ["always", "more", "normal"])
+        #expect(Length.allCases.map(\.rawValue) == ["long", "short"])
+    }
+}
+
 @Suite struct SlicingTests {
     @Test func slicesBySelectionNotLength() throws {
         let t3Empty = try #require(Reader.slice("\n", CFRange(location: 0, length: 0)))

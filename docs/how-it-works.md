@@ -28,7 +28,7 @@ llama.cpp, in process: greedy; output must fit what was held out, by bytes or 2-
         stop at newline, punctuation, 8 tokens, or the word that takes it below e^-1; the latest request wins
   |
   v
-Gate: P(first word | it fits what was typed) >= How Often's threshold -- no -> no suggestion   (default Always: no gate)
+Gate: P(first word | it fits what was typed) >= the Suggestions setting's threshold -- no -> no suggestion   (default Always: no gate)
   |
   v
 Grey text at the caret, in a panel that takes no focus; Tab can take only what was drawn
@@ -56,7 +56,7 @@ Every number is from a replay of real typing, scored by exact match, on an M5. H
 | # | Decision | Evidence | Rejected |
 |---|---|---|---|
 | 1 | Hold out the half-typed word and force it back | Useful mid-word in English 7.7% to 50.8% (paired, n=130, Gemma; 95% CI of the gain +34 to +52 points). Requiring at least two characters saved: 7.7% to 37.7% | Trimming the output afterwards; matching strings token by token |
-| 2 | Gate on the first word's probability among tokens that fit, one threshold per How Often setting; the default, since 2026-11-10, is Always, no gate (John's call: more right suggestions beat fewer wrong ones; +10 points of keys saved, English and Korean, measuring.md) | At Normal, -0.7: English 82-85% right at 45-49% coverage on three models. A plain first-token gate at the same precision covers only 11-13%. No gate: 50-53% right | Mean or minimum logprob, length rules, a cumulative floor |
+| 2 | Gate on the first word's probability among tokens that fit, one threshold per Suggestions setting (When Sure -0.7, When Likely -1.2); the default, since 2026-11-10, is Always, no gate (John's call: more right suggestions beat fewer wrong ones; +10 points of keys saved, English and Korean, measuring.md) | At When Sure (once Normal), -0.7: English 82-85% right at 45-49% coverage on three models. A plain first-token gate at the same precision covers only 11-13%. No gate: 50-53% right | Mean or minimum logprob, length rules, a cumulative floor |
 | 3 | Withhold a composing syllable, force the output to fit its 2-set keys | Keys saved per request mid-syllable, public Korean: 0 sending it, 0.34 withholding, 0.69 forced (n=1,099). More wrong ghosts: 18.2% against 8.4% | Sending it, which can never match; going silent under an input method |
 | 4 | Tab takes one word | Characters saved per request: 0.92 next word, 1.69 Tab repeated, 0.26 accepting everything at once | Tab accepts all |
 | 5 | A frozen head and a window start that moves in steps | 8.4 prompt tokens per key across all requests, English. The next key after a 226-token prompt: 1 token, 13 ms, against 450 ms from nothing | `--cache-reuse`, a window that slides per key |
