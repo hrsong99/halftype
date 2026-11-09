@@ -42,3 +42,12 @@ John: "What about D's writing but very short and concise, maybe 'Halftype saved 
 - `round4/options.png`: frozen screenshot.
 
 Recommendation: C with flat bars ("of typing" keeps the claim to what we measure; G's empty tracks read as missed goals on real data, and its gradient repeats the headline's colour). Pick: pending.
+
+## Round 5: C with fewer lines
+
+John: "C looks good but there's so many horizontal lines everywhere? Show me some improved designs of C (inc different designs for the other stats)"
+
+- `round5/index.html`: A round 4's C; B the same figures with no dividers; C the stats as one quiet grey line under the sentence; D labels above numbers; E soft chips; F the stats under the chart; G chart and stats in one white panel. Every option but A keeps only the chart's baseline (G: none).
+- `round5/options.png`: frozen screenshot.
+
+Recommendation: C (the quiet line). Pick: pending.
