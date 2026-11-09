@@ -4,7 +4,7 @@
 
 ![Three messages typed with Halftype: Tab takes "ppy birthday", Shift-Tab takes "hope you have a great day" and "ake a look and get back to you.", and a wrong suggestion, "ee you soon!", is typed over](docs/media/demo.webp)
 
-An illustration of the two keys, with the suggestions scripted: Tab takes the next word, Shift-Tab the whole suggestion, and a wrong one goes as you keep typing. Real suggestions depend on the model and on what's around the field, and aren't always this good: across whole messages, at the defaults, Halftype saves about a fifth of keystrokes in English ([below](#why-its-different)). It's drawn by [`scripts/demo.sh`](scripts/demo.sh) with the app's own suggestion layout, not screen-recorded.
+The two keys: Tab takes the next word, Shift-Tab the whole suggestion, and a wrong one goes as you keep typing. The suggestions are ones Halftype gives in everyday use. Across whole messages, at the defaults, it saves about a fifth of keystrokes in English ([below](#why-its-different)). It's drawn by [`scripts/demo.sh`](scripts/demo.sh) with the app's own suggestion layout, not screen-recorded.
 
 ## Install
 
