@@ -50,6 +50,7 @@
 - **Message:** in 5 seconds a stranger knows what it is, that it runs on the Mac, and how to get it.
 - **Motion:** one signature motion per section at most; easing, not linear; nothing loops faster than 6 s except typing; `prefers-reduced-motion` shows still, finished states; no layout shift; no scroll-jacking.
 - **Honesty:** rules 3, 6 and 7 hold; nothing invented.
+- **Shippable:** carries the live page's head: `og:*`, `twitter:card`, canonical (absolute https://halftype.app URLs) and a 1200×630 `share.jpg` of its own hero. H lacked these until /elegant caught it before publish.
 - **Responsive and solid:** 1440, 1024, 768, 390 and 320 wide with no sideways scroll or overlap; tap targets 44 px; text contrast AA; alt text; focus rings; zero console errors.
 
 Score each 1–10. **The bar: an average of 8, nothing under 7.** At most 3 review rounds per worker.
