@@ -9,6 +9,8 @@ public struct Tally: Codable, Equatable, Sendable {
         public var typed = 0, saved = 0
         /// Some of the day ran with the personal model, or without it. Both make a mixed day, which no comparison counts.
         public var withModel = false, withoutModel = false
+        /// The personal models (adapter file names) the with-model hours ran: one, or the day can't stand for one model.
+        public var adapters: [String] = []
         public init(shown: Int = 0, taken: Int = 0, tabs: Int = 0, characters: Int = 0, typed: Int = 0, saved: Int = 0) {
             (self.shown, self.taken, self.tabs, self.characters, self.typed, self.saved) = (shown, taken, tabs, characters, typed, saved)
         }
@@ -19,6 +21,7 @@ public struct Tally: Codable, Equatable, Sendable {
             (shown, taken, tabs, characters, typed, saved) = (try int(.shown), try int(.taken), try int(.tabs), try int(.characters), try int(.typed), try int(.saved))
             withModel = try c.decodeIfPresent(Bool.self, forKey: .withModel) ?? false
             withoutModel = try c.decodeIfPresent(Bool.self, forKey: .withoutModel) ?? false
+            adapters = try c.decodeIfPresent([String].self, forKey: .adapters) ?? []
         }
         static func + (a: Day, b: Day) -> Day {
             Day(shown: a.shown + b.shown, taken: a.taken + b.taken, tabs: a.tabs + b.tabs, characters: a.characters + b.characters, typed: a.typed + b.typed, saved: a.saved + b.saved)
@@ -38,8 +41,9 @@ public struct Tally: Codable, Equatable, Sendable {
 
     public mutating func shown(on date: Date = Date(), _ calendar: Calendar = .current) { days[Self.key(date, calendar), default: Day()].shown += 1 }
     /// Nil for another model than the one adapters are trained on, which leaves the day out of any comparison.
-    public mutating func mark(personal: Bool?, on date: Date = Date(), _ calendar: Calendar = .current) {
+    public mutating func mark(personal: Bool?, adapter: String? = nil, on date: Date = Date(), _ calendar: Calendar = .current) {
         let key = Self.key(date, calendar)
+        if personal == true, let adapter, !days[key, default: Day()].adapters.contains(adapter) { days[key, default: Day()].adapters.append(adapter) }
         if personal != false { days[key, default: Day()].withModel = true }
         if personal != true { days[key, default: Day()].withoutModel = true }
     }
@@ -92,9 +96,12 @@ public struct Tally: Codable, Equatable, Sendable {
     }
 
     /// Days with counted keys wholly with or wholly without the personal model, suggestions or none: how many, and their sum.
-    public func sum(personal: Bool) -> (count: Int, sum: Day) {
-        let picked = days.values.filter { $0.typed > 0 && $0.withModel == personal && $0.withoutModel != personal }
+    /// With `adapter`, only the with-model days that ran that one alone.
+    public func sum(personal: Bool, adapter: String? = nil) -> (count: Int, sum: Day) {
+        let picked = days.values.filter { $0.typed > 0 && $0.withModel == personal && $0.withoutModel != personal && (adapter == nil || $0.adapters == [adapter!]) }
         return (picked.count, picked.reduce(Day(), +))
     }
+    /// Each personal model that ran a whole day alone, in name order (train.sh dates them).
+    public var adapters: [String] { Set(days.values.compactMap { $0.adapters.count == 1 ? $0.adapters[0] : nil }).sorted() }
     public var since: String? { days.keys.min() }
 }

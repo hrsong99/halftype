@@ -74,12 +74,18 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Only in the app itself: unit tests and the e2e runner make an App too, and once wrote their counts into the real file.
     nonisolated(unsafe) static var tallyFile: URL? = Bundle.main.bundleIdentifier == "app.halftype.Halftype" ? support.appendingPathComponent("stats.json") : nil
 
-    /// A personal LoRA trained on the user's own text for this model (lab/dogfood on the `learn` branch): the last by name, which train.sh
-    /// dates, in `adapters/<model file>/`. An adapter fits only the model it was trained on, so each model has its own folder.
-    static func adapterFile(for model: String) -> String? {
+    /// Personal LoRAs trained on the user's own text for this model (lab/dogfood on the `learn` branch), in `adapters/<model file>/`,
+    /// by name, which train.sh dates. An adapter fits only the model it was trained on, so each model has its own folder.
+    static func adapters(for model: String) -> [String] {
         let folder = support.appendingPathComponent("adapters").appendingPathComponent(URL(fileURLWithPath: model).lastPathComponent).path
-        return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }.max().map { folder + "/" + $0 }
+        return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }.sorted().map { folder + "/" + $0 }
     }
+    /// The one chosen in General (by name, kept per name so it holds across models' folders), else the newest.
+    static func adapterFile(for model: String) -> String? {
+        let all = adapters(for: model), chosen = UserDefaults.standard.string(forKey: "adapter") ?? ""
+        return all.first { name(ofAdapter: $0) == chosen } ?? all.last
+    }
+    static func name(ofAdapter path: String) -> String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
     /// Read on each request, so a new setting or midnight takes effect at once.
     /// Compare puts it on odd dates only, so the Stats page can set days with it against days without.
     @Sendable static func adapterToday(model: String) -> String? {
@@ -95,13 +101,21 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             count { $0.mark(personal: nil) }  // A day the setting changed on is mixed, whatever was sampled.
         }
     }
+    /// Empty: the newest. Read by `adapterFile` on each request, so the engine reloads with it on the next suggestion.
+    @Published var adapterChoice = UserDefaults.standard.string(forKey: "adapter") ?? "" {
+        didSet {
+            UserDefaults.standard.set(adapterChoice, forKey: "adapter")
+            count { $0.mark(personal: nil) }
+        }
+    }
     private var engine: Engine?
     /// Counts the event, and marks today with the model's state as it is now, in one change.
     private func count(_ event: (inout Tally) -> Void) {
         var next = tally
         event(&next)
         if let activePath {
-            App.markPersonal(&next, hasAdapter: App.adapterFile(for: activePath) != nil, applied: engine?.applied.withLock { $0 },
+            let file = App.adapterFile(for: activePath)
+            App.markPersonal(&next, adapter: file.map(App.name(ofAdapter:)), applied: engine?.applied.withLock { $0 },
                              wanted: App.adapterToday(model: activePath) != nil)
         }
         tally = next
@@ -109,9 +123,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// A model with no adapter compares nothing, so its day is mixed. Otherwise only once the engine has caught up with today:
     /// unloaded (nil), just past midnight, or an adapter that won't load says nothing.
     /// shortcut: a broken adapter's hours, then a working one's the same day, count as a personal day; track failed loads if adapters ship.
-    static func markPersonal(_ tally: inout Tally, hasAdapter: Bool, applied: Bool?, wanted: @autoclosure () -> Bool) {
-        if !hasAdapter { tally.mark(personal: nil) }
-        else if let applied, applied == wanted() { tally.mark(personal: applied) }
+    static func markPersonal(_ tally: inout Tally, adapter: String?, applied: Bool?, wanted: @autoclosure () -> Bool) {
+        if adapter == nil { tally.mark(personal: nil) }
+        else if let applied, applied == wanted() { tally.mark(personal: applied, adapter: adapter) }
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     var ready: Bool { activePath != nil }

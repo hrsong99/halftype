@@ -626,6 +626,18 @@ struct StatsPage: View {
                 Figure(value: b.formatted(.percent.precision(.fractionLength(1))), label: "without it, \(without.count) \(without.count == 1 ? "day" : "days")")
             }
             .padding(.top, 28)
+            // Each version's days, once more than one has run a whole day: which checkpoint to keep.
+            if app.tally.adapters.count > 1 {
+                HStack(alignment: .lastTextBaseline, spacing: 36) {
+                    ForEach(app.tally.adapters, id: \.self) { name in
+                        let one = app.tally.sum(personal: true, adapter: name)
+                        if let share = one.sum.byTab {
+                            Figure(value: share.formatted(.percent.precision(.fractionLength(1))), label: "\(name), \(one.count) \(one.count == 1 ? "day" : "days")")
+                        }
+                    }
+                }
+                .padding(.top, 16)
+            }
         }
     }
 }
@@ -833,6 +845,16 @@ private struct GeneralPage: View {
                 Row(title: "Personal Model", note: "Trained on your writing. Compare leaves it off every other day, for Stats.") {
                     Picker("", selection: $app.personal) { Text("Off").tag(Personal.off); Text("Compare").tag(Personal.compare); Text("On").tag(Personal.on) }
                         .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+                }
+                let all = App.adapters(for: path).map(App.name(ofAdapter:))
+                if all.count > 1 {
+                    Row(title: "Version", note: "Stats sets each one's days side by side.") {
+                        Picker("", selection: $app.adapterChoice) {
+                            Text("Newest").tag("")
+                            ForEach(all.reversed(), id: \.self) { Text($0).tag($0) }
+                        }
+                        .labelsHidden().frame(width: 220)
+                    }
                 }
             }
             Row(title: "Show What the Model Sees", note: "Press ⌃⌥ to show it over suggestions, again to hide. On screen only, never saved.") {

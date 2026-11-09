@@ -1027,7 +1027,7 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
     @Test func aDayIsMarkedPersonalOnlyOnceTheEngineMatchesToday() {
         func marked(_ hasAdapter: Bool, _ applied: Bool?, _ wanted: Bool) -> (with: Bool, without: Bool) {
             var tally = Tally()
-            App.markPersonal(&tally, hasAdapter: hasAdapter, applied: applied, wanted: wanted)
+            App.markPersonal(&tally, adapter: hasAdapter ? "a" : nil, applied: applied, wanted: wanted)
             let day = tally.days.values.first ?? Tally.Day()
             return (day.withModel, day.withoutModel)
         }
