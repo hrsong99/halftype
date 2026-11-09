@@ -147,7 +147,20 @@ November 2026, the same replay (`itda-replay` at tag `bench-1`, threshold -0.7) 
 - Qwen 3.5 0.8B ties Qwen 3.5 2B on English within the CI, at 41% of the size and with the quickest first word, so it was the default until 2026-11-09. What it gives up is Korean: own messages 0.60 against 0.88 keys per request (CI -0.52 to -0.10).
 - Qwen 3.5 0.8B against Kanana 1.5, the old default, in full: English test 922 of 1,131 shown right (81.5%), coverage 47.1%. Whole messages: English 21.6% against 22.1% (800 keys), Korean public 4.8% against 8.8% (1,200 keys), Korean own 10.8% against 13.4% (1,800 keys). Korean public suggestions on Hangul right when shown: 20.9% against 33.7%. First displayable word p50: 53, 97 and 102 ms against 60, 102 and 114 ms. No model call on 47%, 20% and 26% of keys against 48%, 27% and 28%.
 - Gemma 4 E2B became the default on 2026-11-09, John's call: the most right when shown after Kanana among the full-precision models, and the most saved on whole messages of those that don't show more wrong ones (Granite does). It costs 6.5 times Qwen 3.5 0.8B's file, and its Korean is a little weaker (0.54 against 0.60). Its Korean whole messages and coverage haven't been measured; its memory is at the top of this file; `scripts/e2e.sh --measure <gguf>` and the replay above would give them.
-- MiniCPM5-2B Base (OpenBMB, Apache-2.0, 1.56 GB Q4_K_M; the top open model under 4B on Artificial Analysis in 2026-11), not added: against Gemma 4 E2B in the same walk (`halftype-replay --stride 1`, shipped policy, public main at 9170f88, `lab/cloud/walk.py` on Modal L4s, `lab/score.py`, thread-bootstrap 95% CI), English test (120 messages, 10,389 keys) saved 25.0% against 25.4% (-0.34, -1.22 to +0.58), right when shown 72.5% against 70.7%; Korean public test (70 messages, 3,836 keys) 7.1% against 9.4% (-2.29, -4.20 to -0.35). A tie in English, worse in Korean, and Gemma wires only 1.48 GB of its file, so little memory to gain.
+- Artificial Analysis's top open models of 4B or under (2026-11), against Gemma 4 E2B in one walk: `halftype-replay --stride 1`, shipped policy, public main at 9170f88, `lab/cloud/walk.py` on Modal L4s (branch `minicpm-walk` in halftype-train), scored by `lab/score.py` with thread-bootstrap 95% CIs. Keys saved, change against Gemma's 25.4% on English test (120 messages, 10,389 keys) and 9.4% on Korean public test (70 messages, 3,836 keys). Q4_K_M files; base checkpoints where one exists. None was added.
+
+  | Model | File | English | Korean | English right when shown |
+  |---|---|---|---|---|
+  | Nanbeige 4.2 3B Base (Apache-2.0, looped layers) | 2.57 GB | **+1.91, +0.96 to +2.86** | -3.10, -4.89 to -1.23 | 71.0% against 70.7% |
+  | Nemotron 3 Nano 4B (instruct) | 2.84 GB | +0.74, -0.13 to +1.57 | -1.54, -3.43 to +0.42 | 70.7% |
+  | K2 Horizon 3.7B | 3.16 GB | -0.26, -1.21 to +0.74 | -3.62, -5.37 to -1.84 | 74.5% |
+  | MiniCPM5-2B Base | 1.56 GB | -0.34, -1.22 to +0.58 | -2.29, -4.20 to -0.35 | 72.5% |
+  | G9v3 3B | 1.84 GB | -0.43, -1.35 to +0.45 | -1.56, -3.36 to +0.21 | 70.2% |
+  | LFM2.5 2.6B Base | 1.67 GB | -0.98, -1.71 to -0.23 | -1.46, -3.19 to +0.27 | 72.2% |
+  | MiniCPM5-1B Base | 0.69 GB | -2.61, -3.55 to -1.70 | -3.62, -5.36 to -1.76 | 74.0% |
+  | EXAONE 4.0 1.2B (instruct, non-commercial licence) | 0.81 GB | -11.63, -13.15 to -10.21 | -4.85, -6.85 to -2.91 | 51.9% |
+
+  Only Nanbeige 4.2 beats Gemma in English, and every model is worse in Korean. Nanbeige's Mac latency and memory are unmeasured: its looped layers run each token through the stack more than once, and it took twice Gemma's time on the Korean walk on the L4 (1,174 s against 535 s). Gemma wires only 1.48 GB of its file, so the smaller files save download, not memory.
 - Not tried: models of 3.5 GB or more, community fine-tunes, and Ternary Bonsai's smaller packings, which need a fork of llama.cpp. Gemma 4's tokenizer fix of 3 November 2026 changed no weights and came after these files.
 
 ## The defaults since 2026-11-10: Long, Always, and a two-key minimum
