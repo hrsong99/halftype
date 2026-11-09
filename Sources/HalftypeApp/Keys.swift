@@ -74,8 +74,7 @@ class KeyTap: @unchecked Sendable {
             if rest.isEmpty { held = (armed.pid, Date() + holdFor) }
             composing = strokes?.last.map { TwoSetLayout.letterCodes.contains(Int64($0.code)) } ?? false  // As if the user typed it.
             // Finishing a syllable can add more than the text typed: `그 달` to `그 다라가` is two characters, from `가` alone.
-            // Words with the syllable it finishes: `하` to `한 다음` is two.
-            return (strokes, next.text, max(0, to.count - armed.before.count), Tally.words(in: armed.ghost.composing + next.text))
+            return (strokes, next.text, max(0, to.count - armed.before.count), Accept.words(armed.ghost, next))
         }
     }
 
