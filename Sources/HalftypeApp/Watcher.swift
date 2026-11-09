@@ -43,6 +43,9 @@ final class Watcher: @unchecked Sendable {
     private var process = Priming.Process(pid: 0, launched: nil)
     private var context: String?
     private var suggestion: (anchor: String, text: String)?
+    /// The ⌃⌥ card for `suggestion`, made only while `peeking`. Typed text, so in memory only.
+    private var peek: Peek?
+    let peeking = Atomic<Bool>(false)
     private var last: Reading?
     /// The tap's generation when `last` was read: a later key means it may no longer be what the field holds.
     private var lastGeneration = 0
@@ -287,7 +290,7 @@ final class Watcher: @unchecked Sendable {
     private func forget() {
         completer?.cancel()
         request += 1
-        (context, suggestion, last) = (nil, nil, nil)
+        (context, suggestion, peek, last) = (nil, nil, nil, nil)
         tap.state.withLock { ($0.composing, $0.pending) = (false, nil) }
         hideOnMain()
     }
@@ -384,8 +387,9 @@ final class Watcher: @unchecked Sendable {
         let anchor = field.committed
         request += 1
         let id = request
+        let context = context?.count ?? 0
         completer.suggest(prefix: prompt.prefix, fragment: prompt.fragment, composing: prompt.composing) { [weak self] result in
-            self?.queue.async { self?.received(id: id, anchor: anchor, result) }
+            self?.queue.async { self?.received(id: id, anchor: anchor, prompt: prompt, context: context, result) }
         }
         unloadWhenIdle()
     }
@@ -411,7 +415,7 @@ final class Watcher: @unchecked Sendable {
     }
 
     /// Nil is the model's last word: nothing to suggest. A gate of nil is a first word still being written, not an answer yet.
-    private func received(id: Int, anchor: String, _ result: Suggestion?) {
+    private func received(id: Int, anchor: String, prompt: Prompt, context: Int, _ result: Suggestion?) {
         guard id == request else { return }
         guard tap.canTake else {
             last = nil  // Never shown, so the same field must ask again once Tab can be taken.
@@ -427,6 +431,8 @@ final class Watcher: @unchecked Sendable {
         guard let last else { return }
         let text = result.text
         suggestion = (anchor, text)
+        peek = peeking.load(ordering: .relaxed)
+            ? Peek.make(result.tokens, prompt: prompt, context: context, shown: text, tuning: Tuning.current.withLock { $0 }) : nil
         suggestionNumber = id  // One request is one suggestion, however many times it streams.
         // A field that has already moved on brings its own update.
         let field = settled(last.field)
@@ -435,6 +441,7 @@ final class Watcher: @unchecked Sendable {
 
     private func display(_ ghost: Ghost, _ field: Field, _ reading: Reading, _ generation: Int) {
         let twoSet = twoSet.load(ordering: .relaxed)
+        let left = ghost.composing.count + ghost.remainder.count  // of the suggestion, before 2-set trims what it can't type
         var ghost = ghost
         if twoSet { ghost.remainder = TwoSetLayout.typable(ghost.remainder) }
         // Only as offered: typing through a word has to see it out, or the ghost would blink off for its last letters.
@@ -458,7 +465,8 @@ final class Watcher: @unchecked Sendable {
         }
         let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
                              color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
-                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid())
+                             mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid(),
+                             peek: peek.map { var peek = $0; peek.taken = peek.shown - left; return peek })
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before, suggestion: suggestionNumber)
         let binding = binding
         /// Back on the queue, and only for the binding and input this draw was made under: input during the draw has queued a newer report.
@@ -497,7 +505,7 @@ final class Watcher: @unchecked Sendable {
     func retune() { queue.async { [self] in clearSuggestion() } }
 
     private func clearSuggestion() {
-        suggestion = nil
+        (suggestion, peek) = (nil, nil)
         completer?.cancel()
         request += 1
         hideOnMain()

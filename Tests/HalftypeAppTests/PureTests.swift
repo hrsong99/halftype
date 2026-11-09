@@ -25,6 +25,40 @@ import Testing
     }
 }
 
+@Suite struct PeekTapTests {
+    @Test func aTapOfCtrlOptTogglesButAShortcutOrTypingDoesnt() {
+        var tap = PeekTap()
+        tap.key()  // typing before the tap
+        #expect(tap.flags([.control]) == nil)
+        #expect(tap.flags([.control, .option]) == nil)
+        #expect(tap.flags([.option]) == false)
+        #expect(tap.flags([]) == nil)
+        // ⌃⌥←: a shortcut, not a tap.
+        _ = tap.flags([.control, .option]); tap.key()
+        #expect(tap.flags([]) == nil)
+        // ⇧ too asks for the whole prompt; Caps Lock changes nothing; ⌘ spoils it.
+        _ = tap.flags([.control, .option, .shift, .capsLock])
+        #expect(tap.flags([.option, .shift, .capsLock]) == true)
+        // Decided before ⇧ is let go: an Esc KeyTap swallows then can't make a tap of it again.
+        _ = tap.flags([.shift])
+        #expect(tap.flags([]) == nil)
+        _ = tap.flags([.control, .option, .command])
+        #expect(tap.flags([]) == nil)
+        _ = tap.flags([.control])
+        #expect(tap.flags([]) == nil)
+        // ⌃ kept down after a tap: ⌃X then ⌥ is no second tap.
+        _ = tap.flags([.control, .option])
+        #expect(tap.flags([.control]) == false)
+        tap.key()
+        _ = tap.flags([.control, .option])
+        #expect(tap.flags([.control]) == nil)
+        #expect(tap.flags([]) == nil)
+        // ⌃ then ⌥, never together, under a held ⇧.
+        for held: NSEvent.ModifierFlags in [[.shift], [.shift, .control], [.shift], [.shift, .option], [.shift]] { #expect(tap.flags(held) == nil) }
+        #expect(tap.flags([]) == nil)
+    }
+}
+
 @Suite struct CaretTests {
     let frame = CGRect(x: 100, y: 100, width: 500, height: 100)
     @Test func markerThenPreviousEachOnlyWithHeight() {
@@ -991,17 +1025,18 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         #expect(await soon { seen.withLock { $0 } == .idle && !panel.isVisibleGhost })
     }
     @Test func aDayIsMarkedPersonalOnlyOnceTheEngineMatchesToday() {
-        func marked(_ hasAdapter: Bool, _ applied: Bool?, _ wanted: Bool) -> (with: Bool, without: Bool) {
+        func marked(_ hasAdapter: Bool, _ applied: Engine.Running?, _ wanted: String?) -> (with: Bool, without: Bool, adapters: [String]) {
             var tally = Tally()
             App.markPersonal(&tally, hasAdapter: hasAdapter, applied: applied, wanted: wanted)
             let day = tally.days.values.first ?? Tally.Day()
-            return (day.withModel, day.withoutModel)
+            return (day.withModel, day.withoutModel, day.adapters)
         }
-        #expect(marked(false, true, true) == (true, true), "no adapter: mixed, so out of the comparison")
-        #expect(marked(true, true, true) == (true, false))
-        #expect(marked(true, false, false) == (false, true))
-        #expect(marked(true, false, true) == (false, false), "the engine hasn't caught up with today")
-        #expect(marked(true, nil, true) == (false, false), "unloaded")
+        #expect(marked(false, .adapter("/a/old.gguf"), "/a/old.gguf") == (true, true, []), "no adapter: mixed, so out of the comparison")
+        #expect(marked(true, .adapter("/a/old.gguf"), "/a/old.gguf") == (true, false, ["old"]))
+        #expect(marked(true, .plain, nil) == (false, true, []))
+        #expect(marked(true, .plain, "/a/old.gguf") == (false, false, []), "the engine hasn't caught up with today")
+        #expect(marked(true, .adapter("/a/old.gguf"), "/a/new.gguf") == (false, false, []), "nor with a new version")
+        #expect(marked(true, nil, "/a/old.gguf") == (false, false, []), "unloaded")
     }
     @Test func aStreamedSuggestionIsShownOnce() async {
         let model = CountingCompleter(" there my friend")
@@ -1713,6 +1748,36 @@ final class FakeServer: URLProtocol {
         // The model list open in the smallest window, where it reaches the Settings hint and must cover it.
         try onScreen("15-window-640x440-picker", Root(app: app { ready($0); $0.why = .idle }, picking: true), CGSize(width: 640, height: 440))
         shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } })
+    }
+
+    /// The ⌃⌥ card on an invented suggestion, light and dark, in a real window behind everything: its material needs one.
+    @Test func peek() throws {
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let context = "Mina: did you get the tickets for saturday?\nMe: yes, two for the evening show\nMina: great, I'll book a table nearby\n"
+            + "Mina: are we still on for tomorrow?\nMina: I can meet at the station at 6"
+        let prompt = Prompt.make(context: context, before: "Perfect, thanks for sorting it all out.\n\nSounds good, see you tomo")
+        let tokens = [Token(bytes: Array(" tomorrow".utf8), logprob: -0.12), Token(bytes: Array(" at".utf8), logprob: -0.41),
+                      Token(bytes: Array(" the".utf8), logprob: -0.22), Token(bytes: Array(" station".utf8), logprob: -0.3)]
+        var peek = try #require(Peek.make(tokens, prompt: prompt, context: context.count, shown: "rrow at the", tuning: Tuning()))
+        peek.taken = 4  // "tomorrow" typed through
+        for (name, look, whole) in [("light", NSAppearance.Name.aqua, false), ("dark", .darkAqua, false), ("whole-dark", .darkAqua, true)] {
+            let host = NSHostingView(rootView: PeekCard(peek: peek, whole: whole))
+            let window = NSWindow(contentRect: CGRect(origin: .zero, size: host.fittingSize), styleMask: [.borderless], backing: .buffered, defer: false)
+            window.appearance = NSAppearance(named: look)
+            window.isOpaque = false
+            window.backgroundColor = look == .aqua ? .white : .black
+            window.contentView = host
+            window.orderBack(nil)
+            defer { window.orderOut(nil) }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+            let file = dir.appendingPathComponent("19-peek-\(name).png"), shot = Process()
+            try? FileManager.default.removeItem(at: file)
+            shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            shot.arguments = ["-x", "-o", "-l\(window.windowNumber)", file.path]
+            try shot.run()
+            shot.waitUntilExit()
+            #expect(NSImage(contentsOf: file) != nil, "no picture of the card")
+        }
     }
 
     /// The Stats page on Week, Month and All with docs/design/stats/sample-tally-2.json (made-up weeks ending 2026-11-09), in a real window behind everything.

@@ -627,6 +627,18 @@ struct StatsPage: View {
             }
             .padding(.top, 28)
         }
+        // Each version's days, once more than one has run a whole day: which checkpoint to keep. With Personal Model On there are no days without.
+        if app.tally.adapters.count > 1 {
+            HStack(alignment: .lastTextBaseline, spacing: 36) {
+                ForEach(app.tally.adapters, id: \.self) { name in
+                    let one = app.tally.sum(personal: true, adapter: name)
+                    if let share = one.sum.byTab {
+                        Figure(value: share.formatted(.percent.precision(.fractionLength(1))), label: "\(AdapterInfo.title(name: name)) version, \(one.count) \(one.count == 1 ? "day" : "days")")
+                    }
+                }
+            }
+            .padding(.top, 16)
+        }
     }
 }
 
@@ -714,9 +726,7 @@ private struct ModelsPage: View {
         Button(action: action) { Text(title).frame(maxWidth: .infinity) }.frame(width: Self.column)
     }
 
-    private var inUse: some View {
-        HStack(spacing: 5) { Circle().fill(Root.peach).frame(width: 6, height: 6); Text("In use").foregroundStyle(.secondary).font(.system(size: 12)) }
-    }
+    private var inUse: some View { InUse() }
 
     private var loading: some View {
         HStack(spacing: 5) { ProgressView().controlSize(.mini); Text("Loading").font(.system(size: 12)).foregroundStyle(.secondary) }.frame(width: Self.column)
@@ -736,6 +746,12 @@ private struct ModelsPage: View {
         } else {
             wide("Get") { app.use(model) }.disabled(app.downloading != nil)
         }
+    }
+}
+
+private struct InUse: View {
+    var body: some View {
+        HStack(spacing: 5) { Circle().fill(Root.peach).frame(width: 6, height: 6); Text("In use").foregroundStyle(.secondary).font(.system(size: 12)) }
     }
 }
 
@@ -806,6 +822,7 @@ private struct AppsPage: View {
 
 private struct GeneralPage: View {
     @ObservedObject var app: App
+    @State private var deletingAdapter: String?
     var body: some View {
         Plain(title: "General", note: "How much it suggests, and how you take it.") {
             Row(title: "Start at Login") { Toggle("", isOn: $app.startAtLogin).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden() }
@@ -834,11 +851,29 @@ private struct GeneralPage: View {
                     Picker("", selection: $app.personal) { Text("Off").tag(Personal.off); Text("Compare").tag(Personal.compare); Text("On").tag(Personal.on) }
                         .pickerStyle(.segmented).labelsHidden().frame(width: 220)
                 }
+                // Each trained version, newest first: a new one is used on arrival, and an older one can be used again or deleted.
+                let current = App.adapterFile(for: path)
+                ForEach(App.adapters(for: path).reversed(), id: \.self) { file in
+                    Row(title: AdapterInfo.title(name: App.name(ofAdapter: file)), note: App.info(ofAdapter: file)?.note ?? App.name(ofAdapter: file)) {
+                        Button { deletingAdapter = file } label: { Image(systemName: "trash") }
+                            .buttonStyle(.borderless).foregroundStyle(.secondary).help("Delete this version")
+                        if file == current { InUse().frame(width: 80) } else { Button { app.use(adapter: file) } label: { Text("Use").frame(maxWidth: .infinity) }.frame(width: 80) }
+                    }
+                    .padding(.leading, 16)
+                }
+            }
+            Row(title: "Show What the Model Sees", note: "Press ⌃⌥ to show it over suggestions, again to hide. On screen only, never saved.") {
+                Toggle("", isOn: $app.peeking).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
             }
             Row(title: "Next word") { key("Tab") }
             Row(title: "Whole suggestion") { key("⇧ Tab") }
             Row(title: "Hide the suggestion") { key("Esc") }
             Text("Everything runs on this Mac. Nothing you type is sent, and only counts are saved, never text.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 12)
+        }
+        .confirmationDialog("Delete the \(deletingAdapter.map { AdapterInfo.title(name: App.name(ofAdapter: $0)) } ?? "") version?", isPresented: Binding(get: { deletingAdapter != nil }, set: { if !$0 { deletingAdapter = nil } })) {
+            Button("Delete", role: .destructive) { if let deletingAdapter { app.delete(adapter: deletingAdapter) } }
+        } message: {
+            Text("It can't be brought back. Stats keeps its days.")
         }
     }
     private func key(_ name: String) -> some View {

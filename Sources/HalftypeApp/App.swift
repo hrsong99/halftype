@@ -74,11 +74,35 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Only in the app itself: unit tests and the e2e runner make an App too, and once wrote their counts into the real file.
     nonisolated(unsafe) static var tallyFile: URL? = Bundle.main.bundleIdentifier == "app.halftype.Halftype" ? support.appendingPathComponent("stats.json") : nil
 
-    /// A personal LoRA trained on the user's own text for this model (lab/dogfood on the `learn` branch): the last by name, which train.sh
-    /// dates, in `adapters/<model file>/`. An adapter fits only the model it was trained on, so each model has its own folder.
-    static func adapterFile(for model: String) -> String? {
+    /// Personal LoRAs trained on the user's own text for this model (lab/dogfood in the private halftype-train repo), in `adapters/<model file>/`,
+    /// by name, which train.sh dates. An adapter fits only the model it was trained on, so each model has its own folder.
+    static func adapters(for model: String) -> [String] {
         let folder = support.appendingPathComponent("adapters").appendingPathComponent(URL(fileURLWithPath: model).lastPathComponent).path
-        return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }.max().map { folder + "/" + $0 }
+        return ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".gguf") }
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }.map { folder + "/" + $0 }  // numbers as numbers: -10 after -9
+    }
+    /// The one chosen in General (by name, kept per name so it holds across models' folders), else the newest.
+    static func adapterFile(for model: String) -> String? {
+        let all = adapters(for: model), chosen = UserDefaults.standard.string(forKey: "adapter") ?? ""
+        return all.first { name(ofAdapter: $0) == chosen } ?? all.last
+    }
+    static func name(ofAdapter path: String) -> String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
+    /// Its `<name>.json`, if the run wrote one.
+    static func info(ofAdapter path: String) -> AdapterInfo? {
+        (try? Data(contentsOf: URL(fileURLWithPath: path).deletingPathExtension().appendingPathExtension("json"))).flatMap { try? JSONDecoder().decode(AdapterInfo.self, from: $0) }
+    }
+    /// Makes this one the personal model. An older one stays until another is chosen or it's deleted; the newest means always the newest,
+    /// so the next trained one takes over again. Choosing the one in use changes nothing.
+    func use(adapter path: String) {
+        guard let activePath, App.adapterFile(for: activePath) != path else { return }
+        adapterChoice = App.adapters(for: activePath).last == path ? "" : App.name(ofAdapter: path)
+    }
+    /// The adapter and its `.json`, off the disk. Deleting the chosen one goes back to the newest left.
+    func delete(adapter path: String) {
+        let url = URL(fileURLWithPath: path)
+        try? FileManager.default.removeItem(at: url)
+        try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("json"))
+        if adapterChoice == App.name(ofAdapter: path) { adapterChoice = "" } else { objectWillChange.send() }
     }
     /// Read on each request, so a new setting or midnight takes effect at once.
     /// Compare puts it on odd dates only, so the Stats page can set days with it against days without.
@@ -95,6 +119,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             count { $0.mark(personal: nil) }  // A day the setting changed on is mixed, whatever was sampled.
         }
     }
+    /// Empty: the newest. Read by `adapterFile` on each request, so the engine reloads with it on the next suggestion. A switch leaves the day
+    /// a with-model day: it names both versions, which keeps it out of each one's figures (`markPersonal` names only the loaded one).
+    @Published var adapterChoice = UserDefaults.standard.string(forKey: "adapter") ?? "" {
+        didSet { UserDefaults.standard.set(adapterChoice, forKey: "adapter") }
+    }
     private var engine: Engine?
     /// Counts the event, and marks today with the model's state as it is now, in one change.
     private func count(_ event: (inout Tally) -> Void) {
@@ -102,16 +131,17 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         event(&next)
         if let activePath {
             App.markPersonal(&next, hasAdapter: App.adapterFile(for: activePath) != nil, applied: engine?.applied.withLock { $0 },
-                             wanted: App.adapterToday(model: activePath) != nil)
+                             wanted: App.adapterToday(model: activePath))
         }
         tally = next
     }
     /// A model with no adapter compares nothing, so its day is mixed. Otherwise only once the engine has caught up with today:
-    /// unloaded (nil), just past midnight, or an adapter that won't load says nothing.
+    /// unloaded (nil), just past midnight, a new version not yet loaded, or an adapter that won't load says nothing.
     /// shortcut: a broken adapter's hours, then a working one's the same day, count as a personal day; track failed loads if adapters ship.
-    static func markPersonal(_ tally: inout Tally, hasAdapter: Bool, applied: Bool?, wanted: @autoclosure () -> Bool) {
-        if !hasAdapter { tally.mark(personal: nil) }
-        else if let applied, applied == wanted() { tally.mark(personal: applied) }
+    static func markPersonal(_ tally: inout Tally, hasAdapter: Bool, applied: Engine.Running?, wanted: @autoclosure () -> String?) {
+        guard hasAdapter else { return tally.mark(personal: nil) }
+        guard let applied, applied == (wanted().map { .adapter($0) } ?? .plain) else { return }
+        if case .adapter(let file) = applied { tally.mark(personal: true, adapter: name(ofAdapter: file)) } else { tally.mark(personal: false) }
     }
     /// A model is loaded and answering. Stays true if a later download or switch fails, as this one still works.
     var ready: Bool { activePath != nil }
@@ -193,6 +223,15 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     @Published var motion = AcceptMotion(rawValue: UserDefaults.standard.string(forKey: "motion") ?? "") ?? .trail {
         didSet { UserDefaults.standard.set(motion.rawValue, forKey: "motion"); panel.motion = motion }
     }
+    /// Lets a tap of ⌃⌥ show what the model was given over each suggestion. Off by default.
+    @Published var peeking = UserDefaults.standard.bool(forKey: "peeking") {
+        didSet { UserDefaults.standard.set(peeking, forKey: "peeking"); peek() }
+    }
+    func peek() {
+        panel.peekWatch.on = peeking
+        watcher.peeking.store(peeking, ordering: .relaxed)
+        watcher.retune()  // A ghost already up has no card yet, or keeps one it no longer should.
+    }
     @Published var often = Often(rawValue: UserDefaults.standard.string(forKey: "often") ?? "") ?? .normal {
         didSet { UserDefaults.standard.set(often.rawValue, forKey: "often"); tune() }
     }
@@ -250,6 +289,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         onboarding = !defaults.bool(forKey: "onboarded")
         tune()
         panel.motion = motion
+        peek()
         watcher.onShown = { [weak self] in self?.count { $0.shown() } }
         // Keys typed while off had no chance at a suggestion.
         // Only a key in our own window teaches: a Tab in another app while onboarding is open isn't the lesson.

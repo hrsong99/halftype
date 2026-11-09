@@ -103,7 +103,7 @@ public enum Stop {
     }
 
     /// Unicode's own Terminal_Punctuation covers Latin and CJK. `~` and `…` end casual Korean sentences and have no such property.
-    private static func endsClause(_ c: Character) -> Bool {
+    fileprivate static func endsClause(_ c: Character) -> Bool {
         c == "~" || c == "…" || c.unicodeScalars.first?.properties.isTerminalPunctuation == true
     }
 }
@@ -141,5 +141,67 @@ public enum Gate {
         guard let free = tokens.continuation(after: fragment), let text = decode(free),
               text.contains(where: Word.isPart) else { return nil }
         return free.logprob(through: Word.firstEnd(text), of: text)
+    }
+}
+
+/// What the model was given for one suggestion and how sure it was, word by word, for the card held up over a ghost. In memory only:
+/// it holds typed text, so it is never written or logged.
+public struct Peek: Equatable, Sendable {
+    public struct Step: Equatable, Sendable {
+        public var text: String
+        /// This word's own log probability, and the running sum through it, the one `Stop.floor` is held against.
+        public var logprob: Double
+        public var running: Double
+        /// False for the word the ghost stopped before.
+        public var kept: Bool
+        /// Where the word ends, in characters of the suggestion: taken once that much of it is typed or accepted.
+        public var end: Int
+    }
+
+    /// The whole prompt: the screen text the model was given, then the field's text up to the held word.
+    public var screen: String
+    public var field: String
+    /// The half-typed word and any composing syllable, held back and forced at the logits.
+    public var held: String
+    /// How much screen text was read as context, in characters.
+    public var context: Int
+    public var steps: [Step]
+    /// Why the ghost ends where it does, by the same rules as `Stop.cut`.
+    public enum End: Equatable, Sendable { case floor, punctuation, line, limit, model, writing }
+    public var end: End
+    public var floor: Double
+    public var threshold: Double
+    /// How long the suggestion was, and how much of it has since been typed or accepted: the model isn't asked again until you leave it.
+    public var shown: Int
+    public var taken = 0
+
+    /// Words already typed or accepted.
+    public func isTaken(_ step: Step) -> Bool { step.end <= taken }
+
+    /// The ghost's words with their numbers, then the first word it stopped before, if the model got that far. Nil with no word.
+    public static func make(_ tokens: [Token], prompt: Prompt, context: Int, shown: String, tuning: Tuning) -> Peek? {
+        guard let free = tokens.continuation(after: prompt.fragment), let text = decode(Array(free.prefix(Stop.maxTokens))) else { return nil }
+        // Never past a newline or just after terminal punctuation, as `Stop.cut`.
+        let stop = text.firstIndex { $0.isNewline || Stop.endsClause($0) }
+        let line = stop.map { text[$0].isNewline ? $0 : text.index(after: $0) } ?? text.endIndex
+        let sum = free.prefix(Stop.maxTokens)
+        var steps: [Step] = [], start = text.startIndex, before = 0.0
+        while start < line {
+            let end = Word.firstEnd(text[start..<line])
+            guard end > start, text[start..<end].contains(where: Word.isPart) else { break }
+            let running = sum.logprob(through: end, of: text)
+            let at = text[..<end].count, kept = at <= shown.count
+            // The first word whole, with the fragment it continues: "tomo" + "rrow" reads as "tomorrow", but " tomorrow" + " at" as "at".
+            steps.append(Step(text: (steps.isEmpty && text.first.map(Word.isPart) == true ? prompt.fragment : "") + text[start..<end], logprob: running - before, running: running, kept: kept, end: at))
+            if !kept { break }
+            (start, before) = (end, running)
+        }
+        guard !steps.isEmpty else { return nil }
+        let end: End = steps.last?.kept == false ? .floor
+            : stop.map { text[$0].isNewline ? .line : .punctuation }
+            ?? (tokens.contains(where: \.special) ? .model : free.count >= Stop.maxTokens ? .limit : .writing)
+        let screen = prompt.prefix.prefix(prompt.screenChars)  // its blank line dropped below
+        return Peek(screen: String(screen.dropLast(min(2, screen.count))), field: String(prompt.prefix.dropFirst(screen.count)), held: prompt.fragment + prompt.composing, context: context,
+                    steps: steps, end: end, floor: tuning.floor, threshold: tuning.threshold, shown: shown.count)
     }
 }

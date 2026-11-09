@@ -31,6 +31,7 @@ CPU: the shipped app, idle, 0.13% to 0.27% of a core over 60 s, loaded or unload
 ## Against other apps (landing page, 2026-11-09)
 
 Cotypist, Cotabby and KeyType at rest, each with its default model: the method, the numbers and the traps are in [site/compare/README.md](site/compare/README.md), with the script that measured them. While typing (speed from the screen, keys saved, first word right, memory, CPU, Korean mid-syllable), with macOS's predictions too: [bench/compare/README.md](../bench/compare/README.md), not run yet.
+- **To do, if we want it:** profile where Halftype's CPU goes while typing. In the 2026-11-09 typing run (`~/halftype-lab-private/compare/2026-11-09T135219Z/`) it used 23% of a core, against Cotabby's 15% on the same Gemma 4 E2B. Probably the extra suggestions it finishes (96% shown after a 1.5 s pause, against 44%), but not measured. Run `sample <pid> 30` on Halftype while `scripts/live-keys.swift` types (this takes the keyboard: ask John), and split the time between llama.cpp/Metal and our Swift. The suspect is `Vocab.pick` (Engine.swift), which checks Gemma's whole ~262k-token vocabulary on every token. Fix it only if it is a real share.
 - System-wide wired memory is useless while other agents run: it swung 4.9-7.1 GB with one app idle. Use `footprint -p`.
 - Before measuring Halftype the same way, check `pgrep -lf Halftype.app`: another session's dev build may already be running. Check `defaults read app.halftype.Halftype modelPath` too, as it may not be the default.
 

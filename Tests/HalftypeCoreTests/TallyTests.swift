@@ -38,6 +38,21 @@ import Testing
     #expect(tally.sum(personal: true).count == 0)
 }
 
+@Test func eachPersonalModelCountsOnlyTheDaysItRanAlone() throws {
+    let calendar = Calendar(identifier: .gregorian)
+    let day = { (d: Int) in calendar.date(from: DateComponents(year: 2026, month: 11, day: d, hour: 12))! }
+    var tally = Tally()
+    for (d, names) in [(10, ["mac"]), (11, ["cloud"]), (12, ["mac", "cloud", "mac"])] {
+        tally.typed(10, on: day(d), calendar)
+        for n in names { tally.mark(personal: true, adapter: n, on: day(d), calendar) }
+    }
+    #expect(tally.days["2026-11-12"]?.adapters == ["mac", "cloud"])
+    #expect(tally.adapters == ["cloud", "mac"])
+    #expect(tally.sum(personal: true).count == 3 && tally.sum(personal: true, adapter: "mac").count == 1)
+    let old = try JSONDecoder().decode(Tally.Day.self, from: Data(#"{"shown":1,"withModel":true}"#.utf8))  // before adapters were named
+    #expect(old.adapters.isEmpty && old.withModel)
+}
+
 @Test func periodsPageBackAndCompareTheSameDaysSoFar() throws {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
