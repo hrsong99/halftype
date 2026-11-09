@@ -82,5 +82,6 @@ import Testing
 @Test func tallyDaySaysTimeWordsAndOneKeyInN() {
     let day = Tally.Day(tabs: 936, characters: 4_143, typed: 27_095, saved: 4_154)
     #expect(day.words == 828 && abs(day.minutesSaved - 20.77) < 0.01 && day.oneIn == 8)
+    #expect(Tally.Day(tabs: 2, characters: 400).minutesSaved == 2)  // A day before keys were counted: its letters stand in.
     #expect(Tally.Day(characters: 9).oneIn == nil && Tally.Day(typed: 50).oneIn == nil)  // Before keys were counted, and nothing saved.
 }

@@ -554,13 +554,13 @@ struct StatsPage: View {
     /// "Halftype saved you 21 minutes of typing this week.", the time in the icon's glass.
     private func headline(_ day: Tally.Day, _ period: Tally.Period?) -> some View {
         let end = period == nil ? " so far." : back > 0 ? "." : span == .week ? " this week." : " this month."
-        let sentence = day.saved == 0 ? Text("Nothing typed by Tab" + end).foregroundStyle(.secondary)
+        let sentence = day.tabs == 0 ? Text("Nothing typed by Tab" + end).foregroundStyle(.secondary)
             : Text("Halftype saved you ").foregroundStyle(.secondary)
             + Text(Self.time(day.minutesSaved) + " of typing").fontWeight(.semibold)
                 .foregroundStyle(LinearGradient(colors: [Color(red: 0.36, green: 0.58, blue: 0.84), Color(red: 0.88, green: 0.50, blue: 0.32)], startPoint: .leading, endPoint: .trailing))
             + Text(end).foregroundStyle(.secondary)
         return sentence.font(.system(size: 22)).fixedSize(horizontal: false, vertical: true)
-            .help("Keys Tab typed for you, \(day.saved.formatted()), at 40 words a minute.")
+            .help("Keys Tab typed for you, at 40 words a minute (200 keys).")
     }
 
     /// "21 minutes", "1 hour, 12 minutes", or under a minute.
