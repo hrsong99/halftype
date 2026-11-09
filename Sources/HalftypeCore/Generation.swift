@@ -183,8 +183,8 @@ public struct Peek: Equatable, Sendable {
             guard end > start, text[start..<end].contains(where: Word.isPart) else { break }
             let running = sum.logprob(through: end, of: text)
             let kept = text[..<end].count <= shown.count
-            // The first word whole, with the fragment it continues: "tomo" + "rrow" reads as "tomorrow".
-            steps.append(Step(text: (steps.isEmpty ? prompt.fragment : "") + text[start..<end], logprob: running - before, running: running, kept: kept))
+            // The first word whole, with the fragment it continues: "tomo" + "rrow" reads as "tomorrow", but " tomorrow" + " at" as "at".
+            steps.append(Step(text: (steps.isEmpty && text.first.map(Word.isPart) == true ? prompt.fragment : "") + text[start..<end], logprob: running - before, running: running, kept: kept))
             if !kept { break }
             (start, before) = (end, running)
         }

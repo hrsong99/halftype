@@ -60,3 +60,10 @@ private func token(_ text: String, _ logprob: Double = 0) -> Token { Token(bytes
     let none = Prompt.make(context: "", before: "see you tomo")
     #expect(none.screenChars == 0)
 }
+
+@Test func aNewWordAfterAWholeOneStandsAlone() throws {
+    let prompt = Prompt.make(context: "", before: "see you tomorrow")
+    let tokens = [token(" tomorrow", -0.1), token(" at", -0.2), token(" six", -0.2)]
+    let peek = try #require(Peek.make(tokens, prompt: prompt, context: 0, shown: " at six", tuning: Tuning()))
+    #expect(peek.steps.map(\.text) == [" at", " six"])
+}
