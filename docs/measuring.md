@@ -159,8 +159,13 @@ November 2026, the same replay (`itda-replay` at tag `bench-1`, threshold -0.7) 
   | LFM2.5 2.6B Base | 1.67 GB | -0.98, -1.71 to -0.23 | -1.46, -3.19 to +0.27 | 72.2% |
   | MiniCPM5-1B Base | 0.69 GB | -2.61, -3.55 to -1.70 | -3.62, -5.36 to -1.76 | 74.0% |
   | EXAONE 4.0 1.2B (instruct, non-commercial licence) | 0.81 GB | -11.63, -13.15 to -10.21 | -4.85, -6.85 to -2.91 | 51.9% |
+  | Qwen 3.5 2B (shipped) | 1.28 GB | +0.23, -0.73 to +1.31 | -0.68, -2.64 to +1.31 | 70.8% |
+  | Qwen 3.5 0.8B (shipped) | 0.53 GB | -0.48, -1.56 to +0.55 | -3.70, -5.68 to -1.70 | 70.9% |
+  | Gemma 4 E4B Base | 5.34 GB | -10.61, -11.79 to -9.33 | -5.89, -7.85 to -4.08 | 58.6% |
 
-  Only Nanbeige 4.2 beats Gemma in English, and every model is worse in Korean. Nanbeige's Mac latency and memory are unmeasured: its looped layers run each token through the stack more than once, and it took twice Gemma's time on the Korean walk on the L4 (1,174 s against 535 s). Gemma wires only 1.48 GB of its file, so the smaller files save download, not memory.
+  Only Nanbeige 4.2 beats Gemma in English, and every model is worse in Korean. Nanbeige's Mac latency and memory are unmeasured: its looped layers run each token through the stack more than once, and it took twice Gemma's time on the Korean walk on the L4 (1,174 s against 535 s). Gemma wires only 1.48 GB of its file, so the smaller files save download, not memory. MiniCPM5-1B against Qwen 3.5 0.8B directly: -2.13, -3.01 to -1.23. Gemma 4 E4B's loss is unexplained: the same uploader and dates as E2B, and no model-specific code in the engine; not chased, as it would cost twice E2B's memory and latency anyway.
+
+  On the Mac (M5, `halftype-replay --stride 1` with Metal on the first 30 English test messages, untimed, one model at a time under `lab/run-model.sh`), first displayable word p50 / p95: Qwen 3.5 0.8B 27 / 67 ms, Gemma 4 E2B 55 / 115 ms, Gemma 4 E4B 136 / 307 ms, Nanbeige 4.2 155 / 345 ms. Metal memory, from the GGUF's tensors less Gemma's per-layer embeddings (which stay mapped, off the GPU; this gives 1.49 GB for E2B against the 1.47 GB measured, and 0.52 GB for Qwen 0.8B against 0.56 GB): Qwen 0.8B 0.52 GB, Qwen 2B 1.27 GB, Gemma E2B 1.49 GB, Nanbeige 2.57 GB, Gemma E4B 3.01 GB. vm_stat's system-wide wired count was too noisy to use here. At ~5 keys a second a key comes every ~200 ms, so Nanbeige's p95 misses the next key, which an untimed walk doesn't charge.
 - Not tried: models of 3.5 GB or more, community fine-tunes, and Ternary Bonsai's smaller packings, which need a fork of llama.cpp. Gemma 4's tokenizer fix of 3 November 2026 changed no weights and came after these files.
 
 ## The defaults since 2026-11-10: Long, Always, and a two-key minimum
