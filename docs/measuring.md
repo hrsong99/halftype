@@ -182,10 +182,25 @@ Tried and dropped: KeyType's cache of five candidates. Halftype already asks the
 
 ## Personal Model's gain, and how far to trust it
 
-Measured in `halftype-train` (`lab/cloud/README.md`, `lab/PLAYBOOK.md`), all by walk replay on Modal, checked against the Mac (2026-11-09: base 17.3 vs 17.1, adapter gain +5.42 vs +5.54):
-- **John's adapter on his own English (dev-screen, Gemma, 119 messages): +5.4 points of keys saved.** One person, his private messages, so nobody else can check it.
-- **25 public Stack Exchange authors, one adapter each: +3.03 (+2.55 to +3.49), median +3.22, gain for 25 of 25.** The number others can reproduce.
-- Both were at the old defaults (Short and Normal). **Remeasure both at Long and Always before a page quotes them**: the base rose by about 10 points there, and the adapter's gain may not add on top.
+At the app's defaults since 2026-11-10 (Length Long, Suggestions Always: no gate, a two-key minimum), English, Gemma 4 E2B, keys saved in
+whole messages with and without a personal model, paired by message, 95% intervals by bootstrap over threads (John) or authors (public).
+Walk replay of the shipped policy (`halftype-replay --threshold -inf --floor -3 --min-keys 2`, stride 2, Tab one word) on Modal, with
+public `main` merged into `halftype-train` first; Modal's walks match the Mac's within 0.2 points (`lab/cloud/README.md`). Measured 2026-11-10.
+
+| Whose writing | Messages | Without | With | Gain [95% CI] | Wrong ghosts per request |
+|---|---|---|---|---|---|
+| **25 public Stack Exchange authors**, one model each, trained on each one's 1,000 older comments | 1,000 newest (40 each) | 39.3% | 42.1% | **+2.86 [+2.49, +3.27]** | 0.55 → 0.56 |
+| **John**, his own English (agent prompts), held-out test set | 122 | 30.8% | 36.3% | **+5.49 [+4.13, +6.79]** | 0.58 → 0.56 |
+
+- **The public number is the one anyone can check.** Every one of the 25 authors gained (+1.34 to +5.00, median +2.64). Their text is the
+  2023-06-14 Stack Exchange dump (CC BY-SA 4.0), comments on english, scifi, rpg and workplace, 7 random authors per site with 1,040+ clean comments.
+  It's a proxy: Q&A comments, not typing in the app.
+- **John's is one person**, his private messages, so nobody else can check it. His model learned from 2,457 messages (typed and dictated), 2.5 times
+  the public authors' history, which fits the gain rising about 1.1 points each time a user's history triples (`lab/PLAYBOOK.md`). On his dev set,
+  where the recipe was chosen, it's +6.32 [+5.03, +7.81].
+- **It adds on top of the new defaults.** At the old ones (Short, Normal) it was +3.03 and +5.4 (dev); the base has since risen about 10 points,
+  and the gain held. Shown-and-right rose with it (+1.5 public, +4.9 John), and wrong ghosts didn't.
+- **Not measured:** Korean (no clean held-out set yet), timed replay, other models.
 - Neither is the rival benchmark: that types public text into a fresh install, with the personal model off. The landing page shows the gain as its own line, labelled as a replay (John, 2026-11-10).
 
 ## Suggestions and Length
