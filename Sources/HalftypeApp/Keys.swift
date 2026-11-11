@@ -58,6 +58,9 @@ class KeyTap: @unchecked Sendable {
         /// Any other input, a new ghost or the deadline ends it, so a host that refuses the insert keeps Tab for 0.3 s at most.
         var held: (pid: pid_t, until: Date)?
         var holdFor: TimeInterval = 0.3
+        /// Character keys pressed and characters Tab typed, for saved typing's typed-by-keys rule (`Visit.keeps`): not arrows, clicks or
+        /// shortcuts, so a paste stays a paste; a Tab's words are the user's choice.
+        var typed = 0
         /// The live tap, and the run loop of its thread once that has started.
         var port: CFMachPort?
         var loop: CFRunLoop?
@@ -74,6 +77,7 @@ class KeyTap: @unchecked Sendable {
             if rest.isEmpty { held = (armed.pid, Date() + holdFor) }
             composing = strokes?.last.map { TwoSetLayout.letterCodes.contains(Int64($0.code)) } ?? false  // As if the user typed it.
             // Finishing a syllable can add more than the text typed: `그 달` to `그 다라가` is two characters, from `가` alone.
+            typed += max(0, to.count - armed.before.count)
             return (strokes, next.text, max(0, to.count - armed.before.count), Accept.words(armed.ghost, next))
         }
     }
@@ -245,7 +249,10 @@ class KeyTap: @unchecked Sendable {
         if held { return true }
         if let through { onTypedThrough?(through.drawing, through.text, generation) }
         // A held key's repeats aren't typing: they would count as keys and, 30 a second, as the user's speed.
-        if plan == nil, Self.types(type, event, flags), event.getIntegerValueField(.keyboardEventAutorepeat) == 0 { onTyped?() }
+        if plan == nil, Self.types(type, event, flags), event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+            state.withLock { $0.typed += 1 }
+            onTyped?()
+        }
         onInput?(generation)
         return plan != nil || decision == .dismiss(swallow: true)
     }

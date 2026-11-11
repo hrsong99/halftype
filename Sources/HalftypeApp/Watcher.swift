@@ -42,6 +42,11 @@ final class Watcher: @unchecked Sendable {
     private var pid: pid_t = 0
     private var process = Priming.Process(pid: 0, launched: nil)
     private var context: String?
+    /// Saved typing: told on this queue what a visit to a field added, with its prompt. Set once, before binding; `saves` turns it on.
+    var onVisit: ((_ context: String, _ text: String, _ began: Date) -> Void)?
+    let saves = Atomic<Bool>(false)
+    /// This field since it was focused or last emptied: its text then and at the latest read, and the keys typed so far (`typed`).
+    private var visit: (arrival: String, latest: String, keys: Int, began: Date, seen: Int, pasted: Bool)?
     private var suggestion: (anchor: String, text: String)?
     /// The ⌃⌥ card for `suggestion`, made only while `peeking`. Typed text, so in memory only.
     private var peek: Peek?
@@ -290,6 +295,7 @@ final class Watcher: @unchecked Sendable {
 
     /// Everything tied to the focused field.
     private func forget() {
+        endVisit()
         completer?.cancel()
         request += 1
         (context, suggestion, peek, last) = (nil, nil, nil, nil)
@@ -309,6 +315,7 @@ final class Watcher: @unchecked Sendable {
             return record(tap.canTake ? .unreadable : .blocked)
         }
         lost = false
+        follow(reading.field)
         reading.field.mayCompose = mayCompose(reading)
         // One key brings several notifications; only the first of them finds anything new.
         if reading == last { return }
@@ -344,6 +351,32 @@ final class Watcher: @unchecked Sendable {
         // No ghost could be drawn: Teams, LibreOffice, or a native line start. A suggestion already held still follows above.
         guard reading.caret != nil else { return record(.noCaret) }
         ask(field)
+    }
+
+    /// Not in our own window (Try It, the lessons), whose text is ours. Secure fields and paused apps never get this far.
+    private func follow(_ field: Field) {
+        guard saves.load(ordering: .relaxed), pid != getpid() else { return visit = nil }
+        let text = field.before + field.after
+        let typed = typed
+        guard let v = visit else { return visit = (text, text, typed, Date(), typed, false) }
+        // Emptied, as when a message is sent: the visit ends with what it held just before. T3 holds a newline when empty.
+        if text.allSatisfy(\.isWhitespace) {
+            endVisit()
+            visit = (text, text, typed, Date(), typed, false)
+        } else if text != v.latest {
+            let pasted = v.pasted || Visit.pasted(Visit.added(from: v.latest, to: text)?.text ?? "", keys: typed - v.seen)
+            visit = (v.arrival, text, v.keys, v.began, typed, pasted)
+        }
+    }
+
+    private var typed: Int { tap.state.withLock { $0.typed } }
+
+    /// shortcut: a visit open at quit is lost, as the queue may be held by a hung host then; save on a timer if that loses much.
+    private func endVisit() {
+        guard let v = visit else { return }
+        visit = nil
+        guard saves.load(ordering: .relaxed), !v.pasted, let onVisit, let added = Visit.added(from: v.arrival, to: v.latest), Visit.keeps(added.text, keys: typed - v.keys) else { return }
+        onVisit(Visit.context(screen: context ?? "", before: added.before), added.text, v.began)
     }
 
     /// Anything but a line end right after the caret means the ghost would sit on top of it.

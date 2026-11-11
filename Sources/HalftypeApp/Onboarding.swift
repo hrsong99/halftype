@@ -136,6 +136,11 @@ struct Onboarding: View {
                 .buttonStyle(Ink()).padding(.top, 14)
             Toggle("Start at login", isOn: $atLogin).toggleStyle(.switch).tint(.black).controlSize(.small)
                 .font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 6)
+            // Saved typing is on for new installs (John, 2026-11-11), so a Personal Model can train on day one: said here, before any is saved.
+            Toggle("Save what I type, to train my Personal Model", isOn: $app.savesTyping).toggleStyle(.switch).tint(.black).controlSize(.small)
+                .font(.system(size: 12)).foregroundStyle(.secondary)
+            Text("Encrypted on this Mac, with the text on screen around it. Never passwords, never sent\nunless you start a training. Change it or delete it any time in General.")
+                .font(.system(size: 11)).foregroundStyle(.tertiary).multilineTextAlignment(.center)
         }
     }
 }

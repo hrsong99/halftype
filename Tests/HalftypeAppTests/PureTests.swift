@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import HalftypeCore
 import HalftypeEngine
 import class SwiftUI.NSHostingView
@@ -945,6 +946,50 @@ final class ClosingCompleter: Completer, @unchecked Sendable {
         watcher.read = { _ in nil }
         watcher.scheduleUpdate()
         #expect(await soon { seen.withLock { $0 } == .unreadable })
+    }
+    @Test func aSentMessageIsSavedOnceWithWhatWasAboveIt() async {
+        let saved = Mutex<[String]>([])
+        let watcher = watcher(Field(before: ""), completer: nil)
+        watcher.onVisit = { context, text, _ in saved.withLock { $0.append(context + "|" + text) } }
+        watcher.saves.store(true, ordering: .relaxed)
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        host.now.withLock { $0.field = Field(before: "sounds good to me") }
+        tap.state.withLock { $0.typed += 17 }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        host.now.withLock { $0.field = Field(before: "", after: "\n") }  // sent: T3 leaves a newline
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(saved.withLock { $0 } == ["|sounds good to me"])
+        host.now.withLock { $0.field = Field(before: "pasted in one go") }
+        tap.state.withLock { ($0.typed, $0.generation) = ($0.typed + 1, $0.generation + 8) }  // ⌘V, then arrows: no character keys
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        host.now.withLock { $0.field = Field(before: "") }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(saved.withLock { $0 }.count == 1, "a paste isn't kept")
+        host.now.withLock { $0.field = Field(before: "please check this") }
+        tap.state.withLock { $0.typed += 17 }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        host.now.withLock { $0.field = Field(before: "private pasted message") }  // select all, ⌘V
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        host.now.withLock { $0.field = Field(before: "") }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(saved.withLock { $0 }.count == 1, "nor typed text pasted over")
+        watcher.saves.store(false, ordering: .relaxed)
+        host.now.withLock { $0.field = Field(before: "typed with saving off") }
+        tap.state.withLock { $0.typed += 30 }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        host.now.withLock { $0.field = Field(before: "") }
+        watcher.scheduleUpdate()
+        await watcher.settle()
+        #expect(saved.withLock { $0 }.count == 1, "nothing once saving is off")
     }
     final class Reasons: Sendable {
         let last = Mutex<Watcher.Why?>(nil)
@@ -1966,5 +2011,68 @@ final class FakeServer: URLProtocol {
         defaults.set(old.path + "/late.gguf", forKey: "modelPath")
         moveFromItda(defaults, oldDomain: oldName, support: new)
         #expect(defaults.string(forKey: "modelPath") == new.path + "/late.gguf")
+    }
+}
+
+@Suite struct TypingTests {
+    private func store(_ key: SymmetricKey?, file: URL? = nil, deleted: @escaping () -> Bool = { true }) -> Typing {
+        Typing(file: file ?? FileManager.default.temporaryDirectory.appendingPathComponent("typing-\(UUID().uuidString).sealed"),
+               key: { _ in key }, deleteKey: deleted)
+    }
+
+    @Test func recordsComeBackSealedAndInOrder() throws {
+        let typing = store(SymmetricKey(size: .bits256))
+        defer { try? FileManager.default.removeItem(at: typing.file) }
+        let a = Typing.Record(date: Date(timeIntervalSince1970: 1), context: "Sam: lunch?\n\n", text: "sure, noon works")
+        let b = Typing.Record(date: Date(timeIntervalSince1970: 2), context: "", text: "see you there")
+        typing.append(a, began: Date()); typing.append(b, began: Date()); typing.append(b, began: Date())  // the same text twice running is kept once
+        #expect(typing.all() == [a, b])
+        let raw = try String(contentsOf: typing.file, encoding: .utf8)
+        #expect(!raw.contains("noon") && !raw.contains("lunch"))
+        let attributes = try FileManager.default.attributesOfItem(atPath: typing.file.path)
+        #expect((attributes[.posixPermissions] as? Int) == 0o600)
+        #expect(try typing.file.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+    }
+
+    @Test func anotherKeyOrATamperedLineReadsNothing() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("typing-\(UUID().uuidString).sealed")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let typing = store(SymmetricKey(size: .bits256), file: file)
+        typing.append(.init(date: Date(), context: "", text: "first message here"), began: Date())
+        _ = typing.all()
+        #expect(store(SymmetricKey(size: .bits256), file: file).all().isEmpty)
+        #expect(store(nil, file: file).all().isEmpty)
+        var data = try Data(contentsOf: file)
+        data[10] ^= 1
+        try data.write(to: file)
+        #expect(typing.all().isEmpty)
+    }
+
+    @Test func pruneDropsTheOldAndDeleteAllTakesTheKeyToo() throws {
+        var keyGone = false
+        let typing = store(SymmetricKey(size: .bits256), deleted: { keyGone = true; return true })
+        defer { try? FileManager.default.removeItem(at: typing.file) }
+        typing.append(.init(date: Date(timeIntervalSince1970: 1), context: "", text: "an old message"), began: Date())
+        typing.append(.init(date: Date(), context: "", text: "a new message"), began: Date())
+        typing.prune(before: Date(timeIntervalSince1970: 100))
+        #expect(typing.all().map(\.text) == ["a new message"])
+        let began = Date()
+        #expect(typing.deleteAll())
+        #expect(!FileManager.default.fileExists(atPath: typing.file.path) && keyGone)
+        typing.append(.init(date: Date(), context: "", text: "typed before the delete"), began: began.addingTimeInterval(-1))
+        #expect(!typing.exists, "a visit from before Delete All doesn't bring its text back")
+    }
+
+    @Test func oneDamagedLineCostsOnlyThatLine() throws {
+        let typing = store(SymmetricKey(size: .bits256))
+        defer { try? FileManager.default.removeItem(at: typing.file) }
+        typing.append(.init(date: Date(), context: "", text: "first message here"), began: Date())
+        typing.append(.init(date: Date(), context: "", text: "second message here"), began: Date())
+        _ = typing.all()  // waits for the appends
+        var data = try Data(contentsOf: typing.file)
+        data[20] = data[20] == UInt8(ascii: "A") ? UInt8(ascii: "B") : UInt8(ascii: "A")
+        try data.write(to: typing.file)
+        typing.append(.init(date: Date(), context: "", text: "third message here"), began: Date())
+        #expect(typing.all().map(\.text) == ["second message here", "third message here"])
     }
 }

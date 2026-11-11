@@ -245,6 +245,20 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         Tuning.current.withLock { $0 = tuning }
         watcher.retune()
     }
+    /// Saved typing, Personal Model's training data (`Typing`). On for new installs, which onboarding tells; off for older ones until they choose.
+    @Published var savesTyping = UserDefaults.standard.bool(forKey: "savesTyping") {
+        didSet { UserDefaults.standard.set(savesTyping, forKey: "savesTyping"); applySaving() }
+    }
+    @Published var keepTyping = KeepTyping(rawValue: UserDefaults.standard.integer(forKey: "keepTyping")) ?? .sixMonths {
+        didSet { UserDefaults.standard.set(keepTyping.rawValue, forKey: "keepTyping"); pruneTyping() }
+    }
+    /// Nil outside the app itself, as `tallyFile`: tests and the e2e runner must not touch the real file or Keychain item.
+    lazy var typing: Typing? = App.tallyFile == nil ? nil : Typing(file: App.support.appendingPathComponent("typing.sealed"))
+    /// Not before onboarding's last step, which says it saves.
+    func applySaving() { watcher.saves.store(savesTyping && typing != nil && !onboarding, ordering: .relaxed) }
+    func pruneTyping() {
+        if let months = keepTyping.months, let cutoff = Calendar.current.date(byAdding: .month, value: -months, to: Date()) { typing?.prune(before: cutoff) }
+    }
     @Published var pausedApps = Set(UserDefaults.standard.stringArray(forKey: "pausedApps") ?? []) {
         didSet {
             UserDefaults.standard.set(Array(pausedApps), forKey: "pausedApps")
@@ -289,6 +303,10 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             defaults.set(FileManager.default.fileExists(atPath: App.support.path) || defaults.string(forKey: "modelPath") != nil, forKey: "onboarded")
         }
         onboarding = !defaults.bool(forKey: "onboarded")
+        if defaults.object(forKey: "savesTyping") == nil { savesTyping = onboarding }
+        applySaving()
+        watcher.onVisit = { [weak self] context, text, began in self?.typing?.append(Typing.Record(date: Date(), context: context, text: text), began: began) }
+        pruneTyping()
         tune()
         panel.motion = motion
         peek()
@@ -568,6 +586,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func finishOnboarding() {
         UserDefaults.standard.set(true, forKey: "onboarded")
         onboarding = false
+        applySaving()
         lessonKey = nil
         if let answering { watcher.install(answering) }
         guide.close()
@@ -748,6 +767,12 @@ enum Length: String, CaseIterable {
 }
 
 enum Personal: String, CaseIterable { case off, compare, on }
+
+/// How long saved typing is kept, in months; -1 keeps all, as 0 is what an unset default reads as.
+enum KeepTyping: Int, CaseIterable {
+    case oneMonth = 1, sixMonths = 6, year = 12, all = -1
+    var months: Int? { self == .all ? nil : rawValue }
+}
 
 /// The window's Suggestions: Always (no gate, the default), When Likely (`more`) and When Sure (`normal`, fitted for 80% precision).
 /// Less went on 2026-11-10, against the product's priority of more right suggestions; a saved `less` reads as When Sure.

@@ -732,6 +732,83 @@ private struct ProSignup: View {
     }
 }
 
+/// Saved typing (`Typing`): the switch, how long it's kept, what's there, and Delete All. The text is read only into Show's sheet.
+private struct SavedTyping: View {
+    @ObservedObject var app: App
+    @State private var summary: (count: Int, from: Date, to: Date)?
+    /// A file is there, read or not: Delete All works even when the Keychain won't open it.
+    @State private var exists = false
+    @State private var failed = false
+    @State private var shown: [Typing.Record]?
+    @State private var asking: Ask?
+    private enum Ask { case off, delete }
+    var body: some View {
+        Row(title: "Save What You Type", note: "To train your Personal Model, with the text on screen around it. Encrypted on this Mac; never from secure fields or paused apps.") {
+            Toggle("", isOn: Binding(get: { app.savesTyping }, set: { on in if on { app.savesTyping = true } else { asking = .off } }))
+                .toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
+        }
+        Row(title: "Keep", note: note) {
+            Button("Show") { shown = app.typing?.all().reversed() }.disabled(summary == nil)
+            Button("Delete All") { asking = .delete }  // Always: a key can outlive its file, as when the Keychain refused once
+            Picker("", selection: $app.keepTyping) {
+                Text("1 Month").tag(KeepTyping.oneMonth); Text("6 Months").tag(KeepTyping.sixMonths); Text("1 Year").tag(KeepTyping.year); Text("All").tag(KeepTyping.all)
+            }
+            .labelsHidden().fixedSize()
+        }
+        .padding(.leading, 16)
+        .onAppear(perform: count)
+        .onChange(of: app.keepTyping) { DispatchQueue.main.async(execute: count) }
+        .sheet(isPresented: Binding(get: { shown != nil }, set: { if !$0 { shown = nil } })) { sheet }
+        .confirmationDialog(asking == .off ? "Stop saving what you type?" : "Delete everything saved?",
+                            isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } })) {
+            Button("Delete All", role: .destructive) {
+                if asking == .off { app.savesTyping = false }
+                failed = app.typing?.deleteAll() == false
+                count()
+            }
+            if asking == .off { Button("Stop and Keep It") { app.savesTyping = false } }
+        } message: {
+            Text("Deleted text can't be brought back. Personal Model versions already trained stay until you delete them.")
+        }
+    }
+
+    private var note: String {
+        if failed { return "Couldn't delete all of it. Try again, or remove typing.sealed in Application Support." }
+        guard let summary else { return exists ? "Saved, but the Keychain didn't open it." : "Nothing saved yet." }
+        let range = summary.from.formatted(date: .abbreviated, time: .omitted) + " – " + summary.to.formatted(date: .abbreviated, time: .omitted)
+        return "\(summary.count.formatted()) saved, \(range)"
+    }
+
+    private func count() {
+        let all = app.typing?.all() ?? []
+        exists = app.typing?.exists ?? false
+        summary = all.first.map { (all.count, $0.date, all.last?.date ?? $0.date) }
+    }
+
+    /// In memory only while it's open.
+    private var sheet: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Saved Typing").font(.headline)
+                Spacer()
+                Button("Done") { shown = nil }.keyboardShortcut(.defaultAction)
+            }
+            .padding(16)
+            List(Array((shown ?? []).enumerated()), id: \.offset) { _, record in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(record.date.formatted(date: .abbreviated, time: .shortened)).font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(record.text).textSelection(.enabled)
+                    if !record.context.isEmpty {
+                        Text(record.context.suffix(200)).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2)
+                    }
+                }
+                .padding(.vertical, 3)
+            }
+        }
+        .frame(width: 560, height: 480)
+    }
+}
+
 /// A hovered day, dark above its bar.
 private struct Tag: View {
     let date: Date
@@ -952,13 +1029,14 @@ private struct GeneralPage: View {
             } else {
                 ProSignup(app: app)
             }
+            SavedTyping(app: app)
             Row(title: "Show What the Model Sees", note: "Press ⌃⌥ to show it over suggestions, again to hide. On screen only, never saved.") {
                 Toggle("", isOn: $app.peeking).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
             }
             Row(title: "Next word") { key("Tab") }
             Row(title: "Whole suggestion") { key("⇧ Tab") }
             Row(title: "Hide the suggestion") { key("Esc") }
-            Text("Everything runs on this Mac. Nothing you type is sent, and only counts are saved, never text.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 12)
+            Text("Everything runs on this Mac. Nothing you type is sent, and Stats keeps counts only.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 12)
         }
         .confirmationDialog("Delete the \(deletingAdapter.map { AdapterInfo.title(name: App.name(ofAdapter: $0)) } ?? "") version?", isPresented: Binding(get: { deletingAdapter != nil }, set: { if !$0 { deletingAdapter = nil } })) {
             Button("Delete", role: .destructive) { if let deletingAdapter { app.delete(adapter: deletingAdapter) } }
