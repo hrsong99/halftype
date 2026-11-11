@@ -288,7 +288,7 @@ func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
         guard selectSource(lang == "ko" ? twoSet : latinSource!) else { throw Stop(why: "couldn't select the input source") }
         capture.korean = lang == "ko"
         let typist = Typist(field: field, capture: capture, r: r, lang: lang, out: out)
-        let pids = r.pids, cpu0 = cpuSeconds(pids), t0 = now()
+        let pids = r.pids, cpu0 = cpuSeconds(pids), t0 = now(), start = Date().timeIntervalSince1970
         var footprints: [Double] = [], quiet = 0
         for s in list {
             let shown = try typist.type(id: s.id, text: s.text)
@@ -299,7 +299,7 @@ func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
         let seconds = ms(t0, now()) / 1000
         // The CPU share is over typing and the sampling between sentences, the same for every app.
         append(ResourceRecord(app: r.label, lang: lang, footprintMB: footprints, modelResidentMB: modelResidentMB(pids),
-                              cpuPercent: pids.isEmpty ? nil : (cpuSeconds(pids) - cpu0) / seconds * 100, seconds: seconds), to: out + "/resources.jsonl")
+                              cpuPercent: pids.isEmpty ? nil : (cpuSeconds(pids) - cpu0) / seconds * 100, seconds: seconds, start: start), to: out + "/resources.jsonl")
         print(String(format: "  %.0f s, waited %.1f s in all for OCR", seconds, typist.ocrWaitMs / 1000))
     }
     selectSource(latinSource!)

@@ -42,8 +42,10 @@ public struct ResourceRecord: Codable, Sendable {
     /// CPU time over wall time while typing, in % of one core, all of the app's processes.
     public var cpuPercent: Double?
     public var seconds: Double
-    public init(app: String, lang: String, footprintMB: [Double], modelResidentMB: Double?, cpuPercent: Double?, seconds: Double) {
-        (self.app, self.lang, self.footprintMB, self.modelResidentMB, self.cpuPercent, self.seconds) = (app, lang, footprintMB, modelResidentMB, cpuPercent, seconds)
+    /// Unix time typing began, so `power.py` can pick this app's `powermetrics` samples. Nil in runs before 2026-11-12.
+    public var start: Double?
+    public init(app: String, lang: String, footprintMB: [Double], modelResidentMB: Double?, cpuPercent: Double?, seconds: Double, start: Double? = nil) {
+        (self.app, self.lang, self.footprintMB, self.modelResidentMB, self.cpuPercent, self.seconds, self.start) = (app, lang, footprintMB, modelResidentMB, cpuPercent, seconds, start)
     }
 }
 

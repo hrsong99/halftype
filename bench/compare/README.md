@@ -73,6 +73,22 @@ running at all** (KeyType starts its engine only with Accessibility), which is w
 | Model resident | Resident pages of mapped `.gguf` files (`vmmap`) at the end of a language: the weights, which footprint leaves out |
 | CPU | CPU time of all the app's processes over wall time while typing a language, % of one core (`proc_pid_rusage`) |
 
+## Power
+
+`powermetrics` needs sudo, so `run.sh` doesn't start it. Start it first, in its own terminal, for the whole run:
+`sudo powermetrics --samplers cpu_power,gpu_power -i 1000 -f plist -o <lab>/compare/power-<date>.plist`, then
+`python3 -I bench/compare/power.py <that plist> <run dir>`: mean CPU, GPU and combined mW over each app's typing, by the
+`start` each line of `resources.jsonl` carries (runs before 2026-11-12 have none). It is the whole Mac's power: one app runs at a
+time, and the harness's own screen reading is in every app's number alike, so compare apps, not the floor. At rest it was swamped
+by other work on the Mac (results/2026-11-12-en64.md), so only typing is reported.
+
+## Apps this harness can't measure (2026-11-12)
+
+- **Cotypist** suggests in TextEdit but never in this harness's window: ten probes (results/2026-11-12-en64.md) ruled out its cap,
+  start-up time, a hidden launch, the window level, a scroll view, rich text, spelling on, a visible caret, a `.app` bundle, the
+  bundle ID and name, and a Developer ID signature. Measuring it needs the typist to drive a TextEdit document instead.
+- **macOS's inline predictions** show in no app on John's Mac (region en_KR), TextEdit included, with the setting on.
+
 ## Limits
 
 - **GPU memory per process isn't read**: nothing outside a process reports what Metal wired for it fairly across apps (Halftype's own

@@ -176,53 +176,60 @@
   <!-- 7. Compare -->
   <section class="section" id="compare" aria-labelledby="compare-h">
     <div class="wrap">
-      <!-- DRAFT, deploy only with John's go: numbers from bench/compare/results/2026-11-10-en64.md (main 88d9399, the code in 0.1.14). -->
-      <div class="head"><h2 id="compare-h">Level on keys saved. Lighter on CPU.</h2></div>
-      <h3 class="charts-h">While you type, against KeyType</h3>
+      <!-- Numbers from bench/compare/results/2026-11-12-en64.md (0.1.16 from /Applications, run 2026-11-11T175807Z; at rest from idle.sh, 2026-11-12). -->
+      <div class="head"><h2 id="compare-h">Level on keys saved. Half the power.</h2></div>
+      <h3 class="charts-h">While you type</h3>
       <div class="charts">
         <figure class="chart">
           <figcaption>Keys saved</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:100%"></span></span><b>25.1%</b></div>
-          <div class="row"><span>KeyType</span><span class="track"><span style="--w:98%"></span></span><b>24.6%</b></div>
-          <p class="note">A tie: Halftype +0.5 points, paired 95% CI &minus;1.5 to +2.4, ahead in 31 of 64 sentences.</p>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:100%"></span></span><b>25.0%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:99.2%"></span></span><b>24.8%</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:24.4%"></span></span><b>6.1%</b></div>
+          <p class="note">Halftype and KeyType tie: +0.1 points, paired 95% CI &minus;1.9 to +2.0. Ahead of Cotabby in 63 of 64 sentences.</p>
         </figure>
         <figure class="chart">
           <figcaption>Right suggestions per 100 keys</figcaption>
           <div class="row us"><span>Halftype</span><span class="track"><span style="--w:100%"></span></span><b>16</b></div>
-          <div class="row"><span>KeyType</span><span class="track"><span style="--w:93.8%"></span></span><b>15</b></div>
-          <p class="note">Wrong ones: 58 against 52. Keep typing and a wrong one goes.</p>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>16</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:12.5%"></span></span><b>2</b></div>
+          <p class="note">Wrong ones: 57, 53 and 42. Keep typing and a wrong one goes.</p>
         </figure>
         <figure class="chart">
-          <figcaption>CPU while typing</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:76.9%"></span></span><b>10%</b></div>
-          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>13%</b></div>
-          <p class="note">Of one core, every process of the app.</p>
+          <figcaption>Power while typing</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:48%"></span></span><b>2.3 W</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:85.5%"></span></span><b>4.1 W</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:100%"></span></span><b>4.8 W</b></div>
+          <p class="note">The whole Mac, one app at a time. GPU alone: 0.7, 1.6 and 2.0 W. CPU: 10%, 14% and 14% of one core.</p>
         </figure>
         <figure class="chart">
           <figcaption>Memory while typing</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:51.8%"></span></span><b>295 MB</b></div>
-          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>569 MB</b></div>
-          <p class="note">macOS&rsquo;s footprint (median). The model&rsquo;s pages come on top: 1.5 GB for Halftype, 1.2 GB for KeyType.</p>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:46.2%"></span></span><b>276 MB</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>597 MB</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:46.7%"></span></span><b>279 MB</b></div>
+          <p class="note">macOS&rsquo;s footprint (median). The model&rsquo;s pages come on top: 2.8 GB for Halftype, 1.2 GB for KeyType, 3.6 GB for Cotabby.</p>
         </figure>
       </div>
-      <p class="how">64 public English sentences (Taskmaster-1), the same for both, typed at a human pace on one M5 with 16 GB, 2026-11-09; an ideal typist presses Tab only when the suggestion is right. Each app at its defaults: Halftype as shipped in 0.1.14 (Gemma 4 E2B, Suggestions: Always, Length: Long), KeyType 1.8 with its writing history cleared. Cotypist and macOS&rsquo;s predictions showed no suggestion in the test window, so they aren&rsquo;t measured. Cotabby wasn&rsquo;t in this run, and Korean wasn&rsquo;t run. <a href="https://github.com/hrsong99/halftype/blob/main/bench/compare/results/2026-11-10-en64.md">The run</a></p>
+      <p class="how">64 public English sentences (Taskmaster-1), the same for every app, typed at a human pace on one M5 with 16 GB, 2026-11-12; an ideal typist presses Tab only when the suggestion is right. Each app at its defaults: Halftype 0.1.16 (Gemma 4 E2B, Suggestions: Always, Length: Long), KeyType 1.8 with its writing history cleared, Cotabby 0.6.2-beta. Cotypist suggests in TextEdit but showed nothing in the test window, so it isn&rsquo;t measured typing yet; macOS&rsquo;s predictions aren&rsquo;t offered on the test Mac. <a href="https://github.com/hrsong99/halftype/blob/main/bench/compare/results/2026-11-12-en64.md">The run</a></p>
       <h3 class="charts-h">At rest</h3>
       <div class="charts">
         <figure class="chart">
           <figcaption>Memory at rest</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:20.6%"></span></span><b>79 MB</b></div>
-          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:48.3%"></span></span><b>185 MB</b></div>
-          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:100%"></span></span><b>383 MB</b></div>
-          <p class="note">Halftype unloads its model after 5 idle minutes. Cotabby and Cotypist keep theirs mapped; Cotypist was 478 MB in a first run.</p>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:35.9%"></span></span><b>99 MB</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:63%"></span></span><b>174 MB</b></div>
+          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:75%"></span></span><b>207 MB</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>276 MB</b></div>
+          <p class="note">Halftype lets its model go after 5 idle minutes. The others keep theirs loaded: 1.5 GB for Cotypist and KeyType, 3.6 GB for Cotabby.</p>
         </figure>
         <figure class="chart">
           <figcaption>CPU at rest</figcaption>
-          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:9.1%"></span></span><b>0.2%</b></div>
-          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:9.1%"></span></span><b>0.2%</b></div>
-          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:100%"></span></span><b>2.2%</b></div>
-          <p class="note">Halftype 0.13–0.27% over 60 s. Cotypist median, with one 13% sample in each of two 8&#8209;minute runs. Cotabby median of 9 samples.</p>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:3.8%"></span></span><b>0.1%</b></div>
+          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:7.7%"></span></span><b>0.2%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:50%"></span></span><b>1.3%</b></div>
+          <div class="row"><span>Cotabby</span><span class="track"><span style="--w:100%"></span></span><b>2.6%</b></div>
+          <p class="note">Median of nine samples, a minute apart.</p>
         </figure>
       </div>
+      <p class="how">Each app&rsquo;s default model, with Accessibility granted, on one M5 with 16 GB, 2026-11-12: about 9 minutes after launch, with no typing; memory is macOS&rsquo;s footprint. Measured by <code>docs/site/compare/idle.sh</code>, one app at a time. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it&rsquo;s measured</a></p>
       <table class="ko-table">
         <caption>Suggests mid-syllable in Korean</caption>
         <tbody>
@@ -232,7 +239,6 @@
           <tr><th scope="row">Cotypist</th><td>Not tested</td><td>Closed source</td></tr>
         </tbody>
       </table>
-      <p class="how">Each app's default model, on one M5 with 16 GB, 2026-11-09. At rest is 9 minutes after launch, with no typing; memory is macOS's footprint. Halftype's figures are from <code>scripts/e2e.sh --measure</code>, the others from <code>docs/site/compare/idle.sh</code>. KeyType is left out at rest: it starts only once it has Accessibility, then keeps its model until you quit. Cotabby had no Accessibility either, but had loaded its model. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a></p>
       <!-- Personal Model's gain: docs/measuring.md, "Personal Model's gain, and how far to trust it" (1c2c271, measured 2026-11-10 at the shipped defaults). -->
       <div class="figures">
         <h3>With Personal Model, in <a href="pro/">Halftype Pro</a> (coming soon)</h3>
@@ -250,7 +256,7 @@
             <p class="note">95% CI +4.1 to +6.8. One person's private messages, so nobody else can check it.</p>
           </figure>
         </div>
-        <p class="how">A replay, not the test against KeyType above (that one has Personal Model off), so its percentages don't compare with the 25.1% there. 25 public Stack Exchange authors, one personal model each, trained on their 1,000 older comments and tested on their 40 newest; Q&amp;A comments stand in for typing in the app. The author's own: 122 held-out messages. English, Gemma 4 E2B at the defaults (Suggestions: Always, Length: Long); Korean not measured.</p>
+        <p class="how">A replay, not the test against KeyType above (that one has Personal Model off), so its percentages don't compare with the 25.0% there. 25 public Stack Exchange authors, one personal model each, trained on their 1,000 older comments and tested on their 40 newest; Q&amp;A comments stand in for typing in the app. The author's own: 122 held-out messages. English, Gemma 4 E2B at the defaults (Suggestions: Always, Length: Long); Korean not measured.</p>
         <a class="more" href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md#personal-models-gain-and-how-far-to-trust-it">How it's measured</a>
       </div>
     </div>
