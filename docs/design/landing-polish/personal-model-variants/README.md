@@ -8,4 +8,4 @@
 
 Numbers: `docs/measuring.md`, "Personal Model's gain, and how far to trust it" (1c2c271).
 
-Pick: (pending)
+Pick: John picked C (2026-11-11), with +2.9 points in the card title; built on `landing-page`, screenshots in `built/`. The 28.6% strip and its 72 ms went.
