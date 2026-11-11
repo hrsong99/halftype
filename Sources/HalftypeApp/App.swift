@@ -305,6 +305,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         applySaving()
         watcher.onVisit = { [weak self] context, text, began in self?.typing?.append(Typing.Record(date: Date(), context: context, text: text), began: began) }
         pruneTyping()
+        // The app runs for weeks between launches, so Keep is applied each new day too, not only at launch.
+        _ = NotificationCenter.default.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in self?.pruneTyping() }
         tune()
         panel.motion = motion
         peek()
