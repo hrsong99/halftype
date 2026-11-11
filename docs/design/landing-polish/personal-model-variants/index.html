@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Personal Model gain: options</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../site/a2/base.css">
+<link rel="stylesheet" href="../../../site/a2/page.css">
+<style>
+  body { background: #f4efe6; }
+  .top { max-width: 72em; margin: 0 auto; padding: 40px 16px 8px; }
+  .top h1 { font: 40px/1.1 var(--serif); margin: 0 0 12px; }
+  .top p { margin: 0 0 10px; max-width: 60em; }
+  .rec { background: rgba(255,255,255,.7); border-radius: 14px; padding: 14px 18px; box-shadow: 0 0 0 .5px var(--line); }
+  .opt { max-width: 72em; margin: 28px auto; padding: 0 16px; }
+  .tag { display: flex; gap: 12px; align-items: baseline; border-bottom: .5px solid rgba(29,28,26,.2); padding-bottom: 8px; margin-bottom: 4px; }
+  .tag b { font: 34px/1 var(--serif); }
+  .tag span { font-weight: 600; }
+  .tag i { color: var(--muted); font-style: normal; font-size: var(--t-small); margin-left: auto; text-align: right; max-width: 34em; }
+  .v-stage { background: var(--bg, #f4efe6); padding: 8px 0 24px; }
+  .v-stage .figures { margin-top: 0; }
+  /* D: one bar, base plus the extra */
+  .stack { display: flex; height: 22px; border-radius: 999px; overflow: hidden; background: rgba(29,28,26,.06); margin: 18px 0 6px; }
+  .stack .base { width: 39.3%; background: rgba(29,28,26,.28); }
+  .stack .plus { width: 2.9%; background: linear-gradient(90deg, #5f9bd8, #e88f5e); }
+  .stack-l { display: flex; font-size: var(--t-small); color: var(--muted); }
+  .stack-l .b { width: 39.3%; } .stack-l .p { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .range { position: relative; height: 34px; margin: 26px 0 4px; }
+  .range .axis { position: absolute; top: 16px; left: 0; right: 0; height: 1px; background: rgba(29,28,26,.2); }
+  .range .zero { position: absolute; top: 6px; left: 0; width: 1px; height: 22px; background: var(--ink); }
+  .range .span { position: absolute; top: 12px; height: 9px; border-radius: 999px; left: 22.3%; width: 61%; background: linear-gradient(90deg, #5f9bd8, #e88f5e); }
+  .range .med { position: absolute; top: 6px; left: 44%; width: 2px; height: 22px; background: var(--ink); }
+  .range-l { position: relative; height: 20px; font-size: var(--t-small); color: var(--muted); }
+  .range-l span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  /* E: 100 keys */
+  .v-keys { display: grid; grid-template-columns: repeat(25, 1fr); gap: 4px; max-width: 40em; margin: 18px 0 10px; }
+  .v-keys i { aspect-ratio: 1; border-radius: 4px; box-shadow: inset 0 0 0 .5px rgba(29,28,26,.25); background: rgba(255,255,255,.7); }
+  .v-keys i.h { background: rgba(29,28,26,.28); box-shadow: none; }
+  .v-keys i.p { background: linear-gradient(135deg, #5f9bd8, #e88f5e); box-shadow: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: var(--t-small); color: var(--muted); }
+  .legend em { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+  /* F: ghost demo */
+  .v-msgs { display: grid; gap: 12px; max-width: 40em; margin: 18px 0; }
+  .v-msg { background: rgba(255,255,255,.7); border-radius: 14px; padding: 14px 16px; box-shadow: 0 0 0 .5px var(--line); }
+  .v-msg small { display: block; color: var(--muted); font-size: var(--t-small); margin-bottom: 4px; }
+  .v-msg .g { color: rgba(29,28,26,.38); }
+  .imgs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .imgs figure { margin: 0; } .imgs img { width: 100%; border-radius: 12px; box-shadow: 0 0 0 .5px var(--line); }
+  .imgs figcaption { font-size: var(--t-small); color: var(--muted); margin-top: 6px; }
+  @media (max-width: 700px) { .tag { flex-wrap: wrap; } .tag i { margin-left: 0; text-align: left; } .v-keys { grid-template-columns: repeat(20, 1fr); } .imgs { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>Personal Model's gain: how to show it</h1>
+  <p><b>The question:</b> what replaces the 28.6% strip under the comparison. John: “we can reorganize or rewrite as like a +x percent if training a personal model w/ pro right? So it's saying +x percent from baseline? We might need a clear visual explanation for this though.”</p>
+  <p><b>Two facts that shape every option.</b> (1) It's <b>+2.9 points</b>, not +2.9%: keys saved went from 39.3% to 42.1% on 25 public authors, which is about 7% more than before. Points are what the rest of the page uses, so the options say points, or “about 3 more keys in every 100”. (2) The 39.3% base is a <b>different test</b> from the 25.1% against KeyType (a replay on Stack Exchange comments, not sentences typed into the app), so the gain can't be added to 25.1%. An option that shows the base has to say so.</p>
+  <p class="rec"><b>Recommendation: E, “3 more keys in every 100”.</b> It shows the gain itself, which is what John asked for, and it reads in a second without knowing what a percentage point is. Bars (C) make +2.9 on 39 look like almost nothing. B is the cheapest if you'd rather not add a visual. All options drop the 28.6% strip; its 72 ms moves to the comparison's fine print.</p>
+</div>
+
+<!-- A -->
+<section class="opt">
+  <div class="tag"><b>A</b><span>Today's draft</span><i>The 28.6% strip, then a separate +2.9 block. Two keys-saved numbers stacked on top of the 25.1% above them.</i></div>
+  <div class="v-stage">
+    <div class="figures">
+      <h3>And what it does for you</h3>
+      <dl class="figs">
+        <div><dt>28.6%</dt><dd>of keystrokes saved, across whole English messages</dd></div>
+        <div><dt>+10.2</dt><dd>points saved over the old, cautious defaults</dd></div>
+        <div><dt>72 ms</dt><dd>to the first word (median)</dd></div>
+      </dl>
+    </div>
+    <div class="figures">
+      <h3>Personal Model, coming soon</h3>
+      <dl class="figs"><div><dt>+2.9</dt><dd>points of keystrokes saved, once it has learned how someone writes</dd></div></dl>
+      <p class="how">A replay, not the test against KeyType above… (fine print as drafted)</p>
+    </div>
+  </div>
+</section>
+
+<!-- B -->
+<section class="opt">
+  <div class="tag"><b>B</b><span>One strip, all about Personal Model</span><i>No new visual: the strip's three slots become the gain, who gained, and your own. No CSS to add.</i></div>
+  <div class="v-stage">
+    <div class="figures">
+      <h3>With Personal Model <span style="font-weight:400;color:var(--muted)">(Pro, coming soon)</span></h3>
+      <dl class="figs">
+        <div><dt>+2.9</dt><dd>points of keystrokes saved, on top of Halftype out of the box</dd></div>
+        <div><dt>25 of 25</dt><dd>public authors gained, each with a model of their own</dd></div>
+        <div><dt>+5.5</dt><dd>on the author's own messages</dd></div>
+      </dl>
+      <p class="how">A replay, not the test against KeyType above… 39.3% to 42.1% on 25 Stack Exchange authors' comments…</p>
+    </div>
+  </div>
+</section>
+
+<!-- C -->
+<section class="opt">
+  <div class="tag"><b>C</b><span>Before and after bars</span><i>The same card as the KeyType charts above it, so it looks like part of the comparison. Honest, but the two bars look almost the same length.</i></div>
+  <div class="v-stage">
+    <div class="figures">
+      <h3>With Personal Model (Pro, coming soon)</h3>
+      <div class="charts" style="margin-top:var(--s3)">
+        <figure class="chart">
+          <figcaption>Keys saved, 25 public authors</figcaption>
+          <div class="row"><span>Out of the box</span><span class="track"><span style="--w:93.3%"></span></span><b>39.3%</b></div>
+          <div class="row us"><span>Personal</span><span class="track"><span style="--w:100%"></span></span><b>42.1%</b></div>
+          <p class="note">+2.9 points, and all 25 gained. A replay on their Stack Exchange comments, so not comparable with 25.1% above.</p>
+        </figure>
+        <figure class="chart">
+          <figcaption>Keys saved, the author's own messages</figcaption>
+          <div class="row"><span>Out of the box</span><span class="track"><span style="--w:84.8%"></span></span><b>30.8%</b></div>
+          <div class="row us"><span>Personal</span><span class="track"><span style="--w:100%"></span></span><b>36.3%</b></div>
+          <p class="note">+5.5 points. One person's private messages, so nobody else can check it.</p>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- D -->
+<section class="opt">
+  <div class="tag"><b>D</b><span>One bar, plus the spread</span><i>The base and the extra on one bar, then where the 25 authors' gains fell: all right of zero. Shows “everyone gained” best. ~20 lines of CSS.</i></div>
+  <div class="v-stage">
+    <div class="figures">
+      <h3>With Personal Model (Pro, coming soon)</h3>
+      <div class="stack"><span class="base"></span><span class="plus"></span></div>
+      <div class="stack-l"><span class="b">Out of the box, 39.3%</span><span class="p">+2.9 points with Personal Model</span></div>
+      <div class="range"><span class="axis"></span><span class="zero"></span><span class="span"></span><span class="med"></span></div>
+      <div class="range-l"><span style="left:0;transform:none">0</span><span style="left:22.3%">+1.3</span><span style="left:44%">median +2.6</span><span style="left:83.3%">+5.0</span></div>
+      <p class="note" style="margin-top:8px">Each of the 25 public authors' gain fell in this range. None lost.</p>
+    </div>
+  </div>
+</section>
+
+<!-- E -->
+<section class="opt">
+  <div class="tag"><b>E</b><span>3 more keys in every 100 (recommended)</span><i>100 squares are 100 keys. Grey: typed for you out of the box. Colour: what Personal Model adds. The gain is the thing you see. ~10 lines of CSS, squares made by page.js or written out.</i></div>
+  <div class="v-stage">
+    <div class="figures">
+      <h3>With Personal Model (Pro, coming soon): about 3 more keys in every 100</h3>
+      <div class="v-keys" id="keys" aria-hidden="true"></div>
+      <div class="legend"><span><em style="background:rgba(29,28,26,.28)"></em>Typed for you out of the box, 39</span><span><em style="background:linear-gradient(135deg,#5f9bd8,#e88f5e)"></em>Added by Personal Model, 3</span><span><em style="box-shadow:inset 0 0 0 .5px rgba(29,28,26,.25);background:#fff"></em>Typed by you</span></div>
+      <p class="how">A replay, not the test against KeyType above (that one has Personal Model off): 25 public Stack Exchange authors, one personal model each, 39.3% to 42.1% of keys saved, +2.9 points (95% CI +2.5 to +3.3), and all 25 gained. On the author's own messages, +5.5…</p>
+    </div>
+  </div>
+</section>
+
+<!-- F -->
+<section class="opt">
+  <div class="tag"><b>F</b><span>Show it, don't count it</span><i>The same message, out of the box and with Personal Model, with the number beside it. Most vivid, but the example is made up: an illustration, labelled so, with the measured number carrying the claim.</i></div>
+  <div class="v-stage">
+    <div class="figures">
+      <h3>With Personal Model (Pro, coming soon)</h3>
+      <div style="display:grid;grid-template-columns:minmax(0,40em) auto;gap:32px;align-items:center">
+        <div class="v-msgs">
+          <div class="v-msg"><small>Out of the box</small>sounds good, I'll <span class="g">see you there</span></div>
+          <div class="v-msg"><small>With Personal Model</small>sounds good, I'll <span class="g">grab us a table near the window</span></div>
+        </div>
+        <dl class="figs" style="grid-template-columns:1fr;margin:0"><div><dt>+2.9</dt><dd>points of keystrokes saved, in a replay on 25 public authors</dd></div></dl>
+      </div>
+      <p class="note">An illustration, not a real suggestion.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Image ideas -->
+<section class="opt">
+  <div class="tag"><b>G–H</b><span>Image ideas (Codex's image tool)</span><i>Pictures, not builds: what's worth taking from each is in its caption.</i></div>
+  <div class="imgs">
+    <figure><img src="img/G.png" alt="Image idea G"><figcaption><b>G</b>, two messages with longer ghost text: the F idea, drawn.</figcaption></figure>
+    <figure><img src="img/H.png" alt="Image idea H"><figcaption><b>H</b>, one bar with the extra on its end and 25 dots right of zero: the D idea, drawn. Its “12.7” is made up by the image tool.</figcaption></figure>
+  </div>
+</section>
+
+<script>
+  const k = document.getElementById('keys');
+  for (let i = 0; i < 100; i++) { const s = document.createElement('i'); if (i < 39) s.className = 'h'; else if (i < 42) s.className = 'p'; k.append(s); }
+</script>
+</body>
+</html>

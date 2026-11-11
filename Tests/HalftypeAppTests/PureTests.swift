@@ -1795,7 +1795,7 @@ final class FakeServer: URLProtocol {
         shoot("7-predictions", app { ready($0); $0.why = .unsure; $0.readPredictions = { true } })
         shoot("8-no-font", app { ready($0); $0.why = .noFont })
         shoot("9-failed-download", app { $0.trusted = true; $0.modelChanged(.failed("Hugging Face answered 503. Try again later.")) })
-        shoot("10-models-delete", app { $0.trusted = true; $0.activePath = $0.store.directory.appendingPathComponent("Qwen3.5-0.8B-Q4_K_M.gguf").path }, page: .models)
+        shoot("10-models-delete", app { $0.trusted = true; $0.activePath = $0.store.directory.appendingPathComponent(ModelStore.models[0].file).path }, page: .models)
         // The whole window with its ribbon, at the smallest size, the usual one and a tall one, at the field and scrolled into the settings.
         // ImageRenderer draws no ScrollView, so these are a real window, shown behind everything without taking focus.
         for (width, height) in [(640.0, 440.0), (720.0, 500.0), (900.0, 820.0)] {

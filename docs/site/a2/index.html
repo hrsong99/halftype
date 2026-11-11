@@ -163,20 +163,50 @@
         <dl class="rows">
           <div><dt>One permission</dt><dd>Accessibility. No Screen Recording.</dd></div>
           <div><dt>Network</dt><dd>Model downloads from Hugging Face, SHA&#8209;256 checked, and a daily update check. And your email, only if you press Notify Me for Personal Model news.</dd></div>
-          <div><dt>On disk</dt><dd>Settings, models and a few counts a day. No text, no logs.</dd></div>
+          <div><dt>On disk</dt><dd>Settings, models and a few counts a day. Today, no text and no logs.</dd></div>
           <div><dt>Personal Model</dt><dd>Paid and opt&#8209;in. What you choose goes encrypted to one training run, then is deleted. The model comes back to your Mac; turn it off or delete it any time.</dd></div>
           <div><dt>Password fields</dt><dd>Skipped.</dd></div>
         </dl>
         <a class="more" href="https://github.com/hrsong99/halftype#privacy">Every privacy promise, in full</a>
       </div>
-      <img class="shot" src="models.png" width="1056" height="664" loading="lazy" alt="Halftype's Models settings: “They run on this Mac.” Qwen 3.5 0.8B, 0.5 GB, in use; Qwen 3.5 2B, Kanana 1.5 and Gemma 4 E2B; or add your own GGUF">
+      <img class="shot" src="models.png" width="1056" height="698" loading="lazy" alt="Halftype's Models settings: “They run on this Mac.” Gemma 4 E2B, the default, 3.4 GB, in use; Qwen 3.5 0.8B, Qwen 3.5 2B and Kanana 1.5; or add your own GGUF">
     </div>
   </section>
 
   <!-- 7. Compare -->
   <section class="section" id="compare" aria-labelledby="compare-h">
     <div class="wrap">
-      <div class="head"><h2 id="compare-h">Light when you&rsquo;re not typing.</h2></div>
+      <!-- DRAFT, deploy only with John's go: numbers from bench/compare/results/2026-11-10-en64.md (main 88d9399, the code in 0.1.14). -->
+      <div class="head"><h2 id="compare-h">Level on keys saved. Lighter on CPU.</h2></div>
+      <h3 class="charts-h">While you type, against KeyType</h3>
+      <div class="charts">
+        <figure class="chart">
+          <figcaption>Keys saved</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:100%"></span></span><b>25.1%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:98%"></span></span><b>24.6%</b></div>
+          <p class="note">A tie: Halftype +0.5 points, paired 95% CI &minus;1.5 to +2.4, ahead in 31 of 64 sentences.</p>
+        </figure>
+        <figure class="chart">
+          <figcaption>Right suggestions per 100 keys</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:100%"></span></span><b>16</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:93.8%"></span></span><b>15</b></div>
+          <p class="note">Wrong ones: 58 against 52. Keep typing and a wrong one goes.</p>
+        </figure>
+        <figure class="chart">
+          <figcaption>CPU while typing</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:76.9%"></span></span><b>10%</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>13%</b></div>
+          <p class="note">Of one core, every process of the app.</p>
+        </figure>
+        <figure class="chart">
+          <figcaption>Memory while typing</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:51.8%"></span></span><b>295 MB</b></div>
+          <div class="row"><span>KeyType</span><span class="track"><span style="--w:100%"></span></span><b>569 MB</b></div>
+          <p class="note">macOS&rsquo;s footprint (median). The model&rsquo;s pages come on top: 1.5 GB for Halftype, 1.2 GB for KeyType.</p>
+        </figure>
+      </div>
+      <p class="how">64 public English sentences (Taskmaster-1), the same for both, typed at a human pace on one M5 with 16 GB, 2026-11-09; an ideal typist presses Tab only when the suggestion is right. Each app at its defaults: Halftype as shipped in 0.1.14 (Gemma 4 E2B, Suggestions: Always, Length: Long), KeyType 1.8 with its writing history cleared. Cotypist and macOS&rsquo;s predictions showed no suggestion in the test window, so they aren&rsquo;t measured. Cotabby wasn&rsquo;t in this run, and Korean wasn&rsquo;t run. <a href="https://github.com/hrsong99/halftype/blob/main/bench/compare/results/2026-11-10-en64.md">The run</a></p>
+      <h3 class="charts-h">At rest</h3>
       <div class="charts">
         <figure class="chart">
           <figcaption>Memory at rest</figcaption>
@@ -203,15 +233,25 @@
         </tbody>
       </table>
       <p class="how">Each app's default model, on one M5 with 16 GB, 2026-11-09. At rest is 9 minutes after launch, with no typing; memory is macOS's footprint. Halftype's figures are from <code>scripts/e2e.sh --measure</code>, the others from <code>docs/site/compare/idle.sh</code>. KeyType is left out at rest: it starts only once it has Accessibility, then keeps its model until you quit. Cotabby had no Accessibility either, but had loaded its model. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a></p>
+      <!-- Personal Model's gain: docs/measuring.md, "Personal Model's gain, and how far to trust it" (1c2c271, measured 2026-11-10 at the shipped defaults). -->
       <div class="figures">
-        <h3>And what it does for you</h3>
-        <dl class="figs">
-          <div><dt>28.6%</dt><dd>of keystrokes saved, across whole English messages</dd></div>
-          <div><dt>+10.2</dt><dd>points saved over the old, cautious defaults</dd></div>
-          <div><dt>72 ms</dt><dd>to the first word (median)</dd></div>
-        </dl>
-        <p class="how">English, Gemma 4 E2B at the default settings (Suggestions: Always, Length: Long), from replayed typing: 28.6% over 1,200 keys of the author's messages with real typing delays, against 19.6% at the old defaults; +10.2 points in a replay of 120 more of the author's messages, held out (+9.8 on public Korean); 72–74 ms the median to the first word shown across those timed runs. The cost: about a third of the suggestions shown are right, against 71% before. Suggestions: When Sure brings back fewer, surer ones.</p>
-        <a class="more" href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a>
+        <h3>With Personal Model, in <a href="pro/">Halftype Pro</a> (coming soon)</h3>
+        <div class="charts">
+          <figure class="chart">
+            <figcaption>Keys saved, 25 public authors: +2.9 points</figcaption>
+            <div class="row"><span>Default</span><span class="track"><span style="--w:93.3%"></span></span><b>39.3%</b></div>
+            <div class="row us"><span>Personal</span><span class="track"><span style="--w:100%"></span></span><b>42.1%</b></div>
+            <p class="note">95% CI +2.5 to +3.3, and all 25 gained, with wrong suggestions level.</p>
+          </figure>
+          <figure class="chart">
+            <figcaption>Keys saved, the author's own messages: +5.5 points</figcaption>
+            <div class="row"><span>Default</span><span class="track"><span style="--w:84.8%"></span></span><b>30.8%</b></div>
+            <div class="row us"><span>Personal</span><span class="track"><span style="--w:100%"></span></span><b>36.3%</b></div>
+            <p class="note">95% CI +4.1 to +6.8. One person's private messages, so nobody else can check it.</p>
+          </figure>
+        </div>
+        <p class="how">A replay, not the test against KeyType above (that one has Personal Model off), so its percentages don't compare with the 25.1% there. 25 public Stack Exchange authors, one personal model each, trained on their 1,000 older comments and tested on their 40 newest; Q&amp;A comments stand in for typing in the app. The author's own: 122 held-out messages. English, Gemma 4 E2B at the defaults (Suggestions: Always, Length: Long); Korean not measured.</p>
+        <a class="more" href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md#personal-models-gain-and-how-far-to-trust-it">How it's measured</a>
       </div>
     </div>
   </section>
@@ -222,7 +262,7 @@
       <div class="head head--left"><h2 id="faq-h">Questions.</h2><p>An early release. <a href="https://github.com/hrsong99/halftype/issues">Open an issue</a> with what you find.</p></div>
       <dl class="faq">
         <div><dt>Which Macs?</dt><dd>macOS 26 on Apple Silicon.</dd></div>
-        <div><dt>How much does it save?</dt><dd>Over a quarter of keystrokes in English. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a></dd></div>
+        <div><dt>How much does it save?</dt><dd>About a quarter of keystrokes in English. <a href="https://github.com/hrsong99/halftype/blob/main/docs/measuring.md">How it's measured</a></dd></div>
         <div><dt>And Korean?</dt><dd>Yes, with 2-Set Korean. Weaker than English for now.</dd></div>
         <div><dt>Where won't it suggest?</dt><dd>Mid-line, in password fields, and during Secure Input.</dd></div>
         <div><dt>In Chromium apps?</dt><dd>Used by hand in T3 Code. Others aren't tested yet.</dd></div>
