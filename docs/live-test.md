@@ -100,3 +100,7 @@ W8. Models: Delete on a model you have and aren't using.
     **A readable grey ghost.**
 23. Quit Halftype from the menu. Then in Terminal, the command from step C with `"ego lite"` in place of `"Finder"`.
     **No crash report, and `false`: the switch Halftype turned on in ego lite is back off.**
+
+## Web fonts: about 2 minutes
+Open `docs/live-fonts/page.html` in ego lite and in Safari. In each field, click the end of its text and type a word.
+**The ghost is in the field's style (monospaced next to Menlo or Courier), the same size, on the same baseline, and a wrapped ghost's second line sits on the field's own line spacing.** The README there has what it looked like on 2026-11-11.

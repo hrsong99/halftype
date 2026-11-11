@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- Live check of how a ghost sits in web fields of different fonts and line spacing (docs/live-test.md). Open with file://, click a field's end, type. -->
+<meta charset="utf-8">
+<title>Ghost fonts</title>
+<style>
+  body { background: #fff; color: #111; margin: 24px; font: 13px -apple-system, sans-serif; }
+  .f { margin: 0 0 18px; }
+  .f > div:first-child { color: #888; margin-bottom: 4px; }
+  textarea, [contenteditable] { display: block; width: 640px; height: 92px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; outline: none; resize: none; }
+  #mono { font: 16px/1.6 Menlo, monospace; }
+  #serif { font: 20px/1.8 Georgia, serif; height: 120px; }
+  #sans { font: 15px/1.4 Helvetica, Arial, sans-serif; }
+  #wide { font: 17px/1.5 "Courier New", monospace; letter-spacing: 0.5px; }
+  .zoom { zoom: 1.25; }
+  #zoomed { font: 14px/1.5 system-ui; width: 520px; }
+</style>
+<div class="f"><div>A · Menlo 16px, line-height 1.6</div><textarea id="mono">Could you send me the notes from this morning before we start the review? I want to read them over once</textarea></div>
+<div class="f"><div>B · Georgia 20px, line-height 1.8</div><textarea id="serif">The garden was quiet in the evening, and the light came in low over the wall where the old roses</textarea></div>
+<div class="f"><div>C · Helvetica 15px, contenteditable</div><div contenteditable id="sans">Thanks for getting back to me so quickly. I looked at the draft and I think the second section</div></div>
+<div class="f"><div>D · Courier New 17px, letter-spacing 0.5px</div><textarea id="wide">Let me know when you are free this week so we can go over the plan</textarea></div>
+<div class="f zoom"><div>E · system-ui 14px inside zoom 125%</div><textarea id="zoomed">I will be a few minutes late to the call, so please go ahead and start without</textarea></div>
