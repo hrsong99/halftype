@@ -139,8 +139,11 @@ enum Reader {
     }
 
     /// By the selection, never the value's length: T3 reports a trailing newline, and length 1 when empty.
+    /// A no-break space is a space: Chromium's contenteditable (T3's composer) holds a space typed at a line's end as U+00A0 until
+    /// the next letter, so typing through a ghost's space dropped it, and the model was asked after a character it rarely sees.
+    /// One UTF-16 unit for another, so the host's offsets still hold.
     static func slice(_ value: String, _ selection: CFRange) -> (before: String, after: String)? {
-        let ns = value as NSString
+        let ns = value.replacingOccurrences(of: "\u{00A0}", with: " ") as NSString
         guard selection.length == 0, selection.location >= 0, selection.location <= ns.length else { return nil }
         return (ns.substring(to: selection.location), ns.substring(from: selection.location))
     }
@@ -205,7 +208,7 @@ enum Reader {
         var traits = FieldTraits(fontSize: size, fontName: name, color: color, lineLeft: nil)
         if let line = markerLine(e) {
             traits.lineLeft = line.rect.minX
-            let text = AX.get(e, "AXStringForTextMarkerRange", line.range) as? String ?? ""
+            let text = (AX.get(e, "AXStringForTextMarkerRange", line.range) as? String ?? "").replacingOccurrences(of: "\u{00A0}", with: " ")
             if line.rect.width > 0 { traits.typed = Typed(text: text, width: line.rect.width) }
             // A wrap only when this line is the end of the text before the caret and its paragraph began on a line above, so that
             // line is the same paragraph's, with no margin between. At a paragraph's start Chromium's text still ends in the one above.

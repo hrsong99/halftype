@@ -9,3 +9,5 @@
 - `sf2-B`, `sfold-A` (Safari, both versions): Safari names the font but reports a caret as tall as the line, so with loose line spacing the zoom estimate draws the ghost too big and too high.
 
 Later the same day, with a named font's size trusted (Safari's sizes include page zoom) and its baseline set from the box's bottom: Safari's ghosts are the text's size and within 0.5-1 pt of its baseline in all five fields, also at 125% page zoom (`safari-B-fixed`; `safari-B-sized-only` is the size fix alone, 7 pt high). Field E in Safari, 1.25 times too big in 0.1.15, is right too. Chromium's ghosts sit 1-2.5 pt low (`old-A`): about 1 pt from Chromium rounding its boxes to whole points, the rest from the page's font being unnamed.
+
+Field F (system font 14 px, contenteditable) is T3's composer. `2026-11-12-nbsp-before` and `-after` are frame strips of typing ` this` through a ` this issue?` ghost there: before, the typed space read as U+00A0, the ghost dropped and `https:` was suggested; after, the ghost holds to the last letter.

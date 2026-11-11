@@ -33,6 +33,12 @@ import Testing
         let s = try #require(Reader.slice("a😀한b", CFRange(location: 4, length: 0)))
         #expect(s.before == "a😀한" && s.after == "b")
     }
+    // Chromium's contenteditable, 2026-11-12: "ok " read as o, k, U+00A0 until the next letter came.
+    @Test func aNoBreakSpaceIsASpaceSoTypingThroughAGhostKeepsIt() throws {
+        let s = try #require(Reader.slice("look at\u{00A0}", CFRange(location: 8, length: 0)))
+        #expect(s.before == "look at ")
+        #expect(Follow.check(anchor: "look at", suggestion: " this issue?", field: Field(before: s.before, after: s.after))?.remainder == "this issue?")
+    }
     @Test func selectionOrBadRangeGivesNothing() {
         #expect(Reader.slice("abc", CFRange(location: 1, length: 1)) == nil)
         #expect(Reader.slice("abc", CFRange(location: 9, length: 0)) == nil)
