@@ -261,8 +261,9 @@ enum Reader {
     /// The text before the field in reading order, its tail up to the prompt's budget. This never includes the field's own
     /// text, and in a chat what comes right before the composer is the conversation, so no ancestor has to be chosen.
     static func context(of e: AXUIElement) -> String {
-        // U+FFFC stands in for images and buttons, and is noise to a model.
-        String((markerContext(e) ?? walkContext(e)).replacingOccurrences(of: "\u{FFFC}", with: "").suffix(Prompt.windowChars))
+        // U+FFFC stands in for images and buttons, and is noise to a model; a web page's no-break spaces are spaces, as in the field.
+        String((markerContext(e) ?? walkContext(e)).replacingOccurrences(of: "\u{FFFC}", with: "").replacingOccurrences(of: "\u{00A0}", with: " ")
+            .suffix(Prompt.windowChars))
     }
 
     /// Chromium and WebKit: 1 ms for 10k characters in T3.
