@@ -26,7 +26,7 @@
 ## Saved typing: what any typed text on disk must keep to (built 2026-11-11: `Typing`, `Visit`)
 Simple, and robust against the realistic threats (another user or app on the Mac, a backup, a stolen disk image), not a nation state:
 - On by default for every install (John, 2026-11-11: a paying user can train on day one); not in onboarding, which John found too long with it; shown and explained, on hover, under General. Secure fields, paused apps and our own window are never saved.
-- What's kept: per visit to a field, what was added, with the screen's text and the field's before it as the prompt (`Visit`); two words or more, typed by keys or Tab, and a visit with any paste-sized jump in it isn't kept.
+- What's kept: per visit to a field, what was added, with the screen's text and the field's before it as the prompt (`Visit`); two words or more, typed by keys or Tab, and a visit with any paste-sized jump in it isn't kept. That drops dictation too (Wispr, macOS), on purpose: John, 2026-11-11, typed text only until users ask for dictation.
 - One file in Application Support, encrypted (AES-GCM, CryptoKit) with a key in the user's Keychain, so a copied file or a Time Machine backup is unreadable without their login; excluded from backups anyway.
 - Delete All, one button, removes the file and the key; turning the option off asks to delete. Keep: 1 month, 6 months (default), 1 year or all, older records dropped at launch and on change.
 - The user can see what's kept (count, date range, and the text itself on request).
