@@ -4,7 +4,7 @@ A menu-bar Mac app: inline Korean and English suggestions from a local model. Re
 
 ## Must not break
 - **No private text, ever.** Nothing from anyone's messages goes in this repo: not tests, docs, commit messages or screenshots. Test strings are invented, and benchmark results are aggregates only. Replay traces hold typed text and stay out.
-- **Privacy claims in the README are promises.** No network except `ModelStore`'s model URLs, Sparkle's update feed, the early-bird email on Notify Me (`App.notifyMe`) and, once it ships, Personal Model's opt-in training upload (README Privacy), no typed text written to disk or logs, no Screen Recording, secure fields skipped. A change that touches one changes the README in the same commit.
+- **Privacy claims in the README are promises.** No network except `ModelStore`'s model URLs, Sparkle's update feed, the early-bird email on Notify Me (`App.notifyMe`) and, once it ships, Personal Model's opt-in training upload (README Privacy), no typed text in logs, typed text on disk only as Personal Model's opt-in training data (John dropped the never-saved promise, 2026-11-10) and only once the to-do in `docs/pricing.md` "Saved typing" is done, no Screen Recording, secure fields skipped. A change that touches one changes the README in the same commit.
 - **Licences.** AGPL, GPL and unlicensed projects in `CREDITS.md` gave ideas only. No code from them. A new borrowed idea gets a row there, with its licence checked.
 - **https://halftype.app serves `docs/site/a2`** (publish with `docs/site/deploy.sh`) **and repeats the README's claims and numbers.** Change them together, and redeploy.
 - **Every number carries how it was measured**, here or in `docs/measuring.md`. Remeasure rather than edit one by hand.

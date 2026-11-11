@@ -21,4 +21,13 @@
 ## Copy: say only what's true
 - True: "Your model keeps learning. Halftype retrains it as your writing grows, and new base models come with updates."
 - True now that training runs on rented GPUs: the subscription pays for retraining runs as well as the work (new models, the app). Keep it to "retraining runs on our GPUs": the cost per user is cents, so don't imply it's large.
-- Retraining as they type means saving typed text on the Mac. That changes the README's "never saved" line, in the same commit as the feature.
+- Retraining as they type means saving typed text on the Mac. John dropped the never-saved promise (2026-11-10); the README now says only that nothing is saved today. The commit that starts saving updates the README, the site and Window.swift's lines with it.
+
+## Saved typing: to do before any typed text is written to disk
+Simple, and robust against the realistic threats (another user or app on the Mac, a backup, a stolen disk image), not a nation state:
+- Opt-in, off by default, under General > Personal Model; secure fields and paused apps are never saved, as today.
+- One file in Application Support, encrypted (AES-GCM, CryptoKit) with a key in the user's Keychain, so a copied file or a Time Machine backup is unreadable without their login; excluded from backups anyway.
+- Delete All, one button, removes the file and the key; turning the option off asks to delete. Also a cap (e.g. the newest few months), oldest dropped first.
+- The user can see what's kept (count, date range, and the text itself on request).
+- Never in logs, crash reports or Stats; uploaded only for a training run the user starts, as today (`lab/cloud/`).
+- Codex reviews it as security-sensitive before it merges.

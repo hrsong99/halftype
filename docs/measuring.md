@@ -30,8 +30,8 @@ CPU: the shipped app, idle, 0.13% to 0.27% of a core over 60 s, loaded or unload
 
 ## Against other apps (landing page, 2026-11-09)
 
-Cotypist, Cotabby and KeyType at rest, each with its default model: the method, the numbers and the traps are in [site/compare/README.md](site/compare/README.md), with the script that measured them. While typing (speed from the screen, keys saved, first word right, memory, CPU, Korean mid-syllable), with macOS's predictions too: [bench/compare/README.md](../bench/compare/README.md), not run yet.
-- **To do, if we want it:** profile where Halftype's CPU goes while typing. In the 2026-11-09 typing run (`~/halftype-lab-private/compare/2026-11-09T135219Z/`) it used 23% of a core, against Cotabby's 15% on the same Gemma 4 E2B. Not the pause probe: there Halftype showed nothing after 96% of 1.5 s pauses, against Cotabby's 44% (the column is the share with no ghost). Not measured. Run `sample <pid> 30` on Halftype while `scripts/live-keys.swift` types (this takes the keyboard: ask John), and split the time between llama.cpp/Metal and our Swift. The suspect is `Vocab.pick` (Engine.swift), which checks Gemma's whole ~262k-token vocabulary on every token. Fix it only if it is a real share.
+Cotypist, Cotabby and KeyType at rest, each with its default model: the method, the numbers and the traps are in [site/compare/README.md](site/compare/README.md), with the script that measured them. While typing (speed from the screen, keys saved, first word right, memory, CPU, Korean mid-syllable), with macOS's predictions too: [bench/compare/README.md](../bench/compare/README.md). The result to quote, 2026-11-10 ([results/2026-11-10-en64.md](../bench/compare/results/2026-11-10-en64.md)): main at Long and Always, personal model off, against KeyType 1.8 with its history cleared, 64 public English sentences: keys saved 25.1% (22.3-27.8) against 24.6% (21.6-27.6), paired +0.5 (-1.5 to +2.4), so **a tie**; CPU 10% against 13%, footprint 295 MB against 569. Trust: the keys and CPU are good to a couple of points (two 16-sentence runs of KeyType differed by 2, hence 64); right and wrong ghosts come from OCR of the screen, checked by Tabs typing what the OCR read (281 of 286); one machine, one run each, English only. Cotypist, Cotabby and macOS were last run on 16 sentences at Halftype's old defaults (results/2026-11-09.md), so don't set them against these.
+- **CPU while typing, profiled 2026-11-10:** the 23% was mostly the window's Tab Motion preview animating while the window was hidden (7 s of CPU per 30 s at rest; fixed in 7a64185, now 0.1 s), not the model. `Vocab.pick`, which checks every token while a Korean syllable composes, now reads an index of each token's unfinished bytes: about 4.7x less work a step (900 to 190 ms over Gemma's vocabulary, debug build), same tokens allowed (`theIndexedCheckLetsThroughWhatDecodingDid`, on Gemma, Kanana and Qwen).
 - System-wide wired memory is useless while other agents run: it swung 4.9-7.1 GB with one app idle. Use `footprint -p`.
 - Before measuring Halftype the same way, check `pgrep -lf Halftype.app`: another session's dev build may already be running. Check `defaults read app.halftype.Halftype modelPath` too, as it may not be the default.
 
@@ -147,7 +147,20 @@ November 2026, the same replay (`itda-replay` at tag `bench-1`, threshold -0.7) 
 - Qwen 3.5 0.8B ties Qwen 3.5 2B on English within the CI, at 41% of the size and with the quickest first word, so it was the default until 2026-11-09. What it gives up is Korean: own messages 0.60 against 0.88 keys per request (CI -0.52 to -0.10).
 - Qwen 3.5 0.8B against Kanana 1.5, the old default, in full: English test 922 of 1,131 shown right (81.5%), coverage 47.1%. Whole messages: English 21.6% against 22.1% (800 keys), Korean public 4.8% against 8.8% (1,200 keys), Korean own 10.8% against 13.4% (1,800 keys). Korean public suggestions on Hangul right when shown: 20.9% against 33.7%. First displayable word p50: 53, 97 and 102 ms against 60, 102 and 114 ms. No model call on 47%, 20% and 26% of keys against 48%, 27% and 28%.
 - Gemma 4 E2B became the default on 2026-11-09, John's call: the most right when shown after Kanana among the full-precision models, and the most saved on whole messages of those that don't show more wrong ones (Granite does). It costs 6.5 times Qwen 3.5 0.8B's file, and its Korean is a little weaker (0.54 against 0.60). Its Korean whole messages and coverage haven't been measured; its memory is at the top of this file; `scripts/e2e.sh --measure <gguf>` and the replay above would give them.
-- MiniCPM5-2B Base (OpenBMB, Apache-2.0, 1.56 GB Q4_K_M; the top open model under 4B on Artificial Analysis in 2026-11), not added: against Gemma 4 E2B in the same walk (`halftype-replay --stride 1`, shipped policy, public main at 9170f88, `lab/cloud/walk.py` on Modal L4s, `lab/score.py`, thread-bootstrap 95% CI), English test (120 messages, 10,389 keys) saved 25.0% against 25.4% (-0.34, -1.22 to +0.58), right when shown 72.5% against 70.7%; Korean public test (70 messages, 3,836 keys) 7.1% against 9.4% (-2.29, -4.20 to -0.35). A tie in English, worse in Korean, and Gemma wires only 1.48 GB of its file, so little memory to gain.
+- Artificial Analysis's top open models of 4B or under (2026-11), against Gemma 4 E2B in one walk: `halftype-replay --stride 1`, shipped policy, public main at 9170f88, `lab/cloud/walk.py` on Modal L4s (branch `minicpm-walk` in halftype-train), scored by `lab/score.py` with thread-bootstrap 95% CIs. Keys saved, change against Gemma's 25.4% on English test (120 messages, 10,389 keys) and 9.4% on Korean public test (70 messages, 3,836 keys). Q4_K_M files; base checkpoints where one exists. None was added.
+
+  | Model | File | English | Korean | English right when shown |
+  |---|---|---|---|---|
+  | Nanbeige 4.2 3B Base (Apache-2.0, looped layers) | 2.57 GB | **+1.91, +0.96 to +2.86** | -3.10, -4.89 to -1.23 | 71.0% against 70.7% |
+  | Nemotron 3 Nano 4B (instruct) | 2.84 GB | +0.74, -0.13 to +1.57 | -1.54, -3.43 to +0.42 | 70.7% |
+  | K2 Horizon 3.7B | 3.16 GB | -0.26, -1.21 to +0.74 | -3.62, -5.37 to -1.84 | 74.5% |
+  | MiniCPM5-2B Base | 1.56 GB | -0.34, -1.22 to +0.58 | -2.29, -4.20 to -0.35 | 72.5% |
+  | G9v3 3B | 1.84 GB | -0.43, -1.35 to +0.45 | -1.56, -3.36 to +0.21 | 70.2% |
+  | LFM2.5 2.6B Base | 1.67 GB | -0.98, -1.71 to -0.23 | -1.46, -3.19 to +0.27 | 72.2% |
+  | MiniCPM5-1B Base | 0.69 GB | -2.61, -3.55 to -1.70 | -3.62, -5.36 to -1.76 | 74.0% |
+  | EXAONE 4.0 1.2B (instruct, non-commercial licence) | 0.81 GB | -11.63, -13.15 to -10.21 | -4.85, -6.85 to -2.91 | 51.9% |
+
+  Only Nanbeige 4.2 beats Gemma in English, and every model is worse in Korean. Nanbeige's Mac latency and memory are unmeasured: its looped layers run each token through the stack more than once, and it took twice Gemma's time on the Korean walk on the L4 (1,174 s against 535 s). Gemma wires only 1.48 GB of its file, so the smaller files save download, not memory.
 - Not tried: models of 3.5 GB or more, community fine-tunes, and Ternary Bonsai's smaller packings, which need a fork of llama.cpp. Gemma 4's tokenizer fix of 3 November 2026 changed no weights and came after these files.
 
 ## The defaults since 2026-11-10: Long, Always, and a two-key minimum
@@ -163,7 +176,32 @@ Walk replay (`halftype-replay --mode walk --stride 1`, Gemma 4 E2B, `halftype-tr
 | Public Korean dev, 70 messages | 11.4% | +0.6 (+0.3 to +0.8) | +7.0 (+5.3 to +8.7) | **+10.2** (+8.2 to +12.1) |
 | Public Korean test, 70 messages | 9.6% | not run | +6.0 (+4.7 to +7.5) | **+9.8** (+7.9 to +11.9) |
 
-The cost, English test: shown ghosts right 70.6% to 35.0%, wrong shown ghosts per request 0.07 to 0.60, ghosts per request 0.22 to 0.92; Korean test, right 54.3% to 11.0%. Per request the model costs about 5 ms more (CUDA timings, so only relative). Timed replay on the Mac, 1,200 keys of John's English (`bench2-worktree` `itda-replay` with an added `--floor`, `experiments/bench2/timed.sh`): 19.6% at the old defaults, 26.1% at Long and Always (+6.5, CI +4.8 to +8.2), **28.6%** with two keys (+2.5 more, +1.7 to +3.5); first displayable p50 72-74 ms in all three. Remeasure the typing benchmark with the new build before quoting it against KeyType.
+The cost, English test: shown ghosts right 70.6% to 35.0%, wrong shown ghosts per request 0.07 to 0.60, ghosts per request 0.22 to 0.92; Korean test, right 54.3% to 11.0%. Per request the model costs about 5 ms more (CUDA timings, so only relative). Timed replay on the Mac, 1,200 keys of John's English (`bench2-worktree` `itda-replay` with an added `--floor`, `experiments/bench2/timed.sh`): 19.6% at the old defaults, 26.1% at Long and Always (+6.5, CI +4.8 to +8.2), **28.6%** with two keys (+2.5 more, +1.7 to +3.5); first displayable p50 72-74 ms in all three. The typing benchmark with the new build: a tie with KeyType (above, "Against other apps").
+
+Tried and dropped: KeyType's cache of five candidates. Halftype already asks the model on every key and shows its first ghost as fast (150 against 151 ms median), and the walk replay asks on every key too, so it can't show a cache's gain. Don't redo it without a timed replay that can.
+
+## Personal Model's gain, and how far to trust it
+
+At the app's defaults since 2026-11-10 (Length Long, Suggestions Always: no gate, a two-key minimum), English, Gemma 4 E2B, keys saved in
+whole messages with and without a personal model, paired by message, 95% intervals by bootstrap over threads (John) or authors (public).
+Walk replay of the shipped policy (`halftype-replay --threshold -inf --floor -3 --min-keys 2`, stride 2, Tab one word) on Modal, with
+public `main` merged into `halftype-train` first; Modal's walks match the Mac's within 0.2 points (`lab/cloud/README.md`). Measured 2026-11-10.
+
+| Whose writing | Messages | Without | With | Gain [95% CI] | Wrong ghosts per request |
+|---|---|---|---|---|---|
+| **25 public Stack Exchange authors**, one model each, trained on each one's 1,000 older comments | 1,000 newest (40 each) | 39.3% | 42.1% | **+2.86 [+2.49, +3.27]** | 0.55 → 0.56 |
+| **John**, his own English (agent prompts), held-out test set | 122 | 30.8% | 36.3% | **+5.49 [+4.13, +6.79]** | 0.58 → 0.56 |
+
+- **The public number is the one anyone can check.** Every one of the 25 authors gained (+1.34 to +5.00, median +2.64). Their text is the
+  2023-06-14 Stack Exchange dump (CC BY-SA 4.0), comments on english, scifi, rpg and workplace, 7 random authors per site with 1,040+ clean comments.
+  It's a proxy: Q&A comments, not typing in the app.
+- **John's is one person**, his private messages, so nobody else can check it. His model learned from 2,457 messages (typed and dictated), 2.5 times
+  the public authors' history, which fits the gain rising about 1.1 points each time a user's history triples (`lab/PLAYBOOK.md`). On his dev set,
+  where the recipe was chosen, it's +6.32 [+5.03, +7.81].
+- **It adds on top of the new defaults.** At the old ones (Short, Normal) it was +3.03 and +5.4 (dev); the base has since risen about 10 points,
+  and the gain held. Shown-and-right rose with it (+1.5 public, +4.9 John), and wrong ghosts didn't.
+- **Not measured:** Korean (no clean held-out set yet), timed replay, other models.
+- Neither is the rival benchmark: that types public text into a fresh install, with the personal model off. The landing page shows the gain as its own line, labelled as a replay (John, 2026-11-10).
 
 ## Suggestions and Length
 
