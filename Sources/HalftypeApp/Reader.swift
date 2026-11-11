@@ -63,7 +63,7 @@ struct FieldTraits {
     var fontName: String?
     var color: CGColor?
     var lineLeft: CGFloat?
-    /// The caret's line up to the caret and its width on screen, read only where the host doesn't name its font.
+    /// The caret's line up to the caret and its width on screen (markers: web views).
     var typed: Typed? = nil
     /// From the line above to the caret's, only on a wrapped line of one paragraph. Nil: the font's own line height.
     var linePitch: CGFloat? = nil
@@ -206,7 +206,7 @@ enum Reader {
         if let line = markerLine(e) {
             traits.lineLeft = line.rect.minX
             let text = AX.get(e, "AXStringForTextMarkerRange", line.range) as? String ?? ""
-            if name == nil, line.rect.width > 0 { traits.typed = Typed(text: text, width: line.rect.width) }
+            if line.rect.width > 0 { traits.typed = Typed(text: text, width: line.rect.width) }
             // A wrap only when this line is the end of the text before the caret and its paragraph began on a line above, so that
             // line is the same paragraph's, with no margin between. At a paragraph's start Chromium's text still ends in the one above.
             let paragraph = before.utf16.count - ((before as NSString).range(of: "\n", options: .backwards).upperBound)

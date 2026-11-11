@@ -504,7 +504,7 @@ final class Watcher: @unchecked Sendable {
                              color: traits.color, lineLeft: traits.lineLeft, typed: traits.typed, linePitch: traits.linePitch, previousCharacter: reading.previousCharacter,
                              mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid(),
                              peek: peek.map { var peek = $0; peek.taken = peek.shown - left; return peek })
-        if spec.fontName == nil {
+        if spec.fontName.flatMap({ NSFont(name: $0, size: spec.fontSize) }) == nil {  // unnamed, or a web font not on this Mac
             if let design = GhostLayout.design(spec) { unnamedFont = (focused, design) }
             if let known = unnamedFont, CFEqual(known.field, focused) { spec.design = known.design }
         }

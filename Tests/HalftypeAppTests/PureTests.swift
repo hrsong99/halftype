@@ -141,6 +141,32 @@ import Testing
         #expect(GhostLayout.font(named).fontName == "Helvetica")
     }
 
+    // Safari, 2026-11-11: Menlo 16 with line-height 1.6 reports a 25 pt caret, which the caret's height took for 134% zoom.
+    @Test func aNamedFontsSizeIsTrustedHoweverTallTheCaret() {
+        var safari = spec(typed: nil)
+        safari.fontName = "Menlo-Regular"; safari.fontSize = 16; safari.webCaret = true; safari.caret.size.height = 25
+        #expect(GhostLayout.font(safari).pointSize == 16)
+        var chromium = spec(typed: nil)
+        chromium.webCaret = true; chromium.fontSize = 14; chromium.caret.size.height = 26
+        #expect(GhostLayout.font(chromium).pointSize > 14, "no name: Chromium's size is before page zoom")
+    }
+
+    // Safari, 2026-11-11: Georgia 20 at line-height 1.8, a caret 36 pt tall whose text's baseline was 32 pt below its top.
+    @Test func aWebCaretInANamedFontSetsTheBaselineFromItsBottom() throws {
+        var safari = spec(typed: nil)
+        safari.fontName = "Georgia"; safari.fontSize = 20; safari.webCaret = true; safari.caret = CGRect(x: 200, y: 455, width: 0, height: 36)
+        let line = "wall where the old roses"
+        safari.typed = Typed(text: line, width: (line as NSString).size(withAttributes: [.font: NSFont(name: "Georgia", size: 20)!]).width.rounded())
+        let layout = try #require(GhostLayout.make(safari))
+        let baseline = layout.window.minY + layout.drawOrigin.y + layout.manager.location(forGlyphAt: layout.glyphs.location).y
+            + layout.manager.lineFragmentRect(forGlyphAt: layout.glyphs.location, effectiveRange: nil).minY
+        #expect(abs(baseline - (455 + 32)) < 1)
+        var chromium = safari
+        chromium.fontName = nil; chromium.typed = nil; chromium.caret.size.height = 23  // the page font's own box
+        let centred = try #require(GhostLayout.make(chromium))
+        #expect(centred.window.minY < layout.window.minY, "no name: centred on the box, as before")
+    }
+
     @Test func wrappedLinesFollowTheHostsLineSpacing() throws {
         let layout = try #require(GhostLayout.make(spec(typed: nil, pitch: 27)))
         let first = layout.manager.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil)

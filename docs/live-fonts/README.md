@@ -7,3 +7,5 @@
 - `old-B`/`new-B2` (Georgia): unchanged. Georgia is about as wide as the system font, so the width can't tell it's a serif.
 - `old-E`/`new-E2` (zoom 125%): unchanged and too small. The zoom estimate in `GhostLayout.zoomed` misses it.
 - `sf2-B`, `sfold-A` (Safari, both versions): Safari names the font but reports a caret as tall as the line, so with loose line spacing the zoom estimate draws the ghost too big and too high.
+
+Later the same day, with a named font's size trusted (Safari's sizes include page zoom) and its baseline set from the box's bottom: Safari's ghosts are the text's size and within 0.5-1 pt of its baseline in all five fields, also at 125% page zoom (`safari-B-fixed`; `safari-B-sized-only` is the size fix alone, 7 pt high). Field E in Safari, 1.25 times too big in 0.1.15, is right too. Chromium's ghosts sit 1-2.5 pt low (`old-A`): about 1 pt from Chromium rounding its boxes to whole points, the rest from the page's font being unnamed.

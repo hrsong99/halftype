@@ -57,8 +57,10 @@ struct GhostLayout {
         return misses[0].1 < 0.06 && misses[0].1 + 0.03 < misses[1].1 ? misses[0].0 : nil
     }
 
+    /// Chromium names no font and gives its size before page zoom. A host that names its font (Safari) gives the size at the page's
+    /// zoom (16 at 100%, 20 at 125%, 2026-11-11) and a caret as tall as the line, which this would take for zoom: Menlo 16 drawn at 21.
     private static func zoomed(_ font: NSFont, _ spec: GhostSpec) -> NSFont {
-        guard spec.webCaret else { return font }
+        guard spec.webCaret, spec.fontName == nil else { return font }
         let zoom = spec.caret.height / NSLayoutManager().defaultLineHeight(for: font)
         // A band, as the page's font goes unnamed and its line can differ from ours by about a tenth, estimated from fonts' metrics. Past it is zoom.
         return zoom > 1.15 || zoom < 1 / 1.15 ? font.withSize(spec.fontSize * zoom) : font
@@ -111,8 +113,10 @@ struct GhostLayout {
         let probe = CTFontCreateForString(font, spec.previousCharacter.isEmpty ? "x" as CFString : spec.previousCharacter as CFString,
                                           CFRange(location: 0, length: spec.previousCharacter.utf16.count))
         let ascent = CTFontGetAscent(probe), descent = CTFontGetDescent(probe)
-        // AX rects are centred on the font box (glyph rects) or on a line box with even leading, so the centre sets the baseline.
-        let baseline = spec.caret.midY + (ascent - descent) / 2
+        // A native caret is the font box, and Chromium's is the page font's own box, so their centre sets the baseline. WebKit's runs
+        // from the line's top to the text's bottom, leaving line spacing above the text (Safari, 2026-11-11: the centre put Georgia 20
+        // at line-height 1.8 7 pt high), so a web caret whose host names its font sets it from its bottom.
+        let baseline = spec.webCaret && spec.fontName != nil ? spec.caret.maxY - descent : spec.caret.midY + (ascent - descent) / 2
         let baselineInLine = manager.location(forGlyphAt: glyphs.location).y
         let used = manager.usedRect(for: container)
         let margin: CGFloat = 3  // Tall Hangul or emoji glyphs may overhang the fixed line height.
