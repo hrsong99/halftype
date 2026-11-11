@@ -52,6 +52,8 @@ final class Watcher: @unchecked Sendable {
     private var peek: Peek?
     let peeking = Atomic<Bool>(false)
     private var last: Reading?
+    /// The last clear look of an unnamed font, for the field it was seen in.
+    private var unnamedFont: (field: AXUIElement, design: NSFontDescriptor.SystemDesign)?
     /// The tap's generation when `last` was read: a later key means it may no longer be what the field holds.
     private var lastGeneration = 0
     private var request = 0
@@ -498,10 +500,14 @@ final class Watcher: @unchecked Sendable {
             hideOnMain()
             return record(.noFont)
         }
-        let spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
-                             color: traits.color, lineLeft: traits.lineLeft, previousCharacter: reading.previousCharacter,
+        var spec = GhostSpec(text: ghost.remainder, caret: caret, frame: reading.frame, fontSize: traits.fontSize, fontName: traits.fontName,
+                             color: traits.color, lineLeft: traits.lineLeft, typed: traits.typed, linePitch: traits.linePitch, previousCharacter: reading.previousCharacter,
                              mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid(),
                              peek: peek.map { var peek = $0; peek.taken = peek.shown - left; return peek })
+        if spec.fontName == nil {
+            if let design = GhostLayout.design(spec) { unnamedFont = (focused, design) }
+            if let known = unnamedFont, CFEqual(known.field, focused) { spec.design = known.design }
+        }
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before, suggestion: suggestionNumber)
         let binding = binding
         /// Back on the queue, and only for the binding and input this draw was made under: input during the draw has queued a newer report.

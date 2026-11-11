@@ -63,6 +63,15 @@ struct FieldTraits {
     var fontName: String?
     var color: CGColor?
     var lineLeft: CGFloat?
+    /// The caret's line up to the caret and its width on screen, read only where the host doesn't name its font.
+    var typed: Typed? = nil
+    /// From the line above to the caret's, only on a wrapped line of one paragraph. Nil: the font's own line height.
+    var linePitch: CGFloat? = nil
+}
+
+struct Typed: Equatable {
+    var text: String
+    var width: CGFloat
 }
 
 /// One read of the focused field: the text around the caret and where the caret is on screen, in AX coordinates.
@@ -192,7 +201,22 @@ enum Reader {
         let color = attributes[NSAttributedString.Key("AXForegroundColor")].flatMap { value -> CGColor? in
             CFGetTypeID(value as CFTypeRef) == CGColor.typeID ? (value as! CGColor) : nil
         }
-        return FieldTraits(fontSize: size, fontName: font["AXFontName"] as? String, color: color, lineLeft: lineLeft(e, before: before, skipped: skipped))
+        let name = font["AXFontName"] as? String
+        var traits = FieldTraits(fontSize: size, fontName: name, color: color, lineLeft: nil)
+        if let line = markerLine(e) {
+            traits.lineLeft = line.rect.minX
+            let text = AX.get(e, "AXStringForTextMarkerRange", line.range) as? String ?? ""
+            if name == nil, line.rect.width > 0 { traits.typed = Typed(text: text, width: line.rect.width) }
+            // A wrap only when this line is the end of the text before the caret and its paragraph began on a line above, so that
+            // line is the same paragraph's, with no margin between. At a paragraph's start Chromium's text still ends in the one above.
+            let paragraph = before.utf16.count - ((before as NSString).range(of: "\n", options: .backwards).upperBound)
+            if !text.isEmpty, text.utf16.count < paragraph, before.hasSuffix(text), let above = lastCharacterAbove(e, line.range), above.height > 0 {
+                traits.linePitch = line.rect.minY - above.minY
+            }
+        } else {
+            traits.lineLeft = rangeLineLeft(e, before: before, skipped: skipped)
+        }
+        return traits
     }
 
     private static func previousCharacterAttributes(_ e: AXUIElement, before: String, skipped: Int) -> [NSAttributedString.Key: Any]? {
@@ -209,12 +233,23 @@ enum Reader {
         return text.attributes(at: 0, effectiveRange: nil)
     }
 
-    /// The field's text edge, from its current line (markers) or its paragraph's first character (ranges). Nil: not wrapping.
-    private static func lineLeft(_ e: AXUIElement, before: String, skipped: Int) -> CGFloat? {
-        if let start = AX.startMarker(AX.get(e, "AXSelectedTextMarkerRange")),
-           let line = AX.get(e, "AXLeftLineTextMarkerRangeForTextMarker", start), let r = AX.rect(AX.get(e, "AXBoundsForTextMarkerRange", line)), r.height > 0 {
-            return r.minX
-        }
+    /// The caret's line up to the caret (markers: Chromium, WebKit).
+    private static func markerLine(_ e: AXUIElement) -> (range: CFTypeRef, rect: CGRect)? {
+        guard let start = AX.startMarker(AX.get(e, "AXSelectedTextMarkerRange")),
+              let line = AX.get(e, "AXLeftLineTextMarkerRangeForTextMarker", start), let r = AX.rect(AX.get(e, "AXBoundsForTextMarkerRange", line)), r.height > 0
+        else { return nil }
+        return (line, r)
+    }
+
+    private static func lastCharacterAbove(_ e: AXUIElement, _ line: CFTypeRef) -> CGRect? {
+        guard let lineStart = AX.startMarker(line), let end = AX.get(e, "AXPreviousTextMarkerForTextMarker", lineStart),
+              let from = AX.get(e, "AXPreviousTextMarkerForTextMarker", end),
+              let pair = AX.get(e, "AXTextMarkerRangeForUnorderedTextMarkers", [from, end] as CFArray) else { return nil }
+        return AX.rect(AX.get(e, "AXBoundsForTextMarkerRange", pair))
+    }
+
+    /// The field's text edge from its paragraph's first character (ranges). Nil: not wrapping.
+    private static func rangeLineLeft(_ e: AXUIElement, before: String, skipped: Int) -> CGFloat? {
         let start = lineStart(before, skipped: skipped)
         guard start < before.utf16.count - skipped, let r = AX.bounds(e, location: start, length: 1), r.height > 0 else { return nil }
         return r.minX

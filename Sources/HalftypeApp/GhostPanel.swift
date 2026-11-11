@@ -11,6 +11,10 @@ struct GhostSpec {
     var fontName: String?
     var color: CGColor?
     var lineLeft: CGFloat?
+    var typed: Typed? = nil
+    /// The system font's design to draw in when the host names no font: the field's last clear `GhostLayout.design`.
+    var design = NSFontDescriptor.SystemDesign.default
+    var linePitch: CGFloat? = nil
     /// The character the caret rect was measured on, so the baseline uses its metrics: Hangul falls back to another font.
     var previousCharacter: String
     /// Text below the caret would be drawn over, so the ghost then stays on one line.
@@ -34,7 +38,26 @@ struct GhostLayout {
     var visibleText: String { (storage.string as NSString).substring(with: manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)) }
 
     static func font(_ spec: GhostSpec) -> NSFont {
-        let font = spec.fontName.flatMap { NSFont(name: $0, size: spec.fontSize) } ?? .systemFont(ofSize: spec.fontSize)
+        if let named = spec.fontName.flatMap({ NSFont(name: $0, size: spec.fontSize) }) { return zoomed(named, spec) }
+        return zoomed(system(spec.design, spec.fontSize), spec)
+    }
+
+    private static func system(_ design: NSFontDescriptor.SystemDesign, _ size: CGFloat) -> NSFont {
+        NSFont.systemFont(ofSize: size).fontDescriptor.withDesign(design).flatMap { NSFont(descriptor: $0, size: size) } ?? .systemFont(ofSize: size)
+    }
+
+    /// An unnamed font (a web page's) told by the width of the line typed so far, never sized by it: a monospaced line is half as wide
+    /// again as the system font's at the same size. Nil when the line can't tell: a short one can't ("wwwwi" is 55 pt in SF Mono, 57
+    /// in the system font), so the field keeps what it had and the ghost doesn't change font as letters come.
+    static func design(_ spec: GhostSpec) -> NSFontDescriptor.SystemDesign? {
+        guard let typed = spec.typed, typed.text.count >= 4, typed.width > 0 else { return nil }
+        let misses = [NSFontDescriptor.SystemDesign.default, .monospaced, .serif].map { design in
+            (design, abs((typed.text as NSString).size(withAttributes: [.font: zoomed(system(design, spec.fontSize), spec)]).width / typed.width - 1))
+        }.sorted { $0.1 < $1.1 }
+        return misses[0].1 < 0.06 && misses[0].1 + 0.03 < misses[1].1 ? misses[0].0 : nil
+    }
+
+    private static func zoomed(_ font: NSFont, _ spec: GhostSpec) -> NSFont {
         guard spec.webCaret else { return font }
         let zoom = spec.caret.height / NSLayoutManager().defaultLineHeight(for: font)
         // A band, as the page's font goes unnamed and its line can differ from ours by about a tenth, estimated from fonts' metrics. Past it is zoom.
@@ -51,7 +74,9 @@ struct GhostLayout {
     /// the field is dropped at a line break. Nil when nothing would show: a half-typed word the host would have to move.
     static func make(_ spec: GhostSpec) -> GhostLayout? {
         let font = font(spec)
-        let line = NSLayoutManager().defaultLineHeight(for: font)
+        let natural = NSLayoutManager().defaultLineHeight(for: font)
+        // The host's own line spacing where it was measured: CSS often sets 1.5 lines.
+        let line = spec.linePitch.flatMap { $0 >= natural * 0.8 && $0 <= natural * 3 ? $0 : nil } ?? natural
         // T3 can report a whole pane as the line, so a left edge outside the field or past the caret isn't one.
         let lineLeft = spec.lineLeft.flatMap { $0 >= spec.frame.minX && $0 <= spec.caret.minX ? $0 : nil }
         let padding = lineLeft.map { $0 - spec.frame.minX } ?? 0
@@ -59,7 +84,6 @@ struct GhostLayout {
         let left = wraps ? lineLeft! : spec.caret.minX
         let width = spec.frame.maxX - padding - left
         guard width > 0 else { return nil }
-        // shortcut: line spacing is the font's default, not the host's CSS; measure it from two lines if tall fields look off.
         let lines = wraps ? max(Int((spec.frame.maxY - spec.caret.minY) / line), 1) : 1
 
         let paragraph = NSMutableParagraphStyle()

@@ -106,6 +106,51 @@ import Testing
     }
 }
 
+@Suite struct UnnamedFontTests {
+    func spec(typed: Typed?, pitch: CGFloat? = nil) -> GhostSpec {
+        GhostSpec(text: " brought forth on this continent a new nation", caret: CGRect(x: 200, y: 104, width: 0, height: 24),
+                  frame: CGRect(x: 100, y: 100, width: 300, height: 200), fontSize: 18, fontName: nil, color: nil, lineLeft: 110,
+                  typed: typed, linePitch: pitch, previousCharacter: "s", mayWrap: true)
+    }
+
+    // Widths as Chromium reported them on a page set in an 18 px monospaced web font (2026-11-11), and as the system font sets them.
+    @Test func aMonospacedLineIsToldByItsWidthNeverResized() {
+        #expect(GhostLayout.design(spec(typed: Typed(text: ", our fath", width: 108))) == .monospaced)
+        #expect(GhostLayout.design(spec(typed: Typed(text: ", our fath", width: 72))) == .default)
+        #expect(GhostLayout.design(spec(typed: Typed(text: "our", width: 32))) == nil, "too few letters to tell")
+        #expect(GhostLayout.design(spec(typed: Typed(text: ", our fath", width: 90))) == nil, "between the two: no guess")
+        var mono = spec(typed: nil)
+        mono.design = .monospaced
+        #expect(GhostLayout.font(mono).isFixedPitch && GhostLayout.font(mono).pointSize == 18)
+    }
+
+    @Test func aLineNeverSaysTheWrongFont() {
+        let mono = NSFont.monospacedSystemFont(ofSize: 18, weight: .regular), system = NSFont.systemFont(ofSize: 18)
+        for (host, wrong) in [(mono, NSFontDescriptor.SystemDesign.default), (system, .monospaced)] {
+            for text in ["wwww", "wwwwi", "wwwwii", "wwwwiiii", "illi", "a mill", "a million little lines"] {
+                let width = (text as NSString).size(withAttributes: [.font: host]).width.rounded()
+                #expect(GhostLayout.design(spec(typed: Typed(text: text, width: width))) != wrong, "\(text) in \(host.fontName)")
+            }
+        }
+    }
+
+    @Test func aNamedFontIsNeverSecondGuessed() {
+        var named = spec(typed: nil)
+        named.fontName = "Helvetica"
+        named.design = .monospaced
+        #expect(GhostLayout.font(named).fontName == "Helvetica")
+    }
+
+    @Test func wrappedLinesFollowTheHostsLineSpacing() throws {
+        let layout = try #require(GhostLayout.make(spec(typed: nil, pitch: 27)))
+        let first = layout.manager.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil)
+        let last = layout.manager.lineFragmentRect(forGlyphAt: NSMaxRange(layout.glyphs) - 1, effectiveRange: nil)
+        #expect(last.minY > first.minY && (last.minY - first.minY).truncatingRemainder(dividingBy: 27) == 0)
+        let own = try #require(GhostLayout.make(spec(typed: nil, pitch: 400)))
+        #expect(own.manager.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil).height < 27, "an implausible pitch is ignored")
+    }
+}
+
 @Suite struct WrapTests {
     func spec(_ text: String, caretX: CGFloat, frame: CGRect, lineLeft: CGFloat? = 110, mayWrap: Bool = true) -> GhostSpec {
         GhostSpec(text: text, caret: CGRect(x: caretX, y: frame.minY + 4, width: 0, height: 17), frame: frame, fontSize: 14, fontName: nil, color: nil,
