@@ -6,3 +6,4 @@
 - The page's suggestion gradient uses darker stops (`#45709d → #606e7e → #995e3e`) than the app's, for 4.5:1 contrast.
 - Earlier drafts (A, B, the kit-built A2, rounds 1-4) are in git before 2026-11-09's switch; `git log -- docs/site/a` finds them. Some still sit on the share link in `share-link.txt` (remove with `ssh js rm -r share-site/html/o01ct9f75y5orO6q`).
 - Domains, 2026-11-09: halftype.app $8.28 the first year, then $14.49 a year (bought).
+- A held draft never goes in an HTML comment with its numbers: comments ship in the page source. Hold it on a branch, or comment it with placeholders.
