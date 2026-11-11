@@ -743,10 +743,11 @@ private struct SavedTyping: View {
     @State private var asking: Ask?
     private enum Ask { case off, delete }
     var body: some View {
-        Row(title: "Save What You Type", note: "To train your Personal Model, with the text on screen around it. Encrypted on this Mac; never from secure fields or paused apps.") {
+        Row(title: "Save What You Type", note: "For a Personal Model later. Encrypted, on this Mac only.") {
             Toggle("", isOn: Binding(get: { app.savesTyping }, set: { on in if on { app.savesTyping = true } else { asking = .off } }))
                 .toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
         }
+        .help(Self.explained)
         Row(title: "Keep", note: note) {
             Button("Show") { shown = app.typing?.all().reversed() }.disabled(summary == nil)
             Button("Delete All") { asking = .delete }  // Always: a key can outlive its file, as when the Keychain refused once
@@ -771,6 +772,9 @@ private struct SavedTyping: View {
             Text("Deleted text can't be brought back. Personal Model versions already trained stay until you delete them.")
         }
     }
+
+    /// On hover only: onboarding doesn't mention it (John, 2026-11-11).
+    static let explained = "If you get Personal Model, it learns from what you've already written, so it's good from day one. Kept: what you add to a field, with the text on screen before it. Never passwords, paused apps or pastes. Encrypted with a key in your Keychain; sent only for a training you start."
 
     private var note: String {
         if failed { return "Couldn't delete all of it. Try again, or remove typing.sealed in Application Support." }

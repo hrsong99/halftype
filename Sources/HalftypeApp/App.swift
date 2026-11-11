@@ -245,8 +245,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         Tuning.current.withLock { $0 = tuning }
         watcher.retune()
     }
-    /// Saved typing, Personal Model's training data (`Typing`). On for new installs, which onboarding tells; off for older ones until they choose.
-    @Published var savesTyping = UserDefaults.standard.bool(forKey: "savesTyping") {
+    /// Saved typing, Personal Model's training data (`Typing`). On by default, shown and explained under General only (John, 2026-11-11).
+    @Published var savesTyping = UserDefaults.standard.object(forKey: "savesTyping") as? Bool ?? true {
         didSet { UserDefaults.standard.set(savesTyping, forKey: "savesTyping"); applySaving() }
     }
     @Published var keepTyping = KeepTyping(rawValue: UserDefaults.standard.integer(forKey: "keepTyping")) ?? .sixMonths {
@@ -254,8 +254,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     }
     /// Nil outside the app itself, as `tallyFile`: tests and the e2e runner must not touch the real file or Keychain item.
     lazy var typing: Typing? = App.tallyFile == nil ? nil : Typing(file: App.support.appendingPathComponent("typing.sealed"))
-    /// Not before onboarding's last step, which says it saves.
-    func applySaving() { watcher.saves.store(savesTyping && typing != nil && !onboarding, ordering: .relaxed) }
+    func applySaving() { watcher.saves.store(savesTyping && typing != nil, ordering: .relaxed) }
     func pruneTyping() {
         if let months = keepTyping.months, let cutoff = Calendar.current.date(byAdding: .month, value: -months, to: Date()) { typing?.prune(before: cutoff) }
     }
@@ -303,7 +302,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
             defaults.set(FileManager.default.fileExists(atPath: App.support.path) || defaults.string(forKey: "modelPath") != nil, forKey: "onboarded")
         }
         onboarding = !defaults.bool(forKey: "onboarded")
-        if defaults.object(forKey: "savesTyping") == nil { savesTyping = onboarding }
         applySaving()
         watcher.onVisit = { [weak self] context, text, began in self?.typing?.append(Typing.Record(date: Date(), context: context, text: text), began: began) }
         pruneTyping()
@@ -586,7 +584,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func finishOnboarding() {
         UserDefaults.standard.set(true, forKey: "onboarded")
         onboarding = false
-        applySaving()
         lessonKey = nil
         if let answering { watcher.install(answering) }
         guide.close()
