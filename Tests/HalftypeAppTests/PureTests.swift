@@ -1617,34 +1617,26 @@ final class FakeServer: URLProtocol {
         app.whyChanged(.noFont, binding: 7)
         #expect(app.why == .noFont)
     }
-    @Test func theLessonAndSuccessShowOnlyWhileOnAndNothingIsInTheWay() {
+    @Test func underTheKeysOnlyAReasonInTheWay() {
         let app = App(tap: FakeTap())
         app.trusted = true
         app.activePath = app.store.path(ModelStore.models[0]).path
-        #expect(app.fieldLine(.shown) == App.lesson)
-        #expect(app.fieldLine(.idle) == App.lesson && app.fieldLine(.unsure) == App.lesson, "the keys, never \"Working.\", in our own field")
+        #expect([Watcher.Why.shown, .idle, .unsure].allSatisfy { app.fieldLine($0) == nil }, "the keys alone, never \"Working.\", in our own field")
         #expect(app.fieldLine(.textAfter) == "Text after the cursor, so no suggestion here.")
-        app.accepted = true
-        #expect(app.fieldLine(.unsure) == App.success && app.fieldLine(.textAfter) != App.success)
         // Untrusted while switching, so the rebind binds nothing real.
         let was = app.on
         app.trusted = false
         app.on = false
         app.trusted = true
-        #expect(app.fieldLine(.shown) == nil)
+        #expect(app.fieldLine(.textAfter) == nil && app.line(for: .shown) == nil, "off: no keys and no reason")
         app.trusted = false
         app.on = was
     }
-    @Test func aLaterReasonInTheWayEndsTheFirstAcceptsLine() {
-        let app = App()
-        app.binding = 7
-        for blocking in [Watcher.Why.textAfter, .blocked, .unreadable] {
-            app.accepted = true
-            app.whyChanged(.unsure, binding: 7)  // Still working: the line stays.
-            #expect(app.accepted)
-            app.whyChanged(blocking, binding: 7)
-            #expect(!app.accepted, "\(blocking)")
-        }
+    @Test func theRunningAppsLeaveOutPausedOnesAndHalftype() {
+        let all = App.runningApps(except: [])
+        let some = Set(all.prefix(1))
+        #expect(App.runningApps(except: some) == all.filter { !some.contains($0) })
+        #expect(!all.contains(Bundle.main.bundleIdentifier ?? "-"))
     }
     @Test func theIconShowsState() {
         #expect(App.icon(active: true, problem: false, downloading: nil) == App.Icon())
@@ -1872,7 +1864,7 @@ final class FakeServer: URLProtocol {
         #expect(field.selectedRange() == NSRange(location: field.string.utf16.count, length: 0), "the caret at the end, where a ghost goes")
         shoot("4-teach", app { ready($0); $0.why = .shown })
         shoot("5-unsure", app { ready($0); $0.why = .unsure })
-        shoot("6-accepted", app { ready($0); $0.why = .idle; $0.accepted = true })
+        shoot("6-text-after", app { ready($0); $0.why = .textAfter })
         shoot("7-predictions", app { ready($0); $0.why = .unsure; $0.readPredictions = { true } })
         shoot("8-no-font", app { ready($0); $0.why = .noFont })
         shoot("9-failed-download", app { $0.trusted = true; $0.modelChanged(.failed("Hugging Face answered 503. Try again later.")) })
@@ -1885,7 +1877,7 @@ final class FakeServer: URLProtocol {
                              Root(app: app { ready($0); $0.why = .idle }, page: page), CGSize(width: width, height: height))
             }
         }
-        shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } })
+        shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.readPredictions = { true } })
     }
 
     /// The ⌃⌥ card on an invented suggestion, light and dark, in a real window behind everything: its material needs one.

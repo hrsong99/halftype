@@ -87,7 +87,7 @@ W5. Quit Halftype, move `kanana-1.5-2.1b-base.Q4_K_M.gguf` out of `~/Library/App
     **"Waiting for a connection", then it starts by itself. The drop shows a failure line with Retry, in the window and in the menu, within a minute. Retry and the reopen both carry on from where it was, not from 0.**
 
 W6. Why there's no ghost. In T3, type with text after the cursor and open the menu; then in a plain field type and pause until no ghost comes, and open the menu.
-    **"Text after the cursor, so no suggestion here." Then "Working. Not sure enough to suggest yet." The window's field shows the first line, and the keys (Tab, ⇧ Tab, Esc) instead of the second, without flickering as you type.**
+    **"Text after the cursor, so no suggestion here." Then "Working. Not sure enough to suggest yet." The window's field keeps its keys (Tab, ⇧ Tab, Esc) throughout, with the first line under them and nothing for the second, and they never move as you type.**
 W7. Turn on System Settings, Keyboard, Text Input, Input Sources, Edit, "Show inline predictive text". Open the window and the menu.
     **The window says macOS shows its own grey predictions too, and the menu offers Turn Off macOS Predictions; each opens Keyboard settings.** Turn the setting back off: **both go.**
 W8. Models: Delete on a model you have and aren't using.

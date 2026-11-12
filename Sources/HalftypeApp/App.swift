@@ -159,7 +159,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     /// Why there's no ghost in the front app's field, as the watcher last settled it.
     @Published var why = Watcher.Why.unreadable
     /// A suggestion was taken since the window opened, and nothing has stood in the way since.
-    @Published var accepted = false
     /// Counts each bind and unbind, so a reason from an earlier one is dropped.
     var binding = 0
     /// This launch began without a model or the permission, so the field gets a sentence once, and the first ghost needs no typing.
@@ -333,7 +332,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
                 self.count { $0.took(added, keys: keys, words: words, first: suggestion != self.lastTaken) }
                 self.lastKey = nil  // The pause to read and take a suggestion isn't typing.
                 self.lastTaken = suggestion
-                if !self.accepted { self.accepted = true }
             }
         }
         // The symbol is for a binary run outside the bundle, as the e2e checks do.
@@ -618,7 +616,6 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     func whyChanged(_ new: Watcher.Why, binding: Int) {
         guard binding == self.binding else { return }
         why = new
-        if !new.working { accepted = false }
         updateIcon()  // Secure Input comes and goes with no word to us; the watcher sees it.
     }
 
@@ -626,15 +623,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         App.line(trusted: trusted, active: activeHere, obstacle: tap.obstacle, ready: ready || practicing, why: why)
     }
 
-    static let lesson = "Tab takes a word. Shift-Tab takes it all. Esc hides it."
-    static let success = "That's it. Halftype works like this in almost any app."
-
-    /// Under the field: the menu's line, or while nothing is in the way, that the first accept worked or else the keys (drawn as keycaps),
-    /// never "Working.", which says nothing in our own field (docs/design/settings-pages). Nothing while off, paused or without the permission.
+    /// Under the field's keys: the menu's line when something is in the way, else nil. Never "Working.", which says nothing in our own
+    /// field (docs/design/settings-pages). Nil too while off, paused or without the permission.
     func fieldLine(_ why: Watcher.Why) -> String? {
-        guard let line = line(for: why) else { return nil }
-        guard why.working, ready || practicing, tap.obstacle == nil else { return line }
-        return accepted ? App.success : App.lesson
+        guard let line = line(for: why), !(why.working && (ready || practicing) && tap.obstacle == nil) else { return nil }
+        return line
     }
 
     /// macOS's own grey inline predictions, which would show beside ours. Read, never written.

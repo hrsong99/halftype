@@ -41,7 +41,7 @@ Or keep typing: the suggestion follows along while you match it. With no suggest
 
 The window opens on that field alone, with the keys under it. A sidebar holds the rest, a page each: Stats, Models (to download, switch between or delete, with your Personal Model under the model it was trained for), Suggestions, paused Apps and General, and the on/off switch. Close the window and Halftype stays in the menu bar, whose icon also pauses it for the current app. Open Halftype again to get the window back.
 
-The menu-bar icon dims when Halftype is off or paused for the app in front, shows a dot when something needs you, and a percentage while the model downloads. Its menu says in one line why there's no suggestion where you are. Most often that's "Working. Not sure enough to suggest yet.": Halftype stays quiet until it's sure. Under the window's field the keys show instead while all is well, and the line only when something is in the way. If macOS's own grey predictions are on, the window says so and links to the setting; Halftype never changes it.
+The menu-bar icon dims when Halftype is off or paused for the app in front, shows a dot when something needs you, and a percentage while the model downloads. Its menu says in one line why there's no suggestion where you are. Most often that's "Working. Not sure enough to suggest yet.": Halftype stays quiet until it's sure. Under the window's field the keys always show, and the line under them only when something is in the way. If macOS's own grey predictions are on, the window says so and links to the setting; Halftype never changes it.
 
 ## Why it's different
 

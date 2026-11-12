@@ -191,7 +191,7 @@ struct FieldPage: View {
         }
     }
 
-    /// The lesson as keys, always there while Halftype can suggest, so nothing jumps when a ghost appears (docs/design/settings-pages, F2).
+    /// How to take a suggestion, always there while Halftype can suggest, so nothing jumps when a ghost appears (docs/design/settings-pages, F2).
     private var keys: some View {
         HStack(spacing: 18) {
             ForEach([("Tab", "next word"), ("⇧ Tab", "all of it"), ("Esc", "hide")], id: \.0) { key, does in
@@ -201,7 +201,7 @@ struct FieldPage: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The model until it's ready, then what the menu says about this field: the keys, that the first Tab worked, or why there's none.
+    /// The model until it's ready, then the keys, and under them why there's no suggestion when something is in the way.
     @ViewBuilder private var status: some View {
         VStack(spacing: 6) {
             if (!app.ready && !app.practicing) || app.notice != nil {
@@ -210,13 +210,10 @@ struct FieldPage: View {
                     ProgressView(value: app.downloadFraction).frame(width: 160).tint(.primary)
                     Line(text: "You can close this window.")
                 }
-            } else if chrome, let line = app.fieldLine(settled) {
-                if line == App.lesson { keys } else {
-                    HStack(spacing: 8) {
-                        Line(text: line)
-                        if line == App.success, !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }
-                    }
-                }
+            } else if chrome, app.line(for: settled) != nil {
+                // The keys stay while you type (John, 2026-11-13); a reason shows under them, in room kept so they never move.
+                keys
+                Line(text: app.fieldLine(settled) ?? " ")
             }
             if app.predictions {
                 HStack(spacing: 8) {
@@ -838,9 +835,26 @@ private struct AppsPage: View {
             ForEach(app.pausedApps.sorted(), id: \.self) { id in
                 Row(title: App.displayName(id), icon: App.icon(id).map(Icon.app)) { Button("Remove") { app.pausedApps.remove(id) } }
             }
-            Button("Add App…", action: app.pauseAnApp).padding(.top, 8)
+            // Running apps first, as AltTab offers them, so most never need the Applications folder. Read when the menu is drawn,
+            // and drawn again as apps open and quit.
+            Menu("Add App") {
+                let running = App.runningApps(except: app.pausedApps)
+                ForEach(running, id: \.self) { id in
+                    Button { app.pausedApps.insert(id) } label: {
+                        Label { Text(App.displayName(id)) } icon: { App.icon(id).map { Image(nsImage: App.small($0)) } }
+                    }
+                }
+                if !running.isEmpty { Divider() }
+                Button("Choose from Disk…", action: app.pauseAnApp)
+            }
+            .fixedSize()
+            .padding(.top, 8)
+            .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in changed.toggle() }
+            .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in changed.toggle() }
+            .id(changed)
         }
     }
+    @State private var changed = false
 }
 
 /// How much it suggests, and how you take it.
@@ -939,7 +953,6 @@ extension App {
             made.setContentSize(CGSize(width: 860, height: 600))
             made.center()
             window = made
-            accepted = false
         }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
@@ -969,6 +982,18 @@ extension App {
 
     static func icon(_ bundleID: String) -> NSImage? {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map { NSWorkspace.shared.icon(forFile: $0.path) }
+    }
+
+    /// Apps with a Dock icon now open, but not Halftype or ones already paused, by name.
+    static func runningApps(except paused: Set<String>) -> [String] {
+        let ids = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap(\.bundleIdentifier)
+        return Set(ids).subtracting(paused).subtracting([Bundle.main.bundleIdentifier ?? ""])
+            .sorted { displayName($0).localizedCaseInsensitiveCompare(displayName($1)) == .orderedAscending }
+    }
+
+    /// A menu draws an image at its own size, so an app's 512-point icon would fill it.
+    static func small(_ image: NSImage) -> NSImage {
+        NSImage(size: CGSize(width: 16, height: 16), flipped: false) { image.draw(in: $0); return true }
     }
 
     static func displayName(_ bundleID: String) -> String {
