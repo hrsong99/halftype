@@ -51,7 +51,10 @@ struct Root: View {
                     FieldPage(app: app, draft: $draft).background { Arch() }.clipped().ignoresSafeArea()
                 } else {
                     // Inside the safe area, which the title bar sets: a page scrolls out of sight below it instead of under it.
+                    // No bar: with a mouse attached macOS draws a dark, always-on one on the cream (John, 2026-11-13). A page cut at the window's
+                    // edge shows there is more, and the wheel and trackpad still scroll.
                     ScrollView { settings.frame(maxWidth: 560).padding(.horizontal, 32).padding(.vertical, 24).frame(maxWidth: .infinity) }
+                        .scrollIndicators(.never)
                         .id(page)  // Each page opens at its top.
                 }
             }
