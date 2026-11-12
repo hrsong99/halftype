@@ -33,28 +33,25 @@ struct Root: View {
 
     var body: some View {
         Group {
-            if app.onboarding { Onboarding(app: app, step: onboardingStep) } else { home }
+            if app.onboarding { Onboarding(app: app, step: onboardingStep).ignoresSafeArea() } else { home }
         }
         .frame(minWidth: 720, idealWidth: 860, minHeight: 480, idealHeight: 600)
         // The icon's cream tile.
         .background(Root.cream)
         // Cream in dark mode too (docs/design/home-glass).
         .preferredColorScheme(.light)
-        .ignoresSafeArea()
     }
 
     private var home: some View {
         HStack(spacing: 0) {
-            sidebar
-            Divider().opacity(0.5)
+            sidebar.ignoresSafeArea()
+            Divider().opacity(0.5).ignoresSafeArea()
             Group {
                 if page == .field {
-                    FieldPage(app: app, draft: $draft).background { Arch() }.clipped()
+                    FieldPage(app: app, draft: $draft).background { Arch() }.clipped().ignoresSafeArea()
                 } else {
-                    // Below the title bar, so a page scrolls out of sight there instead of under it.
+                    // Inside the safe area, which the title bar sets: a page scrolls out of sight below it instead of under it.
                     ScrollView { settings.frame(maxWidth: 560).padding(.horizontal, 32).padding(.vertical, 24).frame(maxWidth: .infinity) }
-                        .scrollIndicators(.automatic)
-                        .padding(.top, 28)
                         .id(page)  // Each page opens at its top.
                 }
             }
@@ -97,6 +94,7 @@ struct Root: View {
         }
         .buttonStyle(.plain)
         .background(page == shown ? Color.primary.opacity(0.07) : .clear, in: RoundedRectangle(cornerRadius: 7))
+        .accessibilityAddTraits(page == shown ? .isSelected : [])
         // Try It stands apart from the pages about Halftype itself.
         .padding(.bottom, shown == .field ? 10 : 0)
     }

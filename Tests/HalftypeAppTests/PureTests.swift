@@ -1838,7 +1838,10 @@ final class FakeServer: URLProtocol {
 
     /// A window ordered in at the back, never key, captured by its ID: the only picture with both the ribbon and a ScrollView.
     func onScreen(_ name: String, _ root: Root, _ size: CGSize, wait: TimeInterval = 1.2) throws {
-        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        // The app's own window style (`showWindow`), so the title bar sets the safe area as it does there.
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.contentView = NSHostingView(rootView: root)
         window.orderBack(nil)
         defer { window.orderOut(nil) }
