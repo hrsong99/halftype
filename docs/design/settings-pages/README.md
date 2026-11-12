@@ -19,4 +19,4 @@ John, with a screenshot of the Suggestions page in front (blue segments and ring
 
 Options: A today · B ink, a line for the choice made, keys in one row, roomier · C grouped like System Settings · D preview tiles for Show and Length · E no panel, rows on the cream.
 
-Recommendation: B. Pick: none yet.
+Recommendation: B. Pick: B ("B looks okay, are we applying to all the other pages? (and do we even need the tab shift tab instructions there when it will be in the try it permanently?)"), built on every page, without the key rows (Try It shows them). `built/round2-*.png`.

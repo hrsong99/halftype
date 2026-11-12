@@ -309,7 +309,7 @@ private struct Row<Trailing: View>: View {
             Spacer()
             trailing
         }
-        .padding(.vertical, 9)
+        .padding(.vertical, 12)
     }
 
     /// The makers' marks come from Logos/: a PNG fills its tile, a PDF sits on white, as both are drawn for a light ground.
@@ -329,6 +329,33 @@ private struct Row<Trailing: View>: View {
             Image(systemName: name).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).frame(width: 28, height: 28)
                 .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
         }
+    }
+}
+
+/// A segmented choice in the window's ink: macOS paints a selected `.segmented` Picker in the system accent, blue on our cream
+/// (John, 2026-11-13), so the chosen one is a white pill instead.
+private struct Choice<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [(Value, String)]
+    init(selection: Binding<Value>, _ options: [(Value, String)]) { _selection = selection; self.options = options }
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(options, id: \.0) { value, title in
+                let on = value == selection
+                Button { selection = value } label: {
+                    Text(title).font(.system(size: 12, weight: on ? .medium : .regular)).foregroundStyle(on ? .primary : .secondary)
+                        .padding(.horizontal, 11).padding(.vertical, 3)
+                        .background { if on { RoundedRectangle(cornerRadius: 6).fill(.white).shadow(color: .black.opacity(0.12), radius: 1, y: 0.5) } }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .padding(2)
+        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+        .fixedSize()
+        .animation(.easeOut(duration: 0.12), value: selection)
     }
 }
 
@@ -356,7 +383,7 @@ struct StatsPage: View {
             guard period.previousLength > 0, let since = app.tally.since, since <= Tally.key(last, calendar) else { return nil }
             return app.tally.sum(period.previousLength, to: last, calendar)
         }
-        Plain(title: "Stats", note: "What Tab has typed for you.") {
+        Plain(title: "Stats", note: "What Tab has typed for you. Only counts are kept, never what you type.") {
             HStack {
                 if let period {
                     Button { back += 1; picked = nil } label: { Image(systemName: "chevron.left") }.disabled(oldest(period)).help("Earlier")
@@ -364,8 +391,7 @@ struct StatsPage: View {
                 }
                 Text(heading(period)).font(.system(size: 13, weight: .medium))
                 Spacer()
-                Picker("Show", selection: $span) { ForEach(Span.allCases, id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                Choice(selection: $span, Span.allCases.map { ($0, $0.rawValue) })
             }
             .buttonStyle(.borderless)
             .padding(.top, 6)
@@ -379,8 +405,7 @@ struct StatsPage: View {
             .padding(.top, 12)
             Text(caption(period, before)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().padding(.top, 24).padding(.bottom, 8)
             if let period { bars(period) } else { dots }
-            personal
-            Text("Only counts are kept, never what you type.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 20)
+            personal.padding(.bottom, 8)
         }
     }
 
@@ -590,7 +615,7 @@ private struct SavedTyping: View {
     @State private var asking: Ask?
     private enum Ask { case off, delete }
     var body: some View {
-        Row(title: "Save What You Type", note: "For a Personal Model later. Encrypted, on this Mac only.") {
+        Row(title: "Save What You Type", note: "Encrypted, on this Mac only.") {
             Toggle("", isOn: Binding(get: { app.savesTyping }, set: { on in if on { app.savesTyping = true } else { asking = .off } }))
                 .toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
         }
@@ -788,7 +813,7 @@ private struct MotionTile: View {
                     .overlay(shape.strokeBorder(.primary.opacity(0.09)))
                     .shadow(color: .black.opacity(0.06), radius: 1.5, y: 1)
                     .padding(3)
-                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.accentColor, lineWidth: 2).opacity(on ? 1 : 0))
+                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.primary, lineWidth: 1.5).opacity(on ? 1 : 0))
                 Text(verbatim: name).font(.system(size: 11.5, weight: on ? .medium : .regular)).foregroundStyle(on ? .primary : .secondary).fixedSize()
             }
             .contentShape(Rectangle())
@@ -862,27 +887,21 @@ private struct SuggestionsPage: View {
     @ObservedObject var app: App
     var body: some View {
         Plain(title: "Suggestions", note: "How much it suggests, and how you take it.") {
-            Row(title: "Show", note: "Always shows every guess; ignore the wrong ones.") {
-                Picker("", selection: $app.often) { Text("Always").tag(Often.always); Text("When Likely").tag(Often.more); Text("When Sure").tag(Often.normal) }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 280)
+            // One line, for the choice made, not a sentence for every choice (docs/design/settings-pages round 2, B).
+            Row(title: "Show", note: [.always: "Every guess shows; ignore the wrong ones.", .more: "Shows when it's fairly sure.", .normal: "Only when it's sure."][app.often]) {
+                Choice(selection: $app.often, [(.always, "Always"), (.more, "When Likely"), (.normal, "When Sure")])
             }
-            Row(title: "Length", note: "Short ends sooner, so more of what it shows is right.") {
-                Picker("", selection: $app.length) { Text("Long").tag(Length.long); Text("Short").tag(Length.short) }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+            Row(title: "Length", note: app.length == .short ? "Ends sooner, so more of it is right." : "Goes on further, so a Tab can take more.") {
+                Choice(selection: $app.length, [(.long, "Long"), (.short, "Short")])
             }
             // Under its title at full width, as System Settings' Appearance: beside it, three tiles crush the title in a small window.
             VStack(alignment: .leading, spacing: 8) {
                 Text("Tab Motion")
                 HStack(spacing: 12) { ForEach(AcceptMotion.allCases, id: \.self) { MotionTile(motion: $0, chosen: $app.motion) } }
             }
-            .padding(.vertical, 9)
-            Row(title: "Next word") { key("Tab") }
-            Row(title: "Whole suggestion") { key("⇧ Tab") }
-            Row(title: "Hide the suggestion") { key("Esc") }
+            .padding(.vertical, 12)
+            // No rows for the keys: Try It always shows them (John, 2026-11-13).
         }
-    }
-    private func key(_ name: String) -> some View {
-        Text(name).font(.system(size: 11.5)).padding(.horizontal, 6).padding(.vertical, 1).overlay(RoundedRectangle(cornerRadius: 4).stroke(.tertiary))
     }
 }
 
@@ -893,9 +912,8 @@ private struct PersonalModel: View {
     var body: some View {
         if let path = app.activePath, let current = App.adapterFile(for: path) {
             VStack(alignment: .leading, spacing: 0) {
-                Row(title: "Personal Model", note: "Trained on your writing, for this model only. Compare uses it every other day, for Stats.") {
-                    Picker("", selection: $app.personal) { Text("Off").tag(Personal.off); Text("Compare").tag(Personal.compare); Text("On").tag(Personal.on) }
-                        .pickerStyle(.segmented).labelsHidden().fixedSize()
+                Row(title: "Personal Model", note: [.off: "Trained on your writing. Not used now.", .compare: "Used every other day, so Stats can compare.", .on: "Trained on your writing, and used every day."][app.personal]) {
+                    Choice(selection: $app.personal, [(.off, "Off"), (.compare, "Compare"), (.on, "On")])
                 }
                 // Each trained version, newest first: a new one is used on arrival, and an older one can be used again or deleted.
                 ForEach(App.adapters(for: path).reversed(), id: \.self) { file in
@@ -922,7 +940,7 @@ private struct PersonalModel: View {
 private struct GeneralPage: View {
     @ObservedObject var app: App
     var body: some View {
-        Plain(title: "General", note: "Everything runs on this Mac. Nothing you type is sent, and Stats keeps counts only.") {
+        Plain(title: "General", note: "Everything runs on this Mac. Nothing you type is sent.") {
             Row(title: "Start at Login") { Toggle("", isOn: $app.startAtLogin).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden() }
             if app.isRelease {
                 Row(title: "Update Automatically", note: "Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")") {
@@ -931,7 +949,7 @@ private struct GeneralPage: View {
                 }
             }
             SavedTyping(app: app)
-            Row(title: "Show What the Model Sees", note: "Press ⌃⌥ to show it over suggestions, again to hide. On screen only, never saved.") {
+            Row(title: "Show What the Model Sees", note: "Press ⌃⌥ over a suggestion. On screen only.") {
                 Toggle("", isOn: $app.peeking).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
             }
         }
