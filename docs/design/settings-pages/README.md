@@ -9,3 +9,14 @@ John: "the first page should remove the power icon and the model … do we need 
 Recommendation: F2 (field plus a fixed keys line; problems and the first-Tab line take its place) and B (a sidebar that stays, one page each, 6 pages (no separate Privacy page: saved typing stays under General), Personal Model under its model), default window 860 × 600.
 
 Pick (2026-11-13): F2 and B ("yes, build F2 and B (but … is the settings text even necessary? when technically not all of them are settings either)"). Built with no "Settings" label in the sidebar: Try It, a gap, then the pages. `built/` holds the window shots.
+
+## Round 2: the pages, refined (2026-11-13)
+
+John, with a screenshot of the Suggestions page in front (blue segments and ring): "I want the rest of the pages including these updated to look better, more refined and polished and less cramped and text heavy. Can you show me some variations."
+
+- `round2.html`: A (today, as seen in front) to E as live windows with Suggestions, Models and General each; K and L, Codex image ideas (`images/gen.sh K`, `images/gen.sh L`, from `images/today-suggestions.png`).
+- `round2.png`: frozen screenshot.
+
+Options: A today · B ink, a line for the choice made, keys in one row, roomier · C grouped like System Settings · D preview tiles for Show and Length · E no panel, rows on the cream.
+
+Recommendation: B. Pick: none yet.

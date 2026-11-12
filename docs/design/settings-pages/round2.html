@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halftype pages, round 2</title>
+<style>
+:root{--cream:#f6f1e9;--ink:#1d1d1f;--sec:#86868b;--ter:#b9b6b0;--peach:#e6946b;--line:rgba(0,0,0,.07);--btn:#ebe7e1;--blue:#0a6cff}
+*{box-sizing:border-box}
+body{margin:0;background:#ece8e1;color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}
+main{max-width:1240px;margin:0 auto;padding:28px 20px 80px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:20px;margin:40px 0 6px}
+.q{color:#555;margin:0 0 16px}
+.tldr{background:#fff;border-radius:14px;padding:16px 20px;margin:14px 0 8px}
+.tldr ol{margin:6px 0 0;padding-left:20px}.tldr li{margin:4px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(560px,1fr));gap:22px}
+.card{background:#fff;border-radius:16px;padding:14px}
+.card h3{margin:2px 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}.card h3 b{width:24px;height:24px;border-radius:7px;background:var(--ink);color:#fff;text-align:center;line-height:24px;font-size:13px;flex:none}
+.card p{margin:10px 2px 0;color:#555;font-size:13px}
+.pick{outline:2px solid var(--peach)}
+.tabs{display:flex;gap:4px;margin:0 0 8px}.tabs button{border:0;background:#f1eee9;border-radius:7px;padding:3px 10px;font:12px -apple-system;cursor:pointer}.tabs button.on{background:var(--ink);color:#fff}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+.imgs img{width:100%;border-radius:12px;display:block}
+
+/* window */
+.win{position:relative;height:520px;border-radius:12px;background:var(--cream);overflow:hidden;box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 8px 24px rgba(0,0,0,.1);display:flex}
+.lights{position:absolute;top:11px;left:12px;display:flex;gap:7px}.lights i{width:11px;height:11px;border-radius:50%;background:#ff5f57}.lights i+i{background:#febc2e}.lights i+i+i{background:#28c840}
+.side{width:128px;flex:none;padding:40px 6px 10px;border-right:1px solid var(--line);background:rgba(255,255,255,.3)}
+.side div{display:flex;gap:7px;align-items:center;padding:4px 8px;border-radius:6px;font-size:12px;color:#666}
+.side div.on{background:rgba(0,0,0,.07);color:var(--ink)}.side div.on i{color:var(--peach)}.side i{font-style:normal;width:12px;font-size:10px;text-align:center}
+.side .gap{height:8px;padding:0}
+.page{flex:1;overflow:auto;padding:36px 30px 24px}
+.title{font-size:24px;font-weight:650;letter-spacing:-.3px}.lead{color:var(--sec);font-size:12.5px;margin:2px 0 16px}
+
+/* shared controls */
+.seg{display:inline-flex;background:var(--btn);border-radius:8px;padding:2px;font-size:11.5px;flex:none}.seg span{padding:2px 10px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.seg span.on{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.blue .seg span.on{background:var(--blue);color:#fff}
+.sw{width:30px;height:18px;border-radius:9px;background:var(--ink);position:relative;flex:none;cursor:pointer}.sw:after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.15s}.sw.off{background:#d9d5cf}.sw.off:after{right:14px}
+.blue .sw{background:var(--blue)}.blue .sw.off{background:#d9d5cf}
+.btn{background:var(--btn);border-radius:6px;padding:2px 10px;font-size:11.5px;white-space:nowrap}
+kbd{font:500 10.5px -apple-system;border:1px solid #d3cec6;border-bottom-width:2px;border-radius:5px;padding:0 5px;background:#fff;color:#444}
+.keys{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--sec)}.keys span{display:flex;gap:5px;align-items:center}
+.tiles{display:flex;gap:8px}.tile{flex:1;min-width:0;text-align:center;font-size:11px;color:var(--sec);cursor:pointer}
+.tile div{background:#fff;border-radius:9px;padding:12px 4px;color:var(--ink);font-size:11.5px;box-shadow:0 0 0 1px rgba(0,0,0,.06);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.tile.on div{box-shadow:0 0 0 2px var(--ink)}.tile.on{color:var(--ink);font-weight:600}
+.blue .tile.on div{box-shadow:0 0 0 3px var(--blue)}
+.g{color:var(--ter)}
+.logo{width:24px;height:24px;border-radius:6px;background:#fff;display:grid;place-items:center;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.06)}.logo img{width:14px}.kk{background:#ffd400;font:700 5px sans-serif}
+.inuse{font-size:11.5px;color:var(--sec);white-space:nowrap}.inuse:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--peach);margin-right:5px;vertical-align:1px}
+.size{font-size:11.5px;color:var(--sec);width:40px;text-align:right}
+
+/* rows */
+.row{display:flex;align-items:center;gap:10px}.row .t{flex:1;min-width:0}.n{color:var(--sec);font-size:11.5px}
+.pane{background:rgba(255,255,255,.62);border-radius:14px;padding:6px 16px}
+.pane .row{padding:9px 0}
+.stack{padding:9px 0}
+
+/* C groups */
+.grp{background:rgba(255,255,255,.7);border-radius:12px;padding:0 14px;margin-bottom:6px}
+.grp .row{padding:9px 0;border-bottom:1px solid var(--line)}.grp .row:last-child{border:0}
+.gh{font-size:11px;font-weight:600;color:var(--sec);margin:14px 4px 5px;text-transform:none}
+.foot{font-size:11px;color:var(--sec);margin:0 4px 6px}
+
+/* E open */
+.open .row{padding:13px 0;border-bottom:1px solid var(--line)}.open .row:last-child{border:0}
+.open .row .t{font-size:13px}
+
+.roomy .pane .row{padding:13px 0}.roomy .title{font-size:26px}.roomy .lead{margin-bottom:20px}
+.sel{font-size:11.5px;color:var(--sec);margin-top:3px;min-height:16px}
+</style>
+</head>
+<body>
+<main>
+<h1>Settings pages: refined, less cramped, less text</h1>
+<p class="q">John: "I want the rest of the pages including these updated to look better, more refined and polished and less cramped and text heavy. Can you show me some variations." Each window is live: switch pages with the tabs above it, click the controls.</p>
+
+<div class="tldr"><b>TL;DR, most important first</b>
+<ol>
+<li><b>The blue in your screenshot is the biggest fix, and it comes free with any option.</b> When the window is in front, macOS paints selected segments and the chosen Tab Motion ring in system blue, the only blue in a cream-and-ink app. My window shots are never in front, so they never showed it. Every option below uses ink instead.</li>
+<li><b>Pick B: Ink and one line.</b> The same layout as now, but each setting shows one line for the option you picked (instead of a fixed sentence), the Tab, ⇧ Tab, Esc rows become one row of keys, and rows get more room. About a third less text, small code change.</li>
+<li><b>D if you want it to feel designed, not configured:</b> Show and Length become preview tiles like Tab Motion, so you see what each does instead of reading it. Prettiest, most work, taller page.</li>
+<li><b>C is the System Settings look</b> (grouped, hairlines, footnotes): familiar and very tidy, but closest to "a settings app".</li>
+</ol></div>
+
+<div class="grid" id="grid"></div>
+
+<h2>Image ideas (Codex)</h2>
+<div class="grid imgs">
+ <div class="card"><h3><b>K</b>Every choice as a preview</h3><img src="images/K.jpg" alt="K" onerror="this.replaceWith('Still generating')"><p id="Kn">D taken all the way: three rows of previews and no labels at all. Worth taking: the black ring as the only selection mark, and how calm a page of white tiles is. Too far without labels: you can't tell what each row sets. Prompt: <code>images/prompts/K.txt</code>.</p></div>
+ <div class="card"><h3><b>L</b>Warm System Settings</h3><img src="images/L.jpg" alt="L" onerror="this.replaceWith('Still generating')"><p id="Ln">C, drawn by Codex: hairline groups, no notes on rows, one footnote for the choice made. Worth taking: the selected segment as a white pill in bold, not a colour. Tab Motion as a pop-up is tidier but loses its preview. Prompt: <code>images/prompts/L.txt</code>.</p></div>
+</div>
+</main>
+
+<script>
+const ICON="../settings-scroll/images/icons/";
+const OPTS=[
+ {k:"A",name:"Today, as you saw it",cls:"blue",layout:"pane",desc:"fixed",visual:false,keys:"rows",
+  note:"What ships, in front: blue segments and ring, a fixed sentence under every setting whatever you pick, three rows for three keys."},
+ {k:"B",name:"Ink and one line (recommended)",cls:"roomy",layout:"pane",desc:"selected",visual:false,keys:"line",pick:true,
+  note:"Same structure. Ink selection, a line only for what you picked (click the segments), keys in one row, rows 30% taller. In SwiftUI: one tint, the notes keyed by the choice, and padding; an hour's work."},
+ {k:"C",name:"Grouped, like System Settings",cls:"",layout:"groups",desc:"footnote",visual:false,keys:"line",
+  note:"Rows grouped under small headings, hairlines between, labels alone, one grey footnote per group for the choice made. Tidy and familiar; reads most like a settings app."},
+ {k:"D",name:"Show, don't tell",cls:"",layout:"pane",desc:"none",visual:true,keys:"line",
+  note:"Show and Length become preview tiles like Tab Motion: you see more or fewer grey words, a short or long ghost. Almost no explanatory text. The page grows taller, and the tiles are drawn views (no animation needed)."},
+ {k:"E",name:"Open, no panel",cls:"",layout:"open",desc:"selected",visual:false,keys:"line",
+  note:"No white panel: rows sit straight on the cream, parted by hairlines, with bigger labels. Most airy and editorial; loses the panel that groups a page at a glance."},
+];
+const SHOW={Always:"Every guess shows; ignore the wrong ones.","When Likely":"Shows when it's fairly sure.","When Sure":"Only when it's sure."};
+const LEN={Long:"Up to the end of the thought.",Short:"Ends sooner, so more of it is right."};
+const MOTION=["Trail","Flash","Off"];
+
+function seg(id,opts,cur){return `<span class="seg" data-g="${id}">${opts.map(o=>`<span class="${o==cur?"on":""}" data-v="${o}">${o}</span>`).join("")}</span>`}
+function keysLine(){return `<div class="keys"><span><kbd>Tab</kbd>next word</span><span><kbd>⇧ Tab</kbd>whole suggestion</span><span><kbd>Esc</kbd>hide</span></div>`}
+function motionTiles(cur){return `<div class="tiles" data-g="motion">${MOTION.map(m=>`<div class="tile ${m==cur?"on":""}" data-v="${m}"><div>see you at<span class="g"> noon</span></div>${m}</div>`).join("")}</div>`}
+function showTiles(cur){const ex={Always:'Let me know if<span class="g"> you have any</span>',"When Likely":'Let me know if<span class="g"> you</span>',"When Sure":'Let me know if'};
+ return `<div class="tiles" data-g="show">${Object.keys(ex).map(m=>`<div class="tile ${m==cur?"on":""}" data-v="${m}"><div>${ex[m]}</div>${m}</div>`).join("")}</div>`}
+function lenTiles(cur){const ex={Long:'Thanks, I’ll<span class="g"> send it over tonight</span>',Short:'Thanks, I’ll<span class="g"> send it</span>'};
+ return `<div class="tiles" data-g="len">${Object.keys(ex).map(m=>`<div class="tile ${m==cur?"on":""}" data-v="${m}"><div>${ex[m]}</div>${m}</div>`).join("")}</div>`}
+
+function suggestions(o,st){
+ const showNote=o.desc=="fixed"?"Always shows every guess; ignore the wrong ones.":SHOW[st.show];
+ const lenNote=o.desc=="fixed"?"Short ends sooner, so more of what it shows is right.":LEN[st.len];
+ const row=(label,ctl,note)=>`<div class="row"><div class="t">${label}${note&&o.desc!="footnote"&&o.desc!="none"?`<div class="n">${note}</div>`:""}</div>${ctl}</div>`;
+ if(o.visual) return `<div class="title">Suggestions</div><div class="lead">How much it suggests, and how you take it.</div>
+  <div class="pane"><div class="stack"><div style="margin-bottom:7px">Show</div>${showTiles(st.show)}</div>
+  <div class="stack"><div style="margin-bottom:7px">Length</div>${lenTiles(st.len)}</div>
+  <div class="stack"><div style="margin-bottom:7px">Tab Motion</div>${motionTiles(st.motion)}</div>
+  <div class="stack">${keysLine()}</div></div>`;
+ if(o.layout=="groups") return `<div class="title">Suggestions</div><div class="lead">How much it suggests, and how you take it.</div>
+  <div class="gh">What shows</div><div class="grp">${row("Show",seg("show",Object.keys(SHOW),st.show))}${row("Length",seg("len",["Long","Short"],st.len))}</div>
+  <div class="foot">${SHOW[st.show]} ${LEN[st.len]}</div>
+  <div class="gh">Taking it</div><div class="grp"><div class="row" style="display:block">Tab Motion<div style="margin-top:8px">${motionTiles(st.motion)}</div></div><div class="row">${keysLine()}</div></div>`;
+ const keys=o.keys=="rows"?["Next word|Tab","Whole suggestion|⇧ Tab","Hide the suggestion|Esc"].map(s=>{const[a,b]=s.split("|");return row(a,`<kbd>${b}</kbd>`)}).join(""):`<div class="row">${keysLine()}</div>`;
+ const body=`${row("Show",seg("show",Object.keys(SHOW),st.show),showNote)}${row("Length",seg("len",["Long","Short"],st.len),lenNote)}
+  <div class="row" style="display:block">Tab Motion<div style="margin-top:8px">${motionTiles(st.motion)}</div></div>${keys}`;
+ return `<div class="title">Suggestions</div><div class="lead">How much it suggests, and how you take it.</div><div class="${o.layout=="open"?"open":"pane"}" ${o.k=="B"?'style="padding:8px 18px"':""}>${body}</div>`;
+}
+
+function models(o,st){
+ const m=(logo,name,note,size,act)=>`<div class="row"><span class="logo ${logo=="kk"?"kk":""}">${logo=="kk"?"kakao":`<img src="${ICON}${logo}">`}</span><div class="t">${name}${o.desc=="none"?"":`<div class="n">${note}</div>`}</div><span class="size">${size}</span>${act}</div>`;
+ const use='<span class="btn">Use</span>';
+ const personal=`<div class="${o.layout=="groups"?"":"pane"}" style="${o.layout=="groups"?"":"margin:2px 0 6px 34px;background:var(--cream);padding:4px 12px"}">
+  <div class="row"><div class="t">Personal Model${o.desc=="fixed"?'<div class="n">Trained on your writing, for this model only. Compare uses it every other day, for Stats.</div>':""}</div>${seg("pm",["Off","Compare","On"],st.pm)}</div>
+  <div class="row"><div class="t">Nov 9 <span class="n">· 3,042 messages</span></div><span class="inuse">In use</span></div>
+  <div class="row"><div class="t">Nov 8 <span class="n">· 3,053 messages</span></div>${use}</div></div>`;
+ const list=[m("gemma-color.svg","Gemma 4 E2B","Best in English.","3.4 GB",'<span class="inuse">In use</span>'),
+  m("qwen-color.svg","Qwen 3.5 0.8B","Smallest and quickest.","0.5 GB",use),m("qwen-color.svg","Qwen 3.5 2B","Better in Korean.","1.3 GB",use),m("kk","Kanana 1.5","Strongest in Korean.","1.4 GB",use)];
+ const add=`<div class="row"><span class="logo">＋</span><div class="t">Add Your Own GGUF</div><span class="btn">Choose…</span></div>`;
+ const lead=`<div class="title">Models</div><div class="lead">They run on this Mac. Bigger is better, and slower.</div>`;
+ if(o.layout=="groups") return lead+`<div class="grp">${list.join("")}${add}</div><div class="gh">Personal Model for Gemma 4 E2B</div><div class="grp">${personal}</div><div class="foot">Trained on your writing. Compare uses it every other day, for Stats.</div>`;
+ return lead+`<div class="${o.layout=="open"?"open":"pane"}">${list[0]}${personal}${list.slice(1).join("")}${add}</div>`;
+}
+
+function general(o,st){
+ const n=(s)=>o.desc=="fixed"||o.desc=="selected"?`<div class="n">${s}</div>`:"";
+ const row=(label,ctl,note)=>`<div class="row"><div class="t">${label}${note?n(note):""}</div>${ctl}</div>`;
+ const sw=(id)=>`<span class="sw ${st[id]?"":"off"}" data-sw="${id}"></span>`;
+ const keep=`<span class="seg" data-g="keep">${["1 Mo","6 Mo","1 Yr","All"].map(v=>`<span class="${v==st.keep?"on":""}" data-v="${v}">${v}</span>`).join("")}</span>`;
+ const lead=`<div class="title">General</div><div class="lead">Everything runs on this Mac. Nothing you type is sent.</div>`;
+ const a=row("Start at Login",sw("login")), u=row("Update Automatically",`<span class="btn">Check Now</span>${sw("upd")}`,o.desc=="fixed"?"Version 0.1.17":"");
+ const s=row("Save What You Type",sw("save"),o.desc=="fixed"?"For a Personal Model later. Encrypted, on this Mac only.":"Encrypted, on this Mac only."),
+  k=`<div class="row" style="${o.layout=="groups"?"":"padding-left:16px"}"><div class="t">Keep${o.desc=="none"?"":'<div class="n">Nothing saved yet.</div>'}</div><span class="btn" style="opacity:.5">Show</span><span class="btn">Delete All</span>${keep}</div>`,
+  p=row("Show What the Model Sees",sw("peek"),o.desc=="fixed"?"Press ⌃⌥ to show it over suggestions, again to hide. On screen only, never saved.":"Press ⌃⌥ over a suggestion.");
+ if(o.layout=="groups") return lead+`<div class="grp">${a}${u}</div><div class="gh">Your typing</div><div class="grp">${s}${k}</div><div class="foot">Kept for a Personal Model; never sent unless you start a training.</div><div class="gh">Advanced</div><div class="grp">${p}</div>`;
+ return lead+`<div class="${o.layout=="open"?"open":"pane"}">${a}${u}${s}${k}${p}</div>`;
+}
+
+const PAGES={Suggestions:suggestions,Models:models,General:general};
+const SIDE=[["Try It","▶"],["Stats","▥"],["Models","◫"],["Suggestions","✦"],["Apps","▦"],["General","⚙"]];
+const grid=document.getElementById("grid");
+OPTS.forEach(o=>{
+ const st={page:"Suggestions",show:"Always",len:"Long",motion:"Flash",pm:"Compare",keep:"6 Mo",login:false,upd:true,save:true,peek:false};
+ const card=document.createElement("div");card.className="card"+(o.pick?" pick":"");
+ card.innerHTML=`<h3><b>${o.k}</b>${o.name}</h3><div class="tabs"></div><div class="win ${o.cls}"><div class="lights"><i></i><i></i><i></i></div><nav class="side"></nav><div class="page"></div></div><p>${o.note}</p>`;
+ grid.appendChild(card);
+ const draw=()=>{
+  card.querySelector(".tabs").innerHTML=Object.keys(PAGES).map(p=>`<button class="${p==st.page?"on":""}">${p}</button>`).join("");
+  card.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{st.page=b.textContent;draw()});
+  card.querySelector(".side").innerHTML=SIDE.map(([n,i],x)=>`<div class="${n==st.page?"on":""}"><i>${i}</i>${n}</div>`+(x==0?'<div class="gap"></div>':"")).join("");
+  card.querySelector(".page").innerHTML=PAGES[st.page](o,st);
+  card.querySelectorAll("[data-g] [data-v]").forEach(e=>e.onclick=()=>{st[e.parentElement.dataset.g]=e.dataset.v;draw()});
+  card.querySelectorAll("[data-sw]").forEach(e=>e.onclick=()=>{st[e.dataset.sw]=!st[e.dataset.sw];draw()});
+ };
+ draw();
+});
+</script>
+</body>
+</html>
