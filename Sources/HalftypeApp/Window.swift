@@ -860,10 +860,9 @@ private struct AppsPage: View {
             ForEach(app.pausedApps.sorted(), id: \.self) { id in
                 Row(title: App.displayName(id), icon: App.icon(id).map(Icon.app)) { Button("Remove") { app.pausedApps.remove(id) } }
             }
-            // Running apps first, as AltTab offers them, so most never need the Applications folder. Read when the menu is drawn,
-            // and drawn again as apps open and quit.
+            // Running apps first, as AltTab offers them, so most never need the Applications folder. Read again as apps open and quit.
             Menu("Add App") {
-                let running = App.runningApps(except: app.pausedApps)
+                let running = self.running.filter { !app.pausedApps.contains($0) }
                 ForEach(running, id: \.self) { id in
                     Button { app.pausedApps.insert(id) } label: {
                         Label { Text(App.displayName(id)) } icon: { App.icon(id).map { Image(nsImage: App.small($0)) } }
@@ -874,12 +873,11 @@ private struct AppsPage: View {
             }
             .fixedSize()
             .padding(.top, 8)
-            .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in changed.toggle() }
-            .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in changed.toggle() }
-            .id(changed)
+            .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in running = App.runningApps(except: []) }
+            .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in running = App.runningApps(except: []) }
         }
     }
-    @State private var changed = false
+    @State private var running = App.runningApps(except: [])
 }
 
 /// How much it suggests, and how you take it.
@@ -888,7 +886,12 @@ private struct SuggestionsPage: View {
     var body: some View {
         Plain(title: "Suggestions", note: "How much it suggests, and how you take it.") {
             // One line, for the choice made, not a sentence for every choice (docs/design/settings-pages round 2, B).
-            Row(title: "Show", note: [.always: "Every guess shows; ignore the wrong ones.", .more: "Shows when it's fairly sure.", .normal: "Only when it's sure."][app.often]) {
+            let showNote = switch app.often {
+                case .always: "Every guess shows; ignore the wrong ones."
+                case .more: "Shows when it's fairly sure."
+                case .normal: "Only when it's sure."
+            }
+            Row(title: "Show", note: showNote) {
                 Choice(selection: $app.often, [(.always, "Always"), (.more, "When Likely"), (.normal, "When Sure")])
             }
             Row(title: "Length", note: app.length == .short ? "Ends sooner, so more of it is right." : "Goes on further, so a Tab can take more.") {
@@ -912,7 +915,12 @@ private struct PersonalModel: View {
     var body: some View {
         if let path = app.activePath, let current = App.adapterFile(for: path) {
             VStack(alignment: .leading, spacing: 0) {
-                Row(title: "Personal Model", note: [.off: "Trained on your writing. Not used now.", .compare: "Used every other day, so Stats can compare.", .on: "Trained on your writing, and used every day."][app.personal]) {
+                let note = switch app.personal {
+                    case .off: "Trained on your writing. Not used now."
+                    case .compare: "Used every other day, so Stats can compare."
+                    case .on: "Trained on your writing, and used every day."
+                }
+                Row(title: "Personal Model", note: note) {
                     Choice(selection: $app.personal, [(.off, "Off"), (.compare, "Compare"), (.on, "On")])
                 }
                 // Each trained version, newest first: a new one is used on arrival, and an older one can be used again or deleted.
