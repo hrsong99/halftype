@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halftype window, round 1</title>
+<style>
+:root{--cream:#f6f1e9;--pane:rgba(255,255,255,.62);--ink:#1d1d1f;--sec:#86868b;--ter:#b9b6b0;--peach:#e6946b;--line:rgba(0,0,0,.07);--btn:#e9e6e1}
+*{box-sizing:border-box}
+body{margin:0;background:#ece8e1;color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:20px;margin:44px 0 6px}
+.q{color:#555;margin:0 0 18px}
+.tldr{background:#fff;border-radius:14px;padding:16px 20px;margin:14px 0 8px;box-shadow:0 1px 0 var(--line)}
+.tldr ol{margin:6px 0 0;padding-left:20px}.tldr li{margin:4px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:22px}
+.card{background:#fff;border-radius:16px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.card h3{margin:2px 0 10px;font-size:15px}.card h3 b{display:inline-block;width:24px;height:24px;border-radius:7px;background:var(--ink);color:#fff;text-align:center;line-height:24px;margin-right:8px;font-size:13px}
+.card p{margin:10px 2px 0;color:#555;font-size:13px}
+.pick{outline:2px solid var(--peach)}
+table{border-collapse:collapse;width:100%;background:#fff;border-radius:12px;overflow:hidden;font-size:13px}
+td,th{padding:8px 12px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}th{background:#faf8f5;font-weight:600}
+td.cut{color:#b44;text-decoration:line-through}td.new{color:#2a7a3f}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+
+/* the mock window */
+.win{position:relative;height:400px;border-radius:12px;background:var(--cream);overflow:hidden;box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 8px 24px rgba(0,0,0,.10)}
+.win.big{height:470px}
+.lights{position:absolute;top:11px;left:12px;display:flex;gap:7px;z-index:9}.lights i{width:11px;height:11px;border-radius:50%;background:#ff5f57}.lights i+i{background:#febc2e}.lights i+i+i{background:#28c840}
+.arch{position:absolute;inset:-40px -20px 0;background:radial-gradient(60% 55% at 22% 78%,rgba(150,190,235,.55),transparent 70%),radial-gradient(45% 45% at 88% 82%,rgba(245,175,135,.55),transparent 70%)}
+.home{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 40px}
+.mark{font:italic 600 30px Georgia,serif;letter-spacing:-2px}
+.field{width:100%;max-width:400px;background:var(--pane);border-radius:16px;padding:12px 14px 10px;min-height:72px;font-size:14px}
+.ph{color:var(--ter)}.ghost{color:var(--ter)}
+.foot{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.chip{background:#fff;border-radius:99px;padding:2px 10px;font-size:11.5px}.pow{width:22px;height:22px;border-radius:50%;background:var(--ink)}
+.status{color:var(--sec);font-size:12.5px;text-align:center;min-height:20px}
+.keys{display:flex;gap:16px;color:var(--sec);font-size:12px;justify-content:center;flex-wrap:wrap}
+kbd{font:500 11px -apple-system;border:1px solid #cfcac2;border-bottom-width:2px;border-radius:5px;padding:0 5px;margin-right:5px;color:var(--ink);background:#fff}
+.down{position:absolute;bottom:12px;left:0;right:0;text-align:center;color:var(--sec);font-size:11.5px}
+.tog{position:absolute;top:8px;left:74px;width:16px;height:13px;border:1.5px solid var(--sec);border-radius:3px;z-index:9}
+.bad{position:absolute;top:2px;left:60px;width:100px;height:40px;border:2px dashed #d33;border-radius:8px;z-index:10}
+
+/* settings content */
+.pg{padding:44px 28px 24px}
+.pg h4{font-size:22px;margin:0;letter-spacing:-.3px}.sub{color:var(--sec);font-size:12.5px;margin:2px 0 14px}
+.row{display:flex;align-items:center;gap:10px;padding:7px 0}.row .t{flex:1;min-width:0}.row .n{color:var(--sec);font-size:11.5px}
+.tile{width:26px;height:26px;border-radius:7px;background:#fff;display:grid;place-items:center;flex:none}.tile img{width:16px}
+.k{background:#ffd400;font:700 5px sans-serif}
+.size{color:var(--sec);font-size:12px;width:46px;text-align:right}
+.use{background:var(--btn);border-radius:6px;padding:2px 0;width:58px;text-align:center;font-size:12px}
+.inuse{width:58px;font-size:12px;color:var(--sec)}.inuse:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--peach);margin-right:5px;vertical-align:1px}
+.nest{margin:2px 0 6px 36px;padding:8px 12px;background:rgba(255,255,255,.6);border-radius:10px;font-size:12px}
+.seg{display:inline-flex;background:var(--btn);border-radius:7px;padding:2px;font-size:11.5px}.seg span{padding:1px 9px;border-radius:5px}.seg .on{background:#fff;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.sw{width:30px;height:17px;border-radius:9px;background:var(--ink);position:relative;flex:none}.sw:after{content:"";position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff}.sw.off{background:#d9d5cf}.sw.off:after{right:auto;left:2px}
+.panebox{background:var(--pane);border-radius:16px;padding:16px 18px}
+
+/* B: sidebar */
+.side{position:absolute;top:0;bottom:0;left:0;width:150px;padding:40px 8px 10px;border-right:1px solid var(--line);background:rgba(255,255,255,.35)}
+.side a{display:flex;gap:8px;align-items:center;padding:5px 9px;border-radius:7px;font-size:12.5px;color:#555;cursor:pointer;text-decoration:none}
+.side a.on{background:rgba(0,0,0,.07);color:var(--ink)}.side a.on i{color:var(--peach)}
+.side i{font-style:normal;width:14px;text-align:center;font-size:11px}
+.side hr{border:0;border-top:1px solid var(--line);margin:7px 6px}
+.side .label{font-size:10.5px;color:var(--sec);padding:2px 9px}
+.content{position:absolute;top:0;bottom:0;left:150px;right:0;overflow:auto}
+.content .home{position:relative;height:100%}
+
+/* C: paged scroll with rail */
+.snap{position:absolute;inset:0;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none}.snap::-webkit-scrollbar{display:none}
+.snap>section{height:100%;scroll-snap-align:start;position:relative;overflow:hidden}
+.rail{position:absolute;left:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:9px;z-index:8}
+.rail span{display:flex;align-items:center;gap:7px;font-size:11px;color:transparent;cursor:pointer;white-space:nowrap}
+.rail span:before{content:"";width:6px;height:6px;border-radius:50%;background:#cbc6be;flex:none}
+.rail:hover span{color:var(--sec)}
+.rail span.on:before{background:var(--peach);transform:scale(1.35)}.rail span.on{color:var(--ink)}
+.count{position:absolute;right:14px;bottom:10px;font-size:11px;color:var(--sec);z-index:8}
+
+/* D: top tabs */
+.tabs{position:absolute;top:0;left:0;right:0;height:62px;display:flex;justify-content:center;align-items:flex-end;gap:2px;padding-bottom:6px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.4)}
+.tabs a{display:flex;flex-direction:column;align-items:center;font-size:10.5px;color:#666;padding:2px 9px;border-radius:7px;cursor:pointer}
+.tabs a i{font-style:normal;font-size:15px}.tabs a.on{background:rgba(0,0,0,.07);color:var(--ink)}.tabs a.on i{color:var(--peach)}
+.below{position:absolute;top:62px;left:0;right:0;bottom:0;overflow:auto}
+.below .pg{padding-top:18px}
+.imgs img{width:100%;border-radius:12px;display:block}
+.note{font-size:12px;color:#777}
+</style>
+</head>
+<body>
+<main>
+<h1>Halftype's window: a calmer first page, and a page per setting</h1>
+<p class="q">John: "remove the power icon and the model … do we need the "working" text under? Shouldn't we just have the instructions? … make the default window size a little bigger … the core cards should be a page each … [Models under the sidebar button] should never happen … maybe indicators on the left of what page we're on and how many (and maybe scroll to snap per page)."</p>
+
+<div class="tldr">
+<b>TL;DR, most important first</b>
+<ol>
+<li><b>The overlap is structural, not a nudge.</b> Settings scroll under a transparent title bar, and the sidebar button floats over it at x 84. Any layout where pages own the title-bar strip (B, C, D) fixes it; today's needs a blurred title bar to fix it.</li>
+<li><b>Pick B: a sidebar that stays, one page each.</b> Click a page, see that page; no scroll in between. The sidebar <i>is</i> the "where am I, and how many" indicator. C (your dot rail + snap) works for short pages but fights pages taller than the window (General today is 1,600 pt tall at 900 wide).</li>
+<li><b>Split into 7 pages:</b> Try It · Stats · Models (with Personal Model under the model it was trained for) · Suggestions · Apps · Privacy · General.</li>
+<li><b>First page: cut the model chip, the power button and "Working."</b> One instruction line in keycaps, always there; the line under changes only when something's wrong or when your first Tab worked.</li>
+<li><b>Default size 860 × 600</b> (today 720 × 500, minimum 640 × 440). On a TV at a scaled resolution 720 pt is small; 860 still fits a 13" MacBook Air (1470 × 956) with room.</li>
+</ol>
+</div>
+
+<h2>1 · The first page</h2>
+<p class="q">What the text says today, and when (from <code>FieldPage</code> and <code>App.fieldLine</code>). Struck through goes; green is new.</p>
+<table>
+<tr><th>When</th><th>Placeholder in the field</th><th>Line under the field</th><th>Proposed (option F2)</th></tr>
+<tr><td>Halftype is off</td><td>Halftype is off</td><td>—</td><td class="new">Placeholder "Halftype is off" + a <b>Turn On</b> button under it (the power button's one job)</td></tr>
+<tr><td>Model downloading / loading</td><td>Type here once the model is ready</td><td>Downloading Gemma 4 E2B: 41% of 3.4 GB · bar · "You can close this window."</td><td>Same, and the bar (keeps the only progress the chip used to show)</td></tr>
+<tr><td>Ready, field empty or typing</td><td>Type here, then press Tab on the grey text</td><td class="cut">Working.</td><td class="new">Placeholder "Type anything." · line: <kbd>Tab</kbd>next word <kbd>⇧ Tab</kbd>all of it <kbd>Esc</kbd>hide, always shown</td></tr>
+<tr><td>Ready, model not sure yet</td><td>—</td><td class="cut">Working. Not sure enough to suggest yet.</td><td class="new">The keys line (not being sure is normal)</td></tr>
+<tr><td>A ghost is showing</td><td>—</td><td>Tab takes a word. Shift-Tab takes it all. Esc hides it.</td><td class="new">The keys line (the same words, now always there, so nothing jumps when a ghost appears)</td></tr>
+<tr><td>Your first Tab worked</td><td>—</td><td>That's it. Halftype works like this in almost any app. [Start at Login]</td><td>Same: the one reward moment</td></tr>
+<tr><td>Something in the way (Secure Input, a 2-Set problem…)</td><td>—</td><td>The reason, e.g. "Korean suggestions need Apple's 2-Set Korean layout."</td><td>Same, in place of the keys line</td></tr>
+<tr><td>macOS predictions on</td><td>—</td><td>macOS shows its own grey predictions too. [Turn Them Off…]</td><td>Same</td></tr>
+</table>
+<p class="note">The model chip's other job, switching models, moves to Models; on/off stays in the menu bar and the sidebar's switch.</p>
+
+<div class="grid" style="margin-top:18px">
+ <div class="card"><h3><b>F1</b>Today</h3>
+  <div class="win"><div class="lights"><i></i><i></i><i></i></div><div class="arch"></div><div class="tog"></div>
+   <div class="home"><div class="mark">h</div><div class="field"><span class="ph">Type here, then press Tab on the grey text</span><div class="foot"><span class="chip">Gemma 4 E2B</span><span class="pow"></span></div></div><div class="status">Working.</div></div>
+   <div class="down">Settings ⌄</div></div>
+  <p>The chip and power button read as a chat app's controls; "Working." says nothing you can act on.</p></div>
+
+ <div class="card pick"><h3><b>F2</b>Instructions only (recommended)</h3>
+  <div class="win"><div class="lights"><i></i><i></i><i></i></div><div class="arch"></div>
+   <div class="home"><div class="mark">h</div><div class="field" style="min-height:62px">Thanks for the notes, I'll<span class="ghost"> send them over tonight</span></div>
+   <div class="keys"><span><kbd>Tab</kbd>next word</span><span><kbd>⇧ Tab</kbd>all of it</span><span><kbd>Esc</kbd>hide</span></div></div>
+   <div class="down">Settings ⌄</div></div>
+  <p>Field, then the three keys, nothing else. The keys never move. Problems and the first-Tab "That's it" take the keys' place. Small change: delete <code>controls</code>, swap two strings.</p></div>
+
+ <div class="card"><h3><b>F3</b>Keys inside the field</h3>
+  <div class="win"><div class="lights"><i></i><i></i><i></i></div><div class="arch"></div>
+   <div class="home"><div class="mark">h</div><div class="field"><span class="ph">Type anything.</span><div class="foot" style="justify-content:flex-start;color:var(--sec);font-size:11.5px"><span><kbd>Tab</kbd>word</span>&nbsp;&nbsp;<span><kbd>⇧ Tab</kbd>all</span>&nbsp;&nbsp;<span><kbd>Esc</kbd>hide</span></div></div><div class="status"></div></div>
+   <div class="down">Settings ⌄</div></div>
+  <p>The keys sit where the chip was (onboarding's lessons already draw keycaps there). Tighter, but the field looks busier while you type.</p></div>
+</div>
+
+<h2>2 · Settings: a page each</h2>
+<p class="q">Every option below uses the same 7 pages. Click the sidebar, rail or tabs; they're live. Personal Model sits under the model it was trained for, so it's clear an adapter only works with that model.</p>
+
+<div class="grid">
+ <div class="card"><h3><b>A</b>Today: one scroll, floating card</h3>
+  <div class="win"><div class="lights"><i></i><i></i><i></i></div><div class="tog"></div><div class="bad" title="the bug"></div>
+   <div style="position:absolute;top:-6px;left:40px;right:40px" class="panebox"><h4 style="font-size:22px">Models</h4><div class="sub">They run on this Mac. Bigger ones are better, and slower.</div>
+   <div class="row"><span class="tile"><img src="../settings-scroll/images/icons/gemma-color.svg"></span><div class="t">Gemma 4 E2B<div class="n">The default. Best in English.</div></div><span class="size">3.4 GB</span><span class="inuse">In use</span></div>
+   <div class="row"><span class="tile"><img src="../settings-scroll/images/icons/qwen-color.svg"></span><div class="t">Qwen 3.5 0.8B<div class="n">The smallest and quickest.</div></div><span class="size">0.5 GB</span><span class="use">Use</span></div></div>
+   <div style="position:absolute;top:220px;left:40px;right:40px;height:200px" class="panebox"><h4>Paused Apps</h4></div></div>
+  <p>Red: the card scrolls up under the title bar and the sidebar button, which is your screenshot. Fixing it here means a blurred title bar strip, which eats the arch.</p></div>
+
+ <div class="card pick"><h3><b>B</b>Sidebar that stays, one page each (recommended)</h3>
+  <div class="win big" id="B"><div class="lights"><i></i><i></i><i></i></div>
+   <nav class="side"></nav><div class="content"></div></div>
+  <p>The macOS norm (System Settings, Ollama, Raycast). The sidebar shows where you are and how many pages; content starts below the title bar, so nothing can slide under it. Try It keeps its arch, full height of the content area. Build: a <code>NavigationSplitView</code> or an HStack replacing the ScrollView and <code>Place</code>; about −80 lines.</p></div>
+
+ <div class="card"><h3><b>C</b>Full-window pages, snap, dot rail</h3>
+  <div class="win big" id="C"><div class="lights"><i></i><i></i><i></i></div><div class="snap"></div><div class="rail"></div><div class="count"></div></div>
+  <p>Your idea: scroll snaps a page at a time; dots on the left (names on hover) and "3 / 7". Lovely for short pages, but Privacy or General taller than the window either clips or needs a scroll inside a scroll, and trackpad snap feels sticky. SwiftUI: <code>.scrollTargetBehavior(.paging)</code>.</p></div>
+
+ <div class="card"><h3><b>D</b>Tabs across the top</h3>
+  <div class="win big" id="D"><div class="lights"><i></i><i></i><i></i></div><nav class="tabs"></nav><div class="below"></div></div>
+  <p>Classic Mac preferences (Safari, Xcode). Full width for content, but 7 tabs crowd 640 pt, and Try It as a "tab" reads oddly next to settings.</p></div>
+
+ <div class="card"><h3><b>E</b>Try It alone; Settings opens the sidebar</h3>
+  <div class="win big" id="E"><div class="lights"><i></i><i></i><i></i></div><div class="arch"></div>
+   <div class="home"><div class="mark">h</div><div class="field" style="min-height:62px"><span class="ph">Type anything.</span></div><div class="keys"><span><kbd>Tab</kbd>next word</span><span><kbd>⇧ Tab</kbd>all of it</span><span><kbd>Esc</kbd>hide</span></div></div>
+   <div class="down" style="cursor:pointer" onclick="document.getElementById('E').outerHTML=document.getElementById('E').outerHTML.replace('id=\'E\'','')">⚙ Settings</div></div>
+  <p>The first page has no chrome at all; a Settings button (and ⌘,) switches the window to B's layout, with "← Try It" at the top of the sidebar. Purest first page, one extra click to settings.</p></div>
+</div>
+
+<h2>3 · Image ideas (Codex)</h2>
+<div class="grid imgs">
+ <div class="card"><h3><b>I</b>Models as its own page, with a rail</h3><img src="images/I.jpg" alt="I" onerror="this.replaceWith('Still generating')"><p>Worth taking: the page title big and alone, models in one quiet pane, and a plain-text sidebar with only a peach dot for "here" (no icons). Its "2 / 6" in the corner is the count you asked for, cheaply. Prompt: <code>images/prompts/I.txt</code>.</p></div>
+ <div class="card"><h3><b>J</b>A calmer first page</h3><img src="images/J.jpg" alt="J" onerror="this.replaceWith('Still generating')"><p>Worth taking: F2 almost exactly, with the keycaps a size larger and spaced wider, which reads better from a TV. Prompt: <code>images/prompts/J.txt</code>.</p></div>
+</div>
+</main>
+
+<script>
+const PAGES=[["Try It","▶"],["Stats","▥"],["Models","◫"],["Suggestions","✦"],["Apps","▦"],["Privacy","◐"],["General","⚙"]];
+const gem='<span class="tile"><img src="../settings-scroll/images/icons/gemma-color.svg"></span>',qw='<span class="tile"><img src="../settings-scroll/images/icons/qwen-color.svg"></span>',kk='<span class="tile k">kakao</span>';
+const keysLine='<div class="keys"><span><kbd>Tab</kbd>next word</span><span><kbd>⇧ Tab</kbd>all of it</span><span><kbd>Esc</kbd>hide</span></div>';
+const BODY={
+"Try It":`<div class="arch"></div><div class="home"><div class="mark">h</div><div class="field" style="min-height:62px">Thanks for the notes, I'll<span class="ghost"> send them over tonight</span></div>${keysLine}</div>`,
+"Stats":`<div class="pg"><h4>Stats</h4><div class="sub">What Tab has typed for you. Counts only.</div>
+ <div style="font-size:19px;font-weight:600;margin:4px 0 2px">Halftype saved you 14 minutes this week.</div><div class="sub">1,240 words · 3,310 Tabs · 1 in 4 keys by Tab</div>
+ <div style="display:flex;align-items:flex-end;gap:12px;height:110px;padding:0 6px;border-bottom:1px solid #ddd">${[30,55,20,80,64,40,12].map(h=>`<div style="flex:1;height:${h}%;background:var(--ink);border-radius:4px 4px 0 0;opacity:.85"></div>`).join("")}</div>
+ <div style="display:flex;justify-content:space-around;font-size:11px;color:var(--sec);margin-top:4px">${"SMTWTFS".split("").map(d=>`<span>${d}</span>`).join("")}</div></div>`,
+"Models":`<div class="pg"><h4>Models</h4><div class="sub">They run on this Mac. Bigger ones are better, and slower.</div>
+ <div class="row">${gem}<div class="t">Gemma 4 E2B<div class="n">The default. Best in English.</div></div><span class="size">3.4 GB</span><span class="inuse">In use</span></div>
+ <div class="nest"><div class="row" style="padding:0 0 6px"><div class="t"><b style="font-weight:600">Personal Model</b><div class="n">Trained on your typing, for Gemma 4 E2B only.</div></div><span class="seg"><span>Off</span><span class="on">Compare</span><span>On</span></span></div>
+  <div class="row" style="padding:2px 0"><div class="t">Nov 9<span class="n"> · 3,042 messages</span></div><span class="inuse">In use</span></div>
+  <div class="row" style="padding:2px 0"><div class="t">Nov 8<span class="n"> · 3,053 messages</span></div><span class="use">Use</span></div></div>
+ <div class="row">${qw}<div class="t">Qwen 3.5 0.8B<div class="n">The smallest and quickest.</div></div><span class="size">0.5 GB</span><span class="use">Use</span></div>
+ <div class="row">${qw}<div class="t">Qwen 3.5 2B<div class="n">Better in Korean.</div></div><span class="size">1.3 GB</span><span class="use">Use</span></div>
+ <div class="row">${kk}<div class="t">Kanana 1.5<div class="n">From Kakao, strongest in Korean.</div></div><span class="size">1.4 GB</span><span class="use">Use</span></div>
+ <div class="row"><span class="tile">＋</span><div class="t">Add Your Own GGUF</div><span class="use">Choose…</span></div></div>`,
+"Suggestions":`<div class="pg"><h4>Suggestions</h4><div class="sub">How much it suggests, and how you take it.</div>
+ <div class="row"><div class="t">Show<div class="n">Always shows every guess; ignore the wrong ones.</div></div><span class="seg"><span class="on">Always</span><span>When Likely</span><span>When Sure</span></span></div>
+ <div class="row"><div class="t">Length<div class="n">Short ends sooner, so more of it is right.</div></div><span class="seg"><span class="on">Long</span><span>Short</span></span></div>
+ <div class="row" style="display:block"><div>Tab Motion</div><div style="display:flex;gap:8px;margin-top:6px">${["Trail","Flash","Off"].map((m,i)=>`<div style="flex:1;text-align:center;font-size:11px;color:var(--sec)"><div style="background:#fff;border-radius:8px;padding:9px 0;color:var(--ink);${i?"":"box-shadow:0 0 0 2px var(--ink)"}">see you at noon</div>${m}</div>`).join("")}</div></div>
+ <div class="row"><div class="t">Keys</div><span><kbd>Tab</kbd><kbd>⇧ Tab</kbd><kbd>Esc</kbd></span></div></div>`,
+"Apps":`<div class="pg"><h4>Paused Apps</h4><div class="sub">Halftype stays quiet in these apps, and Tab is theirs.</div>
+ <div class="row"><span class="tile"><img src="../settings-scroll/images/icons/Terminal.png" style="width:24px"></span><div class="t">Terminal</div><span class="use">Remove</span></div>
+ <div class="row"><span class="tile"><img src="../settings-scroll/images/icons/Xcode.png" style="width:24px"></span><div class="t">Xcode</div><span class="use">Remove</span></div>
+ <div style="margin-top:10px"><span class="use" style="display:inline-block;width:auto;padding:2px 12px">Add App…</span></div></div>`,
+"Privacy":`<div class="pg"><h4>Privacy</h4><div class="sub">Everything runs on this Mac. Nothing you type is sent.</div>
+ <div class="row"><div class="t">Save What You Type<div class="n">For a Personal Model later. Encrypted, on this Mac only.</div></div><span class="sw"></span></div>
+ <div class="row" style="padding-left:16px"><div class="t">Keep<div class="n">Nothing saved yet.</div></div><span class="seg"><span>1 Mo</span><span class="on">6 Mo</span><span>1 Yr</span><span>All</span></span></div>
+ <div class="row"><div class="t">Show What the Model Sees<div class="n">Press ⌃⌥ over a suggestion. On screen only.</div></div><span class="sw off"></span></div></div>`,
+"General":`<div class="pg"><h4>General</h4><div class="sub">Halftype itself.</div>
+ <div class="row"><div class="t">Halftype On</div><span class="sw"></span></div>
+ <div class="row"><div class="t">Start at Login</div><span class="sw off"></span></div>
+ <div class="row"><div class="t">Update Automatically<div class="n">Version 0.1.14</div></div><span class="use" style="width:auto;padding:2px 10px">Check Now</span><span class="sw"></span></div></div>`};
+
+function side(el,cur,go){el.innerHTML=PAGES.map(([n,i],k)=>(k==1?'<hr><div class="label">Settings</div>':'')+`<a class="${n==cur?"on":""}" data-p="${n}"><i>${i}</i>${n}</a>`).join("")+'<div style="position:absolute;bottom:12px;left:17px;right:17px;display:flex;justify-content:space-between;font-size:12px;align-items:center">On <span class="sw"></span></div>';el.querySelectorAll("a").forEach(a=>a.onclick=()=>go(a.dataset.p))}
+// B
+(function(){const w=document.getElementById("B"),s=w.querySelector(".side"),c=w.querySelector(".content");
+ const go=p=>{side(s,p,go);c.innerHTML=p=="Try It"?`<div style="position:relative;height:100%;overflow:hidden">${BODY[p]}</div>`:BODY[p];c.scrollTop=0};go("Models")})();
+// C
+(function(){const w=document.getElementById("C"),sn=w.querySelector(".snap"),r=w.querySelector(".rail"),n=w.querySelector(".count");
+ sn.innerHTML=PAGES.map(([p])=>`<section>${BODY[p]}</section>`).join("");
+ r.innerHTML=PAGES.map(([p],i)=>`<span data-i="${i}">${p}</span>`).join("");
+ const secs=[...sn.children];secs.forEach(s=>{const pg=s.querySelector(".pg");if(pg)pg.style.paddingLeft="56px"});
+ const mark=()=>{const i=Math.round(sn.scrollTop/sn.clientHeight);[...r.children].forEach((d,k)=>d.classList.toggle("on",k==i));n.textContent=`${i+1} / ${PAGES.length}`};
+ r.querySelectorAll("span").forEach(d=>d.onclick=()=>sn.scrollTo({top:d.dataset.i*sn.clientHeight,behavior:"smooth"}));
+ sn.onscroll=mark;mark()})();
+// D
+(function(){const w=document.getElementById("D"),t=w.querySelector(".tabs"),b=w.querySelector(".below");
+ const go=p=>{t.innerHTML=PAGES.map(([n,i])=>`<a class="${n==p?"on":""}" data-p="${n}"><i>${i}</i>${n}</a>`).join("");t.querySelectorAll("a").forEach(a=>a.onclick=()=>go(a.dataset.p));
+  b.innerHTML=p=="Try It"?`<div style="position:relative;height:100%;overflow:hidden">${BODY[p]}</div>`:BODY[p]};go("Models")})();
+</script>
+</body>
+</html>

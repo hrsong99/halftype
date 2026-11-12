@@ -12,3 +12,4 @@
 - [../site/](../site/README.md): the first landing pages, A "Sky" and B "Ink", plus image ideas C and D (round 1, 2026-11-08).
 - [landing-polish/](landing-polish/README.md): the first screen of halftype.app, six live options after Raycast, Wispr Flow, Linear, Dia and Things, plus three image ideas (round 1, 2026-11-09).
 - [model-view/](model-view/README.md): seeing what the model sees (context, held-back word, token probabilities, why it stopped), options A–F plus three image ideas (round 1, 2026-11-09).
+- [settings-pages/](settings-pages/README.md): the first page without the model and power button, and settings as a page each (sidebar, snap rail, tabs), plus two image ideas (round 1, 2026-11-13).
