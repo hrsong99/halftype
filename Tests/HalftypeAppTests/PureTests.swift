@@ -1622,6 +1622,7 @@ final class FakeServer: URLProtocol {
         app.trusted = true
         app.activePath = app.store.path(ModelStore.models[0]).path
         #expect(app.fieldLine(.shown) == App.lesson)
+        #expect(app.fieldLine(.idle) == App.lesson && app.fieldLine(.unsure) == App.lesson, "the keys, never \"Working.\", in our own field")
         #expect(app.fieldLine(.textAfter) == "Text after the cursor, so no suggestion here.")
         app.accepted = true
         #expect(app.fieldLine(.unsure) == App.success && app.fieldLine(.textAfter) != App.success)
@@ -1823,8 +1824,8 @@ final class FakeServer: URLProtocol {
     func textView(in view: NSView) -> NSTextView? { (view as? NSTextView) ?? view.subviews.lazy.compactMap(textView).first }
 
     @discardableResult func shoot(_ name: String, _ app: App, page: Root.Page = .field) -> NSView {
-        let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field))
-        host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
+        let host = NSHostingView(rootView: Root(app: app, page: page))
+        host.frame = CGRect(x: 0, y: 0, width: 860, height: 600)
         let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = host
         host.layoutSubtreeIfNeeded()
@@ -1873,16 +1874,14 @@ final class FakeServer: URLProtocol {
         shoot("8-no-font", app { ready($0); $0.why = .noFont })
         shoot("9-failed-download", app { $0.trusted = true; $0.modelChanged(.failed("Hugging Face answered 503. Try again later.")) })
         shoot("10-models-delete", app { $0.trusted = true; $0.activePath = $0.store.directory.appendingPathComponent(ModelStore.models[0].file).path }, page: .models)
-        // The whole window with its ribbon, at the smallest size, the usual one and a tall one, at the field and scrolled into the settings.
+        // The whole window with its ribbon, at the smallest size, the usual one and a large one, on every page.
         // ImageRenderer draws no ScrollView, so these are a real window, shown behind everything without taking focus.
-        for (width, height) in [(640.0, 440.0), (720.0, 500.0), (900.0, 820.0)] {
-            for page in [Root.Page.field, .stats, .models, .general] {
+        for (width, height) in [(720.0, 480.0), (860.0, 600.0), (1100.0, 820.0)] {
+            for page in Root.Page.allCases {
                 try onScreen("15-window-\(Int(width))x\(Int(height))-\(page.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))",
                              Root(app: app { ready($0); $0.why = .idle }, page: page), CGSize(width: width, height: height))
             }
         }
-        // The model list open in the smallest window, where it reaches the Settings hint and must cover it.
-        try onScreen("15-window-640x440-picker", Root(app: app { ready($0); $0.why = .idle }, picking: true), CGSize(width: 640, height: 440))
         shoot("11-accepted-predictions", app { ready($0); $0.why = .idle; $0.accepted = true; $0.readPredictions = { true } })
     }
 

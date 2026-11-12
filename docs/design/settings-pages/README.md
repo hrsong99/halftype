@@ -8,4 +8,4 @@ John: "the first page should remove the power icon and the model … do we need 
 
 Recommendation: F2 (field plus a fixed keys line; problems and the first-Tab line take its place) and B (a sidebar that stays, one page each, 6 pages (no separate Privacy page: saved typing stays under General), Personal Model under its model), default window 860 × 600.
 
-Pick: none yet.
+Pick (2026-11-13): F2 and B ("yes, build F2 and B (but … is the settings text even necessary? when technically not all of them are settings either)"). Built with no "Settings" label in the sidebar: Try It, a gap, then the pages. `built/` holds the window shots.

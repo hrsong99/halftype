@@ -77,7 +77,7 @@ T5. With a ghost up, lock with Ctrl-Cmd-Q and unlock; then close the lid and ope
 ## The window: about 2 minutes
 W1. Type in its field, and Tab on the grey text. Paste with Cmd-V.
     **The same as in any app.**
-W2. Press the power button, type, press it again. Then scroll down: the card stays shut. The sidebar icon shows it; click Apps in it, add an app, remove it; General, Start at Login on, then off. The sidebar icon hides the card again, at any scroll.
+W2. Turn the sidebar's On switch off, type, turn it on again. Click Apps, add an app, remove it; General, Start at Login on, then off. Every page's title starts below the traffic lights, and scrolled, nothing slides under them.
     **No ghost while off. The login switch keeps what you set, and System Settings shows Halftype under Login Items only while it's on.**
 W3. Models: Get Kanana 1.5, stop it with ✕, Get it again, wait, Use it, type, then Use Gemma 4 E2B.
     **The second Get resumes. The pill in the field names the model in use, and suggestions keep working after each switch.** Click the pill: **the list opens at once, marks the model in use, and closes on a click outside or Esc.**
@@ -87,7 +87,7 @@ W5. Quit Halftype, move `kanana-1.5-2.1b-base.Q4_K_M.gguf` out of `~/Library/App
     **"Waiting for a connection", then it starts by itself. The drop shows a failure line with Retry, in the window and in the menu, within a minute. Retry and the reopen both carry on from where it was, not from 0.**
 
 W6. Why there's no ghost. In T3, type with text after the cursor and open the menu; then in a plain field type and pause until no ghost comes, and open the menu.
-    **"Text after the cursor, so no suggestion here." Then "Working. Not sure enough to suggest yet." The window's field shows the same lines, without flickering as you type.**
+    **"Text after the cursor, so no suggestion here." Then "Working. Not sure enough to suggest yet." The window's field shows the first line, and the keys (Tab, ⇧ Tab, Esc) instead of the second, without flickering as you type.**
 W7. Turn on System Settings, Keyboard, Text Input, Input Sources, Edit, "Show inline predictive text". Open the window and the menu.
     **The window says macOS shows its own grey predictions too, and the menu offers Turn Off macOS Predictions; each opens Keyboard settings.** Turn the setting back off: **both go.**
 W8. Models: Delete on a model you have and aren't using.

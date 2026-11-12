@@ -4,49 +4,38 @@ import HalftypeCore
 import ServiceManagement
 import SwiftUI
 
-/// The one window, in the manner of Ollama's app: a field to type in, and below it, one scroll down, every setting.
-/// A floating card lists the sections. Only its button opens or shuts it; scrolling never does (John didn't like it following the scroll). It exists only while open.
+/// The one window: a sidebar that stays, and one page at a time (docs/design/settings-pages, B). Try It is the first page, the field alone.
+/// Every page starts below the title bar, so nothing slides under the traffic lights.
 struct Root: View {
     @ObservedObject var app: App
-    /// Stays in memory, and goes when the window closes.
+    /// Stays in memory while the window is open, across pages.
     @State private var draft = ""
-    /// Starts shut; only the toggle changes it, and it resets when the window closes.
-    @State private var open: Bool
-    /// The sections whose top has passed the middle of the window.
-    @State private var passed: Set<Page>
-    /// Scrolled to the end, where the last section may never reach the middle.
-    @State private var end = false
-
-    private let picking: Bool
-    private let start: Page
+    @State private var page: Page
     private let onboardingStep: Onboarding.Step
 
-    /// `page` is where the window opens scrolled to, and `sidebar` opens the card, for the window shots.
-    init(app: App, page: Page = .field, sidebar: Bool = false, picking: Bool = false, onboardingStep: Onboarding.Step = .welcome) {
+    /// `page` is where the window opens, for the window shots.
+    init(app: App, page: Page = .field, onboardingStep: Onboarding.Step = .welcome) {
         self.app = app
         self.onboardingStep = onboardingStep
-        self.picking = picking
-        start = page
-        _open = State(initialValue: sidebar)
-        _passed = State(initialValue: Set(Page.allCases.prefix { $0 != page }).union([page]))
+        _page = State(initialValue: page)
     }
 
     enum Page: String, CaseIterable, Identifiable {
-        case field = "Try It", stats = "Stats", models = "Models", apps = "Apps", general = "General"
+        case field = "Try It", stats = "Stats", models = "Models", suggestions = "Suggestions", apps = "Apps", general = "General"
         var id: Self { self }
         var symbol: String {
-            switch self { case .field: "play"; case .stats: "chart.bar"; case .models: "square.stack.3d.up"; case .apps: "square.grid.2x2"; case .general: "gearshape" }
+            switch self {
+            case .field: "play"; case .stats: "chart.bar"; case .models: "square.stack.3d.up"; case .suggestions: "text.cursor"
+            case .apps: "square.grid.2x2"; case .general: "gearshape"
+            }
         }
     }
-
-    /// The section being read: the last whose top is above the middle.
-    private var current: Page { end ? .general : Page.allCases.last { passed.contains($0) } ?? .field }
 
     var body: some View {
         Group {
             if app.onboarding { Onboarding(app: app, step: onboardingStep) } else { home }
         }
-        .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 500)
+        .frame(minWidth: 720, idealWidth: 860, minHeight: 480, idealHeight: 600)
         // The icon's cream tile.
         .background(Root.cream)
         // Cream in dark mode too (docs/design/home-glass).
@@ -55,112 +44,61 @@ struct Root: View {
     }
 
     private var home: some View {
-        ScrollViewReader { proxy in
-            let go = { (page: Page) in withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(page, anchor: .top) } }
-            ScrollView {
-                VStack(spacing: 0) {
-                    FieldPage(app: app, draft: $draft, picking: picking) { go(.models) }
-                        // Behind the field page, so the open model list covers it and a click beside the list only closes the list.
-                        .background(alignment: .bottom) { more { go(.stats) } }
-                        .padding(.leading, open ? 160 : 0)  // The card's room, inside the arch, which keeps the whole width.
-                        .containerRelativeFrame(.vertical)
-                        // The arch belongs to the field, so it scrolls with it; it reaches up under the title bar, as the window's ground did.
-                        .background { Arch().padding(.top, -28).visualEffect { arch, place in arch.opacity(1 + place.frame(in: .scrollView).minY / place.size.height) } }
-                        .id(Page.field)
-                    settings.padding(.leading, open ? 160 : 0)
+        HStack(spacing: 0) {
+            sidebar
+            Divider().opacity(0.5)
+            Group {
+                if page == .field {
+                    FieldPage(app: app, draft: $draft).background { Arch() }.clipped()
+                } else {
+                    // Below the title bar, so a page scrolls out of sight there instead of under it.
+                    ScrollView { settings.frame(maxWidth: 560).padding(.horizontal, 32).padding(.vertical, 24).frame(maxWidth: .infinity) }
+                        .scrollIndicators(.automatic)
+                        .padding(.top, 28)
+                        .id(page)  // Each page opens at its top.
                 }
             }
-            .safeAreaPadding(.top, 28)
-            // The card and the hint below the field show the way, and the bar sat on the arch (John: "I don't want it").
-            .scrollIndicators(.never)
-            .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.containerSize.height >= $0.contentSize.height - 4 && $0.contentOffset.y > 0 } action: { end = $1 }
-            .overlay(alignment: .topLeading) {
-                if open { card(go).transition(.move(edge: .leading).combined(with: .opacity)) }
-            }
-            .onAppear { if start != .field { proxy.scrollTo(start, anchor: .top) } }
-        }
-        .animation(.easeOut(duration: 0.25), value: open)
-        .overlay(alignment: .topLeading) {
-            Button { open.toggle() } label: { Image(systemName: "sidebar.left") }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help(open ? "Hide sidebar" : "Show sidebar")
-                .padding(.leading, 84)
-                .padding(.top, 9)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
-    /// Every setting, a card a section, each marking when it reaches the middle of the window.
-    private var settings: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            StatsPage(app: app).modifier(Place(page: .stats, passed: $passed))
-            ModelsPage(app: app).modifier(Place(page: .models, passed: $passed))
-            AppsPage(app: app).modifier(Place(page: .apps, passed: $passed))
-            GeneralPage(app: app).modifier(Place(page: .general, passed: $passed))
-        }
-        .frame(maxWidth: 520)
-        .padding(.horizontal, 28)
-        .padding(.bottom, 28)
-        .frame(maxWidth: .infinity)
-    }
-
-    /// A section's place in the scroll, for the card.
-    private struct Place: ViewModifier {
-        let page: Page
-        @Binding var passed: Set<Page>
-        func body(content: Content) -> some View {
-            // The space above the card goes inside the id, so a jump leaves it room below the title bar.
-            content.padding(.top, 8).id(page).onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).minY < ($0.bounds(of: .scrollView)?.height ?? 0) / 2 } action: { above in
-                if above { passed.insert(page) } else { passed.remove(page) }
-            }
+    @ViewBuilder private var settings: some View {
+        switch page {
+        case .field: EmptyView()
+        case .stats: StatsPage(app: app)
+        case .models: ModelsPage(app: app)
+        case .suggestions: SuggestionsPage(app: app)
+        case .apps: AppsPage(app: app)
+        case .general: GeneralPage(app: app)
         }
     }
 
-    /// Below the field, the one sign that the settings are a scroll away.
-    private func more(_ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                Text("Settings").font(.system(size: 12))
-                Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
-            }
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("Scroll to the settings")
-        .padding(.bottom, 14)
-    }
-
-    private func card(_ go: @escaping (Page) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            item(.field, go)
-            Divider().padding(.vertical, 6)
-            Text("Settings").font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.bottom, 2)
-            ForEach(Page.allCases.dropFirst()) { item($0, go) }
+    /// Every page, the one showing marked by a peach icon, and the on switch at the foot.
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Page.allCases) { item($0) }
             Spacer()
             Toggle("On", isOn: $app.on).toggleStyle(.switch).controlSize(.mini).tint(.primary).padding(.horizontal, 10)
         }
-        .padding(8)
-        .frame(width: 142)
+        .padding(EdgeInsets(top: 44, leading: 8, bottom: 12, trailing: 8))
+        .frame(width: 168)
         .frame(maxHeight: .infinity)
-        .background(Color(nsColor: .textBackgroundColor).opacity(0.75), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.07), lineWidth: 0.5))
-        .padding(EdgeInsets(top: 36, leading: 10, bottom: 10, trailing: 0))
+        .background(Color.white.opacity(0.3))
     }
 
-    private func item(_ page: Page, _ go: @escaping (Page) -> Void) -> some View {
-        Button { go(page) } label: {
-            HStack(spacing: 7) {
-                // The section being read: its icon turns peach, the one mark of where you are (docs/design/stats round 2).
-                Image(systemName: page.symbol).font(.system(size: 11, weight: .medium)).frame(width: 15)
-                    .foregroundStyle(page != .field && current == page ? AnyShapeStyle(Root.peach) : AnyShapeStyle(page == .field ? .primary : .secondary))
-                Text(page.rawValue).font(.system(size: page == .field ? 13 : 12.5)).foregroundStyle(page == .field || current == page ? .primary : .secondary)
+    private func item(_ shown: Page) -> some View {
+        Button { page = shown } label: {
+            HStack(spacing: 8) {
+                Image(systemName: shown.symbol).font(.system(size: 12, weight: .medium)).frame(width: 16)
+                    .foregroundStyle(page == shown ? AnyShapeStyle(Root.peach) : AnyShapeStyle(.secondary))
+                Text(shown.rawValue).font(.system(size: 13)).foregroundStyle(page == shown ? .primary : .secondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.vertical, 5).contentShape(Rectangle())
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.vertical, 6).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(current == page ? Color.primary.opacity(0.07) : .clear, in: RoundedRectangle(cornerRadius: 7))
+        .background(page == shown ? Color.primary.opacity(0.07) : .clear, in: RoundedRectangle(cornerRadius: 7))
+        // Try It stands apart from the pages about Halftype itself.
+        .padding(.bottom, shown == .field ? 10 : 0)
     }
 
     /// The ribbon's peach, deeper, for small marks on cream.
@@ -194,37 +132,31 @@ struct Mark: View {
 struct FieldPage: View {
     @ObservedObject var app: App
     @Binding var draft: String
-    let showAll: () -> Void
     /// The mark above, the room below and the line that teaches the keys, which onboarding's lessons draw their own way.
     var chrome = true
-    /// A lesson's keys, drawn in the field where the model and the switch go.
+    /// A lesson's keys, drawn in the field's foot.
     var keycaps: [String] = []
     @FocusState private var focused: Bool
-    @State private var picking: Bool
     /// The watcher's reason once it has held for a moment, so typing doesn't flicker the line.
     @State private var settled: Watcher.Why
 
-    init(app: App, draft: Binding<String>, picking: Bool = false, chrome: Bool = true, keycaps: [String] = [], showAll: @escaping () -> Void) {
+    init(app: App, draft: Binding<String>, chrome: Bool = true, keycaps: [String] = []) {
         self.app = app
         self.chrome = chrome
         self.keycaps = keycaps
-        self.showAll = showAll
         _draft = draft
-        _picking = State(initialValue: picking)
         _settled = State(initialValue: app.why)
     }
 
     var body: some View {
         VStack(spacing: 16) {
             if chrome { Mark() }
-            if app.trusted { field.zIndex(1) } else { allow }  // The list hangs over what's below the field.
+            if app.trusted { field } else { allow }
             if chrome { status }
         }
         .padding(.horizontal, 24).padding(.vertical, chrome ? 24 : 12)
         .padding(.bottom, chrome ? 40 : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // A click anywhere else only closes the list.
-        .background { if picking { Color.black.opacity(0.001).onTapGesture { picking = false } } }
     }
 
     private var allow: some View {
@@ -238,18 +170,13 @@ struct FieldPage: View {
         VStack(alignment: .trailing, spacing: 4) {
             ZStack(alignment: .topLeading) {
                 if draft.isEmpty {
-                    Text(!app.on ? "Halftype is off" : app.ready || app.practicing ? "Type here, then press Tab on the grey text" : "Type here once the model is ready")
+                    Text(!app.on ? "Halftype is off" : app.ready || app.practicing ? "Type anything." : "Type here once the model is ready")
                         .foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
                 }
                 TextEditor(text: $draft).focused($focused).scrollContentBackground(.hidden).scrollIndicators(.never).frame(height: 44)
-                    .onKeyPress(.escape) {
-                        guard picking else { return .ignored }
-                        picking = false
-                        return .handled
-                    }
             }
             .font(.system(size: 15))
-            if keycaps.isEmpty { controls } else {
+            if !keycaps.isEmpty {
                 HStack(spacing: 4) { ForEach(keycaps, id: \.self) { Keycap(label: $0) } }.frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -259,7 +186,6 @@ struct FieldPage: View {
         // A turn later: a field swapped in (an onboarding step, the home after it) isn't in the window yet when it appears.
         // `.defaultFocus` left it unfocused there, so the lesson's first Tab only moved focus (tried live, 2026-11-09).
         .onAppear { DispatchQueue.main.async { focused = true } }
-        .onChange(of: draft) { picking = false }
         .onChange(of: app.ready, initial: true) { if let sentence = app.takePrefill(draft: draft) { draft = sentence } }
         .task(id: app.why) {
             try? await Task.sleep(for: .milliseconds(400))
@@ -267,36 +193,17 @@ struct FieldPage: View {
         }
     }
 
-    /// The model and the on switch, at the field's foot.
-    private var controls: some View {
-        HStack(spacing: 8) {
-            Button { picking.toggle() } label: {
-                HStack(spacing: 6) {
-                    // While practice answers, the model on its way, not "No Model".
-                    if app.loadingName != nil || app.practicing { ProgressView().controlSize(.mini) }
-                    Text(app.loadingName ?? (app.practicing ? app.store.current.name : app.activeName))
-                }
-                .font(.system(size: 12)).padding(.horizontal, 10).padding(.vertical, 4).background(Color(nsColor: .textBackgroundColor), in: Capsule())
+    /// The lesson as keys, always there while Halftype can suggest, so nothing jumps when a ghost appears (docs/design/settings-pages, F2).
+    private var keys: some View {
+        HStack(spacing: 18) {
+            ForEach([("Tab", "next word"), ("⇧ Tab", "all of it"), ("Esc", "hide")], id: \.0) { key, does in
+                HStack(spacing: 7) { Keycap(label: key); Line(text: does) }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(app.loadingName.map { "Loading model: \($0)" } ?? "Model: \(app.activeName)")
-            .overlay(alignment: .topTrailing) {
-                if picking {
-                    ModelList(app: app) { picking = false } showAll: { picking = false; showAll() }.offset(y: 32)
-                }
-            }
-            Button { app.on.toggle() } label: {
-                Image(systemName: "power").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(nsColor: .textBackgroundColor))
-                    .frame(width: 24, height: 24)
-                    .background(app.on ? Color.primary : Color.secondary.opacity(0.4), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .help(app.on ? "Halftype is on. Click to turn it off." : "Halftype is off. Click to turn it on.")
-            .accessibilityLabel(app.on ? "Turn Halftype off" : "Turn Halftype on")
         }
+        .accessibilityElement(children: .combine)
     }
 
-    /// The model until it's ready, then what the menu says about this field: how to take a ghost, that it worked, or why there's none.
+    /// The model until it's ready, then what the menu says about this field: the keys, that the first Tab worked, or why there's none.
     @ViewBuilder private var status: some View {
         VStack(spacing: 6) {
             if (!app.ready && !app.practicing) || app.notice != nil {
@@ -306,9 +213,11 @@ struct FieldPage: View {
                     Line(text: "You can close this window.")
                 }
             } else if chrome, let line = app.fieldLine(settled) {
-                HStack(spacing: 8) {
-                    Line(text: line)
-                    if line == App.success, !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }
+                if line == App.lesson { keys } else {
+                    HStack(spacing: 8) {
+                        Line(text: line)
+                        if line == App.success, !app.startAtLogin { Button("Start at Login") { app.startAtLogin = true }.controlSize(.small) }
+                    }
                 }
             }
             if app.predictions {
@@ -365,78 +274,21 @@ private struct NoticeLine: View {
     }
 }
 
-/// The model list under the pill: ours, so it opens at once and reads like the window. Models you don't have yet start downloading from here.
-private struct ModelList: View {
-    @ObservedObject var app: App
-    let close: () -> Void
-    let showAll: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            // Six rows, then it scrolls: a long list of your own would run off the window.
-            ScrollView {
-                VStack(spacing: 1) {
-                    ForEach(ModelStore.models) { model in
-                        item(model.name, detail: app.downloading == model.id ? "\(Int(app.downloadFraction * 100))%" : model.sizeText,
-                             mark: app.isActive(model) ? "checkmark" : app.store.has(model) ? nil : "arrow.down") { app.use(model); close() }
-                            .disabled(!app.store.has(model) && app.downloading != nil)
-                    }
-                    ForEach(app.ownModels, id: \.self) { path in
-                        item(App.fileName(path), detail: nil, mark: app.isActive(path: path) ? "checkmark" : nil) { app.use(path: path); close() }
-                    }
-                }
-            }
-            .scrollIndicators(.never)
-            .frame(height: CGFloat(min(ModelStore.models.count + app.ownModels.count, 6)) * 28)
-            Divider().padding(.vertical, 3)
-            item("All Models", detail: nil, mark: nil, action: showAll)
-        }
-        .padding(5)
-        .frame(width: 270)
-        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.14), radius: 14, y: 5)
-    }
-
-    private func item(_ title: String, detail: String?, mark: String?, action: @escaping () -> Void) -> some View {
-        Hover { hovering in
-            Button(action: action) {
-                HStack(spacing: 8) {
-                    Text(title).font(.system(size: 13)).lineLimit(1).truncationMode(.middle)
-                    Spacer(minLength: 8)
-                    if let detail { Text(detail).font(.system(size: 11.5)).foregroundStyle(.secondary) }
-                    Image(systemName: mark ?? "checkmark").font(.system(size: 10.5, weight: .semibold)).frame(width: 14).opacity(mark == nil ? 0 : 1)
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(hovering ? Color.primary.opacity(0.07) : .clear, in: RoundedRectangle(cornerRadius: 7))
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-    }
-}
-
-private struct Hover<Content: View>: View {
-    @ViewBuilder let content: (Bool) -> Content
-    @State private var hovering = false
-    var body: some View { content(hovering).onHover { hovering = $0 } }
-}
-
-/// One section of the settings: a white card with a title, a line on what it's for, and its rows, parted by space alone (docs/design/settings-clean, C).
+/// One page of the settings: its title and a line on what it's for on the cream, then its rows in a white pane, parted by space alone
+/// (docs/design/settings-clean, C; settings-pages, B).
 private struct Plain<Content: View>: View {
     let title: String
     let note: String
     @ViewBuilder let content: Content
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title).font(.system(size: 20, weight: .semibold))
-            Text(note).font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 2).padding(.bottom, 12)
-            content
+            Text(title).font(.system(size: 26, weight: .semibold))
+            Text(note).font(.system(size: 13)).foregroundStyle(.secondary).padding(.top, 3).padding(.bottom, 18)
+            VStack(alignment: .leading, spacing: 0) { content }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(EdgeInsets(top: 10, leading: 20, bottom: 10, trailing: 20))
+                .pane()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(EdgeInsets(top: 18, leading: 20, bottom: 14, trailing: 20))
-        .pane()
     }
 }
 
@@ -861,6 +713,7 @@ private struct ModelsPage: View {
                     Text(model.sizeText).foregroundStyle(.secondary).font(.system(size: 12))
                     action(model).frame(width: Self.column)
                 }
+                if app.isActive(model) { PersonalModel(app: app) }
             }
             ForEach(app.ownModels, id: \.self) { path in
                 Row(title: App.fileName(path), note: "Your own, from \(URL(fileURLWithPath: path).deletingLastPathComponent().path)", icon: .symbol("doc")) {
@@ -873,10 +726,13 @@ private struct ModelsPage: View {
                         wide("Use") { app.use(path: path) }
                     }
                 }
+                if app.isActive(path: path) { PersonalModel(app: app) }
             }
             Row(title: "Add Your Own GGUF", icon: .symbol("plus")) {
                 wide("Choose…", app.chooseModel)
             }
+            // Until this model has one of its own: the offer, below every model, as it would be trained for whichever is in use.
+            if app.activePath.flatMap(App.adapterFile(for:)) == nil { ProSignup(app: app).padding(.top, 6) }
             if let notice = app.notice { NoticeLine(app: app, text: notice).padding(.top, 8) }
         }
         .confirmationDialog("Delete \(deleting?.name ?? "")?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
@@ -989,19 +845,12 @@ private struct AppsPage: View {
     }
 }
 
-private struct GeneralPage: View {
+/// How much it suggests, and how you take it.
+private struct SuggestionsPage: View {
     @ObservedObject var app: App
-    @State private var deletingAdapter: String?
     var body: some View {
-        Plain(title: "General", note: "How much it suggests, and how you take it.") {
-            Row(title: "Start at Login") { Toggle("", isOn: $app.startAtLogin).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden() }
-            if app.isRelease {
-                Row(title: "Update Automatically", note: "Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")") {
-                    Button("Check Now", action: app.checkForUpdates)
-                    Toggle("", isOn: $app.updatesAutomatically).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
-                }
-            }
-            Row(title: "Suggestions", note: "Always shows every guess; ignore the wrong ones.") {
+        Plain(title: "Suggestions", note: "How much it suggests, and how you take it.") {
+            Row(title: "Show", note: "Always shows every guess; ignore the wrong ones.") {
                 Picker("", selection: $app.often) { Text("Always").tag(Often.always); Text("When Likely").tag(Often.more); Text("When Sure").tag(Often.normal) }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 280)
             }
@@ -1015,41 +864,65 @@ private struct GeneralPage: View {
                 HStack(spacing: 12) { ForEach(AcceptMotion.allCases, id: \.self) { MotionTile(motion: $0, chosen: $app.motion) } }
             }
             .padding(.vertical, 9)
-            if let path = app.activePath, App.adapterFile(for: path) != nil {
-                Row(title: "Personal Model", note: "Trained on your writing. Compare leaves it off every other day, for Stats.") {
+            Row(title: "Next word") { key("Tab") }
+            Row(title: "Whole suggestion") { key("⇧ Tab") }
+            Row(title: "Hide the suggestion") { key("Esc") }
+        }
+    }
+    private func key(_ name: String) -> some View {
+        Text(name).font(.system(size: 11.5)).padding(.horizontal, 6).padding(.vertical, 1).overlay(RoundedRectangle(cornerRadius: 4).stroke(.tertiary))
+    }
+}
+
+/// The model's own versions, trained on your writing, under the model they were trained for: a version works with that model only.
+private struct PersonalModel: View {
+    @ObservedObject var app: App
+    @State private var deletingAdapter: String?
+    var body: some View {
+        if let path = app.activePath, let current = App.adapterFile(for: path) {
+            VStack(alignment: .leading, spacing: 0) {
+                Row(title: "Personal Model", note: "Trained on your writing, for this model only. Compare uses it every other day, for Stats.") {
                     Picker("", selection: $app.personal) { Text("Off").tag(Personal.off); Text("Compare").tag(Personal.compare); Text("On").tag(Personal.on) }
-                        .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+                        .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
                 // Each trained version, newest first: a new one is used on arrival, and an older one can be used again or deleted.
-                let current = App.adapterFile(for: path)
                 ForEach(App.adapters(for: path).reversed(), id: \.self) { file in
                     Row(title: AdapterInfo.title(name: App.name(ofAdapter: file)), note: App.info(ofAdapter: file)?.note ?? App.name(ofAdapter: file)) {
                         Button { deletingAdapter = file } label: { Image(systemName: "trash") }
                             .buttonStyle(.borderless).foregroundStyle(.secondary).help("Delete this version")
                         if file == current { InUse().frame(width: 80) } else { Button { app.use(adapter: file) } label: { Text("Use").frame(maxWidth: .infinity) }.frame(width: 80) }
                     }
-                    .padding(.leading, 16)
                 }
-            } else {
-                ProSignup(app: app)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 2)
+            .background(Root.cream.opacity(0.6), in: RoundedRectangle(cornerRadius: 10))
+            .padding(.leading, 38).padding(.bottom, 6)
+            .confirmationDialog("Delete the \(deletingAdapter.map { AdapterInfo.title(name: App.name(ofAdapter: $0)) } ?? "") version?", isPresented: Binding(get: { deletingAdapter != nil }, set: { if !$0 { deletingAdapter = nil } })) {
+                Button("Delete", role: .destructive) { if let deletingAdapter { app.delete(adapter: deletingAdapter) } }
+            } message: {
+                Text("It can't be brought back. Stats keeps its days.")
+            }
+        }
+    }
+}
+
+/// Halftype itself, and what it keeps.
+private struct GeneralPage: View {
+    @ObservedObject var app: App
+    var body: some View {
+        Plain(title: "General", note: "Everything runs on this Mac. Nothing you type is sent, and Stats keeps counts only.") {
+            Row(title: "Start at Login") { Toggle("", isOn: $app.startAtLogin).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden() }
+            if app.isRelease {
+                Row(title: "Update Automatically", note: "Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")") {
+                    Button("Check Now", action: app.checkForUpdates)
+                    Toggle("", isOn: $app.updatesAutomatically).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
+                }
             }
             SavedTyping(app: app)
             Row(title: "Show What the Model Sees", note: "Press ⌃⌥ to show it over suggestions, again to hide. On screen only, never saved.") {
                 Toggle("", isOn: $app.peeking).toggleStyle(.switch).controlSize(.small).tint(.primary).labelsHidden()
             }
-            Row(title: "Next word") { key("Tab") }
-            Row(title: "Whole suggestion") { key("⇧ Tab") }
-            Row(title: "Hide the suggestion") { key("Esc") }
-            Text("Everything runs on this Mac. Nothing you type is sent, and Stats keeps counts only.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 12)
         }
-        .confirmationDialog("Delete the \(deletingAdapter.map { AdapterInfo.title(name: App.name(ofAdapter: $0)) } ?? "") version?", isPresented: Binding(get: { deletingAdapter != nil }, set: { if !$0 { deletingAdapter = nil } })) {
-            Button("Delete", role: .destructive) { if let deletingAdapter { app.delete(adapter: deletingAdapter) } }
-        } message: {
-            Text("It can't be brought back. Stats keeps its days.")
-        }
-    }
-    private func key(_ name: String) -> some View {
-        Text(name).font(.system(size: 11.5)).padding(.horizontal, 6).padding(.vertical, 1).overlay(RoundedRectangle(cornerRadius: 4).stroke(.tertiary))
     }
 }
 
@@ -1065,7 +938,7 @@ extension App {
             made.title = "Halftype"
             made.isReleasedWhenClosed = false
             made.delegate = self
-            made.setContentSize(CGSize(width: 720, height: 500))
+            made.setContentSize(CGSize(width: 860, height: 600))
             made.center()
             window = made
             accepted = false

@@ -105,7 +105,7 @@ struct Onboarding: View {
             Spacer()
             Text("\(lesson.number) of 3").font(.system(size: 12)).foregroundStyle(.secondary)
             Text(lesson.title).font(.system(size: 24, weight: .semibold)).padding(.top, 4)
-            FieldPage(app: app, draft: $draft, chrome: false, keycaps: lesson.keycaps) {}.fixedSize(horizontal: false, vertical: true)
+            FieldPage(app: app, draft: $draft, chrome: false, keycaps: lesson.keycaps).fixedSize(horizontal: false, vertical: true)
             Group {
                 if did {
                     Label(lesson.done, systemImage: "checkmark.circle.fill").foregroundStyle(Color.primary)

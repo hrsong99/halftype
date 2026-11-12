@@ -294,8 +294,8 @@ enum EndToEnd {
         }
         app.trusted = true
         app.activePath = app.store.path(ModelStore.models[0]).path
-        for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("stats", .stats, false), ("models", .models, false), ("general", .general, false), ("apps", .apps, false), ("picker", .field, false)] {
-            let host = NSHostingView(rootView: Root(app: app, page: page, sidebar: page != .field, picking: name == "picker"))
+        for (name, page, dark) in [("field", Root.Page.field, false), ("field-dark", .field, true), ("stats", .stats, false), ("models", .models, false), ("general", .general, false), ("apps", .apps, false), ("suggestions", .suggestions, false)] {
+            let host = NSHostingView(rootView: Root(app: app, page: page))
             host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
             host.frame = CGRect(x: 0, y: 0, width: 720, height: 500)
             let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)

@@ -629,12 +629,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
     static let lesson = "Tab takes a word. Shift-Tab takes it all. Esc hides it."
     static let success = "That's it. Halftype works like this in almost any app."
 
-    /// Under the field: the menu's line, or while nothing is in the way, that the first accept worked or how to take the ghost showing.
-    /// Nothing while off, paused or without the permission.
+    /// Under the field: the menu's line, or while nothing is in the way, that the first accept worked or else the keys (drawn as keycaps),
+    /// never "Working.", which says nothing in our own field (docs/design/settings-pages). Nothing while off, paused or without the permission.
     func fieldLine(_ why: Watcher.Why) -> String? {
         guard let line = line(for: why) else { return nil }
         guard why.working, ready || practicing, tap.obstacle == nil else { return line }
-        return accepted ? App.success : why == .shown ? App.lesson : line
+        return accepted ? App.success : App.lesson
     }
 
     /// macOS's own grey inline predictions, which would show beside ours. Read, never written.
