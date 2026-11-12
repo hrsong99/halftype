@@ -94,7 +94,7 @@ kbd{font:500 11px -apple-system;border:1px solid #cfcac2;border-bottom-width:2px
 <ol>
 <li><b>The overlap is structural, not a nudge.</b> Settings scroll under a transparent title bar, and the sidebar button floats over it at x 84. Any layout where pages own the title-bar strip (B, C, D) fixes it; today's needs a blurred title bar to fix it.</li>
 <li><b>Pick B: a sidebar that stays, one page each.</b> Click a page, see that page; no scroll in between. The sidebar <i>is</i> the "where am I, and how many" indicator. C (your dot rail + snap) works for short pages but fights pages taller than the window (General today is 1,600 pt tall at 900 wide).</li>
-<li><b>Split into 7 pages:</b> Try It · Stats · Models (with Personal Model under the model it was trained for) · Suggestions · Apps · Privacy · General.</li>
+<li><b>Split into 6 pages:</b> Try It · Stats · Models (with Personal Model under the model it was trained for) · Suggestions · Apps · General. Saved typing stays in General (AGENTS.md: explained under General only).</li>
 <li><b>First page: cut the model chip, the power button and "Working."</b> One instruction line in keycaps, always there; the line under changes only when something's wrong or when your first Tab worked.</li>
 <li><b>Default size 860 × 600</b> (today 720 × 500, minimum 640 × 440). On a TV at a scaled resolution 720 pt is small; 860 still fits a 13" MacBook Air (1470 × 956) with room.</li>
 </ol>
@@ -104,7 +104,7 @@ kbd{font:500 11px -apple-system;border:1px solid #cfcac2;border-bottom-width:2px
 <p class="q">What the text says today, and when (from <code>FieldPage</code> and <code>App.fieldLine</code>). Struck through goes; green is new.</p>
 <table>
 <tr><th>When</th><th>Placeholder in the field</th><th>Line under the field</th><th>Proposed (option F2)</th></tr>
-<tr><td>Halftype is off</td><td>Halftype is off</td><td>—</td><td class="new">Placeholder "Halftype is off" + a <b>Turn On</b> button under it (the power button's one job)</td></tr>
+<tr><td>Halftype is off</td><td>Halftype is off</td><td>—</td><td>Same; turn it on from the sidebar's switch or the menu bar</td></tr>
 <tr><td>Model downloading / loading</td><td>Type here once the model is ready</td><td>Downloading Gemma 4 E2B: 41% of 3.4 GB · bar · "You can close this window."</td><td>Same, and the bar (keeps the only progress the chip used to show)</td></tr>
 <tr><td>Ready, field empty or typing</td><td>Type here, then press Tab on the grey text</td><td class="cut">Working.</td><td class="new">Placeholder "Type anything." · line: <kbd>Tab</kbd>next word <kbd>⇧ Tab</kbd>all of it <kbd>Esc</kbd>hide, always shown</td></tr>
 <tr><td>Ready, model not sure yet</td><td>—</td><td class="cut">Working. Not sure enough to suggest yet.</td><td class="new">The keys line (not being sure is normal)</td></tr>
@@ -137,7 +137,7 @@ kbd{font:500 11px -apple-system;border:1px solid #cfcac2;border-bottom-width:2px
 </div>
 
 <h2>2 · Settings: a page each</h2>
-<p class="q">Every option below uses the same 7 pages. Click the sidebar, rail or tabs; they're live. Personal Model sits under the model it was trained for, so it's clear an adapter only works with that model.</p>
+<p class="q">Every option below uses the same 6 pages. Click the sidebar, rail or tabs; they're live. Personal Model sits under the model it was trained for, so it's clear an adapter only works with that model.</p>
 
 <div class="grid">
  <div class="card"><h3><b>A</b>Today: one scroll, floating card</h3>
@@ -155,11 +155,11 @@ kbd{font:500 11px -apple-system;border:1px solid #cfcac2;border-bottom-width:2px
 
  <div class="card"><h3><b>C</b>Full-window pages, snap, dot rail</h3>
   <div class="win big" id="C"><div class="lights"><i></i><i></i><i></i></div><div class="snap"></div><div class="rail"></div><div class="count"></div></div>
-  <p>Your idea: scroll snaps a page at a time; dots on the left (names on hover) and "3 / 7". Lovely for short pages, but Privacy or General taller than the window either clips or needs a scroll inside a scroll, and trackpad snap feels sticky. SwiftUI: <code>.scrollTargetBehavior(.paging)</code>.</p></div>
+  <p>Your idea: scroll snaps a page at a time; dots on the left (names on hover) and "3 / 6". Lovely for short pages, but Privacy or General taller than the window either clips or needs a scroll inside a scroll, and trackpad snap feels sticky. SwiftUI: <code>.scrollTargetBehavior(.paging)</code>.</p></div>
 
  <div class="card"><h3><b>D</b>Tabs across the top</h3>
   <div class="win big" id="D"><div class="lights"><i></i><i></i><i></i></div><nav class="tabs"></nav><div class="below"></div></div>
-  <p>Classic Mac preferences (Safari, Xcode). Full width for content, but 7 tabs crowd 640 pt, and Try It as a "tab" reads oddly next to settings.</p></div>
+  <p>Classic Mac preferences (Safari, Xcode). Full width for content, but 6 tabs crowd 640 pt, and Try It as a "tab" reads oddly next to settings.</p></div>
 
  <div class="card"><h3><b>E</b>Try It alone; Settings opens the sidebar</h3>
   <div class="win big" id="E"><div class="lights"><i></i><i></i><i></i></div><div class="arch"></div>
@@ -176,7 +176,7 @@ kbd{font:500 11px -apple-system;border:1px solid #cfcac2;border-bottom-width:2px
 </main>
 
 <script>
-const PAGES=[["Try It","▶"],["Stats","▥"],["Models","◫"],["Suggestions","✦"],["Apps","▦"],["Privacy","◐"],["General","⚙"]];
+const PAGES=[["Try It","▶"],["Stats","▥"],["Models","◫"],["Suggestions","✦"],["Apps","▦"],["General","⚙"]];
 const gem='<span class="tile"><img src="../settings-scroll/images/icons/gemma-color.svg"></span>',qw='<span class="tile"><img src="../settings-scroll/images/icons/qwen-color.svg"></span>',kk='<span class="tile k">kakao</span>';
 const keysLine='<div class="keys"><span><kbd>Tab</kbd>next word</span><span><kbd>⇧ Tab</kbd>all of it</span><span><kbd>Esc</kbd>hide</span></div>';
 const BODY={
@@ -207,10 +207,12 @@ const BODY={
  <div class="row"><div class="t">Save What You Type<div class="n">For a Personal Model later. Encrypted, on this Mac only.</div></div><span class="sw"></span></div>
  <div class="row" style="padding-left:16px"><div class="t">Keep<div class="n">Nothing saved yet.</div></div><span class="seg"><span>1 Mo</span><span class="on">6 Mo</span><span>1 Yr</span><span>All</span></span></div>
  <div class="row"><div class="t">Show What the Model Sees<div class="n">Press ⌃⌥ over a suggestion. On screen only.</div></div><span class="sw off"></span></div></div>`,
-"General":`<div class="pg"><h4>General</h4><div class="sub">Halftype itself.</div>
+"General":`<div class="pg"><h4>General</h4><div class="sub">Everything runs on this Mac. Nothing you type is sent.</div>
  <div class="row"><div class="t">Halftype On</div><span class="sw"></span></div>
  <div class="row"><div class="t">Start at Login</div><span class="sw off"></span></div>
- <div class="row"><div class="t">Update Automatically<div class="n">Version 0.1.14</div></div><span class="use" style="width:auto;padding:2px 10px">Check Now</span><span class="sw"></span></div></div>`};
+ <div class="row"><div class="t">Update Automatically<div class="n">Version 0.1.14</div></div><span class="use" style="width:auto;padding:2px 10px">Check Now</span><span class="sw"></span></div>
+ <div class="row"><div class="t">Save What You Type<div class="n">For a Personal Model later. Encrypted, on this Mac only.</div></div><span class="sw"></span></div>
+ <div class="row"><div class="t">Show What the Model Sees<div class="n">Press ⌃⌥ over a suggestion.</div></div><span class="sw off"></span></div></div>`};
 
 function side(el,cur,go){el.innerHTML=PAGES.map(([n,i],k)=>(k==1?'<hr><div class="label">Settings</div>':'')+`<a class="${n==cur?"on":""}" data-p="${n}"><i>${i}</i>${n}</a>`).join("")+'<div style="position:absolute;bottom:12px;left:17px;right:17px;display:flex;justify-content:space-between;font-size:12px;align-items:center">On <span class="sw"></span></div>';el.querySelectorAll("a").forEach(a=>a.onclick=()=>go(a.dataset.p))}
 // B

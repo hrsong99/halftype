@@ -6,6 +6,6 @@ John: "the first page should remove the power icon and the model … do we need 
 - `options.png`: frozen screenshot of the page.
 - `images/`: `today-*.png` (WindowShots of main at beec0a7), `I.jpg`, `J.jpg`, their `prompts/`, `gen.sh <letter>` to remake one.
 
-Recommendation: F2 (field plus a fixed keys line; problems and the first-Tab line take its place) and B (a sidebar that stays, one page each, 7 pages, Personal Model under its model), default window 860 × 600.
+Recommendation: F2 (field plus a fixed keys line; problems and the first-Tab line take its place) and B (a sidebar that stays, one page each, 6 pages (no separate Privacy page: saved typing stays under General), Personal Model under its model), default window 860 × 600.
 
 Pick: none yet.
