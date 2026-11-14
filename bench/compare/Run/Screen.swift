@@ -2,9 +2,30 @@ import AppKit
 import CompareKit
 import ScreenCaptureKit
 
+/// Where the harness types: its own field (`Field`) or a TextEdit document (`TextEditHost`, `--host textedit`).
+protocol Host: AnyObject {
+    var text: (field: String, composing: String) { get }
+    func clear()
+    func set(_ text: String)
+    /// The host's window is key in the frontmost app, with the field focused: the only state in which keys may be sent.
+    var focused: Bool { get }
+    func focus() -> Bool
+    /// Where the caret was when a frame was shown, in capture pixels.
+    func caret(at t: UInt64) -> Int
+    /// The field's line on screen, in global top-left points, as ScreenCaptureKit wants it.
+    var captureRect: CGRect { get }
+    var scale: CGFloat { get }
+    /// The host draws a blue caret, which isn't ink (`Frame.ignoresBlue`).
+    var caretIsBlue: Bool { get }
+    /// macOS's own predictions, which only our own field can switch.
+    func predictions(_ on: Bool)
+    func show()
+    func hide()
+}
+
 /// The test field: one long line of 17-point text, black on white, with an invisible caret, so anything drawn right of
 /// the caret is a suggestion. The window floats so nothing covers it.
-final class Field: NSObject, NSTextViewDelegate {
+final class Field: NSObject, NSTextViewDelegate, Host {
     let window: NSWindow
     let view: NSTextView
     /// Caret positions in capture pixels, with the time each began, for frames to look up.
@@ -14,6 +35,7 @@ final class Field: NSObject, NSTextViewDelegate {
     /// The field's line on screen, in global top-left points, as ScreenCaptureKit wants it.
     private(set) var captureRect = CGRect.zero
     static let fontSize: CGFloat = 17
+    let caretIsBlue = false  // its caret is clear
 
     override init() {
         let screen = NSScreen.main!
@@ -95,6 +117,10 @@ final class Field: NSObject, NSTextViewDelegate {
         return focused
     }
 
+    func predictions(_ on: Bool) { onMain { view.inlinePredictionType = on ? .yes : .no } }
+    func show() { onMain { window.orderFrontRegardless() } }
+    func hide() { onMain { window.orderOut(nil) } }
+
     func textViewDidChangeSelection(_ notification: Notification) { caretMoved() }
     func textDidChange(_ notification: Notification) { caretMoved() }
 
@@ -112,7 +138,7 @@ final class Field: NSObject, NSTextViewDelegate {
 /// ScreenCaptureKit only sends a frame when the region changes, so the last frame is what is on screen now.
 final class Capture: NSObject, SCStreamOutput, @unchecked Sendable {
     struct Seen { let t: UInt64, ink: Ink?, caret: Int }
-    private let field: Field
+    private let field: Host
     private let lock = NSLock()
     private var frames: [Seen] = []
     private var read: [Ink: String] = [:]
@@ -124,7 +150,7 @@ final class Capture: NSObject, SCStreamOutput, @unchecked Sendable {
     var cropDir: String?
     private var crops = 0
 
-    init(field: Field) { self.field = field }
+    init(field: Host) { self.field = field }
 
     func start() throws {
         let sem = DispatchSemaphore(value: 0)
@@ -164,7 +190,7 @@ final class Capture: NSObject, SCStreamOutput, @unchecked Sendable {
         CVPixelBufferLockBaseAddress(pixels, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(pixels, .readOnly) }
         let frame = Frame(base: CVPixelBufferGetBaseAddress(pixels)!, width: CVPixelBufferGetWidth(pixels), height: CVPixelBufferGetHeight(pixels),
-                          bytesPerRow: CVPixelBufferGetBytesPerRow(pixels))
+                          bytesPerRow: CVPixelBufferGetBytesPerRow(pixels), ignoresBlue: field.caretIsBlue)
         let caret = field.caret(at: t)
         let ink = Ghost.ink(in: frame, fromX: caret + 1)
         let needsRead: Bool = lock.withLock {

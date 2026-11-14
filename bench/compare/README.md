@@ -10,6 +10,7 @@ It feeds the comparison on the landing page (`docs/site/compare/`, branch `landi
 bench/compare/run.sh --check    # the preconditions only: types nothing, launches nothing
 bench/compare/run.sh            # everything, about 40 minutes (25 with --ko 0)
 bench/compare/run.sh --apps halftype,keytype --en 16 --ko 10
+bench/compare/run.sh --host textedit --apps halftype,cotypist --en 64 --ko 0   # Cotypist: see "Cotypist, and typing into TextEdit"
 ```
 
 It takes the keyboard, the pointer and the front window the whole time and switches input sources, so start it when you leave the Mac.
@@ -82,11 +83,17 @@ running at all** (KeyType starts its engine only with Accessibility), which is w
 time, and the harness's own screen reading is in every app's number alike, so compare apps, not the floor. At rest it was swamped
 by other work on the Mac (results/2026-11-12-en64.md), so only typing is reported.
 
-## Apps this harness can't measure (2026-11-12)
+## Cotypist, and typing into TextEdit (2026-11-14)
 
-- **Cotypist** suggests in TextEdit but never in this harness's window: ten probes (results/2026-11-12-en64.md) ruled out its cap,
-  start-up time, a hidden launch, the window level, a scroll view, rich text, spelling on, a visible caret, a `.app` bundle, the
-  bundle ID and name, and a Developer ID signature. Measuring it needs the typist to drive a TextEdit document instead.
+- **Cotypist launched hidden (`open -j`) maps its model but never suggests, anywhere.** That, not the window, was why it showed nothing
+  on 2026-11-11 and in the ten probes after (results/2026-11-12-en64.md). The runner now launches it with `open -g` only.
+- Even launched that way it shows nothing in the harness's own window, so it is measured with `--host textedit`: the typist types into
+  a TextEdit document (`Run/TextEdit.swift`, plain Helvetica 17, light, corrections off for that launch only) and reads its text and
+  caret over Accessibility. TextEdit must not be running. Compare it with Halftype run in TextEdit too, not with the own-window rows:
+  `bench/compare/run.sh --host textedit --apps halftype,cotypist --en 64 --ko 0`.
+- TextEdit's caret is a blue bar a ghost's first letter can sit under, and it blinks: blue isn't ink there (`Frame.ignoresBlue`).
+  Its first line touches the title bar's edge, so the capture starts 2 points below it.
+- Cotypist's Tab puts in `’` for `'`; the TextEdit host reads it as `'`, or the oracle deletes it and Tabs again forever.
 - **macOS's inline predictions** show in no app on John's Mac (region en_KR), TextEdit included, with the setting on.
 
 ## Limits

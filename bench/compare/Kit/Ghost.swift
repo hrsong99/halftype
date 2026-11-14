@@ -13,8 +13,17 @@ public struct Ink: Equatable, Hashable, Sendable {
 /// A frame as ScreenCaptureKit hands it over: 32-bit BGRA, rows of `bytesPerRow`.
 public struct Frame: @unchecked Sendable {
     public let base: UnsafeRawPointer, width: Int, height: Int, bytesPerRow: Int
-    public init(base: UnsafeRawPointer, width: Int, height: Int, bytesPerRow: Int) {
-        (self.base, self.width, self.height, self.bytesPerRow) = (base, width, height, bytesPerRow)
+    /// Blue isn't ink: TextEdit's caret is a blue bar a ghost's first letter can sit under, and it blinks. Ghosts are grey.
+    public var ignoresBlue = false
+    public init(base: UnsafeRawPointer, width: Int, height: Int, bytesPerRow: Int, ignoresBlue: Bool = false) {
+        (self.base, self.width, self.height, self.bytesPerRow, self.ignoresBlue) = (base, width, height, bytesPerRow, ignoresBlue)
+    }
+
+    @inline(__always) func isInk(_ x: Int, _ y: Int) -> Bool {
+        guard light(x, y) < Ghost.inkBelow else { return false }
+        guard ignoresBlue else { return true }
+        let p = base.advanced(by: y * bytesPerRow + x * 4).assumingMemoryBound(to: UInt8.self)
+        return Int(p[0]) - Int(p[2]) < 25  // BGRA: blue well over red is the caret, or its edge blended into white
     }
 
     /// Lightness of a pixel, 0 black to 255 white.
@@ -35,7 +44,7 @@ public enum Ghost {
         var ink = Ink(minX: .max, maxX: -1, minY: .max, maxY: -1, count: 0)
         let x0 = max(0, fromX)
         for y in 0..<f.height {
-            for x in x0..<f.width where f.light(x, y) < inkBelow {
+            for x in x0..<f.width where f.isInk(x, y) {
                 ink.count += 1
                 ink.hash = (ink.hash ^ UInt64((x - x0) &* 4099 &+ y)) &* 1_099_511_628_211  // Relative to the caret, as a ghost moves with it.
                 ink.minX = min(ink.minX, x); ink.maxX = max(ink.maxX, x)
@@ -57,11 +66,11 @@ public enum Ghost {
     public static func binarized(_ f: Frame, fromX: Int, margin: Int = 10) -> CGImage? {
         let x0 = max(0, fromX), h = f.height + 2 * margin
         var inkMaxX = -1
-        for y in 0..<f.height { for x in x0..<f.width where f.light(x, y) < inkBelow { inkMaxX = max(inkMaxX, x) } }
+        for y in 0..<f.height { for x in x0..<f.width where f.isInk(x, y) { inkMaxX = max(inkMaxX, x) } }
         guard inkMaxX >= 0 else { return nil }
         let w = max(inkMaxX - x0 + 1 + margin + h / 2, 2 * h)
         var bytes = [UInt8](repeating: 255, count: w * h)
-        for y in 0..<f.height { for x in x0..<f.width where f.light(x, y) < inkBelow { bytes[(y + margin) * w + x - x0 + margin] = 0 } }
+        for y in 0..<f.height { for x in x0..<f.width where f.isInk(x, y) { bytes[(y + margin) * w + x - x0 + margin] = 0 } }
         guard let provider = CGDataProvider(data: Data(bytes) as CFData) else { return nil }
         return CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: w, space: CGColorSpaceCreateDeviceGray(),
                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue), provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)

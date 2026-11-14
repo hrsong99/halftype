@@ -120,6 +120,20 @@ func frame(typed: String, ghost: String, grey: NSColor = NSColor(white: 0.6, alp
     }
 }
 
+@Test func aBlueCaretIsNotInk() {
+    // TextEdit's caret: a blue bar at the caret, a ghost's first letter partly under it.
+    frame(typed: "Could you", ghost: "") { f, caret in
+        let ctx = CGContext(data: UnsafeMutableRawPointer(mutating: f.base), width: f.width, height: f.height, bitsPerComponent: 8, bytesPerRow: f.bytesPerRow,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)!
+        ctx.setFillColor(CGColor(red: 0, green: 0.48, blue: 1, alpha: 1))
+        ctx.fill(CGRect(x: caret + 2, y: 10, width: 4, height: f.height - 20))
+        #expect(Ghost.ink(in: f, fromX: caret + 1) != nil)
+        var blind = f
+        blind.ignoresBlue = true
+        #expect(Ghost.ink(in: blind, fromX: caret + 1) == nil)
+    }
+}
+
 /// Vision waits on threads from the pool these tests block, so OCR tests at once starve it and hang (2026-11-09): one at a time.
 @Suite(.serialized) struct OCR {
 @Test(arguments: [

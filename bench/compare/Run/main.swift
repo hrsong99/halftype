@@ -11,8 +11,12 @@ import ScreenCaptureKit
 setvbuf(stdout, nil, _IOLBF, 0)
 let args = CommandLine.arguments
 func option(_ name: String) -> String? { args.firstIndex(of: name).flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } }
-let chosen = (option("--apps")?.split(separator: ",").map(String.init)).map { names in rivals.filter { names.contains($0.name) } } ?? rivals
+let chosen = ((option("--apps")?.split(separator: ",").map(String.init)).map { names in rivals.filter { names.contains($0.name) } } ?? rivals)
+    .filter { $0.path != nil || option("--host") != "textedit" }  // macOS's predictions are switched in our own field only
 let enCount = Int(option("--en") ?? "") ?? 16, koCount = Int(option("--ko") ?? "") ?? 10
+/// `--host textedit`: type into a TextEdit document instead of our own window (TextEdit.swift), for an app that suggests only there.
+let host = option("--host") ?? "field"
+if !["field", "textedit"].contains(host) { print("--host takes field or textedit"); exit(1) }
 let textDir = option("--text") ?? lab + "/compare/text"
 /// `--halftype long,more`: Halftype at that Length and Suggestions (the saved values: `more` is When Likely, `normal` When Sure) instead of its defaults, scored as "halftype long,more".
 let halftypeSetting = option("--halftype")?.split(separator: ",").map(String.init)
@@ -75,6 +79,10 @@ func preflight() -> Bool {
     let others = runningAutocompleters()
     line(others.isEmpty, "no autocomplete app is running" + (others.isEmpty ? "" : ": " + others.joined(separator: "; ")),
          fix: "quit them (a dev build of Halftype from another session counts: ask it to stop, don't kill it)")
+    if host == "textedit" {
+        line(NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").isEmpty, "TextEdit isn't running (the harness opens it with its own settings)",
+             fix: "quit TextEdit")
+    }
     let en = sentences("en"), ko = sentences("ko")
     line(en.count > enCount && ko.count >= koCount, "public sentences in \(textDir): \(en.count) English (1 is the warm-up), \(ko.count) Korean",
          fix: "bench/compare/text.py fetch \(textDir)")
@@ -114,6 +122,7 @@ guard okToRun else { print("Not running: fix the lines marked FIX."); exit(1) }
 
 let startSource = currentSource()
 var launched: Rival?
+var openHost: Host?
 func restoreHalftype() {
     guard let saved = halftypeSaved else { return }
     for k in halftypeKeys { if let v = saved[k] { halftypeDefaults.set(v, forKey: k) } else { halftypeDefaults.removeObject(forKey: k) } }
@@ -130,6 +139,8 @@ func quit(_ r: Rival) {
 func cleanUp() {
     if let r = launched { quit(r); launched = nil }
     restoreHalftype()
+    openHost?.hide()
+    openHost = nil
     selectSource(startSource)
 }
 /// Set by Ctrl-C: the runner stops at its next key or wait, then cleans up itself, so cleanup never races a launch.
@@ -157,9 +168,9 @@ for sig in [SIGINT, SIGTERM, SIGHUP] {
 struct Stop: Error { let why: String }
 
 final class Typist {
-    let field: Field, capture: Capture, r: Rival, lang: String, out: String
+    let field: Host, capture: Capture, r: Rival, lang: String, out: String
     var ocrWaitMs = 0.0
-    init(field: Field, capture: Capture, r: Rival, lang: String, out: String) {
+    init(field: Host, capture: Capture, r: Rival, lang: String, out: String) {
         (self.field, self.capture, self.r, self.lang, self.out) = (field, capture, r, lang, out)
     }
 
@@ -250,7 +261,7 @@ func waitForModel(_ r: Rival) -> Bool {
     return false
 }
 
-func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
+func run(_ r: Rival, field: Host, capture: Capture, out: String) throws {
     print("\n== \(r.name) \(r.version)")
     if r.path != nil {
         guard r.pids.isEmpty, runningAutocompleters().isEmpty else { throw Stop(why: "another autocomplete app is running") }
@@ -264,12 +275,13 @@ func run(_ r: Rival, field: Field, capture: Capture, out: String) throws {
         // it saw in an earlier run (its history holds only text this harness typed, as only the harness starts it).
         if r.name == "keytype" { try? FileManager.default.removeItem(atPath: NSHomeDirectory() + "/Library/Application Support/KeyType/History") }
         launched = r
-        sh("/usr/bin/open", ["-g", "-j", r.path!])
-        print("  launched hidden; waiting for its model to be mapped (up to 3 minutes)")
+        // Cotypist launched hidden (-j) runs and maps its model but never suggests, anywhere (2026-11-14): it's launched as a user would.
+        sh("/usr/bin/open", (r.name == "cotypist" ? ["-g"] : ["-g", "-j"]) + [r.path!])
+        print("  launched; waiting for its model to be mapped (up to 3 minutes)")
         // KeyType starts its engine only with Accessibility, so an app without it may never load its model.
         guard waitForModel(r) else { throw Stop(why: "\(r.name) never mapped a .gguf: no Accessibility, or it's waiting in onboarding") }
     }
-    onMain { field.view.inlinePredictionType = r.path == nil ? .yes : .no }
+    field.predictions(r.path == nil)
     guard field.focus() else { throw Stop(why: "couldn't bring the test window forward") }
     guard selectSource(latinSource!) else { throw Stop(why: "couldn't select \(latinSource!)") }
     capture.korean = false
@@ -320,7 +332,7 @@ try? FileManager.default.createDirectory(atPath: out, withIntermediateDirectorie
 let meta = """
     Run \(stamp) on \(sh("/usr/sbin/sysctl", ["-n", "machdep.cpu.brand_string"]).out.trimmingCharacters(in: .whitespacesAndNewlines)), \
     \(ProcessInfo.processInfo.physicalMemory >> 30) GB, macOS \(ProcessInfo.processInfo.operatingSystemVersionString). \
-    Apps: \(chosen.map { "\($0.name) \($0.version)" }.joined(separator: ", ")). \
+    Typed into \(host == "textedit" ? "a TextEdit document (plain text, Helvetica 17)" : "the harness's own field"). Apps: \(chosen.map { "\($0.name) \($0.version)" }.joined(separator: ", ")). \
     \(enCount) English (Taskmaster-1) and \(koCount) Korean (SmileStyle) sentences from bench/compare/ids.tsv, \
     typed at log-normal delays around 264 ms with a 1.5 s probe after every third word.
 
@@ -337,11 +349,12 @@ editItem.submenu = editMenu
 menuBar.addItem(appItem); menuBar.addItem(editItem)
 NSApplication.shared.mainMenu = menuBar
 Thread {
-    let field = onMain { Field() }
+    let field: Host = host == "textedit" ? TextEditHost(file: out + "/field.txt") : onMain { Field() }
+    openHost = field
     let capture = Capture(field: field)
     var failed: [String] = []
     do {
-        onMain { field.window.orderFrontRegardless() }
+        field.show()
         Ghost.warmUp()
         try capture.start()
         for r in chosen where !stopRequested {
@@ -355,7 +368,6 @@ Thread {
     } catch { print("Screen capture didn't start: \(error)") }
     capture.stop()
     cleanUp()
-    onMain { field.window.orderOut(nil) }
     summarize(out)
     if !failed.isEmpty { print("Not measured: \(failed.joined(separator: ", ")).") }
     exit(failed.isEmpty ? 0 : 1)
