@@ -13,6 +13,11 @@ final class TextEditHost: Host {
     /// The caret as read at a time: a frame's caret is the first read begun after it, as TextEdit updates its text before drawing it.
     private var reads: [(t: UInt64, x: Int)] = []
     private var polling = true
+    /// Plain text's colour follows the system, not the window: in dark mode Accessibility reports it white on our light
+    /// window, and the apps draw their ghost in it, white on white (2026-11-14). So the Mac is light for the run, put back by `hide`.
+    /// shortcut: with Appearance on Auto, macOS may switch back mid-run at sunset; a run at dusk can lose its ghosts.
+    private let wasDark = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+    private static func dark(_ on: Bool) { sh("/usr/bin/osascript", ["-e", "tell application \"System Events\" to tell appearance preferences to set dark mode to \(on)"]) }
 
     /// Argument-domain defaults: they hold for this launch and leave the user's TextEdit settings alone.
     static let defaults: [String: String] = [
@@ -37,6 +42,7 @@ final class TextEditHost: Host {
             if let a = ((ax(el, kAXWindowsAttribute) as? [AXUIElement]) ?? []).lazy.compactMap({ first(role: kAXTextAreaRole, in: $0) }).first { found = (app.processIdentifier, el, a) }
         }
         guard let (pid, appElement, area) = found else { fatalError("TextEdit opened no window with a text area") }
+        if wasDark { Self.dark(false) }
         (self.pid, self.appElement, self.area) = (pid, appElement, area)
         let window = ax(area, kAXWindowAttribute) as! AXUIElement
         // Where our own field sits, on the main display (the one captured).
@@ -124,6 +130,7 @@ final class TextEditHost: Host {
     /// Quits TextEdit, which saves the document to its file without asking.
     func hide() {
         polling = false
+        if wasDark { Self.dark(true) }
         guard let app = NSRunningApplication(processIdentifier: pid) else { return }
         app.terminate()
         for _ in 0..<50 where !app.isTerminated { sleepMs(200) }

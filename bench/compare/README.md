@@ -93,6 +93,9 @@ by other work on the Mac (results/2026-11-12-en64.md), so only typing is reporte
   `bench/compare/run.sh --host textedit --apps halftype,cotypist --en 64 --ko 0`.
 - TextEdit's caret is a blue bar a ghost's first letter can sit under, and it blinks: blue isn't ink there (`Frame.ignoresBlue`).
   Its first line touches the title bar's edge, so the capture starts 2 points below it.
+- **In dark mode the ghosts are white on white.** Plain text's colour follows the system, not TextEdit's forced-light window, so
+  Accessibility reports it white and the apps draw their ghost in it: 0 ghosts for both apps. The host switches the Mac to light
+  for the run and back after. A run that shows no ghost at all: check this first.
 - Cotypist's Tab puts in `’` for `'`; the TextEdit host reads it as `'`, or the oracle deletes it and Tabs again forever.
 - **macOS's inline predictions** show in no app on John's Mac (region en_KR), TextEdit included, with the setting on.
 
