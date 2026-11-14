@@ -13,10 +13,12 @@ let args = CommandLine.arguments
 func option(_ name: String) -> String? { args.firstIndex(of: name).flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } }
 let chosen = ((option("--apps")?.split(separator: ",").map(String.init)).map { names in rivals.filter { names.contains($0.name) } } ?? rivals)
     .filter { $0.path != nil || option("--host") != "textedit" }  // macOS's predictions are switched in our own field only
-let enCount = Int(option("--en") ?? "") ?? 16, koCount = Int(option("--ko") ?? "") ?? 10
+let enCount = Int(option("--en") ?? "") ?? 16
 /// `--host textedit`: type into a TextEdit document instead of our own window (TextEdit.swift), for an app that suggests only there.
 let host = option("--host") ?? "field"
 if !["field", "textedit"].contains(host) { print("--host takes field or textedit"); exit(1) }
+/// TextEdit's host reads no composing syllable, which the 2-set oracle needs: English only there.
+let koCount = host == "textedit" ? 0 : Int(option("--ko") ?? "") ?? 10
 let textDir = option("--text") ?? lab + "/compare/text"
 /// `--halftype long,more`: Halftype at that Length and Suggestions (the saved values: `more` is When Likely, `normal` When Sure) instead of its defaults, scored as "halftype long,more".
 let halftypeSetting = option("--halftype")?.split(separator: ",").map(String.init)
