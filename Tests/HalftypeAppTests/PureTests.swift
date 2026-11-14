@@ -120,14 +120,14 @@ import Testing
     }
 
     // Widths as Chromium reported them on a page set in an 18 px monospaced web font (2026-11-11), and as the system font sets them.
-    @Test func aMonospacedLineIsToldByItsWidthNeverResized() {
-        #expect(GhostLayout.design(spec(typed: Typed(text: ", our fath", width: 108))) == .monospaced)
-        #expect(GhostLayout.design(spec(typed: Typed(text: ", our fath", width: 72))) == .default)
-        #expect(GhostLayout.design(spec(typed: Typed(text: "our", width: 32))) == nil, "too few letters to tell")
-        #expect(GhostLayout.design(spec(typed: Typed(text: ", our fath", width: 90))) == nil, "between the two: no guess")
+    @Test func aMonospacedLineIsToldByItsWidth() {
+        #expect(GhostLayout.look(spec(typed: Typed(text: ", our fath", width: 108)))?.design == .monospaced)
+        #expect(GhostLayout.look(spec(typed: Typed(text: ", our fath", width: 72)))?.design == .default)
+        #expect(GhostLayout.look(spec(typed: Typed(text: "our", width: 32))) == nil, "too few letters to tell")
+        #expect(GhostLayout.look(spec(typed: Typed(text: ", our fath", width: 90))) == nil, "between the two: no guess")
         var mono = spec(typed: nil)
-        mono.design = .monospaced
-        #expect(GhostLayout.font(mono).isFixedPitch && GhostLayout.font(mono).pointSize == 18)
+        mono.look = Look(design: .monospaced, zoom: 1, size: 18, caret: 24)
+        #expect(GhostLayout.font(mono).isFixedPitch && abs(GhostLayout.font(mono).pointSize - 18) < 0.001)
     }
 
     @Test func aLineNeverSaysTheWrongFont() {
@@ -135,30 +135,63 @@ import Testing
         for (host, wrong) in [(mono, NSFontDescriptor.SystemDesign.default), (system, .monospaced)] {
             for text in ["wwww", "wwwwi", "wwwwii", "wwwwiiii", "illi", "a mill", "a million little lines"] {
                 let width = (text as NSString).size(withAttributes: [.font: host]).width.rounded()
-                #expect(GhostLayout.design(spec(typed: Typed(text: text, width: width))) != wrong, "\(text) in \(host.fontName)")
+                #expect(GhostLayout.look(spec(typed: Typed(text: text, width: width)))?.design != wrong, "\(text) in \(host.fontName)")
             }
         }
     }
 
-    // T3 Code at 121% (2026-11-14): its SF 14 line 1.21 times as wide (zoom scales the 14 pt line, while SF set larger tracks tighter),
-    // under a 20 pt caret, which the zoom estimate takes for 118%. Serif fit what was left.
-    @Test func aZoomedSystemFontLineIsNeverTakenForSerif() {
-        var zoomed = spec(typed: nil)
+    // T3 Code, SF 14 (2026-11-14): Chromium's zoom scales the line as set at 14 pt (1.210 times as wide at 121%, 1.582 at 158%), under
+    // carets of 20 and 26 pt, which say 118% and 153%. Serif, which fit the caret's leftover, is never the answer.
+    func zoomed(_ text: String, zoom: CGFloat, caret: CGFloat) -> GhostSpec {
+        var zoomed = spec(typed: Typed(text: text, width: width(text, zoom: zoom)))
         zoomed.fontSize = 14
-        zoomed.caret.size.height = 20
+        zoomed.caret.size.height = caret
         zoomed.webCaret = true
-        for text in ["Can you check", "why the build failed on the", "it looks fine here"] {
-            let width = (text as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 14)]).width * 1.21
-            zoomed.typed = Typed(text: text, width: width)
-            #expect(GhostLayout.design(zoomed) ?? .default == .default, "\(text)")
+        return zoomed
+    }
+
+    func width(_ text: String, zoom: CGFloat) -> CGFloat { (text as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 14)]).width * zoom }
+
+    // The ghost sets any text as wide as the page would, not only the line it was told from: SF fitted to an English line by its size
+    // drew Korean after it 10% too wide at 158% (Codex review).
+    @Test func aZoomedSystemFontGhostIsAsWideAsThePageWouldSetIt() {
+        for (zoom, caret) in [(1.0, 16.0), (1.0, 17.0), (1.095, 18.0), (1.21, 20.0), (1.582, 26.0)] as [(CGFloat, CGFloat)] {
+            for text in ["Can you check", "why the build failed on the", "it looks fine here, but", "이거 왜 안 되는지 한번"] {
+                var spec = zoomed(text, zoom: zoom, caret: caret)
+                // A short line can't always tell (13 letters under a caret rounded down, or Hangul, the same in both designs); the field
+                // then keeps its last look, here none, so the ghost is the caret's.
+                spec.look = GhostLayout.look(spec)
+                #expect(spec.look?.design ?? .default == .default, "\(text) at \(zoom), caret \(caret)")
+                guard spec.look != nil || zoom == 1 else { continue }
+                for ghost in [text, "가나다라마바사아자차", " and then we can"] {
+                    let drawn = (ghost as NSString).size(withAttributes: [.font: GhostLayout.font(spec)]).width
+                    #expect(abs(drawn / width(ghost, zoom: zoom) - 1) < 0.002, "\(ghost) after \(text) at \(zoom), caret \(caret)")
+                }
+            }
         }
+    }
+
+    @Test func aLookHoldsOnlyWhileTheSizeAndCaretDo() throws {
+        #expect(GhostLayout.look(zoomed("see the file here", zoom: 2.5, caret: 17)) == nil, "a chip: wider than either design at the caret's zoom")
+        var later = zoomed("see the file here", zoom: 1.21, caret: 20)
+        later.look = try #require(GhostLayout.look(later))
+        let caretZoom = { (spec: GhostSpec) in spec.caret.height / NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: 14)) }
+        later.caret.size.height = 21  // a new line whose caret rounds the other way: the same zoom
+        #expect(abs(GhostLayout.font(later).pointSize - 14 * later.look!.zoom) < 0.001)
+        later.caret.size.height = 18  // zoomed out a step, 121% to 109.5%, on a line too short to tell: the caret's band, unscaled
+        #expect(abs(GhostLayout.font(later).pointSize - 14) < 0.001, "\(caretZoom(later))")
+        later.caret.size.height = 26  // zoomed in twice
+        #expect(abs(GhostLayout.font(later).pointSize - 14 * caretZoom(later)) < 0.001)
+        later.caret.size.height = 20
+        later.fontSize = 20  // the page's own size changed, at the same caret: the caret's zoom for 20 pt, not the look's 121%
+        #expect(abs(GhostLayout.font(later).pointSize - 20 * 20 / NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: 20))) < 0.001)
     }
 
     @Test func aNamedFontIsNeverSecondGuessed() {
         var named = spec(typed: nil)
         named.fontName = "Helvetica"
-        named.design = .monospaced
-        #expect(GhostLayout.font(named).fontName == "Helvetica")
+        named.look = Look(design: .monospaced, zoom: 1.6, size: 18, caret: 24)
+        #expect(GhostLayout.font(named).fontName == "Helvetica" && GhostLayout.font(named).pointSize == 18)
     }
 
     // Safari, 2026-11-11: Menlo 16 with line-height 1.6 reports a 25 pt caret, which the caret's height took for 134% zoom.

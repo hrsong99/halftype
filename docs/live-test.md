@@ -56,8 +56,8 @@ This is the unknown: does Chromium's composition take our key presses the way a 
     **T3 gets it as usual.**
 19. Shift-Return to start a second line, then type `and then we can`; once more on a third line.
     **A ghost at the caret on each line, continuing that line.**
-20. Press Cmd-= twice, type a few words, and pause. Then Cmd-0.
-    **The ghost grows with the text, about the size of your letters, on their baseline. After Cmd-0 it's back to normal.**
+20. Press Cmd-= once, type a line of a few words, and pause; Tab the ghost. Again after Cmd-= twice more. Then Cmd-0.
+    **The ghost grows with the text, in sans (never serif), on its baseline, and a Tab's letters land where the ghost's were. After Cmd-0 it's back to normal.**
 
 ## When it must stand aside: about 4 minutes
 T1. The permission, each way. No automatic test reaches this: they stand in for the system. Write down a result for each of a, b and c.

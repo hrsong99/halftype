@@ -12,8 +12,8 @@ struct GhostSpec {
     var color: CGColor?
     var lineLeft: CGFloat?
     var typed: Typed? = nil
-    /// The system font's design to draw in when the host names no font: the field's last clear `GhostLayout.design`.
-    var design = NSFontDescriptor.SystemDesign.default
+    /// How to draw when the host names no font: the field's last clear `GhostLayout.look`.
+    var look: Look? = nil
     var linePitch: CGFloat? = nil
     /// The character the caret rect was measured on, so the baseline uses its metrics: Hangul falls back to another font.
     var previousCharacter: String
@@ -27,6 +27,17 @@ struct GhostSpec {
     var peek: Peek? = nil
 }
 
+/// An unnamed font (a web page's) as told by the line typed so far, for as long as the field's font size and caret height hold.
+struct Look: Equatable {
+    var design: NSFontDescriptor.SystemDesign
+    /// The page's zoom: the line's width over the design's at the reported size.
+    var zoom: CGFloat
+    /// The reported size and the caret's height it was told under: a new size, or a zoom since, makes it stale. One zoom step is 9.5% in
+    /// Electron, within what a caret's zoom can miss by, but moves the caret 1.6 pt or more (SF 14), while whole-point rounding moves it 1.
+    var size: CGFloat
+    var caret: CGFloat
+}
+
 struct GhostLayout {
     /// In AX coordinates, whole points so the window server has nothing to round.
     var window: CGRect
@@ -38,33 +49,48 @@ struct GhostLayout {
     var visibleText: String { (storage.string as NSString).substring(with: manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)) }
 
     static func font(_ spec: GhostSpec) -> NSFont {
-        if let named = spec.fontName.flatMap({ NSFont(name: $0, size: spec.fontSize) }) { return zoomed(named, spec) }
-        return zoomed(system(spec.design, spec.fontSize), spec)
+        if let named = spec.fontName.flatMap({ NSFont(name: $0, size: spec.fontSize) }) { return named }
+        let font = system(spec.look?.design ?? .default, spec.fontSize)
+        if let look = spec.look, look.size == spec.fontSize, abs(look.caret - spec.caret.height) < 1.5 { return scaled(font, look.zoom) }
+        // No look, or a stale one: the zoom from the caret, outside a band, as the page's font goes unnamed and its line can differ
+        // from ours by about a tenth, estimated from fonts' metrics. Past it is zoom.
+        let caret = caretZoom(font, spec)
+        return caret > 1.15 || caret < 1 / 1.15 ? scaled(font, caret) : font
     }
 
     private static func system(_ design: NSFontDescriptor.SystemDesign, _ size: CGFloat) -> NSFont {
         NSFont.systemFont(ofSize: size).fontDescriptor.withDesign(design).flatMap { NSFont(descriptor: $0, size: size) } ?? .systemFont(ofSize: size)
     }
 
-    /// An unnamed font (a web page's) told by the width of the line typed so far, never sized by it: a monospaced line is half as wide
-    /// again as the system font's at the same size. Nil when the line can't tell: a short one can't ("wwwwi" is 55 pt in SF Mono, 57
-    /// in the system font), so the field keeps what it had and the ghost doesn't change font as letters come. Sans or monospaced only:
-    /// serif sets a few percent wider than sans, within what the caret's zoom estimate misses by, so in T3 at 121% it won (2026-11-14).
-    static func design(_ spec: GhostSpec) -> NSFontDescriptor.SystemDesign? {
-        guard let typed = spec.typed, typed.text.count >= 4, typed.width > 0 else { return nil }
-        let misses = [NSFontDescriptor.SystemDesign.default, .monospaced].map { design in
-            (design, abs((typed.text as NSString).size(withAttributes: [.font: zoomed(system(design, spec.fontSize), spec)]).width / typed.width - 1))
-        }.sorted { $0.1 < $1.1 }
-        return misses[0].1 < 0.06 && misses[0].1 + 0.03 < misses[1].1 ? misses[0].0 : nil
+    /// The font at the reported size, drawn larger: Chromium's zoom scales the line as set at that size, while SF set at a larger size
+    /// tracks tighter (SF 22 sets `it looks fine here, but` 8% narrower than SF 14 scaled to 22). Its fallbacks (Hangul) scale with it.
+    private static func scaled(_ font: NSFont, _ zoom: CGFloat) -> NSFont {
+        NSFont(descriptor: font.fontDescriptor, textTransform: AffineTransform(scale: zoom)) ?? font.withSize(font.pointSize * zoom)
     }
 
-    /// Chromium names no font and gives its size before page zoom. A host that names its font (Safari) gives the size at the page's
-    /// zoom (16 at 100%, 20 at 125%, 2026-11-11) and a caret as tall as the line, which this would take for zoom: Menlo 16 drawn at 21.
-    private static func zoomed(_ font: NSFont, _ spec: GhostSpec) -> NSFont {
-        guard spec.webCaret, spec.fontName == nil else { return font }
-        let zoom = spec.caret.height / NSLayoutManager().defaultLineHeight(for: font)
-        // A band, as the page's font goes unnamed and its line can differ from ours by about a tenth, estimated from fonts' metrics. Past it is zoom.
-        return zoom > 1.15 || zoom < 1 / 1.15 ? font.withSize(spec.fontSize * zoom) : font
+    /// Chromium names no font and gives its size before page zoom, while its caret is on screen: a rough zoom, to the page font's
+    /// difference from ours and a caret rounded to whole points (16 or 17 for SF 14 at 100% in T3). 1 with no web caret.
+    private static func caretZoom(_ font: NSFont, _ spec: GhostSpec) -> CGFloat {
+        spec.webCaret ? spec.caret.height / NSLayoutManager().defaultLineHeight(for: font) : 1
+    }
+
+    /// An unnamed font's look from the line typed so far. Each design implies a zoom, the line's width over that design's at the reported
+    /// size (exact for a page in the system font: 1.210 at 121% in T3, 2026-11-14), and the one the caret's zoom agrees with, within the
+    /// page font's tenth and by 6% better than the other's (carets round to whole points: 16 or 17 at 100%), is it. Drawn at that zoom,
+    /// the ghost sets text as wide as the page does, so a taken suggestion's letters land where the ghost's were. Nil when the line can't
+    /// tell: a short one, one both or neither fit ("wwwwi" is 55 pt in SF Mono, 57 in the system font; Hangul falls back to the same font
+    /// in both), or one an inline chip or image widens past both; the field then keeps what it had, and the ghost doesn't change as
+    /// letters come. A chip can still pass for monospaced, as it did before. No serif: it sets a few percent wider than sans, so a zoomed
+    /// sans page read as serif (T3 at 121%).
+    static func look(_ spec: GhostSpec) -> Look? {
+        guard let typed = spec.typed, typed.text.count >= 8, typed.width > 0 else { return nil }
+        let fits = [NSFontDescriptor.SystemDesign.default, .monospaced].map { design -> (look: Look, miss: CGFloat) in
+            let font = system(design, spec.fontSize)
+            let zoom = typed.width / (typed.text as NSString).size(withAttributes: [.font: font]).width
+            let caret = caretZoom(font, spec)
+            return (Look(design: design, zoom: zoom, size: spec.fontSize, caret: spec.caret.height), max(zoom / caret, caret / zoom))
+        }.sorted { $0.miss < $1.miss }
+        return fits[0].miss < 1.15 && fits[1].miss / fits[0].miss > 1.06 ? fits[0].look : nil
     }
 
     /// The host's own text colour, translucent, is readable wherever the host's text is. Without one, the label colour.

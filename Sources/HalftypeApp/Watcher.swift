@@ -53,7 +53,7 @@ final class Watcher: @unchecked Sendable {
     let peeking = Atomic<Bool>(false)
     private var last: Reading?
     /// The last clear look of an unnamed font, for the field it was seen in.
-    private var unnamedFont: (field: AXUIElement, design: NSFontDescriptor.SystemDesign)?
+    private var unnamedFont: (field: AXUIElement, look: Look)?
     /// The tap's generation when `last` was read: a later key means it may no longer be what the field holds.
     private var lastGeneration = 0
     private var request = 0
@@ -505,8 +505,8 @@ final class Watcher: @unchecked Sendable {
                              mayWrap: reading.field.after.allSatisfy(\.isWhitespace), webCaret: reading.webCaret, glass: pid == getpid(),
                              peek: peek.map { var peek = $0; peek.taken = peek.shown - left; return peek })
         if spec.fontName.flatMap({ NSFont(name: $0, size: spec.fontSize) }) == nil {  // unnamed, or a web font not on this Mac
-            if let design = GhostLayout.design(spec) { unnamedFont = (focused, design) }
-            if let known = unnamedFont, CFEqual(known.field, focused) { spec.design = known.design }
+            if let look = GhostLayout.look(spec) { unnamedFont = (focused, look) }
+            if let known = unnamedFont, CFEqual(known.field, focused) { spec.look = known.look }
         }
         let armed = KeyTap.Armed(pid: pid, ghost: ghost, typesKeys: twoSet, committed: field.committed, before: field.before, suggestion: suggestionNumber)
         let binding = binding
