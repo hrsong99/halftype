@@ -140,6 +140,20 @@ import Testing
         }
     }
 
+    // T3 Code at 121% (2026-11-14): its SF 14 line 1.21 times as wide (zoom scales the 14 pt line, while SF set larger tracks tighter),
+    // under a 20 pt caret, which the zoom estimate takes for 118%. Serif fit what was left.
+    @Test func aZoomedSystemFontLineIsNeverTakenForSerif() {
+        var zoomed = spec(typed: nil)
+        zoomed.fontSize = 14
+        zoomed.caret.size.height = 20
+        zoomed.webCaret = true
+        for text in ["Can you check", "why the build failed on the", "it looks fine here"] {
+            let width = (text as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 14)]).width * 1.21
+            zoomed.typed = Typed(text: text, width: width)
+            #expect(GhostLayout.design(zoomed) ?? .default == .default, "\(text)")
+        }
+    }
+
     @Test func aNamedFontIsNeverSecondGuessed() {
         var named = spec(typed: nil)
         named.fontName = "Helvetica"

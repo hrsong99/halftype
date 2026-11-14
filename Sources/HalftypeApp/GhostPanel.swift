@@ -48,10 +48,11 @@ struct GhostLayout {
 
     /// An unnamed font (a web page's) told by the width of the line typed so far, never sized by it: a monospaced line is half as wide
     /// again as the system font's at the same size. Nil when the line can't tell: a short one can't ("wwwwi" is 55 pt in SF Mono, 57
-    /// in the system font), so the field keeps what it had and the ghost doesn't change font as letters come.
+    /// in the system font), so the field keeps what it had and the ghost doesn't change font as letters come. Sans or monospaced only:
+    /// serif sets a few percent wider than sans, within what the caret's zoom estimate misses by, so in T3 at 121% it won (2026-11-14).
     static func design(_ spec: GhostSpec) -> NSFontDescriptor.SystemDesign? {
         guard let typed = spec.typed, typed.text.count >= 4, typed.width > 0 else { return nil }
-        let misses = [NSFontDescriptor.SystemDesign.default, .monospaced, .serif].map { design in
+        let misses = [NSFontDescriptor.SystemDesign.default, .monospaced].map { design in
             (design, abs((typed.text as NSString).size(withAttributes: [.font: zoomed(system(design, spec.fontSize), spec)]).width / typed.width - 1))
         }.sorted { $0.1 < $1.1 }
         return misses[0].1 < 0.06 && misses[0].1 + 0.03 < misses[1].1 ? misses[0].0 : nil
