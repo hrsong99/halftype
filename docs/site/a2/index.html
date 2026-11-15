@@ -209,7 +209,18 @@
           <p class="note">macOS&rsquo;s footprint (median). The model&rsquo;s pages come on top: 2.8 GB for Halftype, 1.2 GB for KeyType, 3.6 GB for Cotabby.</p>
         </figure>
       </div>
-      <p class="how">64 public English sentences (Taskmaster-1), the same for every app, typed at a human pace on one M5 with 16 GB, 2026-11-12; an ideal typist presses Tab only when the suggestion is right. Each app at its defaults: Halftype 0.1.16 (Gemma 4 E2B, Suggestions: Always, Length: Long), KeyType 1.8 with its writing history cleared, Cotabby 0.6.2-beta. Cotypist suggests in TextEdit but showed nothing in the test window, so it isn&rsquo;t measured typing yet; macOS&rsquo;s predictions aren&rsquo;t offered on the test Mac. <a href="https://github.com/hrsong99/halftype/blob/main/bench/compare/results/2026-11-12-en64.md">The run</a></p>
+      <p class="how">64 public English sentences (Taskmaster-1), the same for every app, typed at a human pace on one M5 with 16 GB, 2026-11-12; an ideal typist presses Tab only when the suggestion is right. Each app at its defaults: Halftype 0.1.16 (Gemma 4 E2B, Suggestions: Always, Length: Long), KeyType 1.8 with its writing history cleared, Cotabby 0.6.2-beta. Cotypist shows nothing in the test window, so it&rsquo;s measured in TextEdit, below; macOS&rsquo;s predictions aren&rsquo;t offered on the test Mac. <a href="https://github.com/hrsong99/halftype/blob/main/bench/compare/results/2026-11-12-en64.md">The run</a></p>
+      <!-- Numbers from bench/compare/results/2026-11-15-textedit-cotypist.md (the 25 sentences before Cotypist's daily cap) and 2026-11-14-textedit.md. -->
+      <h3 class="charts-h">In TextEdit, against Cotypist</h3>
+      <div class="charts">
+        <figure class="chart">
+          <figcaption>Keys saved</figcaption>
+          <div class="row us"><span>Halftype</span><span class="track"><span style="--w:94%"></span></span><b>25.1%</b></div>
+          <div class="row"><span>Cotypist</span><span class="track"><span style="--w:100%"></span></span><b>26.7%</b></div>
+          <p class="note">Level: &minus;1.6 points, paired 95% CI &minus;6.6 to +3.8.</p>
+        </figure>
+      </div>
+      <p class="how">The same typist and sentences, typed into a TextEdit document, 2026-11-14 and 15: Halftype 0.1.19 at its defaults, Cotypist 2026.5.2 at its defaults. Cotypist&rsquo;s free plan stopped suggesting after 25 of the 64 sentences (its daily cap), so both are scored on those 25. <a href="https://github.com/hrsong99/halftype/blob/main/bench/compare/results/2026-11-15-textedit-cotypist.md">The run</a></p>
       <h3 class="charts-h">At rest</h3>
       <div class="charts">
         <figure class="chart">
