@@ -2,7 +2,7 @@
 
 Halftype, Cotypist, Cotabby, KeyType and macOS's own inline predictions, each with its default model, typed into the same field
 with the same public sentences at the same human delays, and judged from the screen: what any user would see. One app runs at a time.
-It feeds the comparison on the landing page (`docs/site/compare/`, branch `landing-page`, which has the at-rest numbers).
+It feeds the comparison on the landing page (`docs/site/a2`; the at-rest numbers are `docs/site/compare/`).
 
 ## Run it
 
