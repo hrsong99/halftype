@@ -119,7 +119,7 @@ by other work on the Mac (results/2026-11-12-en64.md), so only typing is reporte
 - Exact match only: a good paraphrase scores zero, the same for every app.
 - Not tested: Chromium or Electron fields, other input methods, settings other than each app's defaults.
 - A wrong ghost costs nothing here: the typist never misreads one, which favours apps that show many.
-- Cotypist 2026.5.2 and macOS 27's inline predictions show nothing in the test window (2026-11-09, cause unknown; macOS's "Show inline predictive text" was off globally, and turning it on in the harness's own domain didn't help): they come out "not measured".
+- Cotypist shows nothing in the harness's own window (cause unknown), so it is measured in TextEdit (above). macOS 27's inline predictions show nowhere on the test Mac: they come out "not measured".
 
 ## Text
 
