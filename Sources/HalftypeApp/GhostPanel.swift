@@ -78,9 +78,9 @@ struct GhostLayout {
     /// size (exact for a page in the system font: 1.210 at 121% in T3, 2026-11-14), and the one the caret's zoom agrees with, within the
     /// page font's tenth and by 6% better than the other's (carets round to whole points: 16 or 17 at 100%), is it. Drawn at that zoom,
     /// the ghost sets text as wide as the page does, so a taken suggestion's letters land where the ghost's were. Nil when the line can't
-    /// tell: a short one, one both or neither fit ("wwwwi" is 55 pt in SF Mono, 57 in the system font; Hangul falls back to the same font
-    /// in both), or one an inline chip or image widens past both; the field then keeps what it had, and the ghost doesn't change as
-    /// letters come. A chip can still pass for monospaced, as it did before. No serif: it sets a few percent wider than sans, so a zoomed
+    /// tell: a short one, or one both or neither fit ("wwwwi" is 55 pt in SF Mono, 57 in the system font; Hangul falls back to the same
+    /// font in both); the field then keeps what it had, and the ghost doesn't change as letters come. A line in more than one font
+    /// (inline code) never gets here: `Reader.setInOneFont`. No serif: it sets a few percent wider than sans, so a zoomed
     /// sans page read as serif (T3 at 121%).
     static func look(_ spec: GhostSpec) -> Look? {
         guard let typed = spec.typed, typed.text.count >= 8, typed.width > 0 else { return nil }
