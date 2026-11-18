@@ -6,16 +6,21 @@
   body { background: #fff; color: #111; margin: 24px; font: 13px -apple-system, sans-serif; }
   .f { margin: 0 0 18px; }
   .f > div:first-child { color: #888; margin-bottom: 4px; }
-  textarea, [contenteditable] { display: block; width: 640px; height: 92px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; outline: none; resize: none; }
+  textarea, [contenteditable]:not([contenteditable=false]) { display: block; width: 640px; height: 92px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; outline: none; resize: none; }
   #mono { font: 16px/1.6 Menlo, monospace; }
   #serif { font: 20px/1.8 Georgia, serif; height: 120px; }
   #sans { font: 15px/1.4 Helvetica, Arial, sans-serif; }
   #wide { font: 17px/1.5 "Courier New", monospace; letter-spacing: 0.5px; }
   .zoom { zoom: 1.25; }
   #zoomed { font: 14px/1.5 system-ui; width: 520px; }
-  #t3 { font: 14px/1.5 -apple-system, sans-serif; height: 60px; }
+  #t3, #chip, #code { font: 14px/1.5 -apple-system, sans-serif; height: 60px; }
+  .ProseMirror-separator { display: inline; width: 0; height: 0; border: 0; margin: 0; }
+  #code code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .92em; padding: .05em .25em; border-radius: .3em; background: #eee; }
+  .chip { display: inline-block; padding: 0 6px; margin: 0 2px; border-radius: 4px; background: #eef; font-size: 12px; }
 </style>
 <div class="f"><div>F · -apple-system 14px, contenteditable, like T3's composer</div><div contenteditable id="t3">Thanks for the update. Could you take a look</div></div>
+<div class="f"><div>G · F with an inline chip, with an icon, as T3 (ProseMirror) draws a file mention: a labelled button and a separator img</div><div contenteditable id="chip">Could you open <span contenteditable="false" class="chip" role="button" aria-label="Window.swift" tabindex="-1"><svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#88a"/></svg> Window.swift</span><img class="ProseMirror-separator" alt=""> and check</div></div>
+<div class="f"><div>H · F with inline code, as T3's composer sets `backticks` (mono, .92em, padded)</div><div contenteditable id="code">Can you check <code>GhostPanel.swift</code> and <code>Watcher.swift</code> and</div></div>
 <div class="f"><div>A · Menlo 16px, line-height 1.6</div><textarea id="mono">Could you send me the notes from this morning before we start the review? I want to read them over once</textarea></div>
 <div class="f"><div>B · Georgia 20px, line-height 1.8</div><textarea id="serif">The garden was quiet in the evening, and the light came in low over the wall where the old roses</textarea></div>
 <div class="f"><div>C · Helvetica 15px, contenteditable</div><div contenteditable id="sans">Thanks for getting back to me so quickly. I looked at the draft and I think the second section</div></div>

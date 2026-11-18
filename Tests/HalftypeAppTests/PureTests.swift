@@ -130,6 +130,17 @@ import Testing
         #expect(GhostLayout.font(mono).isFixedPitch && abs(GhostLayout.font(mono).pointSize - 18) < 0.001)
     }
 
+    // T3 Code's composer, as Chromium gave it (2026-11-18): inline code is a run of its own size.
+    @Test func onlyALineInOneFontTellsTheFont() {
+        let font = NSAttributedString.Key("AXFont"), sans: [String: Any] = ["AXFontSize": 14], code: [String: Any] = ["AXFontSize": 12.88]
+        let line = NSMutableAttributedString(string: "Can you check ", attributes: [font: sans])
+        #expect(Reader.setInOneFont(line, sans))
+        line.append(NSAttributedString(string: "Window.swift", attributes: [font: code]))
+        line.append(NSAttributedString(string: " and", attributes: [font: sans]))
+        #expect(!Reader.setInOneFont(line, sans))
+        #expect(!Reader.setInOneFont(NSAttributedString(string: "no font at all"), sans))
+    }
+
     @Test func aLineNeverSaysTheWrongFont() {
         let mono = NSFont.monospacedSystemFont(ofSize: 18, weight: .regular), system = NSFont.systemFont(ofSize: 18)
         for (host, wrong) in [(mono, NSFontDescriptor.SystemDesign.default), (system, .monospaced)] {

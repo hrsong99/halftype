@@ -209,7 +209,8 @@ enum Reader {
         if let line = markerLine(e) {
             traits.lineLeft = line.rect.minX
             let text = (AX.get(e, "AXStringForTextMarkerRange", line.range) as? String ?? "").replacingOccurrences(of: "\u{00A0}", with: " ")
-            if line.rect.width > 0 { traits.typed = Typed(text: text, width: line.rect.width) }
+            let attributed = AX.get(e, "AXAttributedStringForTextMarkerRange", line.range) as? NSAttributedString
+            if line.rect.width > 0, attributed.map({ setInOneFont($0, font) }) ?? true { traits.typed = Typed(text: text, width: line.rect.width) }
             // A wrap only when this line is the end of the text before the caret and its paragraph began on a line above, so that
             // line is the same paragraph's, with no margin between. At a paragraph's start Chromium's text still ends in the one above.
             let paragraph = before.utf16.count - ((before as NSString).range(of: "\n", options: .backwards).upperBound)
@@ -220,6 +221,16 @@ enum Reader {
             traits.lineLeft = rangeLineLeft(e, before: before, skipped: skipped)
         }
         return traits
+    }
+
+    /// Whether the whole line is in the caret's font, so its width tells that font: inline code in T3's composer (mono, 0.92 em) widened
+    /// a sans line until it read as monospaced, and the ghost after it came out in SF Mono, smaller (2026-11-18).
+    static func setInOneFont(_ line: NSAttributedString, _ font: [String: Any]) -> Bool {
+        var one = true
+        line.enumerateAttribute(NSAttributedString.Key("AXFont"), in: NSRange(location: 0, length: line.length)) { value, _, stop in
+            if !((value as? NSDictionary)?.isEqual(to: font) ?? false) { one = false; stop.pointee = true }
+        }
+        return one
     }
 
     private static func previousCharacterAttributes(_ e: AXUIElement, before: String, skipped: Int) -> [NSAttributedString.Key: Any]? {
