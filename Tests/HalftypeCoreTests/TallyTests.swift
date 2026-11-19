@@ -99,3 +99,12 @@ import Testing
     #expect(Tally.Day(tabs: 936, typed: 27_095, saved: 4_154).oneIn == 8)
     #expect(Tally.Day(characters: 9).oneIn == nil && Tally.Day(typed: 50).oneIn == nil)  // Before keys were counted, and nothing saved.
 }
+
+@Test func eachDayNamesTheModelsThatRanIt() throws {
+    var tally = Tally()
+    let day = Date(timeIntervalSince1970: 1_800_000_000)
+    for model in ["gemma-4-E2B.Q4_K_M.gguf", "Qwen3.5-0.8B-Q4_K_M.gguf", "gemma-4-E2B.Q4_K_M.gguf"] { tally.ran(model: model, on: day) }
+    let back = try JSONDecoder().decode(Tally.self, from: JSONEncoder().encode(tally))
+    #expect(back.days[Tally.key(day)]?.models == ["gemma-4-E2B.Q4_K_M.gguf", "Qwen3.5-0.8B-Q4_K_M.gguf"])
+    #expect(try JSONDecoder().decode(Tally.Day.self, from: Data(#"{"shown":1}"#.utf8)).models == [], "a day from before models were named")
+}

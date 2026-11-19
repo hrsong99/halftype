@@ -15,6 +15,8 @@ public struct Tally: Codable, Equatable, Sendable {
         public var withModel = false, withoutModel = false
         /// The personal models (adapter file names) the with-model hours ran: one, or the day can't stand for one model.
         public var adapters: [String] = []
+        /// The model files that ran that day, so a day can be told by its model (2026-11-19: a switch to Qwen went unrecorded). Empty before.
+        public var models: [String] = []
         public init(shown: Int = 0, taken: Int = 0, tabs: Int = 0, characters: Int = 0, typed: Int = 0, saved: Int = 0) {
             (self.shown, self.taken, self.tabs, self.characters, self.typed, self.saved) = (shown, taken, tabs, characters, typed, saved)
         }
@@ -26,6 +28,7 @@ public struct Tally: Codable, Equatable, Sendable {
             withModel = try c.decodeIfPresent(Bool.self, forKey: .withModel) ?? false
             withoutModel = try c.decodeIfPresent(Bool.self, forKey: .withoutModel) ?? false
             adapters = try c.decodeIfPresent([String].self, forKey: .adapters) ?? []
+            models = try c.decodeIfPresent([String].self, forKey: .models) ?? []
             words = try c.decodeIfPresent(Int.self, forKey: .words)
             (paced, seconds) = (try int(.paced), try c.decodeIfPresent(Double.self, forKey: .seconds) ?? 0)
         }
@@ -79,6 +82,10 @@ public struct Tally: Codable, Equatable, Sendable {
         if personal == true, let adapter, !days[key, default: Day()].adapters.contains(adapter) { days[key, default: Day()].adapters.append(adapter) }
         if personal != false { days[key, default: Day()].withModel = true }
         if personal != true { days[key, default: Day()].withoutModel = true }
+    }
+    public mutating func ran(model: String, on date: Date = Date(), _ calendar: Calendar = .current) {
+        let key = Self.key(date, calendar)
+        if !days[key, default: Day()].models.contains(model) { days[key, default: Day()].models.append(model) }
     }
     /// `gap`: seconds since the key before; under 2 s it times the user's typing.
     public mutating func typed(_ keys: Int, after gap: TimeInterval? = nil, on date: Date = Date(), _ calendar: Calendar = .current) {

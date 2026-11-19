@@ -132,6 +132,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelega
         var next = tally
         event(&next)
         if let activePath {
+            next.ran(model: URL(fileURLWithPath: activePath).lastPathComponent)
             App.markPersonal(&next, hasAdapter: App.adapterFile(for: activePath) != nil, applied: engine?.applied.withLock { $0 },
                              wanted: App.adapterToday(model: activePath))
         }
